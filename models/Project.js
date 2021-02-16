@@ -9,18 +9,18 @@ const projectSchema = new mongoose.Schema({
     unique: true
   },
   description: String,
-  crawl: {
-    startedAt: Schema.Types.Date,
-    finishedAt: Schema.Types.Date,
-    resourceCount: {
-      type: Number,
-      default: 0
-    },
-    tripleCount: {
-      type: Number,
-      default: 0
-    }
-  },
+  //crawl: {
+  //  startedAt: Schema.Types.Date,
+  //  finishedAt: Schema.Types.Date,
+  //  resourceCount: {
+  //    type: Number,
+  //    default: 0
+  //  },
+  //  tripleCount: {
+  //    type: Number,
+  //    default: 0
+  //  }
+  //},
   seedUrls: Array
 }, {timestamps: true});
 
