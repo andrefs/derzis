@@ -5,6 +5,7 @@ const domainSchema = new mongoose.Schema({
   host: {
     type: String,
     index: true,
+    required: true,
     unique: true
   },
   status: {

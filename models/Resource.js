@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
+const Domain = require('./Domain');
 
 
 const resourceSchema = new mongoose.Schema({
@@ -7,6 +8,10 @@ const resourceSchema = new mongoose.Schema({
     type: String,
     index: true,
     unique: true
+  },
+  domain: {
+    type: String,
+    required: true
   },
   source: {
     project: {
@@ -31,5 +36,10 @@ const resourceSchema = new mongoose.Schema({
   totalTriples: Number
 }, {timestamps: true});
 
+resourceSchema.post('insertMany', function(docs){
+  console.log(docs);
+  const hosts = [...new Set(docs.map(d => d.domain))];
+  return Domain.insertMany(hosts.map(h => ({host: h})));
+});
 
 module.exports = mongoose.model('Resource', resourceSchema);
