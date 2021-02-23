@@ -3,14 +3,14 @@
 
 trap 'kill 0' EXIT
 
-node bin/worker.js &
-node bin/worker.js &
-node bin/worker.js &
-node bin/worker.js &
-node bin/worker.js &
-node bin/worker.js &
-node bin/worker.js &
-node bin/worker.js &
+# node bin/worker.js &
+# node bin/worker.js &
+# node bin/worker.js &
+# node bin/worker.js &
+# node bin/worker.js &
+# node bin/worker.js &
+# node bin/worker.js &
+# node bin/worker.js &
 node bin/worker.js &
 node bin/worker.js
 

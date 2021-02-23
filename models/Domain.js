@@ -35,23 +35,19 @@ const domainSchema = new mongoose.Schema({
   lastAccessed: Schema.Types.Date,
 }, {timestamps: true});
 
-
-domainSchema.statics.domainsToCheck = async function(limit, wId){
-  // Find $limit 'unvisited' domains
-  const docs = await this.find({robots: {status: 'unvisited'}})
-                          .limit(limit)
-                          .select('_id');
-  const ids = docs.map(x => x._id);
-
-  // Mark found domains as 'checking'
-  const query = {_id: {'$in': ids}, robots: {status: 'unvisited'}};
+domainSchema.statics.domainsToCheck = async function*(limit, wId){
+  const query = {robots: {status: 'unvisited'}};
   const update = {'$set': {robots: {status: 'checking'}, workerId: wId}};
-  const res = await this.updateMany(query, update);
-
-  // Return marked domains
-  return this.find({_id: {'$in': ids}, robots: {status: 'checking'}, workerId: wId})
-             .select('host')
-             .lean();
+  const options = {
+    new:true,
+    fields: 'host'
+  };
+  for(let i=0; i<limit; i++){
+    const d = await this.findOneAndUpdate(query, update, options).lean();
+    if(d){ yield d; }
+    else { return; }
+  }
+  return;
 };
 
 

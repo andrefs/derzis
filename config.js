@@ -16,7 +16,7 @@ module.exports = {
         resourcesPerDomain: 100
       },
       domainCheck: {
-        capacity: 10
+        capacity: 1
       }
     }
   },
