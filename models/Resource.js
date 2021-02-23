@@ -37,9 +37,24 @@ const resourceSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 resourceSchema.post('insertMany', function(docs){
-  console.log(docs);
-  const hosts = [...new Set(docs.map(d => d.domain))];
-  return Domain.insertMany(hosts.map(h => ({host: h})));
+  const domains = {};
+  for(const d of docs){
+    if(!domains[d.domain]){
+      domains[d.domain] = {
+        filter: {host: d.domain},
+        update: {
+          '$inc': {'crawl.queued': 0},
+          '$setOnInsert': {
+            'robots.status': 'unvisited',
+            status: 'unvisited'
+          }
+        },
+        upsert: true
+      };
+    }
+    domains[d.domain]['update']['$inc']['crawl.queued']++;
+  };
+  return Domain.bulkWrite(Object.values(domains).map(d => ({updateOne: d})));
 });
 
 module.exports = mongoose.model('Resource', resourceSchema);
