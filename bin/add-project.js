@@ -7,11 +7,16 @@ const seed = [
 ];
 
 db.once('open', () => {
-  Project.create({
-    name:'test_proj',
-    description: 'just testing out stuff',
-    seedUrls: seed}).then(console.log);
+  return Project.create({
+      name:'test_proj',
+      description: 'just testing out stuff',
+      seedUrls: seed})
+    .then((...args) => {
+      console.log(args);
+      process.exit(0)
+    });
 });
+
 
 
 
