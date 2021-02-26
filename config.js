@@ -23,6 +23,9 @@ module.exports = {
   timeouts: {
     domainCheck: 10*1000
   },
-  userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.0.1'
+  userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.0.1',
+  db: {
+    debug: true
+  }
 };
 
