@@ -57,4 +57,9 @@ resourceSchema.post('insertMany', function(docs){
   return Domain.bulkWrite(Object.values(domains).map(d => ({updateOne: d})));
 });
 
+resourceSchema.statics.resourcesToCrawl = async function(domain, workerId, limit){
+  const query = {status: 'unvisited', domain};
+  return this.find(query).select('url domain').limit(limit).lean();
+};
+
 module.exports = mongoose.model('Resource', resourceSchema);

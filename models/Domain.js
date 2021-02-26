@@ -35,9 +35,14 @@ const domainSchema = new mongoose.Schema({
   lastAccessed: Schema.Types.Date,
 }, {timestamps: true});
 
-domainSchema.statics.domainsToCheck = async function*(limit, wId){
+domainSchema.statics.domainsToCheck = async function*(wId, limit){
   const query = {robots: {status: 'unvisited'}};
-  const update = {'$set': {robots: {status: 'checking'}, workerId: wId}};
+  const update = {
+    '$set': {
+      'robots.status': 'checking',
+      workerId: wId
+    }
+  };
   const options = {
     new:true,
     fields: 'host'
@@ -45,6 +50,28 @@ domainSchema.statics.domainsToCheck = async function*(limit, wId){
   for(let i=0; i<limit; i++){
     const d = await this.findOneAndUpdate(query, update, options).lean();
     if(d){ yield d; }
+    else { return; }
+  }
+  return;
+};
+
+domainSchema.statics.domainsToCrawl = async function*(wId, limit){
+  const query = {
+    status: 'ready',
+    'crawl.queued': {'$gt': 0},
+    'crawl.nextAllowed': {'$lte': Date.now()}
+  };
+  const update = {'$set': {status: 'crawling', workerId: wId}};
+  const options = {
+    new:true,
+    fields: 'host crawl.delay robots.text'
+  };
+  for(let i=0; i<limit; i++){
+    const d = await this.findOneAndUpdate(query, update, options).lean();
+    if(d){
+      if(d.robots && !Object.keys(d.robots).length){ delete d.robots; }
+      yield d;
+    }
     else { return; }
   }
   return;
