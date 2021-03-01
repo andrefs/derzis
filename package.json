@@ -15,7 +15,8 @@
     "mongoose": "^5.11.15",
     "n3": "^1.8.0",
     "redis": "^3.0.2",
-    "robots-parser": "^2.2.0"
+    "robots-parser": "^2.2.0",
+    "winston": "^3.3.3"
   },
   "devDependencies": {
     "chai": "^4.2.0",
