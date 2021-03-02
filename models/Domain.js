@@ -27,13 +27,46 @@ const domainSchema = new mongoose.Schema({
   workerId: String,
   crawl: {
     delay: Number,
-    queued: Number,
-    success: Number,
-    failed: Number,
+    queued: {
+      type: Number,
+      default: 0
+    },
+    success: {
+      type: Number,
+      default: 0
+    },
+    failed: {
+      type: Number,
+      default: 0
+    },
     nextAllowed: Schema.Types.Date
   },
   lastAccessed: Schema.Types.Date,
 }, {timestamps: true});
+
+domainSchema.statics.upsertMany = async function(docs){
+  let domains = {};
+
+  for(const d of docs){
+    if(!domains[d]){
+      domains[d] = {
+        filter: {host: d},
+        update: {
+          '$inc': {'crawl.queued': 0},
+          '$setOnInsert': {
+            'robots.status': 'unvisited',
+            status: 'unvisited',
+            'crawl.failed': 0,
+            'crawl.success': 0
+          }
+        },
+        upsert: true
+      };
+    }
+    domains[d]['update']['$inc']['crawl.queued']++;
+  };
+  return this.bulkWrite(Object.values(domains).map(d => ({updateOne: d})));
+};
 
 domainSchema.statics.domainsToCheck = async function*(wId, limit){
   const query = {robots: {status: 'unvisited'}};

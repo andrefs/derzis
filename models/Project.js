@@ -26,7 +26,7 @@ const projectSchema = new mongoose.Schema({
 
 projectSchema.post('save', function(doc, next){
   Resource
-    .insertMany(this.seedUrls.map(u => ({url: u, domain: new URL(u).origin, crawled: false})))
+    .upsertMany(this.seedUrls.map(u => ({url: u, domain: new URL(u).origin, crawled: false})))
     //.then(() => Resource.update(
     //  {url: {'$in': this.seedUrls}},
     //  {'$addToSet': {projects: this}},

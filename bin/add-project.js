@@ -3,7 +3,7 @@ const Project = require('../models/Project');
 
 const seed = [
   'http://data.nobelprize.org/data/country/Saint_Lucia',
-  'http://dbpedia.org/resource/Berlin'
+  //'http://dbpedia.org/resource/Berlin'
 ];
 
 db.once('open', () => {

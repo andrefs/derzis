@@ -36,26 +36,24 @@ const resourceSchema = new mongoose.Schema({
   totalTriples: Number
 }, {timestamps: true});
 
-resourceSchema.post('insertMany', function(docs){
-  const domains = {};
-  for(const d of docs){
-    if(!domains[d.domain]){
-      domains[d.domain] = {
-        filter: {host: d.domain},
-        update: {
-          '$inc': {'crawl.queued': 0},
-          '$setOnInsert': {
-            'robots.status': 'unvisited',
-            status: 'unvisited'
-          }
-        },
-        upsert: true
-      };
-    }
-    domains[d.domain]['update']['$inc']['crawl.queued']++;
-  };
-  return Domain.bulkWrite(Object.values(domains).map(d => ({updateOne: d})));
-});
+resourceSchema.statics.upsertMany = async function(resources){
+  let insertedDocs = [];
+  let existingDocs = [];
+  await this.insertMany(resources, {ordered: false})
+    .then(docs => insertedDocs = docs)
+    .catch(err => {
+      for(const e of err.writeErrors){
+        if(e.err.code && e.err.code === 11000){
+          existingDocs.push(resources[e.err.index]);
+          // TO DO update existing resources
+        }
+        // TO DO handle other errors
+      }
+      insertedDocs = err.insertedDocs;
+    });
+
+  return Domain.upsertMany(insertedDocs.map(d => d.domain));
+};
 
 resourceSchema.statics.resourcesToCrawl = async function(domain, workerId, limit){
   const query = {status: 'unvisited', domain};
