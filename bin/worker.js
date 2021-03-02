@@ -1,4 +1,4 @@
-const Worker = require('../lib/Worker');
-const w = new Worker();
+const WorkerPubSub = require('../lib/WorkerPubSub');
+const wps = new WorkerPubSub();
 
 
