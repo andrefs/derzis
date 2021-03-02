@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
-const Schema= mongoose.Schema;
+require('mongoose-type-url');
 const Resource = require('./Resource');
+
 
 const projectSchema = new mongoose.Schema({
   name: {
@@ -9,28 +10,12 @@ const projectSchema = new mongoose.Schema({
     unique: true
   },
   description: String,
-  //crawl: {
-  //  startedAt: Schema.Types.Date,
-  //  finishedAt: Schema.Types.Date,
-  //  resourceCount: {
-  //    type: Number,
-  //    default: 0
-  //  },
-  //  tripleCount: {
-  //    type: Number,
-  //    default: 0
-  //  }
-  //},
-  seedUrls: Array
+  seedUrls: [{type: mongoose.SchemaTypes.Url}]
 }, {timestamps: true});
 
 projectSchema.post('save', function(doc, next){
   Resource
     .upsertMany(this.seedUrls.map(u => ({url: u, domain: new URL(u).origin, crawled: false})))
-    //.then(() => Resource.update(
-    //  {url: {'$in': this.seedUrls}},
-    //  {'$addToSet': {projects: this}},
-    //  {multi: true}))
     .then(() => next())
 });
 

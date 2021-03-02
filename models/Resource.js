@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
+require('mongoose-type-url');
 const ObjectId = mongoose.Types.ObjectId;
 const Domain = require('./Domain');
 
 
 const resourceSchema = new mongoose.Schema({
   url: {
-    type: String,
+    type: mongoose.SchemaTypes.Url,
     index: true,
     unique: true
   },
