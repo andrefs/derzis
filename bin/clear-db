@@ -2,3 +2,4 @@
 mongo derzis-crawler --eval "db.domains.drop()"
 mongo derzis-crawler --eval "db.projects.drop()"
 mongo derzis-crawler --eval "db.resources.drop()"
+mongo derzis-crawler --eval "db.triples.drop()"

@@ -20,10 +20,18 @@ module.exports = {
       }
     }
   },
-  timeouts: {
-    domainCheck: 10*1000
+  http: {
+    domainCheck: {
+      timeouts: 10*1000,
+      maxRedirects: 5
+    },
+    domainCrawl: {
+      timeouts: 10*1000,
+      maxRedirects: 5
+    },
+    userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.0.1',
+    acceptedMimeTypes: ['text/turtle']
   },
-  userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.0.1',
   db: {
     debug: true
   }
