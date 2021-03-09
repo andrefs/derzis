@@ -11,6 +11,7 @@ const tripleSchema = new mongoose.Schema({
     type: mongoose.SchemaTypes.Url,
     required: true
   },
+  // TODO allow literals
   object: {
     type: mongoose.SchemaTypes.Url,
     required: true

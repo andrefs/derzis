@@ -30,7 +30,15 @@ module.exports = {
       maxRedirects: 5
     },
     userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.0.1',
-    acceptedMimeTypes: ['text/turtle']
+    acceptedMimeTypes: [
+      'text/turtle',
+      'application/trig',
+      'application/n-quads',
+      'application/n-triples',
+      'text/n3',
+      'application/ld+json',
+      'application/rdf+xml'
+    ]
   },
   db: {
     debug: true
