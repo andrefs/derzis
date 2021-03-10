@@ -13,6 +13,7 @@
     "axios": "^0.21.1",
     "bluebird": "^3.7.2",
     "cheerio": "^1.0.0-rc.5",
+    "colors": "^1.4.0",
     "content-type": "^1.0.4",
     "http-link-header": "^1.0.3",
     "mongoose": "^5.11.15",

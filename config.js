@@ -10,6 +10,7 @@ module.exports = {
     }
   },
   workers: {
+    periodicallyRepCurCap: 10*1000,
     jobs: {
       domainCrawl:{
         capacity: 10,
@@ -21,6 +22,7 @@ module.exports = {
     }
   },
   http: {
+    crawlDelay: 1,
     domainCheck: {
       timeouts: 10*1000,
       maxRedirects: 5
@@ -38,7 +40,10 @@ module.exports = {
       'text/n3',
       'application/ld+json',
       'application/rdf+xml'
-    ]
+    ],
+    debug: {
+      pubsubChannel: 'derzis:http',
+    }
   },
   db: {
     debug: true
