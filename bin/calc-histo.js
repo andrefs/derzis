@@ -16,7 +16,7 @@ channel.on('message', (channel, message) => {
     return;
   }
   if(obj.type === 'request'){
-    const {domain, url, ts} = obj;
+    const {wId, domain, url, ts} = obj;
     if(!delays[domain]){
       console.warn('No Crawl-Delay for domain', domain);
     }
@@ -25,7 +25,7 @@ channel.on('message', (channel, message) => {
       let timeInt = ''+(new Date(ts) - new Date(lastCalls[domain]))/1000;
       timeInt = timeInt < delays[domain] ? timeInt.red : timeInt.green;
       delay = delay > config.http.crawlDelay ? (''+delay).yellow : delay;
-      console.log(domain+':', timeInt, `(${delay})`);
+      console.log(wId, domain+':', timeInt, `(${delay})`);
     }
     lastCalls[domain] = ts;
     return;

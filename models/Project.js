@@ -15,7 +15,12 @@ const projectSchema = new mongoose.Schema({
 
 projectSchema.post('save', function(doc, next){
   Resource
-    .upsertMany(this.seedUrls.map(u => ({url: u, domain: new URL(u).origin, crawled: false})))
+    .upsertMany(this.seedUrls.map(u => ({
+      url: u,
+      depth: 0,
+      domain: new URL(u).origin,
+      crawled: false
+    })))
     .then(() => next())
 });
 
