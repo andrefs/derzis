@@ -2,8 +2,13 @@ const db = require('../lib/db');
 const Project = require('../models/Project');
 
 const seed = [
-  'http://data.nobelprize.org/data/country/Saint_Lucia',
-  //'http://dbpedia.org/resource/Berlin'
+  //'http://data.nobelprize.org/data/country/Saint_Lucia',
+  //'http://dbpedia.org/resource/Berlin',
+  'http://dbpedia.org/resource/Emmental_cheese',
+  'http://dbpedia.org/resource/Cheddar_cheese',
+  'http://dbpedia.org/resource/Mozzarella',
+  'http://dbpedia.org/resource/Roquefort',
+  'http://dbpedia.org/resource/Gouda_cheese'
 ];
 
 db.once('open', () => {

@@ -47,6 +47,9 @@ module.exports = {
   },
   db: {
     debug: true
+  },
+  graph: {
+    maxDepth: 2
   }
 };
 

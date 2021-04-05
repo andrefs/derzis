@@ -47,7 +47,11 @@ resourceSchema.statics.upsertMany = async function(resources){
 
 resourceSchema.statics.resourcesToCrawl = async function(domain, workerId, limit){
   const query = {status: 'unvisited', domain};
-  return this.find(query).select('url domain').limit(limit).lean();
+  return this.find(query)
+    .sort({depth: 1, createdAt: 1})
+    .select('url domain')
+    .limit(limit)
+    .lean();
 };
 
 module.exports = mongoose.model('Resource', resourceSchema);
