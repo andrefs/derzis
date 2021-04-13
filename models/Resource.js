@@ -11,7 +11,7 @@ const resourceSchema = new mongoose.Schema({
     index: true,
     unique: true
   },
-  origin: {
+  domain: {
     type: mongoose.SchemaTypes.Url,
     required: true
   },
@@ -25,6 +25,14 @@ const resourceSchema = new mongoose.Schema({
     enum: ['unvisited', 'done', 'crawling', 'error'],
     default: 'unvisited'
   },
+  triples: [{
+    type: ObjectId,
+    ref: 'Triple'
+  }],
+  paths: [{
+    type: ObjectId,
+    ref: 'Path'
+  }]
 }, {timestamps: true});
 
 
@@ -44,7 +52,7 @@ resourceSchema.statics.upsertMany = async function(resources){
       insertedDocs = err.insertedDocs;
     });
 
-  return Domain.upsertMany(insertedDocs.map(d => d.origin));
+  return Domain.upsertMany(insertedDocs.map(d => d.domain));
 };
 
 
@@ -58,14 +66,19 @@ resourceSchema.statics.insertSeeds = async function(urls){
   const seeds = urls.map(u => ({
     isSeed: true,
     url: u,
-    origin: new URL(u).origin
+    domain: new URL(u).origin
   }));
 
   await this.upsertMany(seeds);
 
   const paths = await Path.create(seeds.map(s => ({
-    seed: s.url,
-    head: s.url,
+    seed: {
+      url: s.url
+    },
+    head: {
+      url: s.url,
+      domain: s.domain
+    },
     'length': 1,
     predicates: [],
     status: 'active'

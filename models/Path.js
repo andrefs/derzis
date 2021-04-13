@@ -4,8 +4,10 @@ const ObjectId = mongoose.Types.ObjectId;
 
 const pathSchema = new mongoose.Schema({
   seed: {
-    type: mongoose.SchemaTypes.Url,
-    required: true
+    url: {
+      type: mongoose.SchemaTypes.Url,
+      required: true
+    }
   },
   predicates: [{
     type: mongoose.SchemaTypes.Url,
@@ -16,8 +18,14 @@ const pathSchema = new mongoose.Schema({
     default: 1
   },
   head: {
-    type: mongoose.SchemaTypes.Url,
-    required: true
+    url: {
+      type: mongoose.SchemaTypes.Url,
+      required: true
+    },
+    domain: {
+      type: mongoose.SchemaTypes.Url,
+      required: true
+    }
   },
   status: {
     type: String,
@@ -25,5 +33,7 @@ const pathSchema = new mongoose.Schema({
     default: 'active'
   },
 }, {timestamps: true});
+
+
 
 module.exports = mongoose.model('Path', pathSchema);
