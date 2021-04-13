@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const domainSchema = new mongoose.Schema({
-  host: {
+  origin: {
     type: String,
     index: true,
     required: true,
@@ -50,7 +50,7 @@ domainSchema.statics.upsertMany = async function(docs){
   for(const d of docs){
     if(!domains[d]){
       domains[d] = {
-        filter: {host: d},
+        filter: {origin: d},
         update: {
           '$inc': {'crawl.queued': 0},
           '$setOnInsert': {
@@ -78,7 +78,7 @@ domainSchema.statics.domainsToCheck = async function*(wId, limit){
   };
   const options = {
     new:true,
-    fields: 'host'
+    fields: 'origin'
   };
   for(let i=0; i<limit; i++){
     const d = await this.findOneAndUpdate(query, update, options).lean();
@@ -97,7 +97,7 @@ domainSchema.statics.domainsToCrawl = async function*(wId, limit){
   const update = {'$set': {status: 'crawling', workerId: wId}};
   const options = {
     new:true,
-    fields: 'host crawl.delay robots.text'
+    fields: 'origin crawl.delay robots.text'
   };
   for(let i=0; i<limit; i++){
     const d = await this.findOneAndUpdate(query, update, options).lean();

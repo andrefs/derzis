@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 require('mongoose-type-url');
 const ObjectId = mongoose.Types.ObjectId;
 const Domain = require('./Domain');
-const Path = require('./Path');
 
 
 const resourceSchema = new mongoose.Schema({
@@ -11,22 +10,21 @@ const resourceSchema = new mongoose.Schema({
     index: true,
     unique: true
   },
-  origin: {
-    type: mongoose.SchemaTypes.Url,
+  domain: {
+    type: String,
     required: true
   },
-  isSeed: {
-    type: Boolean,
-    required: true,
-    default: false
+  depth: {
+    type: Number,
+    required: true
   },
   status: {
     type: String,
     enum: ['unvisited', 'done', 'crawling', 'error'],
     default: 'unvisited'
   },
+  totalTriples: Number
 }, {timestamps: true});
-
 
 resourceSchema.statics.upsertMany = async function(resources){
   let insertedDocs = [];
@@ -44,34 +42,16 @@ resourceSchema.statics.upsertMany = async function(resources){
       insertedDocs = err.insertedDocs;
     });
 
-  return Domain.upsertMany(insertedDocs.map(d => d.origin));
+  return Domain.upsertMany(insertedDocs.map(d => d.domain));
 };
 
-
-resourceSchema.statics.insertSeeds = async function(urls){
-  const pathCount = await Path.count();
-  if(pathCount){
-    log.error(`Cannot start from the beginning, ${pathCount} paths already found`);
-    return;
-  }
-
-  const seeds = urls.map(u => ({
-    isSeed: true,
-    url: u,
-    origin: new URL(u).origin
-  }));
-
-  await this.upsertMany(seeds);
-
-  const paths = await Path.create(seeds.map(s => ({
-    seed: s.url,
-    head: s.url,
-    'length': 1,
-    predicates: [],
-    status: 'active'
-  })));
-
-  return Path.create(paths);
+resourceSchema.statics.resourcesToCrawl = async function(domain, workerId, limit){
+  const query = {status: 'unvisited', domain};
+  return this.find(query)
+    .sort({depth: 1, createdAt: 1})
+    .select('url domain')
+    .limit(limit)
+    .lean();
 };
 
 module.exports = mongoose.model('Resource', resourceSchema);

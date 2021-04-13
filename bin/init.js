@@ -1,7 +1,7 @@
 const db = require('../lib/db');
-const Project = require('../models/Project');
+const Resource = require('../models/Resource');
 
-const seed = [
+const seeds = [
   //'http://data.nobelprize.org/data/country/Saint_Lucia',
   //'http://dbpedia.org/resource/Berlin',
   'http://dbpedia.org/resource/Emmental_cheese',
@@ -12,10 +12,7 @@ const seed = [
 ];
 
 db.once('open', () => {
-  return Project.create({
-      name:'test_proj',
-      description: 'just testing out stuff',
-      seedUrls: seed})
+  return Resource.insertSeeds(seeds)
     .then((...args) => {
       console.log(args);
       process.exit(0)

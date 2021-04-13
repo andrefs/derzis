@@ -1,5 +1,8 @@
+#!/bin/bash
 
-mongo derzis-crawler --eval "db.domains.drop()"
-mongo derzis-crawler --eval "db.projects.drop()"
-mongo derzis-crawler --eval "db.resources.drop()"
-mongo derzis-crawler --eval "db.triples.drop()"
+DBNAME=$(node bin/getConfigVal.js db.name)
+
+mongo $DBNAME --eval "db.domains.drop()"
+mongo $DBNAME --eval "db.paths.drop()"
+mongo $DBNAME --eval "db.resources.drop()"
+mongo $DBNAME --eval "db.triples.drop()"

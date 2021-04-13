@@ -16,14 +16,14 @@ module.exports = {
         capacity: 10,
         resourcesPerDomain: 100
       },
-      domainCheck: {
+      robotsCheck: {
         capacity: 1
       }
     }
   },
   http: {
     crawlDelay: 1,
-    domainCheck: {
+    robotsCheck: {
       timeouts: 10*1000,
       maxRedirects: 5
     },
@@ -46,6 +46,7 @@ module.exports = {
     }
   },
   db: {
+    name: 'test-paths',
     debug: true
   },
   graph: {
