@@ -36,7 +36,7 @@ const resourceSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 
-resourceSchema.statics.upsertMany = async function(resources){
+resourceSchema.statics.addMany = async function(resources){
   let insertedDocs = [];
   let existingDocs = [];
   await this.insertMany(resources, {ordered: false})
@@ -45,14 +45,14 @@ resourceSchema.statics.upsertMany = async function(resources){
       for(const e of err.writeErrors){
         if(e.err.code && e.err.code === 11000){
           existingDocs.push(resources[e.err.index]);
-          // TO DO update existing resources
         }
         // TO DO handle other errors
       }
       insertedDocs = err.insertedDocs;
     });
 
-  return Domain.upsertMany(insertedDocs.map(d => d.domain));
+  await Domain.upsertMany(insertedDocs.map(d => d.domain));
+  return insertedDocs;
 };
 
 
@@ -69,7 +69,7 @@ resourceSchema.statics.insertSeeds = async function(urls){
     domain: new URL(u).origin
   }));
 
-  await this.upsertMany(seeds);
+  await this.addMany(seeds);
 
   const paths = await Path.create(seeds.map(s => ({
     seed: {

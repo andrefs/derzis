@@ -44,13 +44,13 @@ const domainSchema = new mongoose.Schema({
   lastAccessed: Schema.Types.Date,
 }, {timestamps: true});
 
-domainSchema.statics.upsertMany = async function(docs){
+domainSchema.statics.upsertMany = async function(urls){
   let domains = {};
 
-  for(const d of docs){
-    if(!domains[d]){
-      domains[d] = {
-        filter: {origin: d},
+  for(const u of urls){
+    if(!domains[u]){
+      domains[u] = {
+        filter: {origin: u},
         update: {
           '$inc': {'crawl.queued': 0},
           '$setOnInsert': {
@@ -63,7 +63,7 @@ domainSchema.statics.upsertMany = async function(docs){
         upsert: true
       };
     }
-    domains[d]['update']['$inc']['crawl.queued']++;
+    domains[u]['update']['$inc']['crawl.queued']++;
   };
   return this.bulkWrite(Object.values(domains).map(d => ({updateOne: d})));
 };
