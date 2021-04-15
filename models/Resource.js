@@ -55,6 +55,18 @@ resourceSchema.statics.addMany = async function(resources){
   return insertedDocs;
 };
 
+resourceSchema.statics.markAsCrawled = async function(url, ts){
+  const res = await this.updateOne({url}, {status:'done'});
+  let d = await Domain.findOne({origin: new URL(url).origin});
+  d.crawl.queued--;
+  d.crawl.success++;
+  d.crawl.nextAllowed = new Date(ts + d.crawl.delay*1000);
+  await d.save();
+  return {
+    resource: res,
+    domain: d
+  };
+};
 
 resourceSchema.statics.insertSeeds = async function(urls){
   const pathCount = await Path.count();

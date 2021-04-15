@@ -46,13 +46,11 @@ pathSchema.pre('save', async function(){
   this.predicates.count = this.predicates.elems.length;
   this.head.domain = new URL(this.head.url).origin;
   const head = await require('./Resource').findOne({url: this.head.url});
-  console.log('XXXXXXXXXXXXXXx 1 Resource', head);
   this.head.alreadyCrawled = head && head.status === 'done';
 });
 
 
 pathSchema.statics.markHeadAsCrawled = async function(headUrl){
-  await require('./Resource').updateOne({url: headUrl}, {status: 'done'});
   return this.updateMany({'head.url': headUrl}, {'head.alreadyCrawled': true});
 };
 
