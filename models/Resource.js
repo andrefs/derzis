@@ -72,15 +72,10 @@ resourceSchema.statics.insertSeeds = async function(urls){
   await this.addMany(seeds);
 
   const paths = await Path.create(seeds.map(s => ({
-    seed: {
-      url: s.url
-    },
-    head: {
-      url: s.url,
-      domain: s.domain
-    },
-    'length': 1,
-    predicates: [],
+    seed: {url: s.url},
+    head: {url: s.url},
+    nodes: {elems: [s.url]},
+    predicates: {elems: []},
     status: 'active'
   })));
 

@@ -13,8 +13,8 @@ module.exports = {
     periodicallyRepCurCap: 10*1000,
     jobs: {
       domainCrawl:{
-        capacity: 10,
-        resourcesPerDomain: 100
+        capacity: 1,
+        resourcesPerDomain: 1
       },
       robotsCheck: {
         capacity: 1
@@ -31,7 +31,7 @@ module.exports = {
       timeouts: 10*1000,
       maxRedirects: 5
     },
-    userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.0.1',
+    userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.0.2',
     acceptedMimeTypes: [
       'text/turtle',
       'application/trig',
@@ -50,7 +50,8 @@ module.exports = {
     debug: true
   },
   graph: {
-    maxDepth: 2
+    maxDepth: 5,
+    maxPathProps: 2
   }
 };
 
