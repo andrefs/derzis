@@ -13,11 +13,11 @@ module.exports = {
     periodicallyRepCurCap: 10*1000,
     jobs: {
       domainCrawl:{
-        capacity: 1,
-        resourcesPerDomain: 1
+        capacity: 10,
+        resourcesPerDomain: 100
       },
       robotsCheck: {
-        capacity: 1
+        capacity: 10
       }
     }
   },
@@ -47,10 +47,10 @@ module.exports = {
   },
   db: {
     name: 'test-paths',
-    debug: true
+    //debug: true
   },
   graph: {
-    maxDepth: 5,
+    maxPathLength: 5,
     maxPathProps: 2
   }
 };

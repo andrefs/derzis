@@ -55,15 +55,18 @@ resourceSchema.statics.addMany = async function(resources){
   return insertedDocs;
 };
 
-resourceSchema.statics.markAsCrawled = async function(url, ts){
-  const res = await this.updateOne({url}, {status:'done'});
+resourceSchema.statics.markAsCrawled = async function(url, ts, error){
+  const res = await this.updateOne({url}, {status: error? 'error' :'done'});
+  const path = Path.updateMany({'head.url': url}, {'head.alreadyCrawled': true});
   let d = await Domain.findOne({origin: new URL(url).origin});
   d.crawl.queued--;
-  d.crawl.success++;
+  if(error){ d.crawl.failed++; }
+  else { d.crawl.success++; }
   d.crawl.nextAllowed = new Date(ts + d.crawl.delay*1000);
   await d.save();
   return {
     resource: res,
+    path: res,
     domain: d
   };
 };

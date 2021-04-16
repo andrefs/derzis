@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 require('mongoose-type-url');
 const ObjectId = mongoose.Types.ObjectId;
+const config = require('../config');
 
 const pathSchema = new mongoose.Schema({
   seed: {
@@ -46,12 +47,14 @@ pathSchema.pre('save', async function(){
   this.predicates.count = this.predicates.elems.length;
   this.head.domain = new URL(this.head.url).origin;
   const head = await require('./Resource').findOne({url: this.head.url});
-  this.head.alreadyCrawled = head && head.status === 'done';
+  this.head.alreadyCrawled = head && head.status !== 'unvisited';
+  this.status = head.status === 'error' ? 'disabled' :
+               this.nodes.count < config.graph.maxPathLength ? 'active' :
+               'finished'
 });
 
 
 pathSchema.statics.markHeadAsCrawled = async function(headUrl){
-  return this.updateMany({'head.url': headUrl}, {'head.alreadyCrawled': true});
 };
 
 module.exports = mongoose.model('Path', pathSchema);
