@@ -3,6 +3,7 @@ require('mongoose-type-url');
 const ObjectId = mongoose.Types.ObjectId;
 const Domain = require('./Domain');
 const Path = require('./Path');
+const Schema = mongoose.Schema;
 
 
 const resourceSchema = new mongoose.Schema({
@@ -32,7 +33,11 @@ const resourceSchema = new mongoose.Schema({
   paths: [{
     type: ObjectId,
     ref: 'Path'
-  }]
+  }],
+  crawlId: {
+    domainTs: Schema.Types.Date,
+    counter: Number
+  }
 }, {timestamps: true});
 
 
@@ -55,14 +60,17 @@ resourceSchema.statics.addMany = async function(resources){
   return insertedDocs;
 };
 
-resourceSchema.statics.markAsCrawled = async function(url, ts, error){
-  const res = await this.updateOne({url}, {status: error? 'error' :'done'});
+resourceSchema.statics.markAsCrawled = async function(url, details, error){
+  const res = await this.updateOne({url}, {
+    status: error? 'error' :'done',
+    crawlId: details.crawlId
+  });
   const path = Path.updateMany({'head.url': url}, {'head.alreadyCrawled': true});
   let d = await Domain.findOne({origin: new URL(url).origin});
   d.crawl.queued--;
   if(error){ d.crawl.failed++; }
   else { d.crawl.success++; }
-  d.crawl.nextAllowed = new Date(ts + d.crawl.delay*1000);
+  d.crawl.nextAllowed = new Date(details.ts + d.crawl.delay*1000);
   await d.save();
   return {
     resource: res,

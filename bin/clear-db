@@ -1,6 +1,7 @@
 #!/bin/bash
 
 DBNAME=$(node bin/getConfigVal.js db.name)
+echo Clearing $DBNAME
 
 mongo $DBNAME --eval "db.domains.drop()"
 mongo $DBNAME --eval "db.paths.drop()"
