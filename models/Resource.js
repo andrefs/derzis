@@ -34,6 +34,10 @@ const resourceSchema = new mongoose.Schema({
     type: ObjectId,
     ref: 'Path'
   }],
+  headCount: {
+    type: Number,
+    default: 0
+  },
   crawlId: {
     domainTs: Schema.Types.Date,
     counter: Number
@@ -61,17 +65,39 @@ resourceSchema.statics.addMany = async function(resources){
 };
 
 resourceSchema.statics.markAsCrawled = async function(url, details, error){
-  const res = await this.updateOne({url}, {
+  // Resource
+  const res = await this.updateOne({url, status: 'unvisited'}, {
     status: error? 'error' :'done',
     crawlId: details.crawlId
   });
+
+  const x = await this.aggregate()
+                      .match({domain: new URL(url).origin})
+                      .group({_id: '$status',count: {'$sum':1}});
+
+
+
+  // Paths
   const path = Path.updateMany({'head.url': url}, {'head.alreadyCrawled': true});
-  let d = await Domain.findOne({origin: new URL(url).origin});
-  d.crawl.queued--;
-  if(error){ d.crawl.failed++; }
-  else { d.crawl.success++; }
-  d.crawl.nextAllowed = new Date(details.ts + d.crawl.delay*1000);
-  await d.save();
+
+  // Domain
+  let filter = {origin: new URL(url).origin};
+  let d = await Domain.findOne(filter);
+
+  if(res.ok && res.nModified){
+    let update = error ? {'$inc': {'crawl.failed':  1}}
+                       : {'$inc': {'crawl.success': 1}};
+    update['$inc']['crawl.queued'] = -1;
+    await d.updateOne(update);
+  }
+
+  const nextAllowed = new Date(details.ts + d.crawl.delay);
+  filter['crawl.nextAllowed'] = {'$lt': nextAllowed};
+  d = await Domain.updateOne(filter,{'crawl.nextAllowed': nextAllowed});
+
+  const y = await Domain.findOne({origin: new URL(url).origin})
+                        .select('crawl origin');
+
   return {
     resource: res,
     path: res,
@@ -104,5 +130,6 @@ resourceSchema.statics.insertSeeds = async function(urls){
 
   return Path.create(paths);
 };
+
 
 module.exports = mongoose.model('Resource', resourceSchema);

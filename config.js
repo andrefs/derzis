@@ -1,4 +1,4 @@
-module.exports = {
+let config = {
   pubsub: {
     // TODO: host, port, etc
     manager: {
@@ -46,7 +46,7 @@ module.exports = {
     }
   },
   db: {
-    name: 'test-paths',
+    name: 'test',
     //debug: true
   },
   graph: {
@@ -55,3 +55,7 @@ module.exports = {
   }
 };
 
+//config.db.name = `slate-${config.graph.maxPathProps}-${config.graph.maxPathLength}`;
+
+
+module.exports = config;

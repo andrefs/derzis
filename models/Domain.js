@@ -35,6 +35,10 @@ const domainSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    pathHeads: {
+      type: Number,
+      default: 0
+    },
     failed: {
       type: Number,
       default: 0
