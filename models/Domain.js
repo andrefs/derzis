@@ -73,7 +73,10 @@ domainSchema.statics.upsertMany = async function(urls){
 };
 
 domainSchema.statics.domainsToCheck = async function*(wId, limit){
-  const query = {robots: {status: 'unvisited'}};
+  const query = {
+    robots: {status: 'unvisited'},
+    'crawl.pathHeads': {'$gt': 0},
+  };
   const update = {
     '$set': {
       'robots.status': 'checking',
@@ -82,6 +85,7 @@ domainSchema.statics.domainsToCheck = async function*(wId, limit){
   };
   const options = {
     new:true,
+    sort:  {'crawl.pathHeads': -1},
     fields: 'origin'
   };
   for(let i=0; i<limit; i++){
@@ -95,13 +99,14 @@ domainSchema.statics.domainsToCheck = async function*(wId, limit){
 domainSchema.statics.domainsToCrawl = async function*(wId, limit){
   const query = {
     status: 'ready',
-    'crawl.queued': {'$gt': 0},
+    'crawl.pathHeads': {'$gt': 0},
     'crawl.nextAllowed': {'$lte': Date.now()}
   };
   const update = {'$set': {status: 'crawling', workerId: wId}};
   const options = {
     new:true,
-    fields: 'origin crawl.delay robots.text'
+    sort: {'crawl.pathHeads': -1},
+    fields: 'origin crawl robots.text'
   };
   for(let i=0; i<limit; i++){
     const d = await this.findOneAndUpdate(query, update, options).lean();
