@@ -29,7 +29,10 @@ const pathSchema = new mongoose.Schema({
       required: true
     },
     domain: mongoose.SchemaTypes.Url,
-    alreadyCrawled: Boolean
+    alreadyCrawled: {
+      type: Boolean,
+      default: false
+    }
   },
   parentPath: {
     type: ObjectId,
@@ -48,6 +51,21 @@ pathSchema.index({
     lastPredicate: 1
   }, {unique: true});
 
+pathSchema.index({
+    'seed.url': 1,
+    'head.url': 1,
+    'predicates.count': 1
+  });
+
+pathSchema.index({
+    'head.url': 1
+  });
+
+pathSchema.index({
+    'head.url': 1,
+    'status': 1
+  });
+
 
 pathSchema.pre('save', async function(){
   const Resource = await require('./Resource');
@@ -58,7 +76,7 @@ pathSchema.pre('save', async function(){
   }
   this.head.domain = new URL(this.head.url).origin;
   const head = Resource.findOne({url: this.head.url});
-  this.head.alreadyCrawled = head && head.status !== 'unvisited';
+  this.head.alreadyCrawled = head && head.status && head.status !== 'unvisited';
   //console.log('XXXXXXXXXXXXXXXXXXXXXXX', {'this': this});
   if(head.status === 'error'){
     this.status = 'disabled';

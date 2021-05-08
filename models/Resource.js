@@ -116,13 +116,13 @@ resourceSchema.statics.insertSeeds = async function(urls){
 
   await this.addMany(seeds);
 
-  const paths = await Path.create(seeds.map(s => ({
+  const paths = seeds.map(s => ({
     seed: {url: s.url},
     head: {url: s.url},
     nodes: {elems: [s.url]},
     predicates: {elems: []},
     status: 'active'
-  })));
+  }));
 
   return Path.create(paths);
 };
@@ -149,12 +149,14 @@ resourceSchema.statics.addPaths = async function(paths){
 
 resourceSchema.statics.rmPath = async function(path){
   //console.log('XXXXXXXXXXXXXXx 1', await this.findOne({url: path.head.url}));
-  await this.updateOne({url: path.head.url}, {
+  const res = await this.updateOne({url: path.head.url, paths: ObjectId(path._id)}, {
     '$pull': {paths: ObjectId(path._id)},
     '$inc': {headCount: -1}
   });
-  //console.log('XXXXXXXXXXXXXXx 2', await this.findOne({url: path.head.url}));
-  await Domain.updateOne({origin: path.head.domain}, {'$inc': {'crawl.headCount': -1}});
+  if(res.ok && res.nModified){
+    //console.log('XXXXXXXXXXXXXXx 2', await this.findOne({url: path.head.url}));
+    await Domain.updateOne({origin: path.head.domain}, {'$inc': {'crawl.headCount': -1}});
+  }
 }
 
 module.exports = mongoose.model('Resource', resourceSchema);
