@@ -46,7 +46,7 @@ let config = {
     }
   },
   db: {
-    name: 'test',
+    uri: 'mongodb://localhost:27017/test'
     //debug: true
   },
   graph: {
@@ -55,7 +55,6 @@ let config = {
   }
 };
 
-//config.db.name = `slate-${config.graph.maxPathProps}-${config.graph.maxPathLength}`;
 
 
 module.exports = config;
