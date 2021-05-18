@@ -148,13 +148,11 @@ resourceSchema.statics.addPaths = async function(paths){
 };
 
 resourceSchema.statics.rmPath = async function(path){
-  //console.log('XXXXXXXXXXXXXXx 1', await this.findOne({url: path.head.url}));
   const res = await this.updateOne({url: path.head.url, paths: ObjectId(path._id)}, {
     '$pull': {paths: ObjectId(path._id)},
     '$inc': {headCount: -1}
   });
   if(res.ok && res.nModified){
-    //console.log('XXXXXXXXXXXXXXx 2', await this.findOne({url: path.head.url}));
     await Domain.updateOne({origin: path.head.domain}, {'$inc': {'crawl.headCount': -1}});
   }
 }

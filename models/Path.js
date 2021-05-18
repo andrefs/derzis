@@ -77,7 +77,6 @@ pathSchema.pre('save', async function(){
   this.head.domain = new URL(this.head.url).origin;
   const head = Resource.findOne({url: this.head.url});
   this.head.alreadyCrawled = head && head.status && head.status !== 'unvisited';
-  //console.log('XXXXXXXXXXXXXXXXXXXXXXX', {'this': this});
   if(head.status === 'error'){
     this.status = 'disabled';
     await require('./Resource').rmPath(this);
