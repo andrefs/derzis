@@ -3,6 +3,7 @@ require('mongoose-type-url');
 const ObjectId = mongoose.Types.ObjectId;
 const Domain = require('./Domain');
 const Path = require('./Path');
+const log = require('../lib/logger')('Resource');
 const Schema = mongoose.Schema;
 
 
@@ -102,7 +103,7 @@ resourceSchema.statics.markAsCrawled = async function(url, details, error){
 };
 
 resourceSchema.statics.insertSeeds = async function(urls){
-  const pathCount = await Path.count();
+  const pathCount = await Path.estimatedDocumentCount();
   if(pathCount){
     log.error(`Cannot start from the beginning, ${pathCount} paths already found`);
     return;

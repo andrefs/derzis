@@ -1,9 +1,9 @@
 #!/bin/bash
 
-DBNAME=$(node bin/getConfigVal.js db.name)
-echo Clearing $DBNAME
+DBURI=$(node bin/getConfigVal.js db.uri)
+echo Clearing $DBURI
 
-mongo $DBNAME --eval "db.domains.drop()"
-mongo $DBNAME --eval "db.paths.drop()"
-mongo $DBNAME --eval "db.resources.drop()"
-mongo $DBNAME --eval "db.triples.drop()"
+mongo $DBURI --eval "db.domains.drop()"
+mongo $DBURI --eval "db.paths.drop()"
+mongo $DBURI --eval "db.resources.drop()"
+mongo $DBURI --eval "db.triples.drop()"

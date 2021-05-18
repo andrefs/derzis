@@ -14,7 +14,7 @@ let config = {
     jobs: {
       domainCrawl:{
         capacity: 10,
-        resourcesPerDomain: 100
+        resourcesPerDomain: 10
       },
       robotsCheck: {
         capacity: 10
@@ -46,11 +46,11 @@ let config = {
     }
   },
   db: {
-    uri: 'mongodb://localhost:27017/test'
+    uri: 'mongodb://localhost:27017/derzis-dev'
     //debug: true
   },
   graph: {
-    maxPathLength: 5,
+    maxPathLength: 3,
     maxPathProps: 2
   }
 };
