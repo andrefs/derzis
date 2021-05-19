@@ -6,7 +6,7 @@ const Axios = require('./axios');
 let axios;
 const contentType = require('content-type');
 const parseRdf = require('./parse-rdf');
-const logger = require('./logger');
+const logger = require('../../common/lib/logger');
 const cheerio = require('cheerio');
 let log;
 const {
@@ -17,7 +17,7 @@ const {
   ConnectionResetError,
   RobotsForbiddenError,
   TimeoutError,
-  TooManyRedirectsError} = require('./errors');
+  TooManyRedirectsError} = require('../../common/lib/errors');
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 const setupDelay = require('./delay');
 let delay = () => Promise.resolve();
@@ -30,7 +30,7 @@ class Worker extends EventEmitter {
     this.wId = wId;
     log = logger(this.wId);
     axios = Axios(log);
-    this.jobCapacity = config.workers.jobs;
+    this.jobCapacity = config.jobs;
     this.currentJobs = {domainCrawl: {}, robotsCheck: {}};
     this.accept = acceptedMimeTypes
                     .map((m, i) => `${m}; q=${Math.round(100/(i+2))/100}`)

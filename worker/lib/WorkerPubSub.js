@@ -2,7 +2,7 @@ const redis = require('redis');
 const pid = require('process').pid;
 const Worker = require('./Worker');
 const config = require('../config');
-const logger = require('./logger');
+const logger = require('../../common/lib/logger');
 let log;
 const util = require('util');
 
@@ -20,8 +20,8 @@ class WorkerPubSub {
     log.info('Started');
     this.connect();
     this.reportCurrentCapacity();
-    if(config.workers.periodicallyRepCurCap){
-      const interval = config.workers.periodicallyRepCurCap;
+    if(config.periodicallyRepCurCap){
+      const interval = config.periodicallyRepCurCap;
       const initDelay = 1000*(Math.floor(Math.random()*20)+1);
       setTimeout(() => {
         setInterval(() => this.reportCurrentCapacity(), interval);

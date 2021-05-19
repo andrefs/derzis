@@ -1,5 +1,5 @@
 {
-  "name": "derzis-worker",
+  "name": "derzis-common",
   "version": "0.0.1",
   "description": "Derzis: a Linked Data crawler",
   "main": "index.js",
@@ -10,17 +10,7 @@
     "test": "mocha 'tests/**test.js'"
   },
   "dependencies": {
-    "axios": "^0.21.1",
-    "bluebird": "^3.7.2",
-    "cheerio": "^1.0.0-rc.5",
-    "colors": "^1.4.0",
-    "content-type": "^1.0.4",
-    "http-link-header": "^1.0.3",
-    "n3": "^1.8.1",
-    "rdf-parse": "^1.7.0",
-    "redis": "^3.0.2",
-    "robots-parser": "^2.2.0",
-    "streamify-string": "^1.0.1"
+    "winston": "^3.3.3"
   },
   "devDependencies": {
     "chai": "^4.2.0",

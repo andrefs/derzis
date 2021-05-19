@@ -1,4 +1,7 @@
+let commonConf = require('../common/config');
+
 let config = {
+  ...commonConf,
   periodicallyRepCurCap: 10*1000,
   jobs: {
     domainCrawl:{
