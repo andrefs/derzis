@@ -1,6 +1,9 @@
 #!/bin/bash
 
-DBURI=$(node bin/getConfigVal.js db.uri)
+
+SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+DBURI=$(node "$SCRIPTPATH"/getConfigVal.js db.uri)
+
 echo Clearing $DBURI
 
 mongo $DBURI --eval "db.domains.drop()"

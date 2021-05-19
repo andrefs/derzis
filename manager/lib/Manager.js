@@ -5,7 +5,7 @@ const Domain = require('../models/Domain');
 const Triple = require('../models/Triple');
 const Path = require('../models/Path');
 const Resource = require('../models/Resource');
-const log = require('./logger')('Manager');
+const log = require('../../common/lib/logger')('Manager');
 const util = require('util');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
@@ -34,7 +34,7 @@ class Manager {
       log.error(`No job for ${domain} found in current jobs list`);
       return false;
     }
-    this._jobs[domain] = setTimeout(() => this.cancelJob(domain), 2*config.http.robotsCheck.timeouts);
+    this._jobs[domain] = setTimeout(() => this.cancelJob(domain), 2*config.http.domainCrawl.timeouts);
     return true;
   }
 

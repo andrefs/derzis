@@ -1,7 +1,6 @@
-let commonConf = require('../common/config');
+let {merge} = require('../common/config');
 
 let config = {
-  ...commonConf,
   periodicallyRepCurCap: 10*1000,
   jobs: {
     domainCrawl:{
@@ -38,4 +37,4 @@ let config = {
   },
 };
 
-module.exports = config;
+module.exports = merge(config);

@@ -3,7 +3,7 @@ require('mongoose-type-url');
 const ObjectId = mongoose.Types.ObjectId;
 const Domain = require('./Domain');
 const Path = require('./Path');
-const log = require('../lib/logger')('Resource');
+const log = require('../../common/lib/logger')('Resource');
 const Schema = mongoose.Schema;
 
 

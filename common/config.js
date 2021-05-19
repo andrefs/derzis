@@ -1,4 +1,6 @@
-let config = {
+const _ = require('lodash');
+
+let commonConf = {
   pubsub: {
     // TODO: host, port, etc
     manager: {
@@ -8,7 +10,21 @@ let config = {
       to: 'derzis:toWorker:',
       from: 'derzis:fromWorker:'
     }
-  }
+  },
+  http: {
+    crawlDelay: 1,
+    robotsCheck: {
+      timeouts: 10*1000,
+    },
+    domainCrawl: {
+      timeouts: 10*1000,
+    },
+  },
 };
 
-module.exports = config;
+const merge = config => _.merge(commonConf, config);
+
+module.exports = {
+  commonConf,
+  merge
+};

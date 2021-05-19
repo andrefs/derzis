@@ -1,6 +1,6 @@
 const redis = require('redis');
 const config = require('../config');
-const log = require('./logger')('Manager');
+const log = require('../../common/lib/logger')('Manager');
 const Manager = require('./Manager');
 const process = require('process');
 
