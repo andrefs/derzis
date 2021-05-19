@@ -1,24 +1,12 @@
 let config = {
-  pubsub: {
-    // TODO: host, port, etc
-    manager: {
-      from: 'derzis:fromManager'
+  periodicallyRepCurCap: 10*1000,
+  jobs: {
+    domainCrawl:{
+      capacity: 10,
+      resourcesPerDomain: 10
     },
-    workers: {
-      to: 'derzis:toWorker:',
-      from: 'derzis:fromWorker:'
-    }
-  },
-  workers: {
-    periodicallyRepCurCap: 10*1000,
-    jobs: {
-      domainCrawl:{
-        capacity: 10,
-        resourcesPerDomain: 10
-      },
-      robotsCheck: {
-        capacity: 10
-      }
+    robotsCheck: {
+      capacity: 10
     }
   },
   http: {
@@ -45,16 +33,6 @@ let config = {
       pubsubChannel: 'derzis:http',
     }
   },
-  db: {
-    uri: 'mongodb://localhost:27017/derzis-dev'
-    //debug: true
-  },
-  graph: {
-    maxPathLength: 3,
-    maxPathProps: 2
-  }
 };
-
-
 
 module.exports = config;
