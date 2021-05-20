@@ -45,6 +45,16 @@ const domainSchema = new mongoose.Schema({
     },
     nextAllowed: Schema.Types.Date
   },
+  history: {
+    events: {
+      type: {
+        type: String,
+        enum: ['robots_check', 'resource_crawl']
+      },
+      timestamp: Schema.Types.Date,
+      result: ['ok', 'error']
+    }
+  },
   lastAccessed: Schema.Types.Date,
 }, {timestamps: true});
 
