@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-require('mongoose-type-url');
+const {urlType} = require('../../common/lib/mongoose-types');
 const ObjectId = mongoose.Types.ObjectId;
 const Domain = require('./Domain');
 const Path = require('./Path');
@@ -8,15 +8,8 @@ const Schema = mongoose.Schema;
 
 
 const resourceSchema = new mongoose.Schema({
-  url: {
-    type: mongoose.SchemaTypes.Url,
-    index: true,
-    unique: true
-  },
-  domain: {
-    type: mongoose.SchemaTypes.Url,
-    required: true
-  },
+  url: {...urlType, index: true, unique: true},
+  domain: {...urlType, required: true},
   isSeed: {
     type: Boolean,
     required: true,
@@ -49,6 +42,7 @@ const resourceSchema = new mongoose.Schema({
 resourceSchema.statics.addMany = async function(resources){
   let insertedDocs = [];
   let existingDocs = [];
+  console.log('XXXXXXXXXXXXx -4', resources);
   await this.insertMany(resources, {ordered: false})
     .then(docs => insertedDocs = docs)
     .catch(err => {
@@ -60,6 +54,8 @@ resourceSchema.statics.addMany = async function(resources){
       }
       insertedDocs = err.insertedDocs;
     });
+
+  console.log('XXXXXXXXXXXXx -3', insertedDocs);
 
   await Domain.upsertMany(insertedDocs.map(d => d.domain));
   return insertedDocs;
@@ -108,6 +104,8 @@ resourceSchema.statics.insertSeeds = async function(urls){
     log.error(`Cannot start from the beginning, ${pathCount} paths already found`);
     return;
   }
+
+  console.log('XXXXXXXXXXXXx -5', urls);
 
   const seeds = urls.map(u => ({
     isSeed: true,

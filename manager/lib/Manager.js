@@ -67,6 +67,7 @@ class Manager {
 
   async saveCrawl(sourceUrl, details){
     const source = await Resource.markAsCrawled(sourceUrl, details);
+    console.log('XXXXXXXXxxxxxxxxx 1', details.triples);
     const triples = details.triples
                       .filter(t => t.subject.termType === 'NamedNode')
                       .filter(t => t.object.termType  === 'NamedNode')
@@ -77,6 +78,7 @@ class Manager {
                         predicate: t.predicate.value,
                         object: t.object.value,
                       }));
+    console.log('XXXXXXXXxxxxxxxxx 2', triples);
     if(triples.length){
       await this.saveResources(triples);
       const res = await Triple.upsertMany(sourceUrl, triples);

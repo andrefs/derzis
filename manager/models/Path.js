@@ -1,34 +1,24 @@
 const mongoose = require('mongoose');
-require('mongoose-type-url');
+const {urlType} = require('../../common/lib/mongoose-types');
 const ObjectId = mongoose.Types.ObjectId;
 const config = require('../config');
 
 const pathSchema = new mongoose.Schema({
   seed: {
-    url: {
-      type: mongoose.SchemaTypes.Url,
-      required: true
-    }
+    url: {...urlType, required: true}
   },
   predicates: {
-    elems: [{
-      type: mongoose.SchemaTypes.Url,
-    }],
+    elems: [urlType],
     count: Number
   },
-  lastPredicate: mongoose.SchemaTypes.Url,
+  lastPredicate: urlType,
   nodes: {
-    elems: [{
-      type: mongoose.SchemaTypes.Url
-    }],
+    elems: [urlType],
     count: Number
   },
   head: {
-    url: {
-      type: mongoose.SchemaTypes.Url,
-      required: true
-    },
-    domain: mongoose.SchemaTypes.Url,
+    url: {...urlType, required: true},
+    domain: urlType,
     alreadyCrawled: {
       type: Boolean,
       default: false
