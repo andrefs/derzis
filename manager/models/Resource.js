@@ -42,7 +42,6 @@ const resourceSchema = new mongoose.Schema({
 resourceSchema.statics.addMany = async function(resources){
   let insertedDocs = [];
   let existingDocs = [];
-  console.log('XXXXXXXXXXXXx -4', resources);
   await this.insertMany(resources, {ordered: false})
     .then(docs => insertedDocs = docs)
     .catch(err => {
@@ -54,8 +53,6 @@ resourceSchema.statics.addMany = async function(resources){
       }
       insertedDocs = err.insertedDocs;
     });
-
-  console.log('XXXXXXXXXXXXx -3', insertedDocs);
 
   await Domain.upsertMany(insertedDocs.map(d => d.domain));
   return insertedDocs;
@@ -104,8 +101,6 @@ resourceSchema.statics.insertSeeds = async function(urls){
     log.error(`Cannot start from the beginning, ${pathCount} paths already found`);
     return;
   }
-
-  console.log('XXXXXXXXXXXXx -5', urls);
 
   const seeds = urls.map(u => ({
     isSeed: true,
