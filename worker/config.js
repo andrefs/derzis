@@ -34,7 +34,7 @@ let config = {
     debug: {
       pubsubChannel: 'derzis:http',
     }
-  },
+  }
 };
 
 module.exports = merge(config);
