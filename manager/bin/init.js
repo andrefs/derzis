@@ -21,7 +21,7 @@ const seeds = [
 
 ];
 
-db.once('open', () => {
+db.connect().then(() => {
   return Resource.insertSeeds(seeds)
     .then(paths => Resource.addPaths(paths))
     .then((...args) => {

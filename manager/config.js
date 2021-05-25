@@ -12,8 +12,8 @@ let config = {
     //debug: true
   },
   graph: {
-    maxPathLength: 3,
-    maxPathProps: 2
+    maxPathLength: 2,
+    maxPathProps: 1
   }
 };
 

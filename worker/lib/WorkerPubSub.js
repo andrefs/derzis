@@ -1,7 +1,11 @@
 const redis = require('redis');
+const config = require('../config');
+const redisOpts = {
+  host: config.pubsub.host,
+  port: config.pubsub.port
+};
 const pid = require('process').pid;
 const Worker = require('./Worker');
-const config = require('../config');
 const logger = require('../../common/lib/logger');
 let log;
 const util = require('util');
@@ -12,7 +16,7 @@ class WorkerPubSub {
     this.w = new Worker('W#'+pid);
 
     if(config.http.debug){
-      this._http = redis.createClient();
+      this._http = redis.createClient(redisOpts);
       this.w.on('httpDebug', ev => this._http.publish(config.http.debug.pubsubChannel, JSON.stringify(ev, null, 2)));
     }
 
@@ -42,8 +46,8 @@ class WorkerPubSub {
 
   connect(){
     log.info('Connecting to Redis');
-    this._pub = redis.createClient();
-    this._sub = redis.createClient();
+    this._pub = redis.createClient(redisOpts);
+    this._sub = redis.createClient(redisOpts);
 
     process.on('SIGINT'            , this.exitHandler({signal: 'SIGINT'}));
     process.on('SIGUSR1'           , this.signalHandler());

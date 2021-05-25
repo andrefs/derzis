@@ -27,8 +27,8 @@ class ManagerPubSub {
       port: config.pubsub.port
     };
     this._pub = redis.createClient(options);
-    this._broad = redis.createClient();
-    this._sub = redis.createClient();
+    this._broad = redis.createClient(options);
+    this._sub = redis.createClient(options);
 
     process.on('uncaughtException' , (...args) => {
       log.error('Uncaught exception', args);
