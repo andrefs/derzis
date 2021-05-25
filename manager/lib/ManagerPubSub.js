@@ -1,5 +1,6 @@
 const redis = require('redis');
 const config = require('../config');
+if(config.pubsub.debug){ redis.debug_mode = true; }
 const log = require('../../common/lib/logger')('Manager');
 const Manager = require('./Manager');
 const process = require('process');
@@ -12,14 +13,20 @@ class ManagerPubSub {
 
   async start(){
     log.info('Started');
+    log.info('Connecting to MongoDB');
+    await this._m.connect();
     await this._m.cleanJobs();
-    this.connect();
+    await this.connect();
     this.askCurrentCapacity();
   }
 
-  connect(){
+  async connect(){
     log.info('Connecting to Redis');
-    this._pub = redis.createClient();
+    const options = {
+      host: config.pubsub.host,
+      port: config.pubsub.port
+    };
+    this._pub = redis.createClient(options);
     this._broad = redis.createClient();
     this._sub = redis.createClient();
 

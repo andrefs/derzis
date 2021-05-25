@@ -6,12 +6,20 @@ if(config.db.debug){
 mongoose.set('useFindAndModify', false);
 mongoose.set('useCreateIndex', true);
 
+const connect = async () => {
+  let auth = '';
+  if(config.db.user){ auth += user+':'; }
+  if(config.db.pass){ auth += pass+'@' }
+  const uri = `mongodb://${auth}${config.db.host}:${config.db.port}/${config.db.name}`
 
-mongoose.connect(config.db.uri || 'mongodb://localhost/derzis-crawler', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
+  const conn = await mongoose.connect(uri || 'mongodb://localhost/derzis-crawler', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  });
+  return conn;
+};
 
-module.exports = db;
+
+module.exports = {
+  connect
+}

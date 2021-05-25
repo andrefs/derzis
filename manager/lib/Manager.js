@@ -20,6 +20,10 @@ class Manager {
     return await Resource.insertSeeds(urls);
   }
 
+  async connect(){
+    return db.connect();
+  }
+
   deregisterJob(domain){
     if(!this._jobs[domain]){
       log.error(`No job for ${domain} found in current jobs list`);
