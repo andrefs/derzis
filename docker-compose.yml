@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  worker:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.worker
+        #scale: 3
+    depends_on:
+      - mongo
+    networks:
+      - pubsub
+  redis:
+    image: redis
+    networks:
+      - pubsub
+  manager:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.manager
+    depends_on:
+      - redis
+      - mongo
+    networks:
+      - pubsub
+      - database
+  mongo:
+    image: mongo
+    restart: always
+      #environment:
+      #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
+      #  MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGODB_PASS
+    networks:
+      - database
+        #secrets:
+        #  MONGODB_PORT:
+        #    external: true
+        #  MONGODB_USER:
+        #    external: true
+        #  MONGODB_PASS:
+        #    external: true
+networks:
+  database:
+  pubsub:

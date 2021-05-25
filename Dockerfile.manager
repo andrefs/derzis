@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+
+
+# Build stage
+
+FROM node:14 as build
+
+ENV NODE_ENV=production
+WORKDIR /home/node/derzis/manager
+
+COPY --chown=node:node ["common/package.json", "common/yarn.lock", "../common/"]
+RUN cd ../common && yarn install --frozen-lockfile
+
+COPY --chown=node:node ["manager/package.json", "manager/yarn.lock", "./"]
+RUN yarn install --frozen-lockfile
+
+
+# Run stage
+
+FROM gcr.io/distroless/nodejs:14
+ENV NODE_ENV=production
+#FIXME
+ENV NODE_OPTIONS=--max-old-space-size=6000
+
+COPY --from=build /home/node/derzis /usr/src/derzis
+WORKDIR /usr/src/derzis/manager
+
+COPY ./common ../common/
+COPY ./manager ./
+
+USER 1000
+CMD ["bin/manager.js"]
