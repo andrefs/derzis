@@ -20,7 +20,7 @@ class WorkerPubSub {
       this.w.on('httpDebug', ev => this._http.publish(config.http.debug.pubsubChannel, JSON.stringify(ev, null, 2)));
     }
 
-    log = logger(this.w.wId);
+    log = logger(this.w.wShortId);
     log.info('Started');
     this.connect();
     this.reportCurrentCapacity();
@@ -65,7 +65,7 @@ class WorkerPubSub {
 
   pub(type, data = {}){
     const payload = {type, data};
-    log.pubsub('Publishing message to '+this._pubChannel, type);
+    log.pubsub('Publishing message to '+this._pubChannel.replace(/-.*$/,''), type);
     if(Object.keys(data).length){ log.debug('', data); }
     this._pub.publish(this._pubChannel, JSON.stringify(payload));
   }

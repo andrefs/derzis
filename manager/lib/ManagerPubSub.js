@@ -35,7 +35,7 @@ class ManagerPubSub {
       process.exit(1);
     });
 
-    log.pubsub(`Subscribing to ${config.pubsub.workers.from}*`);
+    log.pubsub(`Subscribing to ${config.pubsub.workers.from.replace(/-.*$/,'')}*`);
     this._sub.psubscribe(config.pubsub.workers.from+'*');
 
     this._broadChannel = config.pubsub.manager.from;
@@ -49,7 +49,7 @@ class ManagerPubSub {
   pub(workerId, type, data = {}){
     const payload = {type, data};
     const channel = this._pubChannel+workerId;
-    log.pubsub('Publishing message to '+channel, type);
+    log.pubsub('Publishing message to '+channel.replace(/-.*$/,''), type);
     if(Object.keys(data).length){ log.debug('', data); }
     this._pub.publish(channel, JSON.stringify(payload));
   }
@@ -63,9 +63,9 @@ class ManagerPubSub {
 
   _subEvents(){
     this._sub.on('pmessage', (pattern, channel, message) => {
-      const workerId = channel.match(/:(W#\d+)/)[1];
+      const workerId = channel.match(/:([-\w]+)$/)[1];
       const payload = JSON.parse(message);
-      log.pubsub('Got message from '+channel,payload.type)
+      log.pubsub('Got message from '+channel.replace(/-.*$/,''), payload.type)
       if(Object.keys(payload.data).length){ log.debug('', payload.data); }
       if(payload.type === 'repCurCap'){
         return this.assignJobs(workerId, payload.data);

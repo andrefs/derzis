@@ -22,13 +22,15 @@ const acceptedMimeTypes = config.http.acceptedMimeTypes;
 const setupDelay = require('./delay');
 let delay = () => Promise.resolve();
 const LinkHeader = require('http-link-header');
+const {v4: uuidv4} = require('uuid');
 
 
 class Worker extends EventEmitter {
   constructor(wId){
     super();
-    this.wId = wId;
-    log = logger(this.wId);
+    this.wId = uuidv4();
+    this.wShortId = this.wId.replace(/-.*$/, '');
+    log = logger(this.wShortId);
     axios = Axios(log);
     this.jobCapacity = config.jobs;
     this.currentJobs = {domainCrawl: {}, robotsCheck: {}};
