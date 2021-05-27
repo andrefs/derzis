@@ -23,7 +23,6 @@ const seeds = [
 
 db.connect().then(() => {
   return Resource.insertSeeds(seeds)
-    .then(paths => Resource.addPaths(paths))
     .then((...args) => {
       console.log(JSON.stringify(args, null, 2));
       process.exit(0)

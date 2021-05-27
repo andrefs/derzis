@@ -118,7 +118,8 @@ resourceSchema.statics.insertSeeds = async function(urls){
     status: 'active'
   }));
 
-  return Path.create(paths);
+  const insPaths = await Path.create(paths);
+  return this.addPaths(insPaths);
 };
 
 
