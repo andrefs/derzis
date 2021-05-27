@@ -36,8 +36,12 @@ services:
       MONGODB_HOST: *db
       REDIS_HOST: *pubsub
     volumes:
-      - ./data/seeds.txt:/data/seeds.txt
-      - ./data/export:/data/export
+      - type: bind
+        source: ./data/seeds.txt
+        target: /data/seeds.txt
+      - type: bind
+        source: ./data/export
+        target: /data/export
   *db:
     image: mongo
     restart: always
@@ -45,9 +49,11 @@ services:
       #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
       #  MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGODB_PASS
     volumes:
-      - ./data/db:/data/db
+      - type: bind
+        source: ./data/db
+        target: /data/db
     ports:
-      - "27017:27017"
+      - "27018:27017"
     networks:
       - database
         #secrets:
