@@ -1,20 +1,28 @@
 version: "3.8"
 
+x-services:
+  - &db mongo
+  - &pubsub redis
+  - &worker worker
+  - &manager manager
+
 services:
-  worker:
+  *worker:
     build:
       context: ./
       dockerfile: ./Dockerfile.worker
         #scale: 3
     depends_on:
-      - mongo
+      - *pubsub
     networks:
       - pubsub
-  redis:
+    environment:
+      REDIS_HOST: *pubsub
+  *pubsub:
     image: redis
     networks:
       - pubsub
-  manager:
+  *manager:
     build:
       context: ./
       dockerfile: ./Dockerfile.manager
@@ -24,12 +32,22 @@ services:
     networks:
       - pubsub
       - database
-  mongo:
+    environment:
+      MONGODB_HOST: *db
+      REDIS_HOST: *pubsub
+    volumes:
+      - ./data/seeds.txt:/data/seeds.txt
+      - ./data/export:/data/export
+  *db:
     image: mongo
     restart: always
       #environment:
       #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
       #  MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGODB_PASS
+    volumes:
+      - ./data/db:/data/db
+    ports:
+      - "27017:27017"
     networks:
       - database
         #secrets:

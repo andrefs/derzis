@@ -1,0 +1,5 @@
+http://dbpedia.org/resource/Emmental_cheese
+http://dbpedia.org/resource/Cheddar_cheese
+http://dbpedia.org/resource/Mozzarella
+http://dbpedia.org/resource/Roquefort
+http://dbpedia.org/resource/Gouda_cheese

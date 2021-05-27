@@ -54,7 +54,9 @@ resourceSchema.statics.addMany = async function(resources){
       insertedDocs = err.insertedDocs;
     });
 
-  await Domain.upsertMany(insertedDocs.map(d => d.domain));
+  if(insertedDocs.length){
+    await Domain.upsertMany(insertedDocs.map(d => d.domain));
+  }
   return insertedDocs;
 };
 
@@ -96,11 +98,11 @@ resourceSchema.statics.markAsCrawled = async function(url, details, error){
 };
 
 resourceSchema.statics.insertSeeds = async function(urls){
-  const pathCount = await Path.estimatedDocumentCount();
-  if(pathCount){
-    log.error(`Cannot start from the beginning, ${pathCount} paths already found`);
-    return;
-  }
+  // const pathCount = await Path.estimatedDocumentCount();
+  // if(pathCount){
+  //   log.error(`Cannot start from the beginning, ${pathCount} paths already found`);
+  //   return;
+  // }
 
   const seeds = urls.map(u => ({
     isSeed: true,
@@ -108,7 +110,11 @@ resourceSchema.statics.insertSeeds = async function(urls){
     domain: new URL(u).origin
   }));
 
-  await this.addMany(seeds);
+  const insResources = await this.addMany(seeds);
+  if(!insResources.length){
+    log.warn('Seed resources already in database', insResources);
+    return;
+  }
 
   const paths = seeds.map(s => ({
     seed: {url: s.url},

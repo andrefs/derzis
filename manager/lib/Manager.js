@@ -9,6 +9,7 @@ const log = require('../../common/lib/logger')('Manager');
 const util = require('util');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
+const {readFile} = require('fs/promises');
 
 
 class Manager {
@@ -16,12 +17,18 @@ class Manager {
     this._jobs = {};
   }
 
-  async init(urls){
-    return await Resource.insertSeeds(urls);
+  async connect(){
+    await db.connect();
+    return this.insertSeeds();
   }
 
-  async connect(){
-    return db.connect();
+  async insertSeeds(){
+    const text = await readFile(config.seeds.file);
+    const seeds = text.toString()
+                      .split(/\n+/)
+                      .filter(x => !/^\s*$/.test(x))
+                      .filter(x => !/^\s*#/.test(x));
+    return await Resource.insertSeeds(seeds);
   }
 
   deregisterJob(domain){
