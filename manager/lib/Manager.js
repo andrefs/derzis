@@ -36,7 +36,7 @@ class Manager {
       log.error(`No job for ${domain} found in current jobs list`);
       return false;
     }
-    this.removeJob(domain);
+    this.removeJob(domain, 'deregister');
     return true;
   }
 
@@ -45,7 +45,10 @@ class Manager {
       log.error(`No job for ${domain} found in current jobs list`);
       return false;
     }
-    this._jobs[domain] = setTimeout(() => this.cancelJob(domain), 2*config.http.domainCrawl.timeouts);
+    clearTimeout(this._jobs[domain]);
+    const timeout = 2*config.http.domainCrawl.timeouts;
+    const ts = new Date();
+    this._jobs[domain] = setTimeout(() => this.cancelJob(domain, 'domainCrawl', timeout, ts), timeout);
     return true;
   }
 
@@ -216,12 +219,12 @@ class Manager {
       };
     }
     else if(data.results.error.errorType === 'http'){
-      let robot_status = 'error';
-      if(data.results.error.httpStatus === 404){ robot_status = 'not_found'; }
+      let robotStatus = 'error';
+      if(data.results.error.httpStatus === 404){ robotStatus = 'not_found'; }
 
       doc = {
         '$set': {
-          'robots.status': robot_status,
+          'robots.status': robotStatus,
           status: 'ready',
           'crawl.delay': crawlDelay,
           'crawl.nextAllowed': new Date(data.results.details.endTime+(crawlDelay))
@@ -312,38 +315,43 @@ class Manager {
     }
   }
 
-  async removeJob(domain){
+  async removeJob(domain, type){
     if(this._jobs[domain]){
       clearTimeout(this._jobs[domain]);
       delete this._jobs[domain];
     }
-    let update = {
-      status: 'unvisited',
-      'robots.status': 'unvisited',
-      workerId: undefined
-    };
-    await Domain.updateMany({origin: domain}, {'$set': update});
-
-    update = {
-      status: 'ready',
-      workerId: undefined
-    };
-    await Domain.updateMany({origin: domain}, {'$set': update});
-  }
-
-  async cancelJob(domain){
-    if(this._jobs[domain]){
-      log.warn(`Job for domain ${domain} timed out`);
+    if(type === 'cancel'){
+      const update = {
+        status: 'unvisited',
+        'robots.status': 'unvisited',
+        workerId: undefined
+      };
+      return await Domain.updateMany({origin: domain}, {'$set': update});
     }
-    this.removeJob(domain);
+    if(type === 'deregister'){
+      const update = {
+        status: 'ready',
+        workerId: undefined
+      };
+      return await Domain.updateMany({origin: domain}, {'$set': update});
+    }
   }
 
-  registerJob(domain){
+  async cancelJob(domain, jobType, timeout, ts){
+    if(this._jobs[domain]){
+      log.warn(`Job ${jobType} for domain ${domain} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
+    }
+    this.removeJob(domain, 'cancel');
+  }
+
+  registerJob(domain, jobType){
     if(this._jobs[domain]){
       log.error(`Job for domain ${domain} already being performed`);
       return false;
     } else {
-      this._jobs[domain] = setTimeout(() => this.cancelJob(domain), 2*config.http.robotsCheck.timeouts);
+      const timeout = 2*config.http[jobType].timeouts;
+      const ts = new Date();
+      this._jobs[domain] = setTimeout(() => this.cancelJob(domain, jobType, timeout, ts), timeout);
       return true;
     }
   }
@@ -353,7 +361,7 @@ class Manager {
     let assignedCrawl = 0;
     if(workerAvail.robotsCheck){
       for await(const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck)){
-        if(this.registerJob(check.origin)){
+        if(this.registerJob(check.origin, 'robotsCheck')){
           assignedCheck++;
           yield {jobType: 'robotsCheck', domain: check.origin};
         }
@@ -361,7 +369,7 @@ class Manager {
     }
     if(workerAvail.domainCrawl){
       for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl)){
-        if(crawl?.resources?.length && this.registerJob(crawl.domain.origin)){
+        if(crawl?.resources?.length && this.registerJob(crawl.domain.origin, 'domainCrawl')){
           assignedCrawl++;
           yield {jobType: 'domainCrawl', ...crawl};
         } else {
