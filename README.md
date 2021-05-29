@@ -9,6 +9,11 @@ be executed without using containers.
 
 ### Docker
 
+#### Dependencies
+
+* docker
+* docker-compose
+
 #### Running
 
 * Edit `data/seeds.txt` and add the IRIs for the seed resources.
@@ -23,12 +28,11 @@ be executed without using containers.
 * MongoDB
 * Redis
 * Node.js v16
-* All Node.js packages listed
+* Run `yarn install` in each of the folders `common`, `worker` and
+  `manager`.
 
 #### Running
 
-* Run `yarn install` in each of the folders `common`, `worker` and
-  `manager`.
 * Open a terminal and run `node manager/bin/manager.js`.
 * Open another terminal and run `./worker/bin/worker-pool`.
 
