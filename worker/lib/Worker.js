@@ -37,6 +37,7 @@ class Worker extends EventEmitter {
     this.accept = acceptedMimeTypes
                     .map((m, i) => `${m}; q=${Math.round(100/(i+2))/100}`)
                     .join(', ');
+    this.jobsTimedout = {};
   }
 
   availability(){
@@ -88,6 +89,11 @@ class Worker extends EventEmitter {
     delay = setupDelay(domain.crawl.delay*1.1); // add 10% margin
 
     for(const r of resources){
+      if(this.jobsTimedout[domain]){
+        delete this.jobsTimedout[domain];
+        log.warn(`Stopping domain ${domain} because Manager removed job`);
+        break;
+      }
       this.crawlCounter++;
       this.currentJobs.domainCrawl[domain.origin] = true;
       try {

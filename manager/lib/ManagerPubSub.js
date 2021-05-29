@@ -9,6 +9,13 @@ const process = require('process');
 class ManagerPubSub {
   constructor(){
     this._m = new Manager();
+    this.listenManager();
+  }
+
+  listenManager(){
+    this._m.on('jobTimeout', (domain, jobType) => {
+      return this.broad('jobTimeout', {domain});
+    });
   }
 
   async start(){

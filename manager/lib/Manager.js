@@ -10,10 +10,12 @@ const util = require('util');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
 const {readFile} = require('fs/promises');
+const EventEmitter = require('events');
 
 
-class Manager {
+class Manager extends EventEmitter {
   constructor(){
+    super();
     this._jobs = {};
   }
 
@@ -342,6 +344,7 @@ class Manager {
       log.warn(`Job ${jobType} for domain ${domain} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
     }
     this.removeJob(domain, 'cancel');
+    this.emit('jobTimeout', domain, jobType);
   }
 
   registerJob(domain, jobType){

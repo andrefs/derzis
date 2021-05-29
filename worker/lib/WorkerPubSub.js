@@ -83,6 +83,11 @@ class WorkerPubSub {
       if(payload.type === 'askCurCap'){
         return this.reportCurrentCapacity(payload.data);
       }
+      if(payload.type === 'jobTimeout'){
+        if(this.w.currentJobs.domainCrawl[payload.data.domain]){
+          this.w.jobsTimedout[payload.data.domain];
+        }
+      }
       if(payload.type === 'doJob'){
         return this.doJob(payload.data);
       }
@@ -105,9 +110,10 @@ class WorkerPubSub {
       return;
     }
     if(job.jobType === 'domainCrawl'){
+      let total = job.resources.length;
       let i = 0;
       for await(const x of this.w.crawlDomain(job)){
-        log.info(`Finished resourceCrawl ${++i} of ${job.domain.origin}`);
+        log.info(`Finished resourceCrawl ${++i}/${total} of ${job.domain.origin}`);
         this.pub('jobDone', {
           jobType: 'resourceCrawl',
           domain: job.domain.origin,
