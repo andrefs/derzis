@@ -6,17 +6,15 @@ const Triple = require('../models/Triple');
 const Path = require('../models/Path');
 const Resource = require('../models/Resource');
 const log = require('../../common/lib/logger')('Manager');
-const util = require('util');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
+const CurrentJobs = require('./CurrentJobs');
 const {readFile} = require('fs/promises');
-const EventEmitter = require('events');
 
 
-class Manager extends EventEmitter {
+class Manager {
   constructor(){
-    super();
-    this._jobs = {};
+    this.jobs = new CurrentJobs();
   }
 
   async connect(){
@@ -33,36 +31,15 @@ class Manager extends EventEmitter {
     return await Resource.insertSeeds(seeds);
   }
 
-  deregisterJob(domain){
-    if(!this._jobs[domain]){
-      log.error(`No job for ${domain} found in current jobs list`);
-      return false;
-    }
-    this.removeJob(domain, 'deregister');
-    return true;
-  }
-
-  postponeTimeout(domain){
-    if(!this._jobs[domain]){
-      log.error(`No job for ${domain} found in current jobs list`);
-      return false;
-    }
-    clearTimeout(this._jobs[domain]);
-    const timeout = 2*config.http.domainCrawl.timeouts;
-    const ts = new Date();
-    this._jobs[domain] = setTimeout(() => this.cancelJob(domain, 'domainCrawl', timeout, ts), timeout);
-    return true;
-  }
-
   async updateJobResults(data){
     if(data.jobType === 'robotsCheck'){
-      if(this.deregisterJob(data.domain)){
+      if(this.jobs.deregisterJob(data.domain)){
         await this.saveRobots(data)
       }
     }
     // TODO handle errors
     if(data.jobType === 'domainCrawl'){
-      if(this.deregisterJob(data.domain)){
+      if(this.jobs.deregisterJob(data.domain)){
         await Domain.updateOne({origin: data.domain},{
           '$set': {status: 'ready'},
           '$unset': {workerId: ''}
@@ -71,7 +48,7 @@ class Manager extends EventEmitter {
       // TODO handle errors
     }
     if(data.jobType === 'resourceCrawl'){
-      if(this.postponeTimeout(data.domain)){
+      if(this.jobs.postponeTimeout(data.domain)){
         if(data.results.ok){
           await this.saveCrawl(data.url, data.results.details);
         } else {
@@ -98,7 +75,6 @@ class Manager extends EventEmitter {
       const res = await Triple.upsertMany(sourceUrl, triples);
       if(res.upsertedCount){
         const newTriples = await Triple.find({_id: {'$in': Object.values(res.upsertedIds).map(i => ObjectId(i))}});
-        //await Resource.updateOne({url: sourceUrl}, {status: 'done'});
         await this.updatePaths(sourceUrl, newTriples);
       }
     }
@@ -112,12 +88,10 @@ class Manager extends EventEmitter {
       resources[t.object] = true;
     }
 
-    return await Resource.addMany(Object
-      .keys(resources).map(u => ({
-        url: u,
-        domain: new URL(u).origin
-      }))
-    );
+    return await Resource.addMany(Object.keys(resources).map(u => ({
+      url: u,
+      domain: new URL(u).origin
+    })));
   }
 
   async updatePaths(sourceUrl, triples){
@@ -268,103 +242,12 @@ class Manager extends EventEmitter {
     }
   }
 
-
-  async cleanJobs(jobs){
-    log.info(`Cleaning outstanding jobs`);
-    if(Object.keys(this._jobs).length){
-      for(const j in this._jobs){
-        clearTimeout(j);
-        delete this._jobs[j]
-      }
-    }
-    await Domain.updateMany({'robots.status': 'checking'}, {'$set': {
-      status: 'unvisited',
-      'robots.status': 'unvisited',
-      workerId: undefined
-    }});
-    await Domain.updateMany({status: 'crawling'}, {'$set': {
-      status: 'ready',
-      workerId: undefined
-    }});
-    return;
-  }
-
-  async cancelJobs(jobs, workerId){
-    let domains;
-    domains = Object.keys(jobs.robotsCheck);
-    if(domains.length){
-      for(const d in domains){ delete this._jobs[d]; }
-      const update = {
-        status: 'unvisited',
-        'robots.status': 'unvisited',
-        workerId: undefined
-      };
-      let filter = {origin: {'$in': domains}};
-      if(workerId){ filter.workerId = workerId; }
-      await Domain.updateMany({origin: {'$in': domains}}, {'$set': update});
-    }
-
-    domains = Object.keys(jobs.domainCrawl);
-    if(domains.length){
-      for(const d in domains){ delete this._jobs[d]; }
-      const update = {
-        status: 'ready',
-        workerId: undefined
-      };
-      let filter = {origin: {'$in': domains}};
-      if(workerId){ filter.workerId = workerId; }
-      await Domain.updateMany({origin: {'$in': domains}}, {'$set': update});
-    }
-  }
-
-  async removeJob(domain, type){
-    if(this._jobs[domain]){
-      clearTimeout(this._jobs[domain]);
-      delete this._jobs[domain];
-    }
-    if(type === 'cancel'){
-      const update = {
-        status: 'unvisited',
-        'robots.status': 'unvisited',
-        workerId: undefined
-      };
-      return await Domain.updateMany({origin: domain}, {'$set': update});
-    }
-    if(type === 'deregister'){
-      const update = {
-        status: 'ready',
-        workerId: undefined
-      };
-      return await Domain.updateMany({origin: domain}, {'$set': update});
-    }
-  }
-
-  async cancelJob(domain, jobType, timeout, ts){
-    if(this._jobs[domain]){
-      log.warn(`Job ${jobType} for domain ${domain} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
-    }
-    this.removeJob(domain, 'cancel');
-    this.emit('jobTimeout', domain, jobType);
-  }
-
-  registerJob(domain, jobType){
-    if(this._jobs[domain]){
-      log.error(`Job for domain ${domain} already being performed`);
-      return false;
-    } else {
-      const timeout = 2*config.http[jobType].timeouts;
-      const ts = new Date();
-      this._jobs[domain] = setTimeout(() => this.cancelJob(domain, jobType, timeout, ts), timeout);
-      return true;
-    }
-  }
-
   async *assignJobs(workerId, workerAvail){
     let assignedCheck = 0;
     let assignedCrawl = 0;
     if(workerAvail.robotsCheck){
       for await(const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck)){
-        if(this.registerJob(check.origin, 'robotsCheck')){
+        if(this.jobs.registerJob(check.origin, 'robotsCheck')){
           assignedCheck++;
           yield {jobType: 'robotsCheck', domain: check.origin};
         }
@@ -372,7 +255,7 @@ class Manager extends EventEmitter {
     }
     if(workerAvail.domainCrawl){
       for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl)){
-        if(crawl?.resources?.length && this.registerJob(crawl.domain.origin, 'domainCrawl')){
+        if(crawl?.resources?.length && this.jobs.registerJob(crawl.domain.origin, 'domainCrawl')){
           assignedCrawl++;
           yield {jobType: 'domainCrawl', ...crawl};
         } else {
@@ -380,7 +263,7 @@ class Manager extends EventEmitter {
         }
       }
     }
-    if(!assignedCheck && !assignedCrawl && !Object.keys(this._jobs).length){
+    if(!assignedCheck && !assignedCrawl && !this.jobs.count()){
       log.info('Could not find any domains to check or crawl and there are no outstanding jobs');
     }
   }

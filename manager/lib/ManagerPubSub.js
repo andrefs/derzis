@@ -13,7 +13,7 @@ class ManagerPubSub {
   }
 
   listenManager(){
-    this._m.on('jobTimeout', (domain, jobType) => {
+    this._m.jobs.on('jobTimeout', (domain, jobType) => {
       return this.broad('jobTimeout', {domain});
     });
   }
@@ -22,7 +22,7 @@ class ManagerPubSub {
     log.info('Started');
     log.info('Connecting to MongoDB');
     await this._m.connect();
-    await this._m.cleanJobs();
+    await this._m.jobs.cleanJobs();
     await this.connect();
     this.askCurrentCapacity();
   }
