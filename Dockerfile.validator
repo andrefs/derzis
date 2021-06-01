@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+
+
+# Build stage
+
+FROM node:14 as build
+
+ENV NODE_ENV=production
+WORKDIR /home/node/derzis/validator
+
+COPY --chown=node:node ["validator/package.json", "validator/yarn.lock", "./"]
+RUN yarn install --frozen-lockfile
+
+
+# Run stage
+
+FROM gcr.io/distroless/nodejs:14
+ENV NODE_ENV=production
+
+COPY --from=build /home/node/derzis /usr/src/derzis
+WORKDIR /usr/src/derzis/validator
+
+COPY ./validator ./
+
+USER 1000
+CMD ["server.js"]
+

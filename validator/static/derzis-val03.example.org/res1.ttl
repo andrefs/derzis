@@ -1,0 +1,4 @@
+@prefix dvex1: <http://derzis-val03.example.org/sw/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+dvex1:res3 a owl:Thing .

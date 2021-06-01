@@ -1,0 +1,5 @@
+http://derzis-val01.example.org/sw/res1
+http://derzis-val02.example.org/sw/res1
+http://derzis-val03.example.org/sw/res1
+http://derzis-val04.example.org/sw/res1
+http://derzis-val05.example.org/sw/res1

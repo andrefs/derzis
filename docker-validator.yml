@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  worker:
+    networks:
+      - semweb
+  manager:
+    volumes:
+      - type: bind
+        source: ./validator/seeds.txt
+        target: /data/seeds.txt
+  validator:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.validator
+    environment:
+      - "PORT=80"
+    ports:
+      - 80
+    networks:
+      semweb:
+        aliases:
+          - derzis-val01.example.org
+          - derzis-val02.example.org
+          - derzis-val03.example.org
+          - derzis-val04.example.org
+          - derzis-val05.example.org
+          - derzis-val06.example.org
+          - derzis-val07.example.org
+          - derzis-val08.example.org
+          - derzis-val09.example.org
+          - derzis-val10.example.org
+networks:
+  semweb:
