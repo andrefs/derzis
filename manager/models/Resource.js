@@ -60,6 +60,20 @@ resourceSchema.statics.addMany = async function(resources){
   return insertedDocs;
 };
 
+resourceSchema.statics.addFromTriples(triples)
+  const resources = {};
+  for (const t of triples){
+    resources[t.subject] = true;
+    resources[t.object] = true;
+  }
+
+  return await this.addMany(Object.keys(resources).map(u => ({
+    url: u,
+    domain: new URL(u).origin
+  })));
+};
+
+
 resourceSchema.statics.markAsCrawled = async function(url, details, error){
   // Resource
   const oldRes = await this.findOneAndUpdate({url, status: 'unvisited'}, {

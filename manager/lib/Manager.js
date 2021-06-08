@@ -93,7 +93,7 @@ class Manager {
                         object: t.object.value,
                       }));
     if(triples.length){
-      await this.saveResources(triples);
+      await Resource.addFromTriples(triples);
       const res = await Triple.upsertMany(sourceUrl, triples);
       if(res.upsertedCount){
         const newTriples = await Triple.find({_id: {'$in': Object.values(res.upsertedIds).map(i => ObjectId(i))}});
@@ -102,19 +102,6 @@ class Manager {
     }
   }
 
-
-  async saveResources(triples){
-    const resources = {};
-    for (const t of triples){
-      resources[t.subject] = true;
-      resources[t.object] = true;
-    }
-
-    return await Resource.addMany(Object.keys(resources).map(u => ({
-      url: u,
-      domain: new URL(u).origin
-    })));
-  }
 
   async updatePaths(sourceUrl, triples){
     const query = {'head.url': sourceUrl, status: 'active'};
