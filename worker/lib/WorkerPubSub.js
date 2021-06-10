@@ -85,7 +85,7 @@ class WorkerPubSub {
       }
       if(payload.type === 'jobTimeout'){
         if(this.w.currentJobs.domainCrawl[payload.data.domain]){
-          this.w.jobsTimedout[payload.data.domain];
+          this.w.jobsTimedout[payload.data.domain] = true;
         }
       }
       if(payload.type === 'doJob'){

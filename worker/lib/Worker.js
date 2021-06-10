@@ -89,9 +89,10 @@ class Worker extends EventEmitter {
     delay = setupDelay(domain.crawl.delay*1.1); // add 10% margin
 
     for(const r of resources){
-      if(this.jobsTimedout[domain]){
-        delete this.jobsTimedout[domain];
-        log.warn(`Stopping domain ${domain} because Manager removed job`);
+      if(this.jobsTimedout[domain.origin]){
+        delete this.jobsTimedout[domain.origin];
+        delete this.currentJobs.domainCrawl[domain.origin];
+        log.warn(`Stopping domain ${domain.origin} because Manager removed job`);
         break;
       }
       this.crawlCounter++;
