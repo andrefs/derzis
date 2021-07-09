@@ -19,7 +19,7 @@ be executed without using containers.
 * Edit `data/seeds.txt` and add the IRIs for the seed resources.
 * Edit `common/config.js`, `worker/config.js` or `manager/config.js`
   to modify the crawler parameters.
-* Run `docker-compose up`.
+* Run `docker-compose up --build`.
 
 ### Locally
 
