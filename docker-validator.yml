@@ -9,6 +9,9 @@ services:
       - type: bind
         source: ./validator/seeds.txt
         target: /data/seeds.txt
+    environment:
+      MAX_PATH_LENGTH: 2
+      MAX_PATH_PROPS: 1
   validator:
     build:
       context: ./
