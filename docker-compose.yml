@@ -8,10 +8,15 @@ services:
     #scale: 3
     depends_on:
       - pubsub
+      - cache
     networks:
       - pubsub
+      - cache
     environment:
       REDIS_HOST: pubsub
+      GLOBAL_AGENT_HTTP_PROXY: 'http://cache:3128'
+      #http_proxy: 'cache:3128'
+      #https_proxy: 'cache:3128'
     restart: unless-stopped
   pubsub:
     image: redis
@@ -40,8 +45,28 @@ services:
       - type: bind
         source: ./data/export
         target: /data/export
+<<<<<<< HEAD
     ports:
       - "3000:3000"
+=======
+  #  cache:
+  #    image: datadog/squid
+  #    networks:
+  #      - cache
+  #    volumes:
+  #      - type: bind
+  #        source: ./logs/squid
+  #        target: /var/log/squid
+  cache:
+    image: salrashid123/squidproxy
+    command: /apps/squid/sbin/squid -NsY -f /apps/squid.conf.intercept
+    networks:
+      - cache
+    volumes:
+      - type: bind
+        source: ./logs/squid
+        target: /apps/squid/var/logs
+>>>>>>> 7089fd3 (Replace axios with got)
   db:
     image: mongo
     restart: unless-stopped
@@ -66,3 +91,4 @@ services:
 networks:
   database:
   pubsub:
+  cache:

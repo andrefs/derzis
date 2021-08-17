@@ -2,8 +2,9 @@ const Promise = require('bluebird');
 const robotsParser = require('robots-parser');
 const EventEmitter = require('events');
 const config = require('../config');
-const Axios = require('./axios');
-let axios;
+//const Axios = require('./axios');
+//let axios;
+const got = require('./got');
 const contentType = require('content-type');
 const parseRdf = require('./parse-rdf');
 const logger = require('../../common/lib/logger');
@@ -31,7 +32,7 @@ class Worker extends EventEmitter {
     this.wId = uuidv4();
     this.wShortId = this.wId.replace(/-.*$/, '');
     log = logger(this.wShortId);
-    axios = Axios(log);
+    //axios = Axios(log);
     this.jobCapacity = config.jobs;
     this.currentJobs = {domainCrawl: {}, robotsCheck: {}};
     this.accept = acceptedMimeTypes
@@ -155,12 +156,13 @@ class Worker extends EventEmitter {
       this.emit('httpDebug', {wId: this.wId, type: 'request', url, ts: new Date(), domain: new URL(url).origin});
       const opts = {
         headers,
-        // prevent axios of parsing [ld+]json
-        transformResponse: x => x,
+        //// prevent axios of parsing [ld+]json
+        //transformResponse: x => x,
         timeout,
         maxRedirects
       };
-      const resp = await axios.get(url, opts);
+      //const resp = await axios.get(url, opts);
+      const resp = await got(url, opts);
       const mime = contentType.parse(resp.headers['content-type']).type;
       if(!acceptedMimeTypes.some(aMT => mime === aMT)){
         const newUrl = findRedirectUrl(resp);
@@ -168,7 +170,7 @@ class Worker extends EventEmitter {
         if(redirect >= maxRedirects){ throw new TooManyRedirectsError(url); } // TODO list of redirect URLs?
         return this.makeHttpRequest(newUrl, redirect+1);
       }
-      return {rdf: resp.data, ts: resp.headers['request-endTime'], mime};
+      return {rdf: resp.body, ts: resp.timings.upload, mime};
     }
     catch(err) { handleHttpError(url, err); }
   }
@@ -206,16 +208,19 @@ const fetchRobots = async url => {
   const timeout = config.http.robotsCheck.timeout || 10*1000;
   const maxRedirects = config.http.robotsCheck.maxRedirects || 5;
   const headers = {'User-Agent': config.http.userAgent};
-  return axios.get(url, {headers, timeout, maxRedirects})
-    .then(resp => ({
-      details: {
-        endTime: resp.headers['request-endTime'],
-        elapsedTime: resp.headers['request-duration'],
-        robots: resp.data,
-        status: resp.status,
-      },
-      ok: true
-    }))
+  return got(url, {headers, timeout, maxRedirects})
+    .then(resp => {
+      const timings = resp.timings;
+      return {
+        details: {
+          endTime: timings.end,
+          elapsedTime: (timings.end || timings.error || timings.abort) - timings.start,
+          robots: resp.body,
+          status: resp.status,
+        },
+        ok: true
+      };
+    })
     .catch(err => handleHttpError(url, err));
 };
 
@@ -238,7 +243,7 @@ const findRedirectUrl = resp => {
   // html
   const mime = contentType.parse(resp.headers['content-type']).type;
   if(mime === 'text/html'){
-    const $ = cheerio.load(resp.data);
+    const $ = cheerio.load(resp.body);
     for(const mime of config.http.acceptedMimeTypes){
       // <link> tags
       const link = $(`link[rel="alternate"][type="${mime}"]`);

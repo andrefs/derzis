@@ -10,11 +10,12 @@
     "test": "mocha 'tests/**test.js'"
   },
   "dependencies": {
-    "axios": "^0.21.1",
     "bluebird": "^3.7.2",
     "cheerio": "^1.0.0-rc.5",
     "colors": "^1.4.0",
     "content-type": "^1.0.4",
+    "global-agent": "^3.0.0",
+    "got": "^11.8.2",
     "http-link-header": "^1.0.3",
     "n3": "^1.8.1",
     "rdf-parse": "^1.7.0",
