@@ -15,12 +15,12 @@ const {readFile} = require('fs/promises');
 class Manager {
   constructor(){
     this.jobs = new CurrentJobs();
-    this._savingResults = {
+    this.beingSaved = {
       domainCrawl: 0,
       resourceCrawl: 0,
       robotsCheck: 0
     };
-    this._savingResultsByDomain = {};
+    this.beingSavedByDomain = {};
   }
 
   async connect(){
@@ -37,45 +37,57 @@ class Manager {
     return await Resource.insertSeeds(seeds);
   }
 
-  addToSavingResults(domain, type){
-    this._savingResults[type]++;
-    this._savingResultsByDomain[domain]++;
+  addToBeingSaved(domain, type){
+    this.beingSaved[type]++;
+    this.beingSavedByDomain[domain]++;
   };
 
-  removeFromSavingResults(domain, type){
-    this._savingResults[type]--;
-    this._savingResultsByDomain[domain]--;
+  removeFromBeingSaved(domain, type){
+    this.beingSaved[type]--;
+    this.beingSavedByDomain[domain]--;
   };
 
   async updateJobResults(data){
     if(data.jobType === 'robotsCheck'){
       if(this.jobs.deregisterJob(data.domain)){
-        this.addToSavingResults['robotsCheck'];
-        await this.saveRobots(data);
-        this.removeFromSavingResults['robotsCheck'];
+        this.addToBeingSaved['robotsCheck'];
+        try {
+          await this.saveRobots(data);
+        } catch (e) {
+        } finally {
+          this.removeFromBeingSaved['robotsCheck'];
+        }
       }
     }
     // TODO handle errors
     if(data.jobType === 'domainCrawl'){
       if(this.jobs.deregisterJob(data.domain)){
-        this.addToSavingResults['domainCrawl'];
-        await Domain.updateOne({origin: data.domain},{
-          '$set': {status: 'ready'},
-          '$unset': {workerId: ''}
-        });
-        this.removeFromSavingResults['domainCrawl'];
+        this.addToBeingSaved['domainCrawl'];
+        try {
+          await Domain.updateOne({origin: data.domain},{
+            '$set': {status: 'ready'},
+            '$unset': {workerId: ''}
+          });
+        } catch (e) {
+        } finally {
+          this.removeFromBeingSaved['domainCrawl'];
+        }
       }
       // TODO handle errors
     }
     if(data.jobType === 'resourceCrawl'){
       if(this.jobs.postponeTimeout(data.domain)){
-        this.addToSavingResults['resourceCrawl'];
-        if(data.results.ok){
-          await this.saveCrawl(data.url, data.results.details);
-        } else {
-          await Resource.markAsCrawled(data.url, data.results.details, true);
+        this.addToBeingSaved['resourceCrawl'];
+        try {
+          if(data.results.ok){
+            await this.saveCrawl(data.url, data.results.details);
+          } else {
+            await Resource.markAsCrawled(data.url, data.results.details, true);
+          }
+        } catch (e) {
+        } finally {
+          this.removeFromBeingSaved['resourceCrawl'];
         }
-        this.removeFromSavingResults['resourceCrawl'];
       }
     }
   }
@@ -274,7 +286,7 @@ class Manager {
     }
     if(!assignedCheck && !assignedCrawl && !this.jobs.count()){
       log.info('Could not find any domains to check or crawl and there are no outstanding jobs');
-      console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this._savingResults);
+      console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.beingSaved);
     }
   }
 };
