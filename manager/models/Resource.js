@@ -60,7 +60,7 @@ resourceSchema.statics.addMany = async function(resources){
   return insertedDocs;
 };
 
-resourceSchema.statics.addFromTriples(triples)
+resourceSchema.statics.addFromTriples = async function(triples){
   const resources = {};
   for (const t of triples){
     resources[t.subject] = true;

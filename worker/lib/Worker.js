@@ -47,7 +47,8 @@ class Worker extends EventEmitter {
     const curRobCheck = Object.keys(this.currentJobs.robotsCheck).length;
     const av = {
       domainCrawl: domCrawlCap - curDomCrawl,
-      robotsCheck: robCheckCap - curRobCheck
+      robotsCheck: robCheckCap - curRobCheck,
+      resourcesPerDomain: this.jobCapacity.domainCrawl.resourcesPerDomain
     };
     return av;
   }

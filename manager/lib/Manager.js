@@ -241,11 +241,10 @@ class Manager {
       .catch(err => log.error(err));
   }
 
-  async *domainsToCrawl(workerId, limit){
+  async *domainsToCrawl(workerId, limit, resourcesPerDomain){
     let noDomainsFound = true;
     for await(const domain of Domain.domainsToCrawl(workerId, limit)){
       noDomainsFound = false;
-      const limit = config.workers?.jobs?.domainCrawl?.resourcesPerDomain || 100;
       //const heads = await Path.find({'head.alreadyCrawled': false, 'head.domain': domain.origin})
       const heads = await Resource.find({
           domain: domain.origin,
@@ -254,7 +253,7 @@ class Manager {
         })
         .sort('-headCount')
         .select('url')
-        .limit(limit)
+        .limit(resourcesPerDomain || 10)
         .lean();
       yield {domain, resources: heads};
     }
@@ -275,7 +274,7 @@ class Manager {
       }
     }
     if(workerAvail.domainCrawl){
-      for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl)){
+      for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl, workerAvail.resourcesPerDomain)){
         if(crawl?.resources?.length && this.jobs.registerJob(crawl.domain.origin, 'domainCrawl')){
           assignedCrawl++;
           yield {jobType: 'domainCrawl', ...crawl};
