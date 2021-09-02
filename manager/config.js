@@ -11,12 +11,11 @@ let config = {
     name: secrets.get('MONGODB_NAME') || process.env.MONGODB_NAME || 'derzis-dev',
     user: secrets.get('MONGODB_USER') || process.env.MONGODB_USER || undefined,
     pass: secrets.get('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,
-    //uri: 'mongodb://localhost:27017/derzis-dev'
     //debug: true
   },
   graph: {
     maxPathLength: secrets.get('MAX_PATH_LENGTH') || process.env.MAX_PATH_LENGTH || 3,
-    maxPathProps: secrets.get('MAX_PATH_PROPS') || process.env.MAX_PATH_PROPS || 3
+    maxPathProps: secrets.get('MAX_PATH_PROPS') || process.env.MAX_PATH_PROPS || 1
   }
 };
 

@@ -1,6 +1,6 @@
 {
   "name": "derzis-common",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Derzis: a Linked Data crawler",
   "main": "index.js",
   "author": "André Santos <andrefs@andrefs.com>",

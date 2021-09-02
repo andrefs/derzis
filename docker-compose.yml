@@ -12,14 +12,17 @@ services:
       - pubsub
     environment:
       REDIS_HOST: pubsub
+    restart: unless-stopped
   pubsub:
     image: redis
     networks:
       - pubsub
+    restart: unless-stopped
   manager:
     build:
       context: ./
       dockerfile: ./Dockerfile.manager
+    restart: unless-stopped
     depends_on:
       - pubsub
       - db
@@ -40,7 +43,7 @@ services:
         target: /data/export
   db:
     image: mongo
-    restart: always
+    restart: unless-stopped
       #environment:
       #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
       #  MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGODB_PASS

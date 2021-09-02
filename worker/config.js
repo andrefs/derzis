@@ -21,7 +21,7 @@ let config = {
       timeouts: 10*1000,
       maxRedirects: 5
     },
-    userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.0.2',
+    userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.1.0',
     acceptedMimeTypes: [
       'text/turtle',
       'application/trig',
