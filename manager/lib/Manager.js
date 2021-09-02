@@ -18,9 +18,14 @@ class Manager {
     this.beingSaved = {
       domainCrawl: 0,
       resourceCrawl: 0,
-      robotsCheck: 0
+      robotsCheck: 0,
+      count: () => {
+        const bs = this.beingSaved;
+        return bs.domainCrawl + bs.resourceCrawl + bs.robotsCheck
+      }
     };
     this.beingSavedByDomain = {};
+    this.finished = 0;
   }
 
   async connect(){
@@ -48,34 +53,43 @@ class Manager {
   };
 
   async updateJobResults(data){
+    log.debug('updateJobResults', this.finished, this.jobs.toString(), this.beingSaved);
+    this.finished = 0;
+    if(!this.jobs.isJobRegistered(data.domain)){
+      //log.error(`Something went wrong: cannot update job results for ${data.domain} (no such job registered)`);
+      return;
+    }
     if(data.jobType === 'robotsCheck'){
-      if(this.jobs.deregisterJob(data.domain)){
-        this.addToBeingSaved['robotsCheck'];
-        try {
-          await this.saveRobots(data);
-        } catch (e) {
-        } finally {
-          this.removeFromBeingSaved['robotsCheck'];
-        }
+      log.info(`Saving robots data for ${data.domain}`);
+      this.addToBeingSaved['robotsCheck'];
+      try {
+        await this.saveRobots(data);
+      } catch (e) {
+        // TODO handle errors
+      } finally {
+        this.removeFromBeingSaved['robotsCheck'];
+        this.jobs.deregisterJob(data.domain);
+        log.debug(`Done saving robots data for ${data.domain}`);
       }
     }
-    // TODO handle errors
     if(data.jobType === 'domainCrawl'){
-      if(this.jobs.deregisterJob(data.domain)){
-        this.addToBeingSaved['domainCrawl'];
-        try {
-          await Domain.updateOne({origin: data.domain},{
-            '$set': {status: 'ready'},
-            '$unset': {workerId: ''}
-          });
-        } catch (e) {
-        } finally {
-          this.removeFromBeingSaved['domainCrawl'];
-        }
+      log.info(`Saving domain crawl for ${data.domain}`);
+      this.addToBeingSaved['domainCrawl'];
+      try {
+        await Domain.updateOne({origin: data.domain},{
+          '$set': {status: 'ready'},
+          '$unset': {workerId: ''}
+        });
+      } catch (e) {
+        // TODO handle errors
+      } finally {
+        this.removeFromBeingSaved['domainCrawl'];
+        this.jobs.deregisterJob(data.domain);
+        log.debug(`Done saving domain crawl for ${data.domain}`);
       }
-      // TODO handle errors
     }
     if(data.jobType === 'resourceCrawl'){
+      log.info(`Saving resource crawl for domain ${data.domain}: ${data.url}`);
       if(this.jobs.postponeTimeout(data.domain)){
         this.addToBeingSaved['resourceCrawl'];
         try {
@@ -85,8 +99,10 @@ class Manager {
             await Resource.markAsCrawled(data.url, data.results.details, true);
           }
         } catch (e) {
+          // TODO handle errors
         } finally {
           this.removeFromBeingSaved['resourceCrawl'];
+          log.debug(`Done saving resource crawl for domain ${data.domain}: ${data.url}`);
         }
       }
     }
@@ -112,6 +128,7 @@ class Manager {
         await this.updatePaths(sourceUrl, newTriples);
       }
     }
+    return;
   }
 
 
@@ -263,9 +280,14 @@ class Manager {
   }
 
   async *assignJobs(workerId, workerAvail){
+    log.debug('assignJobs');
+    if(this.beingSaved.count() > 2){
+      console.warn('Too many jobs being saved, waiting for them to reduce before assigning new jobs');
+    }
     let assignedCheck = 0;
     let assignedCrawl = 0;
     if(workerAvail.robotsCheck){
+      log.debug(`Getting ${workerAvail.robotsCheck} robotsCheck jobs for ${workerId}`);
       for await(const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck)){
         if(this.jobs.registerJob(check.origin, 'robotsCheck')){
           assignedCheck++;
@@ -274,18 +296,22 @@ class Manager {
       }
     }
     if(workerAvail.domainCrawl){
+      log.debug(`Getting ${workerAvail.domainCrawl} domainCrawl jobs for ${workerId}`);
       for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl, workerAvail.resourcesPerDomain)){
         if(crawl?.resources?.length && this.jobs.registerJob(crawl.domain.origin, 'domainCrawl')){
           assignedCrawl++;
           yield {jobType: 'domainCrawl', ...crawl};
         } else {
-          //log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
+          log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
         }
       }
     }
-    if(!assignedCheck && !assignedCrawl && !this.jobs.count()){
+    if(!assignedCheck && !assignedCrawl && !this.jobs.count() && !this.beingSaved.count()){
       log.info('Could not find any domains to check or crawl and there are no outstanding jobs');
-      console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.beingSaved);
+      this.finished++;
+    }
+    if(this.finished > 20){
+      console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.finished, workerAvail, assignedCheck, assignedCrawl, this.jobs.count(), this.beingSaved.count());
     }
   }
 };

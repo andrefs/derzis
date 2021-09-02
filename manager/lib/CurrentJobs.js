@@ -11,13 +11,23 @@ class CurrentJobs extends EventEmitter {
     this._jobs = {};
   }
 
-  deregisterJob(domain){
+  toString(){
+    return Object.keys(this._jobs).join(', ');
+  }
+
+  isJobRegistered(domain){
     if(!this._jobs[domain]){
       log.error(`No job for ${domain} found in current jobs list`);
       return false;
     }
-    this.removeJob(domain, 'deregister');
     return true;
+  }
+
+  deregisterJob(domain){
+    if(this._jobs[domain]){
+      clearTimeout(this._jobs[domain]);
+      delete this._jobs[domain];
+    }
   }
 
   postponeTimeout(domain){
@@ -26,7 +36,7 @@ class CurrentJobs extends EventEmitter {
       return false;
     }
     clearTimeout(this._jobs[domain]);
-    const timeout = 2*config.http.domainCrawl.timeouts;
+    const timeout = 3*config.http.domainCrawl.timeouts;
     const ts = new Date();
     this._jobs[domain] = setTimeout(() => this.cancelJob(domain, 'domainCrawl', timeout, ts), timeout);
     return true;
@@ -36,8 +46,7 @@ class CurrentJobs extends EventEmitter {
     log.info(`Cleaning outstanding jobs`);
     if(Object.keys(this._jobs).length){
       for(const j in this._jobs){
-        clearTimeout(j);
-        delete this._jobs[j]
+        this.deregisterJob(j);
       }
     }
     await Domain.updateMany({'robots.status': 'checking'}, {'$set': {
@@ -52,33 +61,26 @@ class CurrentJobs extends EventEmitter {
     return;
   }
 
-  async removeJob(domain, type){
+  async cancelJob(domain, jobType, timeout, ts){
     if(this._jobs[domain]){
-      clearTimeout(this._jobs[domain]);
-      delete this._jobs[domain];
+      log.warn(`Job ${jobType} for domain ${domain} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
+      this.deregisterJob(domain);
     }
-    if(type === 'cancel'){
+    if(jobType === 'robotsCheck'){
       const update = {
         status: 'unvisited',
         'robots.status': 'unvisited',
         workerId: undefined
       };
-      return await Domain.updateMany({origin: domain}, {'$set': update});
+      await Domain.updateMany({origin: domain}, {'$set': update});
     }
-    if(type === 'deregister'){
+    if(jobType === 'domainCrawl'){
       const update = {
         status: 'ready',
         workerId: undefined
       };
-      return await Domain.updateMany({origin: domain}, {'$set': update});
+      await Domain.updateMany({origin: domain}, {'$set': update});
     }
-  }
-
-  async cancelJob(domain, jobType, timeout, ts){
-    if(this._jobs[domain]){
-      log.warn(`Job ${jobType} for domain ${domain} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
-    }
-    this.removeJob(domain, 'cancel');
     this.emit('jobTimeout', domain, jobType);
   }
 
@@ -87,7 +89,7 @@ class CurrentJobs extends EventEmitter {
       log.error(`Job for domain ${domain} already being performed`);
       return false;
     } else {
-      const timeout = 2*config.http[jobType].timeouts;
+      const timeout = 3*config.http[jobType].timeouts;
       const ts = new Date();
       this._jobs[domain] = setTimeout(() => this.cancelJob(domain, jobType, timeout, ts), timeout);
       return true;

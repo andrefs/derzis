@@ -69,12 +69,12 @@ pathSchema.pre('save', async function(){
   this.head.alreadyCrawled = head && head.status && head.status !== 'unvisited';
   if(head.status === 'error'){
     this.status = 'disabled';
-    await require('./Resource').rmPath(this);
+    await Resource.rmPath(this);
     return;
   }
   if(this.nodes.count >= config.graph.maxPathLength){
     this.status = 'finished';
-    await require('./Resource').rmPath(this);
+    await Resource.rmPath(this);
     return;
   }
   this.status = 'active';
@@ -83,13 +83,17 @@ pathSchema.pre('save', async function(){
 pathSchema.methods.markDisabled = async function(){
   this.status = 'disabled';
   await this.save();
-  return require('./Resource').rmPath(this);
+  const Resource = await require('./Resource');
+  await Resource.rmPath(this);
+  return;
 };
 
 pathSchema.methods.markFinished = async function(){
   this.status = 'finished';
   await this.save();
-  return require('./Resource').rmPath(this);
+  const Resource = await require('./Resource');
+  await Resource.rmPath(this);
+  return;
 };
 
 //pathSchema.post('save', async function(doc){
