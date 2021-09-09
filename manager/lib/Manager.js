@@ -124,7 +124,8 @@ class Manager {
       await Resource.addFromTriples(triples);
       const res = await Triple.upsertMany(sourceUrl, triples);
       if(res.upsertedCount){
-        const newTriples = await Triple.find({_id: {'$in': Object.values(res.upsertedIds).map(i => ObjectId(i))}});
+        const tids = Object.values(res.upsertedIds).map(i => ObjectId(i));
+        const newTriples = await Triple.find({_id: {'$in': tids}});
         await this.updatePaths(sourceUrl, newTriples);
       }
     }
