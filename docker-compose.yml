@@ -41,6 +41,8 @@ services:
       - type: bind
         source: ./data/export
         target: /data/export
+    ports:
+      - "3000:3000"
   db:
     image: mongo
     restart: unless-stopped
