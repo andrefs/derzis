@@ -3,6 +3,11 @@
 
 const ManagerPubSub = require('../lib/ManagerPubSub');
 const mps = new ManagerPubSub();
+const webapp = require('../lib/ProcessManager');
+
+webapp.listen(3000, () => {
+  console.log('Webapp listening on port 3000');
+});
 
 
 // const fs = require('fs');

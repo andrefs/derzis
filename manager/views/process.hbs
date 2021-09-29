@@ -1,0 +1,36 @@
+<div class="container py-4">
+  <header>
+    <h2>Process <span class="fst-italic">{{process.pid}}</span></h2>
+  </header>
+  <main>
+    <div class="row">
+      <div class="col">
+        <table class="table" id="details">
+          <tbody>
+            <tr>
+              <th>Status</th>
+              <td>{{process.status}}</td>
+            </tr>
+            <tr>
+              <th>Submitted</th>
+              <td>{{process.createdAt}}</td>
+            </tr>
+            <tr>
+              <th>Last updated</th>
+              <td>{{process.updatedAt}}</td>
+            </tr>
+            <tr>
+              <th>Seeds</th>
+              <td>
+                {{#each process.seeds}}
+                <p><a href="{{this}}">{{this}}</a></p>
+                {{/each}}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+

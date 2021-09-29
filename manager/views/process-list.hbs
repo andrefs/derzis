@@ -1,0 +1,32 @@
+<div class="container py-4">
+  <header>
+    <h2>Crawling processes</h2>
+  </header>
+  <main>
+    <div class="row">
+      <div class="col">
+        <table class="table table-striped table-hover" id="processes">
+          <thead>
+            <tr>
+              <th scope="col">PID</th>
+              <!-- th scope="col">Seeds</th -->
+              <th scope="col">Status</th>
+              <th scope="col">Submitted</th>
+            </tr>
+          </thead>
+          <tbody>
+          {{#each processes}}
+            <tr>
+              <th scope="row"><a href="/processes/{{pid}}">{{pid}}</a></th>
+              <!-- td>{{join seeds ', '}}</td -->
+              <td>{{status}}</td>
+              <td>{{createdAt}}</td>
+            </tr>
+          {{/each}}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
