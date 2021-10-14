@@ -50,9 +50,14 @@ app.get('/processes/:pid', async (req, res) => {
 });
 
 app.post('/processes', async (req, res, next) => {
+  const seeds = [...new Set(req.body.seeds.split(/\s*\n\s*/))];
   const p = await Process.create({
     email: req.body.email,
-    seeds: req.body.seeds.split(/\s*\n\s*/),
+    params: {
+      maxPathLength: req.body.maxPathLength,
+      maxPathProps:  req.body.maxPathProps
+    },
+    seeds
   });
   res.redirect(303, '/processes/'+p.pid);
 });
