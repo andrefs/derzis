@@ -36,9 +36,6 @@ services:
       MAX_PATH_PROPS: "${MAX_PATH_PROPS}"
     volumes:
       - type: bind
-        source: ./data/seeds.txt
-        target: /data/seeds.txt
-      - type: bind
         source: ./data/export
         target: /data/export
     ports:

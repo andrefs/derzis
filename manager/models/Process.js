@@ -12,6 +12,10 @@ const processSchema = new mongoose.Schema({
   seeds: [{
     type: String
   }],
+  params: {
+    maxPathLength: Number,
+    maxPathProps: Number
+  },
   status: {
     type: String,
     enum: ['queued', 'running', 'done', 'error'],
