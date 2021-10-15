@@ -46,16 +46,21 @@ app.get('/processes/:pid', async (req, res) => {
   const p = await Process.findOne({pid: req.params.pid}).lean();
   p.createdAt = p.createdAt?.toISOString();
   p.updatedAt = p.updateAt?.toISOString() || p.createdAt;
-  res.render('process', {process: p});
+  p.notification.email = p.notification.email.replace(/(?<=.).*?(?=.@)/, x => '*'.repeat(x.length))
+  const host = req.protocol + '://' + req.get('host');
+  res.render('process', {process: p, host});
 });
 
 app.post('/processes', async (req, res, next) => {
-  const seeds = [...new Set(req.body.seeds.split(/\s*\n\s*/))];
+  const seeds = [...new Set(req.body.seeds.split(/\s*[\n,]\s*/))];
   const p = await Process.create({
-    email: req.body.email,
     params: {
       maxPathLength: req.body.maxPathLength,
       maxPathProps:  req.body.maxPathProps
+    },
+    notification: {
+      email: req.body.email,
+      webhook: req.body.webhook
     },
     seeds
   });
