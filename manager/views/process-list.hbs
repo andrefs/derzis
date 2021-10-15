@@ -21,9 +21,9 @@
             <tr>
               <th scope="row"><a href="/processes/{{pid}}">{{pid}}</a></th>
               <!-- td>{{join seeds ', '}}</td -->
-              <td>{{params.maxPathLength}}</td>
-              <td>{{params.maxPathProps}}</td>
-              <td>{{status}}</td>
+              <td class="text-center">{{params.maxPathLength}}</td>
+              <td class="text-center">{{params.maxPathProps}}</td>
+              <td><span class="badge bg-primary">{{status}}</span></td>
               <td>{{createdAt}}</td>
             </tr>
           {{/each}}

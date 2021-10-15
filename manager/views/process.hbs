@@ -5,6 +5,7 @@
   <main>
     <div class="row">
       <div class="col">
+        <h3>Details</h3>
         <table class="table" id="details">
           <tbody>
             <tr>
@@ -34,6 +35,24 @@
                 <p><a href="{{this}}">{{this}}</a></p>
                 {{/each}}
               </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Notifications</h3>
+        <table class="table" id="notification">
+          <tbody>
+            <tr>
+              <th>Email</th>
+              <td>{{process.notification.email}}</td>
+            </tr>
+            <tr>
+              <th>Webhook</th>
+              <td>{{host}}/{{process.notification.webhook}}</td>
+            </tr>
+            <tr>
+              <th>Server-sent events URL</th>
+              <td><a href="{{process.notification.ssePath}}">{{process.notification.ssePath}}</a></td>
             </tr>
           </tbody>
         </table>

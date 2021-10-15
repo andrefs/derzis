@@ -7,16 +7,6 @@
       <div class="col">
         <form action="/processes" method="POST" >
           <div class="form-group row">
-            <label for="email" class="col-form-label col-sm-2">Email:</label>
-            <div class="col-sm-6">
-              <div class="input-group">
-                <input type="text" class="form-control" id="email" name="email" aria-describedby="emailHelp">
-                <span class="input-group-text" data-bs-toggle="tooltip" data-bs-placement="top" title="We'll only send you 3 emails: confirming your process has been added; when your process starts; and when your process finishes. No SPAM">?</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group row">
             <label for="seeds" class="col-form-label col-sm-2">Seeds:</label>
             <div class="col-sm-6">
               <div class="input-group">
@@ -31,13 +21,32 @@
               <div class="col-sm-2">
                 <input class="form-control col-sm-2" type="number" name="maxPathLength" id="maxPathLength" min="1" max="5" step="1" value="3">
               </div>
-          </div>
-
-          <div class="form-group row">
               <label for="maxPathProps" class="col-form-label col-sm-2">Max props:</label>
               <div class="col-sm-2">
                 <input class="form-control col-sm-2" type="number" name="maxPathProps" id="maxPathProps" min="1" max="5" step="1" value="2">
               </div>
+          </div>
+
+          <h3>Notification options</h3>
+
+          <div class="form-group row">
+            <label for="email" class="col-form-label col-sm-2">Email:</label>
+            <div class="col-sm-6">
+              <div class="input-group">
+                <input type="text" class="form-control" id="email" name="email" aria-describedby="emailHelp">
+                <span class="input-group-text" data-bs-toggle="tooltip" data-bs-placement="top" title="We'll only send you 3 emails: confirming your process has been added; when your process starts; and when your process finishes. No SPAM">?</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group row">
+            <label for="webhook" class="col-form-label col-sm-2">Webhook:</label>
+            <div class="col-sm-6">
+              <div class="input-group">
+                <input type="text" class="form-control" id="webhook" name="webhook" aria-describedby="hookHelp">
+                <span class="input-group-text" data-bs-toggle="tooltip" data-bs-placement="top" title="An HTTP callback which can be used to send notifications when the status of this process changes.">?</span>
+              </div>
+            </div>
           </div>
 
           <div class="form-group row">
@@ -45,6 +54,8 @@
               <button type="submit" class="btn btn-primary mb-3">Submit</button>
             </div>
           </div>
+
+
         </form>
       </div>
     </div>
