@@ -18,6 +18,7 @@
     "mongoose-type-url": "^2.1.0",
     "redis": "^3.0.2",
     "robots-parser": "^2.2.0",
+    "swagger-ui-express": "^4.1.6",
     "winston": "^3.3.3"
   },
   "devDependencies": {
