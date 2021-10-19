@@ -10,12 +10,17 @@
   <div class="collapse navbar-collapse" id="navbarsExample03">
     <ul class="navbar-nav mr-auto">
       <li class="nav-item">
-      <a class="nav-link{{#ifEquals page_name 'processes'}} active{{/ifEquals}}" href="/processes">
-        <i class="bi bi-card-list"></i> Processes</span>
-    </a>
+        <a class="nav-link{{#ifEquals page_name 'processes'}} active{{/ifEquals}}" href="/processes">
+          <i class="bi bi-card-list"></i> Processes</span>
+        </a>
       </li>
       <li class="nav-item">
-      <a class="nav-link{{#ifEquals page_name 'add_new'}} active{{/ifEquals}}" href="/processes/new"><i class="bi bi-plus-square"></i> Add new</a>
+      <a class="nav-link{{#ifEquals page_name 'add_new'}} active{{/ifEquals}}" href="/processes/new">
+        <i class="bi bi-plus-square"></i> Add new</a>
+      </li>
+      <li class="nav-item">
+      <a class="nav-link" href="/api-docs" target="_blank">
+        <i class="bi bi-book-half"></i> Documentation</a>
       </li>
     </ul>
   </div>

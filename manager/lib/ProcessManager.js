@@ -3,6 +3,8 @@ const express = require('express');
 const exphbs  = require('express-handlebars');
 const path = require('path');
 //const { v4: uuidv4 } = require('uuid');
+const swaggerUi = require('swagger-ui-express');
+const docs = require('../docs');
 
 
 
@@ -26,6 +28,8 @@ app.set('view engine', '.hbs');
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(docs));
+
 //app.use(bodyParser.json());
 app.use(express.urlencoded({
   extended: true
@@ -46,7 +50,9 @@ app.get('/processes/:pid', async (req, res) => {
   const p = await Process.findOne({pid: req.params.pid}).lean();
   p.createdAt = p.createdAt?.toISOString();
   p.updatedAt = p.updateAt?.toISOString() || p.createdAt;
-  p.notification.email = p.notification.email.replace(/(?<=.).*?(?=.@)/, x => '*'.repeat(x.length))
+  p.notification.email = p.notification.email
+                            .replace(/(?<=.).*?(?=.@)/, x => '*'.repeat(x.length))
+                            .replace(/^..(?=@)/, '**');
   const host = req.protocol + '://' + req.get('host');
   res.render('process', {process: p, host});
 });
