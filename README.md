@@ -1,4 +1,5 @@
 # derzis-crawler
+<img src="https://icons.getbootstrap.com/assets/icons/cloud-lightning.svg"  width="100" height="100">
 
 A path-aware distributed linked data crawler.
 
