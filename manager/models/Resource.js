@@ -5,6 +5,7 @@ const Domain = require('./Domain');
 const Path = require('./Path');
 const log = require('../../common/lib/logger')('Resource');
 const Schema = mongoose.Schema;
+const Process = require('./Process');
 
 
 const resourceSchema = new mongoose.Schema({
@@ -35,9 +36,16 @@ const resourceSchema = new mongoose.Schema({
   crawlId: {
     domainTs: Schema.Types.Date,
     counter: Number
-  }
+  },
+  processIds: [String]
 }, {timestamps: true});
 
+resourceSchema.virtual('process', {
+  ref: 'Process',
+  localField: 'processIds',
+  foreignField: 'pid',
+  justOne: false
+});
 
 resourceSchema.statics.addMany = async function(resources){
   let insertedDocs = [];
@@ -111,29 +119,32 @@ resourceSchema.statics.markAsCrawled = async function(url, details, error){
   };
 };
 
-resourceSchema.statics.insertSeeds = async function(urls){
-  // const pathCount = await Path.estimatedDocumentCount();
-  // if(pathCount){
-  //   log.error(`Cannot start from the beginning, ${pathCount} paths already found`);
-  //   return;
-  // }
 
-  const seeds = urls.map(u => ({
-    isSeed: true,
-    url: u,
-    domain: new URL(u).origin
+resourceSchema.statics.insertSeeds = async function(urls, pid){
+  const upserts = urls.map(u => ({
+    updateOne: {
+      filter: {url: u},
+      update:{
+        $set:{isSeed: true},
+        $setOnInsert: {
+          url: u,
+          domain: new URL(u).origin,
+          pid
+        },
+        $push: {processIds: pid}
+      },
+      upsert: true,
+      setDefaultsOnInsert: true
+    }
   }));
 
-  const insResources = await this.addMany(seeds);
-  if(!insResources.length){
-    log.warn('Seed resources already in database', insResources);
-    return;
-  }
+  const res = await this.bulkWrite(upserts);
+  await Domain.upsertMany(urls.map(u => new URL(u).origin));
 
-  const paths = seeds.map(s => ({
-    seed: {url: s.url},
-    head: {url: s.url},
-    nodes: {elems: [s.url]},
+  const paths = urls.map(u => ({
+    seed: {url: u},
+    head: {url: u},
+    nodes: {elems: [u]},
     predicates: {elems: []},
     status: 'active'
   }));

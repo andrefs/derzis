@@ -3,6 +3,7 @@ const express = require('express');
 const exphbs  = require('express-handlebars');
 const path = require('path');
 //const { v4: uuidv4 } = require('uuid');
+const log = require('../../common/lib/logger')('Manager');
 const swaggerUi = require('swagger-ui-express');
 const docs = require('../docs');
 
@@ -58,6 +59,8 @@ app.get('/processes/:pid', async (req, res) => {
 });
 
 app.post('/processes', async (req, res, next) => {
+  log.debug('', req.body); 
+  log.debug('', req.body.seeds); 
   const seeds = [...new Set(req.body.seeds.split(/\s*[\n,]\s*/))];
   const p = await Process.create({
     params: {
