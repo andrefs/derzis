@@ -5,6 +5,7 @@ const Domain = require('../models/Domain');
 const Triple = require('../models/Triple');
 const Path = require('../models/Path');
 const Resource = require('../models/Resource');
+const Process = require('../models/Process');
 const log = require('../../common/lib/logger')('Manager');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
@@ -30,16 +31,18 @@ class Manager {
 
   async connect(){
     await db.connect();
-    return this.insertSeeds();
   }
 
-  async insertSeeds(){
-    const text = await readFile(config.seeds.file);
-    const seeds = text.toString()
-                      .split(/\n+/)
-                      .filter(x => !/^\s*$/.test(x))
-                      .filter(x => !/^\s*#/.test(x));
-    return await Resource.insertSeeds(seeds);
+  // TODO configurable number of simultaneous processes
+  async startNewProcess(){
+    const runningProcs = await Process.countDocuments({status: {$ne: 'queued'}});
+    if(!runningProcs){
+      log.info('No processes running yet, starting a new one');
+      const process = await Process.findOneAndUpdate({status:'queued'}, {$set: {status: 'running'}}, {new: true});
+      if(process){
+        await Resource.insertSeeds(process.seeds, process.pid);
+      }
+    }
   }
 
   addToBeingSaved(domain, type){
@@ -311,8 +314,11 @@ class Manager {
       log.info('Could not find any domains to check or crawl and there are no outstanding jobs');
       this.finished++;
     }
-    if(this.finished > 20){
-      console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.finished, workerAvail, assignedCheck, assignedCrawl, this.jobs.count(), this.beingSaved.count());
+    //FIXME
+    if(this.finished > 5){
+      log.info('No current processes running, starting new process');
+      this.startNewProcess();
+      //console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.finished, workerAvail, assignedCheck, assignedCrawl, this.jobs.count(), this.beingSaved.count());
     }
   }
 };

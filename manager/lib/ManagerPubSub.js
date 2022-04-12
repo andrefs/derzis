@@ -24,6 +24,7 @@ class ManagerPubSub {
     await this._m.connect();
     await this._m.jobs.cleanJobs();
     await this.connect();
+    //await this._m.startNewProcess();
     this.askCurrentCapacity();
   }
 
