@@ -16,6 +16,7 @@
     "express-handlebars": "^5.3.4",
     "mongoose": "^5.11.15",
     "mongoose-type-url": "^2.1.0",
+    "morgan": "1.10.0",
     "redis": "^3.0.2",
     "robots-parser": "^2.2.0",
     "swagger-ui-express": "^4.1.6",

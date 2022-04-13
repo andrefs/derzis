@@ -6,10 +6,12 @@ const path = require('path');
 const log = require('../../common/lib/logger')('Manager');
 const swaggerUi = require('swagger-ui-express');
 const docs = require('../docs');
+const morganMiddleware = require('./morganMiddleware');
 
 
 
 const app = express();
+app.use(morganMiddleware);
 
 const hbs = exphbs.create({
   helpers: {
@@ -59,9 +61,10 @@ app.get('/processes/:pid', async (req, res) => {
 });
 
 app.post('/processes', async (req, res, next) => {
-  log.debug('', req.body); 
-  log.debug('', req.body.seeds); 
-  const seeds = [...new Set(req.body.seeds.split(/\s*[\n,]\s*/))];
+  const seeds = req.body.seeds
+                      .flatMap(s => s.split(/\s*[\n,]\s*/))
+                      .filter(s => !s.match(/^\s*$/));
+  const uniqueSeeds = [...new Set(seeds)];
   const p = await Process.create({
     params: {
       maxPathLength: req.body.maxPathLength,
@@ -71,7 +74,7 @@ app.post('/processes', async (req, res, next) => {
       email: req.body.email,
       webhook: req.body.webhook
     },
-    seeds
+    seeds: uniqueSeeds
   });
   res.redirect(303, '/processes/'+p.pid);
 });
