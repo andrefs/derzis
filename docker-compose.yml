@@ -18,6 +18,8 @@ services:
     networks:
       - pubsub
     restart: unless-stopped
+    ports:
+      - "6378:6379"
   manager:
     build:
       context: ./

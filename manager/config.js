@@ -7,7 +7,7 @@ let config = {
   },
   db: {
     host: secrets.get('MONGODB_HOST') || process.env.MONGODB_HOST || 'localhost',
-    port: secrets.get('MONGODB_PORT') || process.env.MONGODB_PORT || '27017',
+    port: secrets.get('MONGODB_PORT') || process.env.MONGODB_PORT || '27018',
     name: secrets.get('MONGODB_NAME') || process.env.MONGODB_NAME || 'derzis-dev',
     user: secrets.get('MONGODB_USER') || process.env.MONGODB_USER || undefined,
     pass: secrets.get('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,

@@ -5,7 +5,7 @@ require('dotenv').config();
 let commonConf = {
   pubsub: {
     //debug: true,
-    port: secrets.get('REDIS_PORT') || process.env.REDIS_PORT || 6379,
+    port: secrets.get('REDIS_PORT') || process.env.REDIS_PORT || 6378,
     host: secrets.get('REDIS_HOST') || process.env.REDIS_HOST || 'localhost',
     manager: {
       from: 'derzis:fromManager'
