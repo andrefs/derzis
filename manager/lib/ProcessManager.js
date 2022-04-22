@@ -3,10 +3,10 @@ const express = require('express');
 const exphbs  = require('express-handlebars');
 const path = require('path');
 //const { v4: uuidv4 } = require('uuid');
-const log = require('../../common/lib/logger')('Manager');
 const swaggerUi = require('swagger-ui-express');
 const docs = require('../docs');
 const morganMiddleware = require('./morganMiddleware');
+const stream = require('stream');
 
 
 
@@ -77,6 +77,21 @@ app.post('/processes', async (req, res, next) => {
     seeds: uniqueSeeds
   });
   res.redirect(303, '/processes/'+p.pid);
+});
+
+app.get('/processes/:pid/triples', async (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.write('[\n')
+  const p = await Process.findOne({pid: req.params.pid});
+  const iter = await p.getTriplesJson();
+  const readable = stream.Readable.from(iter, {encoding: 'utf8'});
+  const transform = new stream.Transform({
+    transform: (triple, encoding, callback) => {
+      callback(null, '  '+triple+',\n')
+    }
+  });
+  readable.pipe(transform).pipe(res, {end: false});
+  readable.on('end', () => res.write('\n]'));
 });
 
 

@@ -58,16 +58,16 @@ pathSchema.index({
 
 
 pathSchema.pre('save', async function(){
-  const Resource = await require('./Resource');
+  const Resource = require('./Resource');
   this.nodes.count = this.nodes.elems.length;
   this.predicates.count = this.predicates.elems.length;
   if(this.predicates.count){
     this.lastPredicate = this.predicates.elems[this.predicates.count-1];
   }
   this.head.domain = new URL(this.head.url).origin;
-  const head = Resource.findOne({url: this.head.url});
-  this.head.alreadyCrawled = head && head.status && head.status !== 'unvisited';
-  if(head.status === 'error'){
+  const head = await Resource.findOne({url: this.head.url});
+  this.head.alreadyCrawled = head?.status !== 'unvisited';
+  if(head?.status === 'error'){
     this.status = 'disabled';
     await Resource.rmPath(this);
     return;
@@ -83,7 +83,7 @@ pathSchema.pre('save', async function(){
 pathSchema.methods.markDisabled = async function(){
   this.status = 'disabled';
   await this.save();
-  const Resource = await require('./Resource');
+  const Resource = require('./Resource');
   await Resource.rmPath(this);
   return;
 };
@@ -91,7 +91,7 @@ pathSchema.methods.markDisabled = async function(){
 pathSchema.methods.markFinished = async function(){
   this.status = 'finished';
   await this.save();
-  const Resource = await require('./Resource');
+  const Resource = require('./Resource');
   await Resource.rmPath(this);
   return;
 };
