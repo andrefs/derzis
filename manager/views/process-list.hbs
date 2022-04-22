@@ -17,16 +17,22 @@
             </tr>
           </thead>
           <tbody>
-          {{#each processes}}
+          {{#if processes.length}}
+            {{#each processes}}
+              <tr>
+                <th scope="row"><a href="/processes/{{pid}}">{{pid}}</a></th>
+                <!-- td>{{join seeds ', '}}</td -->
+                <td class="text-center">{{params.maxPathLength}}</td>
+                <td class="text-center">{{params.maxPathProps}}</td>
+                <td><span class="badge bg-primary">{{status}}</span></td>
+                <td>{{createdAt}}</td>
+              </tr>
+            {{/each}}
+          {{else}}
             <tr>
-              <th scope="row"><a href="/processes/{{pid}}">{{pid}}</a></th>
-              <!-- td>{{join seeds ', '}}</td -->
-              <td class="text-center">{{params.maxPathLength}}</td>
-              <td class="text-center">{{params.maxPathProps}}</td>
-              <td><span class="badge bg-primary">{{status}}</span></td>
-              <td>{{createdAt}}</td>
+              <td class="text-center" colspan="5">Oops, there are no processes yet! <a href="/processes/new">Add a new one</a></td>
             </tr>
-          {{/each}}
+          {{/if}}
           </tbody>
         </table>
       </div>

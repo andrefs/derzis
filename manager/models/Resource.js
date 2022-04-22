@@ -5,7 +5,6 @@ const Domain = require('./Domain');
 const Path = require('./Path');
 const log = require('../../common/lib/logger')('Resource');
 const Schema = mongoose.Schema;
-const Process = require('./Process');
 
 
 const resourceSchema = new mongoose.Schema({
