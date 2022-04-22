@@ -270,6 +270,7 @@ class Manager {
       const heads = await Resource.find({
           domain: domain.origin,
           status: 'unvisited',
+          minPathLength: {'$lt': config.graph.maxPathLength},
           headCount: {'$gt': 0}
         })
         .sort('-headCount')
