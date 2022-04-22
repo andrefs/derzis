@@ -28,6 +28,7 @@ const resourceSchema = new mongoose.Schema({
     type: ObjectId,
     ref: 'Path'
   }],
+  minPathLength: Number,
   headCount: {
     type: Number,
     default: 0
@@ -159,7 +160,10 @@ resourceSchema.statics.addPaths = async function(paths){
       filter: {url: p.head.url},
       update: {
         '$addToSet': {paths: p._id},
-        '$inc': {headCount: 1}
+        '$inc': {headCount: 1},
+        '$min': {
+          minPathLength: p.nodes.count
+        }
       }
     }
   })));
