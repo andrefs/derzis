@@ -3,8 +3,6 @@ const mongoose = require('mongoose');
 if(config.db.debug){
   mongoose.set('debug', true);
 }
-mongoose.set('useFindAndModify', false);
-mongoose.set('useCreateIndex', true);
 
 let auth = '';
 if(config.db.user){ auth += user+':'; }

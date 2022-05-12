@@ -14,7 +14,7 @@
     "colors": "^1.4.0",
     "express": "^4.17.1",
     "express-handlebars": "^5.3.4",
-    "mongoose": "^5.11.15",
+    "mongoose": "6.3.3",
     "mongoose-type-url": "^2.1.0",
     "morgan": "1.10.0",
     "redis": "^3.0.2",
