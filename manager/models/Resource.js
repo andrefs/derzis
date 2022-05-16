@@ -139,7 +139,7 @@ resourceSchema.statics.insertSeeds = async function(urls, pid){
   }));
 
   const res = await this.bulkWrite(upserts);
-  await Domain.upsertMany(urls.map(u => new URL(u).origin));
+  await Domain.upsertMany(urls.map(u => new URL(u).origin), pid);
 
   const paths = urls.map(u => ({
     seed: {url: u},
