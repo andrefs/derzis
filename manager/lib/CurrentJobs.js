@@ -30,6 +30,10 @@ class CurrentJobs extends EventEmitter {
     }
   }
 
+  getTimeLeft(domain){
+    return Math.ceil((this._jobs[domain]._idleStart + this._jobs[domain]._idleTimeout - Date.now()) / 1000);
+  }
+
   postponeTimeout(domain){
     if(!this._jobs[domain]){
       log.error(`No job for ${domain} found in current jobs list`);
