@@ -267,16 +267,17 @@ class Manager {
     for await(const domain of Domain.domainsToCrawl(workerId, limit)){
       noDomainsFound = false;
       //const heads = await Path.find({'head.alreadyCrawled': false, 'head.domain': domain.origin})
-      const heads = await Resource.find({
-          domain: domain.origin,
-          status: 'unvisited',
-          minPathLength: {'$lt': config.graph.maxPathLength},
-          headCount: {'$gt': 0}
-        })
-        .sort('-headCount')
-        .select('url')
-        .limit(resourcesPerDomain || 10)
-        .lean();
+      const filter = {
+        domain: domain.origin,
+        status: 'unvisited',
+        minPathLength: {'$lt': config.graph.maxPathLength},
+        headCount: {'$gt': 0}
+      };
+      const heads = await Resource.find(filter)
+                                  .sort('-headCount')
+                                  .select('url')
+                                  .limit(resourcesPerDomain || 10)
+                                  .lean();
       yield {domain, resources: heads};
     }
     if(noDomainsFound){
