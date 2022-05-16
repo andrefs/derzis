@@ -76,6 +76,7 @@ app.post('/processes', async (req, res, next) => {
     },
     seeds: uniqueSeeds
   });
+  Process.startNext();
   res.redirect(303, '/processes/'+p.pid);
 });
 
