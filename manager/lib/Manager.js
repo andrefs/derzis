@@ -10,7 +10,6 @@ const log = require('../../common/lib/logger')('Manager');
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
 const CurrentJobs = require('./CurrentJobs');
-const {readFile} = require('fs/promises');
 
 
 class Manager {
@@ -31,18 +30,6 @@ class Manager {
 
   async connect(){
     await db.connect();
-  }
-
-  // TODO configurable number of simultaneous processes
-  async startNewProcess(){
-    const runningProcs = await Process.countDocuments({status: {$ne: 'queued'}});
-    if(!runningProcs){
-      log.info('No processes running yet, starting a new one');
-      const process = await Process.findOneAndUpdate({status:'queued'}, {$set: {status: 'running'}}, {new: true});
-      if(process){
-        await Resource.insertSeeds(process.seeds, process.pid);
-      }
-    }
   }
 
   addToBeingSaved(domain, type){
@@ -319,7 +306,7 @@ class Manager {
     //FIXME
     if(this.finished > 5){
       log.info('No current processes running, starting new process');
-      this.startNewProcess();
+      Process.startNext();
       //console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.finished, workerAvail, assignedCheck, assignedCrawl, this.jobs.count(), this.beingSaved.count());
     }
   }

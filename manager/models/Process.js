@@ -52,4 +52,21 @@ processSchema.methods.getTriplesJson = async function*(){
   }
 };
 
+// TODO configurable number of simultaneous processes
+processSchema.statics.startNext = async function(){
+  const runningProcs = await this.countDocuments({status: {$ne: 'queued'}});
+  if(!runningProcs){
+    const process = await this.findOneAndUpdate(
+      {status:'queued'},
+      {$set: {status: 'running'}},
+      {new: true}
+    );
+    if(process){
+      await Resource.insertSeeds(process.seeds, process.pid);
+      return true;
+    }
+  }
+  return false;
+};
+
 module.exports = mongoose.model('Process', processSchema);
