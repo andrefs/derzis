@@ -46,9 +46,10 @@ const domainSchema = new mongoose.Schema({
     nextAllowed: Schema.Types.Date
   },
   lastAccessed: Schema.Types.Date,
+  processIds: [String]
 }, {timestamps: true});
 
-domainSchema.statics.upsertMany = async function(urls){
+domainSchema.statics.upsertMany = async function(urls, pid){
   let domains = {};
 
   for(const u of urls){
@@ -62,6 +63,9 @@ domainSchema.statics.upsertMany = async function(urls){
             status: 'unvisited',
             'crawl.failed': 0,
             'crawl.success': 0
+          },
+          $addToSet: {
+            processIds: pid
           }
         },
         upsert: true
