@@ -87,7 +87,7 @@ class Worker extends EventEmitter {
     const robots = robotsParser(domain.origin+'/robots.txt', robotsText);
 
     this.emit('httpDebug', {type: 'delay', domain: domain.origin, delay: domain.crawl.delay});
-    delay = setupDelay(domain.crawl.delay*1.1); // add 10% margin
+    delay = setupDelay(domain.crawl.delay*1000*1.1); // ms to s, add 10% margin
 
     for(const r of resources){
       if(this.jobsTimedout[domain.origin]){

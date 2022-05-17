@@ -109,7 +109,7 @@ resourceSchema.statics.markAsCrawled = async function(url, details, error){
     await d.updateOne(update);
   }
 
-  const nextAllowed = new Date(details.ts + d.crawl.delay);
+  const nextAllowed = new Date(details.ts + d.crawl.delay*1000);
   filter['crawl.nextAllowed'] = {'$lt': nextAllowed};
   d = await Domain.updateOne(filter,{'crawl.nextAllowed': nextAllowed});
 

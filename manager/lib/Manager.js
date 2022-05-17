@@ -203,12 +203,12 @@ class Manager {
   }
 
   async saveRobots(data){
-    let crawlDelay = config.http.crawlDelay || 1;
+    const crawlDelay = config.http.crawlDelay || 1;
     let doc = {workerId: undefined};
 
     if(data.results.ok){
       const robots = robotsParser(data.domain+'/robots.txt', data.results.details.robots);
-      crawlDelay = 1000*(robots.getCrawlDelay(config.userAgent) || crawlDelay);
+      const msCrawlDelay = 1000*(robots.getCrawlDelay(config.userAgent) || msCrawlDelay);
 
       doc = {
         '$set': {
@@ -218,7 +218,7 @@ class Manager {
           'robots.status': 'done',
           status: 'ready',
           'crawl.delay': crawlDelay,
-          'crawl.nextAllowed': new Date(data.results.details.endTime+(crawlDelay)),
+          'crawl.nextAllowed': new Date(data.results.details.endTime+(msCrawlDelay)),
           lastAccessed: data.results.details.endTime
         }, '$unset': {workerId: ''}
       };
@@ -232,7 +232,7 @@ class Manager {
           'robots.status': robotStatus,
           status: 'ready',
           'crawl.delay': crawlDelay,
-          'crawl.nextAllowed': new Date(data.results.details.endTime+(crawlDelay))
+          'crawl.nextAllowed': new Date(data.results.details.endTime+(msCrawlDelay))
         }, '$unset': {workerId: ''}
       };
     } else {
