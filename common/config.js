@@ -23,6 +23,9 @@ let commonConf = {
     domainCrawl: {
       timeouts: 10*1000,
     },
+    debug: {
+      pubsubChannel: 'derzis:http',
+    }
   },
 };
 
