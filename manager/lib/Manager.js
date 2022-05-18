@@ -265,6 +265,7 @@ class Manager {
                                   .select('url')
                                   .limit(resourcesPerDomain || 10)
                                   .lean();
+      await Resource.updateMany({_id: {'$in': heads.map(h => h._id)}}, {status: 'crawling'});
       yield {domain, resources: heads};
     }
     if(noDomainsFound){

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
+const errorTypes = ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT'];
+
 const domainSchema = new mongoose.Schema({
   origin: {
     type: String,
@@ -12,6 +14,24 @@ const domainSchema = new mongoose.Schema({
     type: String,
     enum: ['unvisited', 'checking', 'error', 'ready', 'crawling'],
     default: 'unvisited'
+  },
+  err: {
+    last: [{
+      errType: {
+        type: String,
+        enum: errorTypes,
+      }
+    }],
+    count: {
+      E_ROBOTS_TIMEOUT: {
+        type: Number,
+        default: 0,
+      },
+      E_RESOURCE_TIMEOUT: {
+        type: Number,
+        default: 0,
+      }
+    }
   },
   robots: {
     status: {
@@ -58,12 +78,6 @@ domainSchema.statics.upsertMany = async function(urls, pid){
         filter: {origin: u},
         update: {
           '$inc': {'crawl.queued': 0},
-          '$setOnInsert': {
-            'robots.status': 'unvisited',
-            status: 'unvisited',
-            'crawl.failed': 0,
-            'crawl.success': 0
-          },
           $addToSet: {
             processIds: pid
           }

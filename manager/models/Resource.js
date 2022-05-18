@@ -84,7 +84,7 @@ resourceSchema.statics.addFromTriples = async function(triples){
 
 resourceSchema.statics.markAsCrawled = async function(url, details, error){
   // Resource
-  const oldRes = await this.findOneAndUpdate({url, status: 'unvisited'}, {
+  const oldRes = await this.findOneAndUpdate({url, status: 'crawling'}, {
     status: error? 'error' :'done',
     paths: [],
     headCount: 0,
@@ -102,8 +102,18 @@ resourceSchema.statics.markAsCrawled = async function(url, details, error){
   let d = await Domain.findOne(filter);
 
   if(oldRes){
-    let update = error ? {'$inc': {'crawl.failed':  1}}
-                       : {'$inc': {'crawl.success': 1}};
+    let update = error ?
+      {
+        '$inc': {
+          'crawl.failed': 1
+        },
+
+      } : 
+      {
+        '$inc': {
+          'crawl.success': 1
+        }
+      };
     update['$inc']['crawl.queued'] = -1;
     update['$inc']['crawl.pathHeads'] = -oldRes.headCount;
     await d.updateOne(update);

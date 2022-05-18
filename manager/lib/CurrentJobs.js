@@ -72,16 +72,38 @@ class CurrentJobs extends EventEmitter {
     }
     if(jobType === 'robotsCheck'){
       const update = {
-        status: 'unvisited',
-        'robots.status': 'unvisited',
-        workerId: undefined
+        '$set': {
+          status: 'unvisited',
+          'robots.status': 'error',
+          workerId: undefined,
+        },
+        '$push': {
+          'err.last': {
+            '$each': [{errType: 'E_ROBOTS_TIMEOUT'}],
+            '$slice': -10
+          }
+        },
+        '$inc': {
+          'err.count.E_ROBOTS_TIMEOUT': 1
+        },
       };
-      await Domain.updateMany({origin: domain}, {'$set': update});
+      await Domain.updateMany({origin: domain}, update);
     }
     if(jobType === 'domainCrawl'){
       const update = {
-        status: 'ready',
-        workerId: undefined
+        '$set': {
+          status: 'ready',
+          workerId: undefined
+        },
+        '$push': {
+          'err.last': {
+            '$each': [{errType: 'E_RESOURCE_TIMEOUT'}],
+            '$slice': -10
+          }
+        },
+        '$inc': {
+          'err.count.E_RESOURCE_TIMEOUT': 1
+        },
       };
       await Domain.updateMany({origin: domain}, {'$set': update});
     }
