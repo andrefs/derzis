@@ -82,7 +82,7 @@ class ManagerPubSub {
         return this._m.updateJobResults(payload.data);
       }
       if(payload.type === 'shutdown'){
-        this._m.cancelJobs(payload.data.ongoingJobs, workerId);
+        this._m.jobs.cancelJobs(payload.data.ongoingJobs, workerId);
       }
       if(payload.type === 'noCapacity'){
         // return this._cancelJob(payload.data);
