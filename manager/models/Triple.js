@@ -10,6 +10,7 @@ const tripleSchema = new mongoose.Schema({
   sources: [urlType]
 }, {timestamps: true});
 
+tripleSchema.index({nodes:1});
 tripleSchema.index({subject:1, predicate:1, object:1}, {unique: true});
 
 tripleSchema.statics.upsertMany = async function(source, triples){

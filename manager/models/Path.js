@@ -36,12 +36,6 @@ const pathSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 pathSchema.index({
-    parentPath:1,
-    'head.url': 1,
-    lastPredicate: 1
-  }, {unique: true});
-
-pathSchema.index({
     'seed.url': 1,
     'head.url': 1,
     'predicates.count': 1

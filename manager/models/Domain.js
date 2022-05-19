@@ -69,6 +69,12 @@ const domainSchema = new mongoose.Schema({
   processIds: [String]
 }, {timestamps: true});
 
+domainSchema.index({
+  status: 1,
+  'crawl.pathHeads': 1,
+  'crawl.nextAllowed': -1
+});
+
 domainSchema.statics.upsertMany = async function(urls, pid){
   let domains = {};
 
