@@ -202,12 +202,13 @@ class Manager {
   }
 
   async saveRobots(data){
-    const crawlDelay = config.http.crawlDelay || 1;
+    let crawlDelay = config.http.crawlDelay || 1;
     let doc = {workerId: undefined};
 
     if(data.results.ok){
       const robots = robotsParser(data.domain+'/robots.txt', data.results.details.robots);
-      const msCrawlDelay = 1000*(robots.getCrawlDelay(config.userAgent) || msCrawlDelay);
+      crawlDelay = robots.getCrawlDelay(config.userAgent) || crawlDelay;
+      const msCrawlDelay = 1000*crawlDelay;
 
       doc = {
         '$set': {
