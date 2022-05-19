@@ -124,7 +124,12 @@ class Manager {
 
 
   async updatePaths(sourceUrl, triples){
-    const query = {'head.url': sourceUrl};
+    const query = {
+      'head.url': sourceUrl,
+      'nodes.length': {
+        '$lt': config.graph.maxPathLength
+      }
+    };
     await Path.updateMany({...query, status: 'active'}, {status: 'finished'});
     for await (const path of Path.find(query)){
       await this.addHeads(path, triples);
@@ -143,9 +148,15 @@ class Manager {
 
       const newHead = t.subject === path.head.url ? t.object : t.subject;
       const prop = t.predicate;
+      // new head already contained in path
       if(path.nodes.elems.includes(newHead)){ continue; }
+      // new predicate and path already has max preds
       if(!path.predicates.elems.includes(prop) &&
          path.predicates.count >= config.graph.maxPathProps){
+        continue;
+      }
+      // path already has max length
+      if(path.nodes.count >= config.graph.maxPathLength){
         continue;
       }
       newPaths[prop] = newPaths[prop] || {};
@@ -169,13 +180,17 @@ class Manager {
     let paths = await Path.create(nps);
     paths = paths.filter(p => p.status === 'active');
 
-    if(paths.length){
-      await Resource.addPaths(paths);
+    if(!paths.length){ return []; }
 
-      for(const p of paths){
-        if(p.head.alreadyCrawled){
-          await this.addExistingHead(p);
-        }
+    await Resource.addPaths(paths);
+
+    return this.addExistingHeads(paths);
+  }
+
+  async addExistingHeads(paths){
+    for(const p of paths){
+      if(p.head.alreadyCrawled){
+        await this.addExistingHead(p);
       }
     }
     return paths;
@@ -192,6 +207,7 @@ class Manager {
       'head.url': path.head.url,
       'predicates.count': {'$lt': path.predicates.count}
     });
+    // there are already better ways of reaching this head
     const foundBetter = betterPathCandidates?.some(pc => pc.predicates.elems.every(pred => props.has(pred)));
     if(foundBetter){
       await path.markDisabled();
