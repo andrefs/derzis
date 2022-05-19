@@ -126,7 +126,7 @@ class Manager {
   async updatePaths(sourceUrl, triples){
     const query = {
       'head.url': sourceUrl,
-      'nodes.length': {
+      'nodes.count': {
         '$lt': config.graph.maxPathLength
       }
     };

@@ -47,7 +47,7 @@ pathSchema.index({
 
 pathSchema.index({
     'head.url': 1,
-    'status': 1
+    'nodes.count': 1
   });
 
 
