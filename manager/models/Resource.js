@@ -51,8 +51,12 @@ resourceSchema.index({
   domain: 1,
   status: 1,
   minPathLength: 1,
-  headCount: -1
+  headCount: 1
 });
+
+resourceSchema.index({
+  processIds: 1
+})
 
 resourceSchema.statics.addMany = async function(resources){
   let insertedDocs = [];

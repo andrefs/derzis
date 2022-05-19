@@ -75,6 +75,14 @@ domainSchema.index({
   'crawl.nextAllowed': -1
 });
 
+domainSchema.index({
+  'crawl.nextAllowed': -1
+});
+
+domainSchema.index({
+  'robots.status': 1
+});
+
 domainSchema.statics.upsertMany = async function(urls, pid){
   let domains = {};
 
