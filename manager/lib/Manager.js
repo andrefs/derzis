@@ -124,10 +124,9 @@ class Manager {
 
 
   async updatePaths(sourceUrl, triples){
-    const query = {'head.url': sourceUrl, status: 'active'};
-    let paths = await Path.find(query);
-    await Path.updateMany(query, {status: 'finished'});
-    for(const path of paths){
+    const query = {'head.url': sourceUrl};
+    await Path.updateMany({...query, status: 'active'}, {status: 'finished'});
+    for await (const path of Path.find(query)){
       await this.addHeads(path, triples);
     }
   }
@@ -183,7 +182,7 @@ class Manager {
   }
 
   async addExistingHead(path){
-    const headResource = Resource.findOne({url: path.head.url}).lean();
+    const headResource = await Resource.findOne({url: path.head.url}).lean();
     if(headResource.isSeed || path.nodes.elems.includes(headResource.url)){
       await path.markDisabled();
     }
