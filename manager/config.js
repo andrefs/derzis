@@ -14,8 +14,8 @@ let config = {
     //debug: true
   },
   graph: {
-    maxPathLength: secrets.get('MAX_PATH_LENGTH') || process.env.MAX_PATH_LENGTH || 3,
-    maxPathProps: secrets.get('MAX_PATH_PROPS') || process.env.MAX_PATH_PROPS || 1
+    maxPathLength: secrets.get('MAX_PATH_LENGTH') || process.env.MAX_PATH_LENGTH || 10,
+    maxPathProps: secrets.get('MAX_PATH_PROPS') || process.env.MAX_PATH_PROPS || 4
   }
 };
 

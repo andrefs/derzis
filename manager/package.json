@@ -5,7 +5,6 @@
   "main": "index.js",
   "author": "André Santos <andrefs@andrefs.com>",
   "license": "MIT",
-  "private": false,
   "scripts": {
     "test": "mocha 'tests/**test.js'"
   },
@@ -27,5 +26,6 @@
     "chai-as-promised": "^7.1.1",
     "chai-generator": "^2.1.0",
     "mocha": "10.0.0"
-  }
+  },
+  "packageManager": "yarn@3.2.1"
 }
