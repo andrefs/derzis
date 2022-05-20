@@ -26,6 +26,6 @@
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "chai-generator": "^2.1.0",
-    "mocha": "^8.2.1"
+    "mocha": "10.0.0"
   }
 }
