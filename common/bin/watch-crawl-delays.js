@@ -3,7 +3,6 @@ const config = require('../config').commonConf;
 const client = redis.createClient({url: 'redis://localhost:6378'});
 const colors = require('colors');
 
-console.log('XXXXXXXXxx 0')
 const run = async () => {
   let lastCalls = {};
   let delays = {};
@@ -14,7 +13,6 @@ const run = async () => {
   console.log('Listening on', config.http.debug.pubsubChannel);
   
   try {
-console.log('XXXXXXXXxx 1')
     await subscriber.subscribe(config.http.debug.pubsubChannel, (message, channelName) => {
       //console.log(lastCalls, delays);
       const obj = JSON.parse(message);
@@ -27,7 +25,7 @@ console.log('XXXXXXXXxx 1')
         if(!delays[domain]){
           console.warn('No Crawl-Delay for domain', domain);
         }
-        let delay = delays[domain] ? delays[domain]/1000 : undefined;
+        let delay = delays[domain] ? delays[domain] : undefined;
         if(lastCalls[domain]){
           let timeInt = ''+(new Date(ts) - new Date(lastCalls[domain]))/1000;
           timeInt = timeInt < delays[domain] ? timeInt.red : timeInt.green;
