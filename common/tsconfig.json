@@ -4,7 +4,7 @@
     "lib": ["es2015.promise"],
     "module": "ESNEXT",
     "moduleResolution": "node",
-    "outDir": "./build",
+    "outDir": "../build/common",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
