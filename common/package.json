@@ -5,9 +5,27 @@
   "main": "index.js",
   "author": "André Santos <andrefs@andrefs.com>",
   "license": "MIT",
-  "private": false,
+  "type": "module",
   "scripts": {
-    "test": "mocha 'tests/**test.js'"
+    "test": "yarn node --experimental-vm-modules $(yarn bin jest)",
+    "build": "tsc",
+    "postbuild": "cp package.json build/package.json && cp yarn.lock build/yarn.lock && cd build && yarn install",
+    "old-test": "mocha 'tests/**test.js'"
+  },
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "globals": {
+      "ts-jest": {
+        "useESM": true
+      }
+    },
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    }
   },
   "dependencies": {
     "dotenv": "^10.0.0",
@@ -16,9 +34,15 @@
     "winston": "^3.3.3"
   },
   "devDependencies": {
+    "@types/jest": "^27.5.1",
+    "@types/node": "^17.0.35",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "chai-generator": "^2.1.0",
-    "mocha": "10.0.0"
-  }
+    "jest": "^28.1.0",
+    "ts-jest": "^28.0.2",
+    "ts-node": "^10.7.0",
+    "typescript": "^4.6.4"
+  },
+  "packageManager": "yarn@3.2.1"
 }
