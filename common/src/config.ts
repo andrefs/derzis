@@ -1,12 +1,12 @@
-const secrets = require('./lib/secrets');
-const _ = require('lodash');
-require('dotenv').config();
+import {getSecret} from './lib/secrets';
+import _ from 'lodash';
+import 'dotenv/config';
 
-let commonConf = {
+export const commonConf = {
   pubsub: {
     //debug: true,
-    port: secrets.get('REDIS_PORT') || process.env.REDIS_PORT || 6378,
-    host: secrets.get('REDIS_HOST') || process.env.REDIS_HOST || 'localhost',
+    port: getSecret('REDIS_PORT') || process.env.REDIS_PORT || 6378,
+    host: getSecret('REDIS_HOST') || process.env.REDIS_HOST || 'localhost',
     manager: {
       from: 'derzis:fromManager'
     },
@@ -29,9 +29,5 @@ let commonConf = {
   },
 };
 
-const merge = config => _.merge(commonConf, config);
+export const merge = config => _.merge(commonConf, config);
 
-module.exports = {
-  commonConf,
-  merge
-};

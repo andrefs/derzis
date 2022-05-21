@@ -1,11 +1,7 @@
-const {isValid} = require('./url');
+import {isValid} from './url'
 
-const urlType = {
+export const urlType = {
   type: String,
   validator: url => isValid(url),
   message: p => `${p.value} is not a valid URL!`
-};
-
-module.exports = {
-  urlType
 };

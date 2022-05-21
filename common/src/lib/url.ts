@@ -1,5 +1,5 @@
 
-const isValid = url => {
+export const isValid = url => {
   try {
     const obj = new URL(url);
   } catch(e) {
@@ -8,6 +8,3 @@ const isValid = url => {
   return true;
 };
 
-module.exports = {
-  isValid
-};

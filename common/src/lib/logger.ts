@@ -1,8 +1,8 @@
-const winston = require('winston');
-const {createLogger, format, transports} = winston;
-const {combine, timestamp, splat, label, printf, colorize} = format;
+import winston, {createLogger, format, transports} from 'winston';
+const {combine, timestamp, printf, colorize} = format;
 const color = colorize().colorize;
-const util = require('util');
+import util from 'util';
+
 
 const myCustomLevels = {
   levels: {
@@ -38,7 +38,7 @@ const formatMeta = (meta) => {
   return '';
 };
 
-const customFormat = winston.format.printf(({
+const customFormat = printf(({
   timestamp,
   level,
   message,
@@ -65,7 +65,7 @@ const logger = createLogger({
   ]
 });
 
-module.exports = function(name) {
+export default function(name: string) {
   // set the default moduleName of the child
   return logger.child({moduleName: name});
 };
