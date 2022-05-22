@@ -10,8 +10,7 @@
     "test": "yarn node --experimental-vm-modules $(yarn bin jest)",
     "build": "tsc",
     "postbuild": "cp package.json build/package.json && cp yarn.lock build/yarn.lock && cd build && yarn install",
-    "old-test": "mocha 'tests/**test.js'",
-    "start": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/bin/watch-crawl-delays.ts"
+    "watch-crawl-delays": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/common/bin/watch-crawl-delays.ts"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",

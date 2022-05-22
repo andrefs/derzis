@@ -1,4 +1,4 @@
-import {getSecret} from './lib/secrets';
+import {getSecret} from './common/lib/secrets';
 import _ from 'lodash';
 import 'dotenv/config';
 
