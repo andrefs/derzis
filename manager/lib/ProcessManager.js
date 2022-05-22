@@ -7,11 +7,13 @@ const swaggerUi = require('swagger-ui-express');
 const docs = require('../docs');
 const morganMiddleware = require('./morganMiddleware');
 const stream = require('stream');
+//const compression = require('compression');
 
 
 
 const app = express();
 app.use(morganMiddleware);
+//app.use(compression());
 
 const hbs = exphbs.create({
   helpers: {
@@ -82,6 +84,7 @@ app.post('/processes', async (req, res, next) => {
 
 app.get('/processes/:pid/triples', async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
+  //res.setHeader('Content-Disposition', 'attachment; filename="triples.json"');
   res.write('[\n')
   const p = await Process.findOne({pid: req.params.pid});
   const iter = await p.getTriplesJson();
