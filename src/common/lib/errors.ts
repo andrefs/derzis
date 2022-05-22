@@ -73,13 +73,13 @@ export class DomainNotFoundError extends WorkerError {
 
 export class MimeTypeError extends WorkerError {
   mimeType: string;
-  httpStatus: number;
+  httpStatus?: number;
 
-  constructor(mimeType: string, {httpStatus}){
+  constructor(mimeType: string, info: {httpStatus?: number} = {}){
     super();
     this.errorType = 'unsupported_mime_type';
     this.mimeType = mimeType;
-    if(httpStatus){ this.httpStatus = httpStatus; }
+    if(info.httpStatus){ this.httpStatus = info.httpStatus; }
   };
 };
 

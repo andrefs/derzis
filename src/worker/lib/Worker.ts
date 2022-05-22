@@ -1,13 +1,13 @@
 import Bluebird from "bluebird";
 import robotsParser from 'robots-parser';
 import EventEmitter from 'events';
-import config from '../../config';
+import config from '@derzis/config';
 import Axios from './axios';
-import { AxiosInstance } from "axios";
+import { AxiosInstance, AxiosResponse } from "axios";
 let axios: AxiosInstance;
 import contentType from 'content-type';
 import parseRdf from './parse-rdf';
-import logger from '../../common/lib/logger';
+import {createLogger} from '@derzis/common'
 import cheerio from 'cheerio';
 import winston from "winston";
 let log: winston.Logger;
@@ -25,6 +25,7 @@ import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import LinkHeader from 'http-link-header';
 import {v4 as uuidv4} from 'uuid';
+import { IDomain } from "../../manager/models/Domain";
 
 interface JobCapacity {
   domainCrawl: {
@@ -40,13 +41,24 @@ interface Resource {
   url: string
 };
 
-export interface Job {
-  domain?: string
-  jobType: JobType,
-  resources: Resource[]
+export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
+export type Job = RobotsCheckJob | ResourceCrawlJob | DomainCrawlJob;
+
+interface RobotsCheckJob {
+  domain: string,
+  //results
 };
 
-export type JobType = 'domainCrawl' | 'robotsCheck';
+interface ResourceCrawlJob {
+  domain: string,
+  url: string,
+  //results
+};
+
+interface DomainCrawlJob {
+  domain: IDomain,
+  resources: {url: string}[]
+};
 
 interface CurrentJobs {
   domainCrawl: {
@@ -75,7 +87,7 @@ export class Worker extends EventEmitter {
     super();
     this.wId = uuidv4();
     this.wShortId = this.wId.replace(/-.*$/, '');
-    log = logger(this.wShortId);
+    log = createLogger(this.wShortId);
     axios = Axios(log);
     this.jobCapacity = config.jobs;
     this.currentJobs = {domainCrawl: {}, robotsCheck: {}};
@@ -124,7 +136,7 @@ export class Worker extends EventEmitter {
     }
   };
 
-  async *crawlDomain({domain,resources}: Job){
+  async *crawlDomain({domain,resources}: DomainCrawlJob){
     this.crawlTs = new Date();
     this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;
@@ -180,16 +192,16 @@ export class Worker extends EventEmitter {
     }
   }
 
-  async crawlResource(r){
-    const resp = await this.makeHttpRequest(r.url);
+  async crawlResource({url}: Resource){
+    const resp = await this.makeHttpRequest(url);
     const res = await parseRdf(resp.rdf, resp.mime);
     return {ts: resp.ts, ...res};
   }
 
-  makeHttpRequest = async (url, redirect=0) => {
+  makeHttpRequest = async (url: string, redirect=0) => {
     let res;
     const reqStart = Date.now();
-    const timeout = config.http.domainCrawl.timeout || 10*1000;
+    const timeout = config.http.domainCrawl.timeouts || 10*1000;
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const headers = {
       'User-Agent': config.http.userAgent,
@@ -201,7 +213,7 @@ export class Worker extends EventEmitter {
       const opts = {
         headers,
         // prevent axios of parsing [ld+]json
-        transformResponse: x => x,
+        transformResponse: (x: any) => x,
         timeout,
         maxRedirects
       };
@@ -219,7 +231,7 @@ export class Worker extends EventEmitter {
   }
 };
 
-const handleHttpError = (url, err) => {
+const handleHttpError = (url: string, err) => {
   if(err.response){
     let e = new HttpError(err.response.status);
     const details = {
@@ -246,9 +258,9 @@ const handleHttpError = (url, err) => {
   throw {error: new WorkerError(), url, details: {message:err.message, stack: err.stack}};
 };
 
-const fetchRobots = async url => {
+const fetchRobots = async (url: string) => {
   const reqStart = Date.now();
-  const timeout = config.http.robotsCheck.timeout || 10*1000;
+  const timeout = config.http.robotsCheck.timeouts || 10*1000;
   const maxRedirects = config.http.robotsCheck.maxRedirects || 5;
   const headers = {'User-Agent': config.http.userAgent};
   return axios.get(url, {headers, timeout, maxRedirects})
@@ -265,19 +277,18 @@ const fetchRobots = async url => {
 };
 
 
-const robotsAllow = (robots, url, userAgent) => {
+const robotsAllow = (robots:ReturnType<typeof robotsParser>, url: string, userAgent: string) => {
   if(!robots.isAllowed(url, userAgent)){
     throw new RobotsForbiddenError();
   }
 };
 
-
-const findRedirectUrl = resp => {
+const findRedirectUrl = (resp: AxiosResponse<any>) => {
   // check Link header
   if(resp.headers['Link']){
     const links = LinkHeader.parse(resp.headers['Link']);
-    const link = links.find(l => l.rel === 'alternate' && acceptedMimeTypes.some(aMT => l.type === aMT));
-    if(link){ return l.uri; }
+    const link = links.refs.find(l => l.rel === 'alternate' && acceptedMimeTypes.some(aMT => l.type === aMT));
+    if(link){ return link.uri; }
   }
 
   // html

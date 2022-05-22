@@ -1,4 +1,4 @@
-import winston, {createLogger, format, transports} from 'winston';
+import winston, {format, transports} from 'winston';
 const {combine, timestamp, printf, colorize} = format;
 const color = colorize().colorize;
 import util from 'util';
@@ -51,7 +51,7 @@ const customFormat = printf(({
 //}) => colorize().colorize(level, `${timestamp} [${moduleName}] ${level}: ${message} ${formatMeta(meta)}`));
 
 
-const logger = createLogger({
+const logger = winston.createLogger({
   levels: myCustomLevels.levels,
   transports: [
     new transports.Console({
@@ -65,7 +65,7 @@ const logger = createLogger({
   ]
 });
 
-export const log = (name: string) => {
+export const createLogger = (name: string) => {
   // set the default moduleName of the child
   return logger.child({moduleName: name});
 };

@@ -2,19 +2,19 @@ import redis  from 'redis';
 import config from '../../config';
 const redisOpts = {url : `redis://{config.pubsub.host}:{config.pubsub.port}`};
 import {pid} from 'process';
-import {Job, Worker} from './Worker';
-import logger from '../../common/lib/logger';
+import {Job, JobType, Worker} from './Worker';
+import {createLogger} from '@derzis/common';
 let log: winston.Logger;
-import util from 'util';
 import winston from 'winston';
-import { RedisClientType } from '@redis/client';
 
-type PayloadType = 'askCurCap' | 'jobTimeout' | 'doJob' | 'jobDone';
-
+type PayloadType = 'askCurCap' | 'jobTimeout' | 'doJob' | 'jobDone' | 'shutdown' | 'repCurCap' | 'askJobs';
 
 interface Payload {
   type: PayloadType;
-  data: Job
+  data: {
+    jobType: JobType,
+    job: Job
+  }
 };
 
 
@@ -32,7 +32,7 @@ class WorkerPubSub {
     this._redisClient = redis.createClient(redisOpts);
 
 
-    log = logger(this.w.wShortId);
+    log = createLogger(this.w.wShortId);
     log.info('Started');
     this.connect();
     this.reportCurrentCapacity();
@@ -91,7 +91,8 @@ class WorkerPubSub {
         }
       }
       if(payload.type === 'doJob'){
-        return this.doJob(payload.data);
+        const {jobType, job} = payload.data;
+        return this.doJob(jobType, job);
       }
     };
 
@@ -102,7 +103,7 @@ class WorkerPubSub {
     this._sub.subscribe(config.pubsub.workers.to+this.w.wId, handleMessage(config.pubsub.workers.to+this.w.wId));
   }
 
-  pub(type: PayloadType, data: PayloadData = {}){
+  pub(type: PayloadType,  data: {jobType: JobType, data: Job}){
     const payload = {type, data};
     log.pubsub('Publishing message to '+this._pubChannel.replace(/-.*$/,''), type);
     if(Object.keys(data).length){ log.debug('', data); }
@@ -110,15 +111,14 @@ class WorkerPubSub {
   }
 
   // TODO check capacity
-  async doJob(job: Job){
-    const {jobType} = job;
+  async doJob(jobType: JobType, job: Job){
     if(!this.w.hasCapacity(jobType)){ } // TODO
 
-    if(job.jobType === 'robotsCheck'){
-      const res = await this.w.checkRobots(job.domain);
+    if(jobType === 'robotsCheck'){
+      const res = await this.w.checkRobots(job.domain.origin);
       this.pub('jobDone', {
-        jobType: job.jobType,
-        domain: job.domain,
+        jobType: jobType,
+        domain: job.domain.origin,
         results: res
       });
       //this.reportCurrentCapacity();
