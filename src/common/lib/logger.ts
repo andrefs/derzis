@@ -65,7 +65,7 @@ const logger = createLogger({
   ]
 });
 
-export default function(name: string) {
+export const log = (name: string) => {
   // set the default moduleName of the child
   return logger.child({moduleName: name});
 };

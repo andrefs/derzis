@@ -1,24 +1,36 @@
-const redis = require('redis');
-const config = require('../config');
-const redisOpts = {
-  host: config.pubsub.host,
-  port: config.pubsub.port
+import redis  from 'redis';
+import config from '../../config';
+const redisOpts = {url : `redis://{config.pubsub.host}:{config.pubsub.port}`};
+import {pid} from 'process';
+import {Job, Worker} from './Worker';
+import logger from '../../common/lib/logger';
+let log: winston.Logger;
+import util from 'util';
+import winston from 'winston';
+import { RedisClientType } from '@redis/client';
+
+type PayloadType = 'askCurCap' | 'jobTimeout' | 'doJob' | 'jobDone';
+
+
+interface Payload {
+  type: PayloadType;
+  data: Job
 };
-const pid = require('process').pid;
-const Worker = require('./Worker');
-const logger = require('../../common/lib/logger');
-let log;
-const util = require('util');
+
 
 class WorkerPubSub {
+  w: Worker;
+  _redisClient: ReturnType<typeof redis.createClient>;
+  _http: ReturnType<typeof redis.createClient>;
+  _pub: ReturnType<typeof redis.createClient>;
+  _sub: ReturnType<typeof redis.createClient>;
+  _pubChannel: string;
+
   constructor(opts = {}){
     // FIXME Workers on different machines may have same PID
     this.w = new Worker('W#'+pid);
+    this._redisClient = redis.createClient(redisOpts);
 
-    if(config.http.debug){
-      this._http = redis.createClient(redisOpts);
-      this.w.on('httpDebug', ev => this._http.publish(config.http.debug.pubsubChannel, JSON.stringify(ev, null, 2)));
-    }
 
     log = logger(this.w.wShortId);
     log.info('Started');
@@ -34,9 +46,9 @@ class WorkerPubSub {
   }
 
   exitHandler = (opts = {}) => {
-    return (...args) => {
-      this.pub('shutdown', {args, opts, ongoingJobs: this.w.currentJobs});
-      process.exit(args[0] || 0);
+    return ({signal}: {signal: string}) => {
+      this.pub('shutdown', {signal, opts, ongoingJobs: this.w.currentJobs});
+      process.exit(signal ? 1 : 0);
     };
   };
 
@@ -44,44 +56,34 @@ class WorkerPubSub {
     return () => this.reportCurrentCapacity();
   }
 
-  connect(){
+  async connect(){
     log.info('Connecting to Redis');
-    this._pub = redis.createClient(redisOpts);
-    this._sub = redis.createClient(redisOpts);
+    await this._redisClient.connect();
+    this._pub = this._redisClient.duplicate();
+    await this._pub.connect();
+    this._sub = this._redisClient.duplicate();
+    await this._sub.connect();
+
+    if(config.http.debug){
+      this._http = this._redisClient.duplicate();
+      await this._http.connect();
+      this.w.on('httpDebug', ev => this._http.publish(config.http.debug.pubsubChannel, JSON.stringify(ev, null, 2)));
+    }
 
     process.on('SIGINT'            , this.exitHandler({signal: 'SIGINT'}));
     process.on('SIGUSR1'           , this.signalHandler());
     process.on('SIGUSR2'           , this.signalHandler());
     process.on('uncaughtException' , (...args) => log.error('Uncaught exception', args));
 
-    log.pubsub('Subscribing to', [config.pubsub.manager.from, config.pubsub.workers.to+this.w.wId]);
-    this._sub.subscribe(config.pubsub.manager.from, config.pubsub.workers.to+this.w.wId);
 
-    this._pubChannel = config.pubsub.workers.from+this.w.wId;
-    log.pubsub(`Publishing to ${this._pubChannel}`);
-
-    this._subEvents();
-  }
-
-  pub(type, data = {}){
-    const payload = {type, data};
-    log.pubsub('Publishing message to '+this._pubChannel.replace(/-.*$/,''), type);
-    if(Object.keys(data).length){ log.debug('', data); }
-    this._pub.publish(this._pubChannel, JSON.stringify(payload));
-  }
-
-  _subEvents(){
-    const dispatch = {
-      get_status: this._sendStatus
-    };
-    this._sub.on('message', (channel, message) => {
-      const payload = JSON.parse(message);
+    const handleMessage = (channel: string) =>  (message: string) => {
+      const payload: Payload = JSON.parse(message);
       log.pubsub('message from '+channel, payload.type);
       if(Object.keys(payload.data).length){ log.debug('', payload.data); }
 
 
       if(payload.type === 'askCurCap'){
-        return this.reportCurrentCapacity(payload.data);
+        return this.reportCurrentCapacity();
       }
       if(payload.type === 'jobTimeout'){
         if(this.w.currentJobs.domainCrawl[payload.data.domain]){
@@ -91,11 +93,24 @@ class WorkerPubSub {
       if(payload.type === 'doJob'){
         return this.doJob(payload.data);
       }
-    });
+    };
+
+    this._pubChannel = config.pubsub.workers.from+this.w.wId;
+    log.pubsub(`Publishing to ${this._pubChannel}`);
+    log.pubsub('Subscribing to', [config.pubsub.manager.from, config.pubsub.workers.to+this.w.wId]);
+    this._sub.subscribe(config.pubsub.manager.from, handleMessage(config.pubsub.manager.from));
+    this._sub.subscribe(config.pubsub.workers.to+this.w.wId, handleMessage(config.pubsub.workers.to+this.w.wId));
+  }
+
+  pub(type: PayloadType, data: PayloadData = {}){
+    const payload = {type, data};
+    log.pubsub('Publishing message to '+this._pubChannel.replace(/-.*$/,''), type);
+    if(Object.keys(data).length){ log.debug('', data); }
+    this._pub.publish(this._pubChannel, JSON.stringify(payload));
   }
 
   // TODO check capacity
-  async doJob(job){
+  async doJob(job: Job){
     const {jobType} = job;
     if(!this.w.hasCapacity(jobType)){ } // TODO
 

@@ -1,11 +1,39 @@
-import mongoose from 'mongoose';
+import { HydratedDocument, Model, model, Schema, Types } from 'mongoose';
 import {urlType} from '@derzis/common';
 import {Domain} from '@derzis/models';
 import {Path} from '@derzis/models'
-import {log} from '@derzis/common';
+import { BulkWriteResult } from 'mongodb';
+import { IPath, IPathMethods } from './Path';
+import { ITriple } from './Triple';
+import { IDomain } from './Domain';
+
+interface IResource {
+  url: string,
+  domain: string,
+  isSeed: boolean,
+  status: 'unvisited' | 'done' | 'crawling' | 'error',
+  triples: Types.DocumentArray<ITriple>,
+  paths: Types.DocumentArray<IPath>,
+  minPathLength: number,
+  headCount: number,
+  crawlId: {
+    domainTs: Date,
+    counter: number
+  },
+  processIds: Types.Array<string>
+};
+
+interface ResourceModel extends Model<IResource, {}> {
+  addMany: (resources: {url:string, domain:string}[], pid: string) => Promise<IResource[]>,
+  addFromTriples: (triples: ITriple[]) => Promise<IResource[]>,
+  markAsCrawled: (url: string, details, error) => Promise<{path: IPath, domain: IDomain}>,
+  insertSeeds: (urls: string[], pid: string) => Promise<IResource>,
+  addPaths: (paths: HydratedDocument<IPath, IPathMethods>[]) => Promise<BulkWriteResult>,
+  rmPath: (path: IPath) => Promise<void>,
+}
 
 
-const resourceSchema = new mongoose.Schema({
+const schema = new Schema<IResource, ResourceModel>({
   url: {...urlType, index: true, unique: true},
   domain: {...urlType, required: true},
   isSeed: {
@@ -19,11 +47,11 @@ const resourceSchema = new mongoose.Schema({
     default: 'unvisited'
   },
   triples: [{
-    type: ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'Triple'
   }],
   paths: [{
-    type: ObjectId,
+    type: Schema.Types.ObjectId,
     ref: 'Path'
   }],
   minPathLength: Number,
@@ -38,25 +66,25 @@ const resourceSchema = new mongoose.Schema({
   processIds: [String]
 }, {timestamps: true});
 
-resourceSchema.virtual('process', {
+schema.virtual('process', {
   ref: 'Process',
   localField: 'processIds',
   foreignField: 'pid',
   justOne: false
 });
 
-resourceSchema.index({
+schema.index({
   domain: 1,
   status: 1,
   minPathLength: 1,
   headCount: 1
 });
 
-resourceSchema.index({
+schema.index({
   processIds: 1
-})
+});
 
-resourceSchema.statics.addMany = async function(resources){
+schema.static('addMany', async function addMany(resources, pid){
   let insertedDocs = [];
   let existingDocs = [];
   await this.insertMany(resources, {ordered: false})
@@ -72,12 +100,12 @@ resourceSchema.statics.addMany = async function(resources){
     });
 
   if(insertedDocs.length){
-    await Domain.upsertMany(insertedDocs.map(d => d.domain));
+    await Domain.upsertMany(insertedDocs.map(d => d.domain), pid);
   }
   return insertedDocs;
-};
+});
 
-resourceSchema.statics.addFromTriples = async function(triples){
+schema.static('addFromTriples', async function addFromTriples(triples, pid){
   const resources = {};
   for (const t of triples){
     resources[t.subject] = true;
@@ -87,11 +115,11 @@ resourceSchema.statics.addFromTriples = async function(triples){
   return await this.addMany(Object.keys(resources).map(u => ({
     url: u,
     domain: new URL(u).origin
-  })));
-};
+  })), pid);
+});
 
 
-resourceSchema.statics.markAsCrawled = async function(url, details, error){
+schema.static('markAsCrawled', async function markAsCrawled(url, details, error){
   // Resource
   const oldRes = await this.findOneAndUpdate({url, status: 'crawling'}, {
     status: error? 'error' :'done',
@@ -130,17 +158,17 @@ resourceSchema.statics.markAsCrawled = async function(url, details, error){
 
   const nextAllowed = new Date(details.ts + d.crawl.delay*1000);
   filter['crawl.nextAllowed'] = {'$lt': nextAllowed};
-  d = await Domain.updateOne(filter,{'crawl.nextAllowed': nextAllowed});
+  d = await Domain.findOneAndUpdate(filter,{'crawl.nextAllowed': nextAllowed});
 
   return {
     path,
     domain: d
   };
-};
+});
 
 
-resourceSchema.statics.insertSeeds = async function(urls, pid){
-  const upserts = urls.map(u => ({
+schema.static('insertSeeds', async function insertSeeds(urls, pid){
+  const upserts = urls.map((u: string) => ({
     updateOne: {
       filter: {url: u},
       update:{
@@ -158,9 +186,9 @@ resourceSchema.statics.insertSeeds = async function(urls, pid){
   }));
 
   const res = await this.bulkWrite(upserts);
-  await Domain.upsertMany(urls.map(u => new URL(u).origin), pid);
+  await Domain.upsertMany(urls.map((u:string) => new URL(u).origin), pid);
 
-  const paths = urls.map(u => ({
+  const paths: IPath[] = urls.map((u: string) => ({
     seed: {url: u},
     head: {url: u},
     nodes: {elems: [u]},
@@ -170,11 +198,11 @@ resourceSchema.statics.insertSeeds = async function(urls, pid){
 
   const insPaths = await Path.create(paths);
   return this.addPaths(insPaths);
-};
+});
 
 
-resourceSchema.statics.addPaths = async function(paths){
-  const res = await this.bulkWrite(paths.map(p => ({
+schema.static('addPaths', async function addPaths(paths){
+  const res = await this.bulkWrite(paths.map((p: HydratedDocument<IPath>) => ({
     updateOne: {
       filter: {url: p.head.url},
       update: {
@@ -186,23 +214,23 @@ resourceSchema.statics.addPaths = async function(paths){
       }
     }
   })));
-  const dom = await Domain.bulkWrite(paths.map(p => ({
+  const dom = await Domain.bulkWrite(paths.map((p: HydratedDocument<IPath>) => ({
     updateOne: {
       filter: {origin: p.head.domain},
       update: {'$inc': {'crawl.pathHeads': 1}}
     }
   })));
   return {res,dom};
-};
+});
 
-resourceSchema.statics.rmPath = async function(path){
-  const res = await this.updateOne({url: path.head.url, paths: ObjectId(path._id)}, {
-    '$pull': {paths: ObjectId(path._id)},
+schema.static('rmPath', async function rmPath(path){
+  const res = await this.updateOne({url: path.head.url, paths: new Types.ObjectId(path._id)}, {
+    '$pull': {paths: new Types.ObjectId(path._id)},
     '$inc': {headCount: -1}
   });
-  if(res.ok && res.nModified){
+  if(res.acknowledged && res.modifiedCount){
     await Domain.updateOne({origin: path.head.domain}, {'$inc': {'crawl.headCount': -1}});
   }
-}
+});
 
-module.exports = mongoose.model('Resource', resourceSchema);
+export const Resource = model<IResource, ResourceModel>('Resource', schema);

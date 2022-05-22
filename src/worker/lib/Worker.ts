@@ -1,15 +1,17 @@
-const Promise = require('bluebird');
-const robotsParser = require('robots-parser');
-const EventEmitter = require('events');
-const config = require('../config');
-const Axios = require('./axios');
-let axios;
-const contentType = require('content-type');
-const parseRdf = require('./parse-rdf');
-const logger = require('../../common/lib/logger');
-const cheerio = require('cheerio');
-let log;
-const {
+import Bluebird from "bluebird";
+import robotsParser from 'robots-parser';
+import EventEmitter from 'events';
+import config from '../../config';
+import Axios from './axios';
+import { AxiosInstance } from "axios";
+let axios: AxiosInstance;
+import contentType from 'content-type';
+import parseRdf from './parse-rdf';
+import logger from '../../common/lib/logger';
+import cheerio from 'cheerio';
+import winston from "winston";
+let log: winston.Logger;
+import {
   WorkerError,
   HttpError,
   DomainNotFoundError,
@@ -17,15 +19,58 @@ const {
   ConnectionResetError,
   RobotsForbiddenError,
   TimeoutError,
-  TooManyRedirectsError} = require('../../common/lib/errors');
+  TooManyRedirectsError} from '../../common/lib/errors';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
-const setupDelay = require('./delay');
-let delay = () => Promise.resolve();
-const LinkHeader = require('http-link-header');
-const {v4: uuidv4} = require('uuid');
+import setupDelay from './delay';
+let delay = () => Bluebird.resolve();
+import LinkHeader from 'http-link-header';
+import {v4 as uuidv4} from 'uuid';
 
+interface JobCapacity {
+  domainCrawl: {
+    capacity: number;
+    resourcesPerDomain: number;
+  };
+  robotsCheck: {
+    capacity: number;
+  };
+};
 
-class Worker extends EventEmitter {
+interface Resource {
+  url: string
+};
+
+export interface Job {
+  domain?: string
+  jobType: JobType,
+  resources: Resource[]
+};
+
+export type JobType = 'domainCrawl' | 'robotsCheck';
+
+interface CurrentJobs {
+  domainCrawl: {
+    [domain: string]: boolean
+  },
+  robotsCheck: {
+    [domain: string]: boolean
+  }
+}
+
+interface JobsTimedOut {
+  [domain: string]: boolean
+}
+
+export class Worker extends EventEmitter {
+  wId: string;
+  wShortId: string;
+  jobCapacity: JobCapacity;
+  currentJobs: CurrentJobs;
+  accept: string;
+  jobsTimedout: JobsTimedOut;
+  crawlTs: Date;
+  crawlCounter: number;
+
   constructor(wId){
     super();
     this.wId = uuidv4();
@@ -60,11 +105,11 @@ class Worker extends EventEmitter {
     };
   }
 
-  hasCapacity(jobType){
+  hasCapacity(jobType: JobType){
     return Object.keys(this.currentJobs[jobType]).length < this.jobCapacity[jobType].capacity;
   }
 
-  async checkRobots(domain){
+  async checkRobots(domain: string){
     this.currentJobs.robotsCheck[domain] = true;
 
     const url = domain+'/robots.txt';
@@ -79,7 +124,7 @@ class Worker extends EventEmitter {
     }
   };
 
-  async *crawlDomain({domain,resources}){
+  async *crawlDomain({domain,resources}: Job){
     this.crawlTs = new Date();
     this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;
@@ -250,4 +295,3 @@ const findRedirectUrl = resp => {
 
 };
 
-module.exports = Worker;

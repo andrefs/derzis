@@ -7,7 +7,12 @@
     "outDir": "./build",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@derzis/models": [ "src/manager/models/index.ts" ],
+      "@derzis/common": [ "src/common/lib/index.ts"],
+      "@derzis/config": [ "src/config.ts" ]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]
