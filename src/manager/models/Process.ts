@@ -1,8 +1,33 @@
-const mongoose = require('mongoose');
-const Resource = require('./Resource');
-const Triple = require('./Triple');
+import mongoose, { model, Model, Schema, Types } from 'mongoose';
+import {Resource} from './Resource';
+import {Triple, SimpleTriple} from './Triple'
 
-const processSchema = new mongoose.Schema({
+export interface IProcess {
+  pid: string,
+  notification: {
+    email: string,
+    webhook: string,
+    ssePath:string,
+  },
+  description: string,
+  seeds: Types.Array<string>,
+  params: {
+    maxPathLength: number,
+    maxPathProps: number,
+  },
+  status: 'queued' | 'running' | 'done' | 'error'
+};
+
+interface IProcessMethods {
+  getTriples(): Iterable<SimpleTriple>,
+  getTriplesJson(): Iterable<string>
+};
+
+interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
+  startNext(): boolean
+};
+
+const schema = new Schema<IProcess, ProcessModel, IProcessMethods>({
   pid: {
     type: String,
     index: true,
@@ -29,14 +54,15 @@ const processSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 
-processSchema.pre('save', async function() {
+schema.pre('save', async function() {
+  this
   const today =   this.pid = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString();
-  const count = await this.constructor.countDocuments({createdAt: {$gt: today}});
+  const count = await this.collection.countDocuments({createdAt: {$gt: today}});
   this.pid = today.split('T')[0] + '-' +count;
   this.notification.ssePath = `/processes/${this.pid}/events`;
 });
 
-processSchema.methods.getTriples = async function*() {
+schema.method('getTriples', async function*() {
   const resources = Resource.find({processIds: this.pid}).select('url').lean();
   for await(const r of resources){
     const triples = Triple.find({nodes: r.url}).select('subject predicate object').lean();
@@ -44,16 +70,16 @@ processSchema.methods.getTriples = async function*() {
       yield {subject, predicate, object};
     }
   }
-};
+});
 
-processSchema.methods.getTriplesJson = async function*(){
+schema.method('getTriplesJson', async function*(){
   for await (const t of this.getTriples()){
     yield JSON.stringify(t);
   }
-};
+});
 
 // TODO configurable number of simultaneous processes
-processSchema.statics.startNext = async function(){
+schema.static('startNext', async function(){
   const runningProcs = await this.countDocuments({status: {$ne: 'queued'}});
   if(!runningProcs){
     const process = await this.findOneAndUpdate(
@@ -67,6 +93,7 @@ processSchema.statics.startNext = async function(){
     }
   }
   return false;
-};
+});
 
-module.exports = mongoose.model('Process', processSchema);
+
+export const Process = model<IProcess, ProcessModel>('Process', schema);

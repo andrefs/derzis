@@ -10,7 +10,7 @@ export interface ITriple {
   sources:  Types.Array<string>
 };
 
-interface SimpleTriple {
+export interface SimpleTriple {
   subject: string,
   predicate: string,
   object: string
