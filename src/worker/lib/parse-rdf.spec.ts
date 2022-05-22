@@ -1,9 +1,4 @@
-const chai = require('chai');
-chai.use(require('chai-generator'));
-chai.use(require('chai-as-promised'));
-
-const expect = chai.expect;
-const parseRdf = require('../lib/parse-rdf');
+import parseRdf from './parse-rdf';
 
 describe('parse', () => {
   it('returns expected number of items', async () => {
@@ -13,8 +8,8 @@ describe('parse', () => {
               c:smarterThan c:Tom.`
     const tripIt = await parseRdf(rdf, 'text/turtle');
 
-    expect(tripIt).to.have.property('triples');
-    expect(tripIt.triples.length).to.equal(3);
+    expect(tripIt).toHaveProperty('triples');
+    expect(tripIt.triples).toHaveLength(3);
   });
 });
 

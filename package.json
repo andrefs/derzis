@@ -10,7 +10,8 @@
     "test": "yarn node --experimental-vm-modules $(yarn bin jest)",
     "build": "tsc",
     "postbuild": "cp package.json build/package.json && cp yarn.lock build/yarn.lock && cd build && yarn install",
-    "watch-crawl-delays": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/common/bin/watch-crawl-delays.ts"
+    "watch-crawl-delays": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/common/bin/watch-crawl-delays.ts",
+    "worker": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/worker/bin/worker.ts"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
@@ -28,15 +29,29 @@
     }
   },
   "dependencies": {
+    "axios": "^0.21.1",
+    "bluebird": "^3.7.2",
     "chalk": "^5.0.1",
+    "cheerio": "^1.0.0-rc.5",
+    "colors": "^1.4.0",
+    "content-type": "^1.0.4",
     "dotenv": "^10.0.0",
+    "http-link-header": "^1.0.3",
     "lodash": "^4.17.21",
-    "redis": "4.1.0",
+    "n3": "^1.8.1",
+    "parse-link-header": "2.0.0",
+    "rdf-parse": "^2.0.0",
+    "redis": "^3.0.2",
+    "robots-parser": "^2.2.0",
+    "streamify-string": "^1.0.1",
+    "uuid": "^8.3.2",
     "winston": "^3.3.3"
   },
   "devDependencies": {
+    "@types/bluebird": "^3.5.36",
     "@types/jest": "^27.5.1",
     "@types/node": "^17.0.35",
+    "@types/streamify-string": "^1.0.0",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "chai-generator": "^2.1.0",
