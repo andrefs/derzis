@@ -1,0 +1,122 @@
+<div class="container py-4">
+  <header>
+    <h2>Add new crawling process</h2>
+  </header>
+  <main>
+    <div class="row">
+      <div class="col">
+        <form action="/processes" method="POST" >
+
+          <div class="form-group row">
+            <div class="accordion" id="accordionExample">
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingZero">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseZero" aria-expanded="true" aria-controls="collapseZero">
+                    General information
+                  </button>
+                </h2>
+                <div id="collapseZero" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+                  <div class="accordion-body">
+                    <div class="form-group row">
+                      <label for="seeds" class="col-form-label col-sm-2">Seeds:</label>
+                      <div class="col-sm-10">
+                        <div class="input-group">
+                          <textarea id="seeds" class="form-control" rows="3" name="seeds"></textarea>
+                          <span class="input-group-text" data-bs-toggle="tooltip" data-bs-placement="top" title="One resource URL per line">?</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label for="maxPathLength" class="col-form-label col-sm-2">Max length:</label>
+                        <div class="col-sm-2">
+                          <input class="form-control col-sm-2" type="number" name="maxPathLength" id="maxPathLength" min="1" max="20" step="1" value="3">
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label for="maxPathProps" class="col-form-label col-sm-2">Max props:</label>
+                        <div class="col-sm-2">
+                          <input class="form-control col-sm-2" type="number" name="maxPathProps" id="maxPathProps" min="1" max="5" step="1" value="2">
+                        </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingOne">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                    Notification options
+                  </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+                  <div class="accordion-body">
+                    <div class="form-group row">
+                      <label for="email" class="col-form-label col-sm-2">Email:</label>
+                      <div class="col-sm-6">
+                        <div class="input-group">
+                          <input type="text" class="form-control" id="email" name="email" aria-describedby="emailHelp">
+                          <span class="input-group-text" data-bs-toggle="tooltip" data-bs-placement="top" title="We'll only send you 3 emails: confirming your process has been added; when your process starts; and when your process finishes. No SPAM">?</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="form-group row">
+                      <label for="webhook" class="col-form-label col-sm-2">Webhook:</label>
+                      <div class="col-sm-10">
+                        <div class="input-group">
+                          <input type="text" class="form-control" id="webhook" name="webhook" aria-describedby="hookHelp">
+                          <span class="input-group-text" data-bs-toggle="tooltip" data-bs-placement="top" title="An HTTP callback which can be used to send notifications when the status of this process changes.">?</span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="headingTwo">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                    White/black lists
+                  </button>
+                </h2>
+                <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
+                  <div class="accordion-body">
+                    <div class="form-group row">
+                      <label for="seeds" class="col-form-label col-sm-2">Resource whitelist:</label>
+                      <div class="col-sm-10">
+                        <div class="input-group">
+                          <textarea id="seeds" class="form-control" rows="3" name="seeds"></textarea>
+                          <span class="input-group-text" data-bs-toggle="tooltip" data-bs-placement="top" title="One resource URL per line">?</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="form-group row">
+                      <label for="seeds" class="col-form-label col-sm-2">Resource blacklist:</label>
+                      <div class="col-sm-10">
+                        <div class="input-group">
+                          <textarea id="seeds" class="form-control" rows="3" name="seeds"></textarea>
+                          <span class="input-group-text" data-bs-toggle="tooltip" data-bs-placement="top" title="One resource URL per line">?</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group row">
+            <div class="col-sm-10">
+              <button type="submit" class="btn btn-primary mb-3">Submit</button>
+            </div>
+          </div>
+
+
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+

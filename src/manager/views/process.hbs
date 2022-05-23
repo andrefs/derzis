@@ -1,0 +1,63 @@
+<div class="container py-4">
+  <header>
+    <h2>Process <span class="fst-italic">{{process.pid}}</span></h2>
+  </header>
+  <main>
+    <div class="row">
+      <div class="col">
+        <h3>Details</h3>
+        <table class="table" id="details">
+          <tbody>
+            <tr>
+              <th>Status</th>
+              <td><span class="badge bg-primary">{{process.status}}</span></td>
+            </tr>
+            <tr>
+              <th>Submitted</th>
+              <td>{{process.createdAt}}</td>
+            </tr>
+            <tr>
+              <th>Last updated</th>
+              <td>{{process.updatedAt}}</td>
+            </tr>
+            <tr>
+              <th>Max path length</th>
+              <td>{{process.params.maxPathLength}}</td>
+            </tr>
+            <tr>
+              <th>Max path props</th>
+              <td>{{process.params.maxPathProps}}</td>
+            </tr>
+            <tr>
+              <th>Seeds</th>
+              <td>
+                {{#each process.seeds}}
+                <p><a href="{{this}}">{{this}}</a></p>
+                {{/each}}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Notifications</h3>
+        <table class="table" id="notification">
+          <tbody>
+            <tr>
+              <th>Email</th>
+              <td>{{process.notification.email}}</td>
+            </tr>
+            <tr>
+              <th>Webhook</th>
+              <td>{{host}}/{{process.notification.webhook}}</td>
+            </tr>
+            <tr>
+              <th>Server-sent events URL</th>
+              <td><a href="{{process.notification.ssePath}}">{{process.notification.ssePath}}</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
