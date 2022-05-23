@@ -1,4 +1,4 @@
-import mongoose, { model, Model, Schema, Types } from 'mongoose';
+import mongoose, { Document, model, Model, Schema, Types } from 'mongoose';
 import {Resource} from './Resource';
 import {Triple, SimpleTriple} from './Triple'
 
@@ -18,13 +18,14 @@ export interface IProcess {
   status: 'queued' | 'running' | 'done' | 'error'
 };
 
+export type ProcessDocument = IProcess & Document & { updatedAt: Date, createdAt: Date };
 interface IProcessMethods {
-  getTriples(): Iterable<SimpleTriple>,
-  getTriplesJson(): Iterable<string>
+  getTriples(): AsyncIterable<SimpleTriple>,
+  getTriplesJson(): AsyncIterable<string>
 };
 
 interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
-  startNext(): boolean
+  startNext(): Promise<boolean>
 };
 
 const schema = new Schema<IProcess, ProcessModel, IProcessMethods>({
