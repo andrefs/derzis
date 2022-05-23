@@ -1,18 +1,25 @@
-const robotsParser = require('robots-parser');
-const config = require('../config');
-const db = require('./db');
-const Domain = require('../models/Domain');
-const Triple = require('../models/Triple');
-const Path = require('../models/Path');
-const Resource = require('../models/Resource');
-const Process = require('../models/Process');
-const log = require('../../common/lib/logger')('Manager');
-const mongoose = require('mongoose');
-const ObjectId = mongoose.Types.ObjectId;
-const CurrentJobs = require('./CurrentJobs');
+import robotsParser from 'robots-parser';
+import config from '@derzis/config';
+import * as db from './db';
+import {Domain, Triple, Path, Resource, Process} from '@derzis/models';
+import {createLogger} from '@derzis/common';
+const log = createLogger('Manager');
+import CurrentJobs from './CurrentJobs';
+import { JobType } from '../../worker/lib/Worker';
 
+interface JobsBeingSaved {
+  domainCrawl: number;
+  resourceCrawl: number;
+  robotsCheck: number;
+  count: () => number;
+};
 
-class Manager {
+export default class Manager {
+  jobs: CurrentJobs;
+  beingSaved: JobsBeingSaved;
+  beingSavedByDomain: {[domain: string]: number }
+  finished: number;
+
   constructor(){
     this.jobs = new CurrentJobs();
     this.beingSaved = {
@@ -32,12 +39,12 @@ class Manager {
     await db.connect();
   }
 
-  addToBeingSaved(domain, type){
+  addToBeingSaved(domain: string, type: JobType){
     this.beingSaved[type]++;
     this.beingSavedByDomain[domain]++;
   };
 
-  removeFromBeingSaved(domain, type){
+  removeFromBeingSaved(domain: string, type: JobType){
     this.beingSaved[type]--;
     this.beingSavedByDomain[domain]--;
   };
@@ -329,4 +336,3 @@ class Manager {
   }
 };
 
-module.exports = Manager;

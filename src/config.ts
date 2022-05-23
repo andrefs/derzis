@@ -19,7 +19,7 @@ export default {
     maxPathProps:  getSecret('MAX_PATH_PROPS') || process.env.MAX_PATH_PROPS || 4
   },
   pubsub: {
-    //debug: true,
+    debug: false,
     port: getSecret('REDIS_PORT') || process.env.REDIS_PORT || 6378,
     host: getSecret('REDIS_HOST') || process.env.REDIS_HOST || 'localhost',
     manager: {

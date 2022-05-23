@@ -1,12 +1,19 @@
-const redis = require('redis');
-const config = require('../config');
-if(config.pubsub.debug){ redis.debug_mode = true; }
-const log = require('../../common/lib/logger')('Manager');
-const Manager = require('./Manager');
-const process = require('process');
+import redis from 'redis';
+import config from '@derzis/config';
+import {createLogger} from '@derzis/common'
+const log = createLogger('Manager');
+import Manager from './Manager'
+import process from 'process';
 
 
 class ManagerPubSub {
+  _m: Manager;
+  _redisClient: ReturnType<typeof redis.createClient>;
+  _broad: ReturnType<typeof redis.createClient>;
+  _pub: ReturnType<typeof redis.createClient>;
+  _sub: ReturnType<typeof redis.createClient>;
+  _pubChannel: string;
+
   constructor(){
     this._m = new Manager();
     this.listenManager();
@@ -34,9 +41,13 @@ class ManagerPubSub {
       host: config.pubsub.host,
       port: config.pubsub.port
     };
-    this._pub = redis.createClient(options);
-    this._broad = redis.createClient(options);
-    this._sub = redis.createClient(options);
+    await this._redisClient.connect();
+    this._pub = this._redisClient.duplicate();
+    await this._pub.connect();
+    this._sub = this._redisClient.duplicate();
+    await this._sub.connect();
+    this._broad = this._redisClient.duplicate();
+    await this._broad.connect();
 
     process.on('uncaughtException' , (...args) => {
       log.error('Uncaught exception', args);
@@ -90,7 +101,7 @@ class ManagerPubSub {
     });
   }
 
-  askCurrentCapacity(workerId){
+  askCurrentCapacity(workerId?){
     if(workerId){ return this.pub(workerId, 'askCurCap'); }
     return this.broad('askCurCap');
   }
