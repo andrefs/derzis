@@ -46,19 +46,19 @@ export interface JobResultError extends BaseJobResult {
   details?: object;
 };
 
+export type CrawlResourceResultDetails = {
+  crawlId: {
+    domainTs: Date,
+    counter: number
+  },
+  ts: number,
+};
 export type BaseCrawlResourceResult = {
   jobType: 'resourceCrawl';
   url: string;
-  details: {
-    crawlId: {
-      domainTs: Date,
-      counter: number
-    },
-    ts: number,
-  };
+  details: CrawlResourceResultDetails;
 } & BaseJobResult;
-export interface CrawlResourceDetails { triples: RDF.Quad[] };
-export type CrawlResourceResultOk = { details: CrawlResourceDetails; } & BaseCrawlResourceResult & JobResultOk;
+export type CrawlResourceResultOk = { details:{triples: RDF.Quad[]}; } & BaseCrawlResourceResult & JobResultOk;
 export type CrawlResourceResultError = { err: object } & BaseCrawlResourceResult & JobResultError;
 export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
 

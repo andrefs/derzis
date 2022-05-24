@@ -25,8 +25,8 @@ export interface IPath {
 };
 
 export interface IPathMethods {
-  markDisabled(): void,
-  markFinished(): void
+  markDisabled(): Promise<void>,
+  markFinished(): Promise<void>
 };
 
 interface PathModel extends Model<IPath, {}, IPathMethods> {};

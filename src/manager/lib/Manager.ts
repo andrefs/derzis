@@ -1,12 +1,13 @@
 import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import * as db from './db';
-import {Domain, ITriple, Triple, Path, Resource, Process} from '@derzis/models';
+import {Domain, ITriple, Triple, IPath, IPathMethods, Path, Resource, Process} from '@derzis/models';
 import {createLogger} from '@derzis/common';
 const log = createLogger('Manager');
 import CurrentJobs from './CurrentJobs';
-import { CrawlResourceDetails, JobCapacity, JobType, JobRequest } from '@derzis/worker';
+import { JobCapacity, JobType, JobRequest, JobResult, CrawlResourceResultOk } from '@derzis/worker';
 import { ObjectId } from 'bson';
+import { HydratedDocument } from 'mongoose';
 
 interface JobsBeingSaved {
   domainCrawl: number;
@@ -50,31 +51,31 @@ export default class Manager {
     this.beingSavedByDomain[domain]--;
   };
 
-  async updateJobResults(data){
+  async updateJobResults(jobResult: JobResult){
     log.debug('updateJobResults', this.finished, this.jobs.toString(), this.beingSaved);
     this.finished = 0;
-    if(!this.jobs.isJobRegistered(data.domain)){
+    if(!this.jobs.isJobRegistered(jobResult.origin)){
       //log.error(`Something went wrong: cannot update job results for ${data.domain} (no such job registered)`);
       return;
     }
-    if(data.jobType === 'robotsCheck'){
-      log.info(`Saving robots data for ${data.domain}`);
+    if(jobResult.jobType === 'robotsCheck'){
+      log.info(`Saving robots data for ${jobResult.origin}`);
       this.addToBeingSaved['robotsCheck'];
       try {
-        await this.saveRobots(data);
+        await this.saveRobots(jobResult);
       } catch (e) {
         // TODO handle errors
       } finally {
         this.removeFromBeingSaved['robotsCheck'];
-        this.jobs.deregisterJob(data.domain);
-        log.debug(`Done saving robots data for ${data.domain}`);
+        this.jobs.deregisterJob(jobResult.origin);
+        log.debug(`Done saving robots data for ${jobResult.origin}`);
       }
     }
-    if(data.jobType === 'domainCrawl'){
-      log.info(`Saving domain crawl for ${data.domain}`);
+    if(jobResult.jobType === 'domainCrawl'){
+      log.info(`Saving domain crawl for ${jobResult.origin}`);
       this.addToBeingSaved['domainCrawl'];
       try {
-        await Domain.updateOne({origin: data.domain},{
+        await Domain.updateOne({origin: jobResult.origin},{
           '$set': {status: 'ready'},
           '$unset': {workerId: ''}
         });
@@ -82,37 +83,37 @@ export default class Manager {
         // TODO handle errors
       } finally {
         this.removeFromBeingSaved['domainCrawl'];
-        this.jobs.deregisterJob(data.domain);
-        log.debug(`Done saving domain crawl for ${data.domain}`);
+        this.jobs.deregisterJob(jobResult.origin);
+        log.debug(`Done saving domain crawl for ${jobResult.origin}`);
       }
     }
-    if(data.jobType === 'resourceCrawl'){
-      log.info(`Saving resource crawl for domain ${data.domain}: ${data.url}`);
-      if(this.jobs.postponeTimeout(data.domain)){
+    if(jobResult.jobType === 'resourceCrawl'){
+      log.info(`Saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
+      if(this.jobs.postponeTimeout(jobResult.origin)){
         this.addToBeingSaved['resourceCrawl'];
         try {
-          if(data.results.ok){
-            await this.saveCrawl(data.url, data.results.details);
+          if(jobResult.ok){
+            await this.saveCrawl(jobResult);
           } else {
-            await Resource.markAsCrawled(data.url, data.results.details, true);
+            await Resource.markAsCrawled(jobResult.url, jobResult.details, true);
           }
         } catch (e) {
           // TODO handle errors
         } finally {
           this.removeFromBeingSaved['resourceCrawl'];
-          log.debug(`Done saving resource crawl for domain ${data.domain}: ${data.url}`);
+          log.debug(`Done saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
         }
       }
     }
   }
 
-  async saveCrawl(sourceUrl: string, details: CrawlResourceDetails){
-    await Resource.markAsCrawled(sourceUrl, details);
-    const triples = details.triples
+  async saveCrawl(jobResult: CrawlResourceResultOk){
+    await Resource.markAsCrawled(jobResult.url, jobResult.details);
+    const triples = jobResult.details.triples
                       .filter(t => t.subject.termType === 'NamedNode')
                       .filter(t => t.object.termType  === 'NamedNode')
-                      .filter(t => t.object.value  === sourceUrl ||
-                                   t.subject.value === sourceUrl)
+                      .filter(t => t.object.value  === jobResult.url ||
+                                   t.subject.value === jobResult.url)
                       .map(t => ({
                         subject: t.subject.value,
                         predicate: t.predicate.value,
@@ -120,11 +121,11 @@ export default class Manager {
                       }));
     if(triples.length){
       await Resource.addFromTriples(triples);
-      const res = await Triple.upsertMany(sourceUrl, triples);
+      const res = await Triple.upsertMany(jobResult.url, triples);
       if(res.upsertedCount){
         const tids = Object.values(res.upsertedIds).map(i => new ObjectId(i));
         const newTriples = await Triple.find({_id: {'$in': tids}});
-        await this.updatePaths(sourceUrl, newTriples);
+        await this.updatePaths(jobResult.url, newTriples);
       }
     }
     return;
@@ -144,9 +145,8 @@ export default class Manager {
     }
   }
 
-  async addHeads(path, triples){
+  async addHeads(path: IPath, triples: ITriple[]){
     let newPaths = {};
-    let newHeads = {};
 
     for(const t of triples){
       if(t.subject === t.object){ continue; }
@@ -185,17 +185,17 @@ export default class Manager {
     Object.values(newPaths).forEach(x => Object.values(x).forEach(y => nps.push(y)));
     if(!nps.length){ return; }
 
-    let paths = await Path.create(nps);
+    let paths = await Path.create(nps as IPath[]);
     paths = paths.filter(p => p.status === 'active');
 
     if(!paths.length){ return []; }
 
     await Resource.addPaths(paths);
 
-    return this.addExistingHeads(paths);
+    return this.addExistingHeads(paths as HydratedDocument<IPath, IPathMethods>[]);
   }
 
-  async addExistingHeads(paths){
+  async addExistingHeads(paths: HydratedDocument<IPath, IPathMethods>[]){
     for(const p of paths){
       if(p.head.alreadyCrawled){
         await this.addExistingHead(p);
@@ -204,7 +204,7 @@ export default class Manager {
     return paths;
   }
 
-  async addExistingHead(path){
+  async addExistingHead(path: HydratedDocument<IPath, IPathMethods>){
     const headResource = await Resource.findOne({url: path.head.url}).lean();
     if(headResource.isSeed || path.nodes.elems.includes(headResource.url)){
       await path.markDisabled();
