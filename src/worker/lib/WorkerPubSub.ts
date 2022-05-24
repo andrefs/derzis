@@ -5,7 +5,6 @@ import {JobCapacity, JobResult, JobType, Worker} from './Worker';
 import {createLogger} from '@derzis/common';
 import { MonkeyPatchedLogger } from '@derzis/common';
 let log: MonkeyPatchedLogger;
-import winston from 'winston';
 import { IDomain } from '@derzis/models';
 import { OngoingJobs } from '@derzis/manager';
 
@@ -28,7 +27,7 @@ export interface ShutdownMessage extends BaseMessage {
 export interface JobTimeoutMessage extends BaseMessage {
   type: 'jobTimeout',
   payload: {
-    domain: string
+    origin: string
   }
 }
 export interface AskCurCapMessage extends BaseMessage { type: 'askCurCap' };
@@ -99,22 +98,22 @@ export class WorkerPubSub {
 
 
     const handleMessage = (channel: string) =>  (msg: string) => {
-      const {type, payload}: Message = JSON.parse(msg);
-      log.pubsub('message from '+channel, type);
-      if(Object.keys(payload).length){ log.debug('', payload); }
+      const message: Message = JSON.parse(msg);
+      log.pubsub('message from '+channel, message.type);
+      if(Object.keys(message.payload).length){ log.debug('', message.payload); }
 
 
-      if(type === 'askCurCap'){
+      if(message.type === 'askCurCap'){
         return this.reportCurrentCapacity();
       }
-      if(type === 'jobTimeout'){
-        if(this.w.currentJobs.domainCrawl[payload.domain]){
-          this.w.jobsTimedout[payload.domain] = true;
+      if(message.type === 'jobTimeout'){
+        if(this.w.currentJobs.domainCrawl[message.payload.origin]){
+          this.w.jobsTimedout[message.payload.origin] = true;
         }
         return;
       }
-      if(type === 'doJob'){
-        return this.doJob(payload);
+      if(message.type === 'doJob'){
+        return this.doJob(message.payload);
       }
     };
 

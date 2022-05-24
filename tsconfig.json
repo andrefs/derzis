@@ -5,17 +5,17 @@
     "lib": ["es2015.promise"],
     "module": "ESNEXT",
     "moduleResolution": "node",
-    "outDir": "./build",
+    "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@derzis/models": [ "./src/manager/models/index.ts" ],
-      "@derzis/common": [ "./src/common/lib/index.ts"],
+      "@derzis/models": [ "./src/manager/models/" ],
+      "@derzis/common": [ "./src/common/lib/"],
       "@derzis/config": [ "./src/config.ts" ],
-      "@derzis/worker": [ "./src/worker/index.ts" ],
-      "@derzis/manager": [ "./src/manager/index.ts" ]
+      "@derzis/worker": [ "./src/worker/" ],
+      "@derzis/manager": [ "./src/manager/" ]
     }
   },
   "include": ["src/**/*"],

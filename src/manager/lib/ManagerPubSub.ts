@@ -23,8 +23,8 @@ class ManagerPubSub {
   }
 
   listenManager(){
-    this._m.jobs.on('jobTimeout', (domain) => {
-      return this.broad({type: 'jobTimeout', payload: {domain}});
+    this._m.jobs.on('jobTimeout', ({origin}) => {
+      return this.broad({type: 'jobTimeout', payload: {origin}});
     });
   }
 
@@ -58,19 +58,19 @@ class ManagerPubSub {
 
     const handleMessage = (msg: string, channel: string) => {
       const workerId = channel.match(/:([-\w]+)$/)[1];
-      const {type, payload}: Message = JSON.parse(msg);
-      log.pubsub('Got message from '+channel.replace(/-.*$/,''), type)
-      if(Object.keys(payload).length){ log.debug('', payload); }
-      if(type === 'repCurCap'){
-        return this.assignJobs(workerId, payload);
+      const message: Message = JSON.parse(msg);
+      log.pubsub('Got message from '+channel.replace(/-.*$/,''), message.type)
+      if(Object.keys(message.payload).length){ log.debug('', message.payload); }
+      if(message.type === 'repCurCap'){
+        return this.assignJobs(workerId, message.payload);
       }
-      if(type === 'jobDone'){
-        return this._m.updateJobResults(payload);
+      if(message.type === 'jobDone'){
+        return this._m.updateJobResults(message.payload);
       }
-      if(type === 'shutdown'){
-        this._m.jobs.cancelJobs(payload.ongoingJobs, workerId);
+      if(message.type === 'shutdown'){
+        this._m.jobs.cancelJobs(message.payload.ongoingJobs, workerId);
       }
-      if(type === 'noCapacity'){
+      if(message.type === 'noCapacity'){
         // return this._cancelJob(payload.data);
       }
     };

@@ -73,10 +73,10 @@ export default class CurrentJobs extends EventEmitter {
     return;
   }
 
-  async cancelJob(domain: string, jobType: JobType, timeout: number, ts: Date){
-    if(this._jobs[domain]){
-      log.warn(`Job ${jobType} for domain ${domain} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
-      this.deregisterJob(domain);
+  async cancelJob(origin: string, jobType: JobType, timeout: number, ts: Date){
+    if(this._jobs[origin]){
+      log.warn(`Job ${jobType} for domain ${origin} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
+      this.deregisterJob(origin);
     }
     if(jobType === 'robotsCheck'){
       const update = {
@@ -95,7 +95,7 @@ export default class CurrentJobs extends EventEmitter {
           'err.count.E_ROBOTS_TIMEOUT': 1
         },
       };
-      await Domain.updateMany({origin: domain}, update);
+      await Domain.updateMany({origin}, update);
     }
     if(jobType === 'domainCrawl'){
       const update = {
@@ -113,9 +113,9 @@ export default class CurrentJobs extends EventEmitter {
           'err.count.E_RESOURCE_TIMEOUT': 1
         },
       };
-      await Domain.updateMany({origin: domain}, {'$set': update});
+      await Domain.updateMany({origin}, {'$set': update});
     }
-    this.emit('jobTimeout', domain, jobType);
+    this.emit('jobTimeout', origin, jobType);
   }
 
   registerJob(domain: string, jobType: JobType){
