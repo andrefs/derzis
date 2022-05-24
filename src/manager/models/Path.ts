@@ -1,4 +1,4 @@
-import { Model, model, Schema, Types } from "mongoose";
+import { HydratedDocument, Model, model, Schema, Types } from "mongoose";
 import {urlType} from '@derzis/common';
 import config from '@derzis/config';
 
@@ -29,7 +29,8 @@ export interface IPathMethods {
   markFinished(): Promise<void>
 };
 
-interface PathModel extends Model<IPath, {}, IPathMethods> {};
+export type PathDocument = HydratedDocument<IPath , IPathMethods>;
+export interface PathModel extends Model<IPath, {}, IPathMethods> {};
 
 const schema = new Schema<IPath, {}, IPathMethods>({
   seed: {

@@ -1,14 +1,15 @@
 import redis  from 'redis';
-import config from '../../config';
+import config from '@derzis/config';
 const redisOpts = {url : `redis://{config.pubsub.host}:{config.pubsub.port}`};
-import {JobCapacity, JobResult, JobType, OngoingJobs, Worker} from './Worker';
+import {JobCapacity, JobResult, JobType, Worker} from './Worker';
 import {createLogger} from '@derzis/common';
 let log: winston.Logger ;
 import winston from 'winston';
 import { IDomain } from '@derzis/models';
+import { OngoingJobs } from '@derzis/manager';
 
 
-export interface BaseJobRequest { Type: JobType };
+export interface BaseJobRequest { type: JobType };
 export interface RobotsCheckJobRequest extends BaseJobRequest { type: 'robotsCheck', origin: string };
 export interface ResourceCrawlJobRequest extends BaseJobRequest { type: 'resourceCrawl', origin: string, url: string };
 export interface DomainCrawlJobRequest extends BaseJobRequest { type: 'domainCrawl', domain: IDomain, resources: {url: string}[] };
@@ -152,7 +153,7 @@ export class WorkerPubSub {
       this.pub({
         type:'jobDone',
         payload: {
-          ok: true,
+          status: 'ok' as const,
           jobType: 'domainCrawl',
           origin: job.domain.origin,
           details: {}

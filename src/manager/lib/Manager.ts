@@ -1,13 +1,12 @@
 import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import * as db from './db';
-import {Domain, ITriple, Triple, IPath, IPathMethods, Path, Resource, Process} from '@derzis/models';
-import {createLogger} from '@derzis/common';
+import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process} from '@derzis/models';
+import {createLogger, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
 import CurrentJobs from './CurrentJobs';
-import { JobCapacity, JobType, JobRequest, JobResult, CrawlResourceResultOk } from '@derzis/worker';
+import { JobCapacity, JobType, JobRequest, JobResult, CrawlResourceResultOk, RobotsCheckResult } from '@derzis/worker';
 import { ObjectId } from 'bson';
-import { HydratedDocument } from 'mongoose';
 
 interface JobsBeingSaved {
   domainCrawl: number;
@@ -92,7 +91,7 @@ export default class Manager {
       if(this.jobs.postponeTimeout(jobResult.origin)){
         this.addToBeingSaved['resourceCrawl'];
         try {
-          if(jobResult.ok){
+          if(jobResult.status === 'ok' ){
             await this.saveCrawl(jobResult);
           } else {
             await Resource.markAsCrawled(jobResult.url, jobResult.details, true);
@@ -192,10 +191,10 @@ export default class Manager {
 
     await Resource.addPaths(paths);
 
-    return this.addExistingHeads(paths as HydratedDocument<IPath, IPathMethods>[]);
+    return this.addExistingHeads(paths);
   }
 
-  async addExistingHeads(paths: HydratedDocument<IPath, IPathMethods>[]){
+  async addExistingHeads(paths: PathDocument[]){
     for(const p of paths){
       if(p.head.alreadyCrawled){
         await this.addExistingHead(p);
@@ -204,7 +203,7 @@ export default class Manager {
     return paths;
   }
 
-  async addExistingHead(path: HydratedDocument<IPath, IPathMethods>){
+  async addExistingHead(path: PathDocument){
     const headResource = await Resource.findOne({url: path.head.url}).lean();
     if(headResource.isSeed || path.nodes.elems.includes(headResource.url)){
       await path.markDisabled();
@@ -225,38 +224,39 @@ export default class Manager {
     return this.addHeads(path, triples);
   }
 
-  async saveRobots(data){
+  async saveRobots(jobResult: RobotsCheckResult){
     let crawlDelay = config.http.crawlDelay || 1;
-    let doc = {workerId: undefined};
+    let doc: object = {workerId: undefined};
 
-    if(data.results.ok){
-      const robots = robotsParser(data.domain+'/robots.txt', data.results.details.robots);
-      crawlDelay = robots.getCrawlDelay(config.userAgent) || crawlDelay;
+    if(jobResult.status === 'ok'){
+      const robots = robotsParser(jobResult.origin+'/robots.txt', jobResult.details.robotsText);
+      crawlDelay = robots.getCrawlDelay(config.http.userAgent) || crawlDelay;
       const msCrawlDelay = 1000*crawlDelay;
 
       doc = {
         '$set': {
-          'robots.text': data.results.details.robots,
-          'robots.checked': data.results.details.endTime,
-          'robots.elapsedTime': data.results.details.elapsedTime,
+          'robots.text': jobResult.details.robotsText,
+          'robots.checked': jobResult.details.endTime,
+          'robots.elapsedTime': jobResult.details.elapsedTime,
           'robots.status': 'done',
           status: 'ready',
           'crawl.delay': crawlDelay,
-          'crawl.nextAllowed': new Date(data.results.details.endTime+(msCrawlDelay)),
-          lastAccessed: data.results.details.endTime
+          'crawl.nextAllowed': new Date(jobResult.details.endTime+(msCrawlDelay)),
+          lastAccessed: jobResult.details.endTime
         }, '$unset': {workerId: ''}
       };
     }
-    else if(data.results.error.errorType === 'http'){
+    else if(jobResult.err instanceof HttpError){
       let robotStatus = 'error';
-      if(data.results.error.httpStatus === 404){ robotStatus = 'not_found'; }
+      const msCrawlDelay = 1000*crawlDelay;
+      if(jobResult.err.httpStatus === 404){ robotStatus = 'not_found'; }
 
       doc = {
         '$set': {
           'robots.status': robotStatus,
           status: 'ready',
           'crawl.delay': crawlDelay,
-          'crawl.nextAllowed': new Date(data.results.details.endTime+(msCrawlDelay))
+          'crawl.nextAllowed': new Date(jobResult.details.endTime+(msCrawlDelay))
         }, '$unset': {workerId: ''}
       };
     } else {
@@ -269,11 +269,11 @@ export default class Manager {
       };
     }
 
-    return await Domain.findOneAndUpdate({origin: data.domain}, doc, {new: true})
+    return await Domain.findOneAndUpdate({origin: jobResult.origin}, doc, {new: true})
       .catch(err => log.error(err));
   }
 
-  async *domainsToCrawl(workerId, limit, resourcesPerDomain){
+  async *domainsToCrawl(workerId: string, limit: number, resourcesPerDomain: number){
     let noDomainsFound = true;
     for await(const domain of Domain.domainsToCrawl(workerId, limit)){
       noDomainsFound = false;
@@ -318,7 +318,7 @@ export default class Manager {
     }
     if(workerAvail.domainCrawl){
       log.debug(`Getting ${workerAvail.domainCrawl} domainCrawl jobs for ${workerId}`);
-      for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl, workerAvail.domainCrawl.resourcesPerDomain)){
+      for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl.capacity, workerAvail.domainCrawl.resourcesPerDomain)){
         if(crawl?.resources?.length && this.jobs.registerJob(crawl.domain.origin, 'domainCrawl')){
           assignedCrawl++;
           yield {type: 'domainCrawl', ...crawl};

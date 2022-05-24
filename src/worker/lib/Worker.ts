@@ -25,23 +25,22 @@ import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import LinkHeader from 'http-link-header';
 import {v4 as uuidv4} from 'uuid';
-import { IDomain } from '@derzis/models';
 import * as RDF from "@rdfjs/types";
 import { DomainCrawlJobRequest } from "./WorkerPubSub";
 import { OngoingJobs } from "@derzis/manager";
 
 export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
 export interface BaseJobResult {
-  ok: boolean;
+  status: 'ok' | 'not_ok',
   jobType: JobType;
   origin: string,
 };
 export interface JobResultOk extends BaseJobResult {
-  ok: true;
+  status: 'ok',
   details: object;
 };
 export interface JobResultError extends BaseJobResult {
-  ok: false;
+  status: 'not_ok',
   err: object;
   details?: object;
 };
@@ -68,16 +67,16 @@ export type BaseRobotsCheckResult = {
 } & BaseJobResult;
 export type RobotsCheckResultOk = {
   details: {
-    endTime: Date,
+    endTime: number,
     elapsedTime: number,
-    robots: object,
+    robotsText: string,
     status: number
   }
 } & BaseRobotsCheckResult & JobResultOk;
 export type RobotsCheckResultError = {
   err: WorkerError,
   details?:{
-    endTime?: Date,
+    endTime?: number,
     elapsedTime?: number,
     message?: string,
     stack?: any
@@ -219,13 +218,13 @@ export class Worker extends EventEmitter {
       const {triples, ts} = await this.fetchResource(url);
       jobResult = {
         ...jobInfo,
-        ok: true,
+        status: 'ok',
         details: { crawlId, triples, ts }
       };
     } catch (err) {
       jobResult = {
         ...jobInfo,
-        ok: false,
+        status: 'not_ok' as const,
         details: { crawlId, ts: Date.now() },
         err
       };
@@ -306,14 +305,14 @@ const fetchRobots = async (url: string) => {
       details: {
         endTime: resp.headers['request-endTime'],
         elapsedTime: resp.headers['request-duration'],
-        robots: resp.data,
+        robotsText: resp.data,
         status: resp.status,
       },
-      ok: true as const
+      status: 'ok' as const
     }))
     .catch(err => ({
       ...handleHttpError(url, err),
-      ok: false as const
+      status: 'not_ok' as const
     }));
   return res;
 };

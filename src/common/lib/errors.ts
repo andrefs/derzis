@@ -14,70 +14,67 @@ export class WorkerError extends Error {
 };
 
 export class NoCapacityError extends WorkerError {
+  errorType = 'no_capacity';
   constructor(){
     super();
-    this.errorType = 'no_capacity';
   }
 };
 
 export class RobotsForbiddenError extends WorkerError {
+  errorType = 'robots_forbidden';
   constructor(){
     super();
-    this.errorType = 'robots_forbidden';
   }
 };
 
 export class TimeoutError extends WorkerError {
   timeout: number;
-
+  errorType = 'timeout';
   constructor(timeout: number){
     super();
     this.timeout = timeout;
-    this.errorType = 'timeout';
   }
 };
 
 export class ConnectionResetError extends WorkerError {
+  errorType = 'connection_reset';
   constructor(){
     super();
-    this.errorType = 'connection_reset';
   }
 };
 
 export class TooManyRedirectsError extends WorkerError {
   lastUrl: string;
-
+  errorType = 'too_many_redirects';
   constructor(lastUrl: string){
     super();
     this.lastUrl = lastUrl;
-    this.errorType = 'too_many_redirects';
   }
 };
 
 export class HttpError extends WorkerError {
   httpStatus: number;
-
+  errorType = 'http';
   constructor(httpStatus: number){
     super();
-    this.errorType = 'http';
     this.httpStatus = httpStatus;
   }
 };
 
 export class DomainNotFoundError extends WorkerError {
+  errorType = 'host_not_found';
   constructor(){
     super();
-    this.errorType = 'host_not_found';
   }
 };
 
 export class MimeTypeError extends WorkerError {
   mimeType: string;
   httpStatus?: number;
+  errorType = 'unsupported_mime_type';
 
   constructor(mimeType: string, info: {httpStatus?: number} = {}){
     super();
-    this.errorType = 'unsupported_mime_type';
     this.mimeType = mimeType;
     if(info.httpStatus){ this.httpStatus = info.httpStatus; }
   };
@@ -87,10 +84,10 @@ export class ParsingError extends WorkerError {
   mimeType: string;
   httpStatus: number;
   errorMessage: string;
+  errorType = 'parsing';
 
   constructor(message: string, {httpStatus, mimeType}){
     super();
-    this.errorType = 'parsing';
     this.errorMessage = message;
     if(httpStatus){ this.httpStatus = httpStatus; }
     if(mimeType){ this.mimeType = mimeType; }
