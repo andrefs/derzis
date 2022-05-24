@@ -11,11 +11,11 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@derzis/models": [ "./src/manager/models" ],
-      "@derzis/common": [ "./src/common/lib"],
+      "@derzis/models": [ "./src/manager/models/index.ts" ],
+      "@derzis/common": [ "./src/common/lib/index.ts"],
       "@derzis/config": [ "./src/config.ts" ],
-      "@derzis/worker": [ "./src/worker" ],
-      "@derzis/manager": [ "./src/manager" ]
+      "@derzis/worker": [ "./src/worker/index.ts" ],
+      "@derzis/manager": [ "./src/manager/index.ts" ]
     }
   },
   "include": ["src/**/*"],
