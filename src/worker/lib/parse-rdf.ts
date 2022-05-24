@@ -10,7 +10,6 @@ interface parsedRdf {
 const parseRdf = (rdf:string, mime: string): Promise<parsedRdf> => {
   let triples: RDF.Quad[] = [];
   if(!rdf){ return Bluebird.resolve({triples}); }
-  console.warn(rdfParser)
   return new Bluebird((resolve, reject) => rdfParser.parse(streamify(rdf), {contentType: mime})
     .on('data',  quad => triples.push(quad))
     .on('error', err  => reject(err))
