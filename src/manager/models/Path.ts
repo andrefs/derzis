@@ -1,6 +1,7 @@
 import { HydratedDocument, Model, model, Schema, Types } from "mongoose";
 import {urlType} from '@derzis/common';
 import config from '@derzis/config';
+import {Resource} from '@derzis/models';
 
 export interface IPath {
   seed: {
@@ -77,7 +78,6 @@ schema.index({
 
 
 schema.pre('save', async function(){
-  const Resource = require('./Resource');
   this.nodes.count = this.nodes.elems.length;
   this.predicates.count = this.predicates.elems.length;
   if(this.predicates.count){
@@ -102,7 +102,6 @@ schema.pre('save', async function(){
 schema.method('markDisabled',  async function(){
   this.status = 'disabled';
   await this.save();
-  const Resource = require('./Resource');
   await Resource.rmPath(this);
   return;
 });
@@ -110,7 +109,6 @@ schema.method('markDisabled',  async function(){
 schema.method('markFinished', async function(){
   this.status = 'finished';
   await this.save();
-  const Resource = require('./Resource');
   await Resource.rmPath(this);
   return;
 });
