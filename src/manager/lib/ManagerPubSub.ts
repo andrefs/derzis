@@ -5,6 +5,7 @@ const log = createLogger('Manager');
 import Manager from './Manager'
 import process from 'process';
 
+type PayloadType = 'askCurCap' | 'jobTimeout' | 'doJob' | 'jobDone' | 'shutdown' | 'repCurCap' | 'askJobs';
 
 class ManagerPubSub {
   _m: Manager;
@@ -42,7 +43,7 @@ class ManagerPubSub {
       host: config.pubsub.host,
       port: config.pubsub.port
     };
-    await this._redisClient.connect();
+await this._redisClient.connect();
     this._pub = this._redisClient.duplicate();
     this._sub = this._redisClient.duplicate();
     this._broad = this._redisClient.duplicate();
@@ -83,11 +84,9 @@ class ManagerPubSub {
     log.pubsub(`Broadcasting to ${this._broadChannel}`);
     this._pubChannel = config.pubsub.workers.to;
     log.pubsub(`Publishing to ${this._pubChannel}{workerId}`);
-
-    this._subEvents();
   }
 
-  pub(workerId, type, data = {}){
+  pub(workerId: string, type: PayloadType, data: {jobType: JobType, data: Job){
     const payload = {type, data};
     const channel = this._pubChannel+workerId;
     log.pubsub('Publishing message to '+channel.replace(/-.*$/,''), type);

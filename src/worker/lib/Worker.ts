@@ -8,7 +8,7 @@ let axios: AxiosInstance;
 import contentType from 'content-type';
 import parseRdf from './parse-rdf';
 import {createLogger} from '@derzis/common'
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import winston from "winston";
 let log: winston.Logger;
 import {
@@ -28,42 +28,42 @@ import {v4 as uuidv4} from 'uuid';
 import { IDomain } from '@derzis/models';
 import * as RDF from "@rdfjs/types";
 
-interface JobResult {
+export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
+export interface BaseJobResult {
   ok: boolean;
-  jobType: 'domainCrawl' | 'resourceCrawl' | 'robotsCheck',
-  domain: string,
+  jobType: JobType;
+  origin: string,
+};
+export interface JobResultOk extends BaseJobResult {
+  ok: true;
+  details: object;
+};
+export interface JobResultError extends BaseJobResult {
+  ok: false;
+  err: object;
+  details?: object;
 };
 
-interface JobResultOk extends JobResult {
-  ok: true,
-  details: object
-};
-
-interface JobResultError extends JobResult {
-  ok: false,
-  err: object,
-  details?: object
-};
-
-type BaseCrawlResourceResult = {
-  jobType: 'resourceCrawl',
+export type BaseCrawlResourceResult = {
+  jobType: 'resourceCrawl';
+  url: string;
   details: {
     crawlId: {
       domainTs: Date,
       counter: number
     },
     ts: number,
-  }
-} & JobResult;
-type CrawlResourceResultOk = { details: { triples: RDF.Quad[] }} & BaseCrawlResourceResult & JobResultOk;
-type CrawlResourceResultError = { err: object } & BaseCrawlResourceResult & JobResultError;
-type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
+  };
+} & BaseJobResult;
+export type CrawlResourceResultOk = { details: { triples: RDF.Quad[] }; } & BaseCrawlResourceResult & JobResultOk;
+export type CrawlResourceResultError = { err: object } & BaseCrawlResourceResult & JobResultError;
+export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
 
-type BaseRobotsCheckResult = {
+export type BaseRobotsCheckResult = {
   jobType:'robotsCheck',
   url: string,
-};
-type RobotsCheckResultOk = {
+} & BaseJobResult;
+export type RobotsCheckResultOk = {
   details: {
     endTime: Date,
     elapsedTime: number,
@@ -71,7 +71,7 @@ type RobotsCheckResultOk = {
     status: number
   }
 } & BaseRobotsCheckResult & JobResultOk;
-type RobotsCheckResultError = {
+export type RobotsCheckResultError = {
   err: WorkerError,
   details?:{
     endTime?: Date,
@@ -80,13 +80,18 @@ type RobotsCheckResultError = {
     stack?: any
   }
 } & BaseRobotsCheckResult & JobResultError;
-type RobotsCheckResult = RobotsCheckResultOk | RobotsCheckResultError;
+export type RobotsCheckResult = RobotsCheckResultOk | RobotsCheckResultError;
 
+export type BaseCrawlDomainResult = { jobType: 'domainCrawl' } & BaseJobResult;
+export type BaseCrawlDomainResultOk = BaseCrawlDomainResult & JobResultOk;
+export type BaseCrawlDomainResultError = BaseCrawlDomainResult & JobResultError;
+export type CrawlDomainResult = BaseCrawlDomainResultOk | BaseCrawlDomainResultError;
 
+export type JobResult =  CrawlResourceResult | RobotsCheckResult | CrawlDomainResult;
 
 export interface Availability {
   currentCapacity: JobCapacity,
-  currentJobs: CurrentJobs
+  currentJobs: OngoingJobs
 }
 
 export interface JobCapacity {
@@ -99,30 +104,7 @@ export interface JobCapacity {
   };
 };
 
-interface Resource {
-  url: string
-};
-
-export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
-export type Job = RobotsCheckJob | ResourceCrawlJob | DomainCrawlJob;
-
-interface RobotsCheckJob {
-  domain: string,
-  //results
-};
-
-interface ResourceCrawlJob {
-  domain: string,
-  url: string,
-  //results
-};
-
-interface DomainCrawlJob {
-  domain: IDomain,
-  resources: {url: string}[]
-};
-
-interface CurrentJobs {
+export interface OngoingJobs {
   domainCrawl: {
     [domain: string]: boolean
   },
@@ -139,13 +121,13 @@ export class Worker extends EventEmitter {
   wId: string;
   wShortId: string;
   jobCapacity: JobCapacity;
-  currentJobs: CurrentJobs;
+  currentJobs: OngoingJobs;
   accept: string;
   jobsTimedout: JobsTimedOut;
   crawlTs: Date;
   crawlCounter: number;
 
-  constructor(wId: string){
+  constructor(){
     super();
     this.wId = uuidv4();
     this.wShortId = this.wId.replace(/-.*$/, '');
@@ -187,21 +169,21 @@ export class Worker extends EventEmitter {
     return Object.keys(this.currentJobs[jobType]).length < this.jobCapacity[jobType].capacity;
   }
 
-  async checkRobots(domain: string): Promise<RobotsCheckResult> {
-    this.currentJobs.robotsCheck[domain] = true;
+  async checkRobots(origin: string): Promise<RobotsCheckResult> {
+    this.currentJobs.robotsCheck[origin] = true;
 
-    const url = domain+'/robots.txt';
+    const url = origin+'/robots.txt';
     const res = await fetchRobots(url);
-    delete this.currentJobs.robotsCheck[domain];
+    delete this.currentJobs.robotsCheck[origin];
     return {
       ...res,
       url,
-      domain,
+      origin,
       jobType: 'robotsCheck'
     };
   };
 
-  async *crawlDomain({domain,resources}: DomainCrawlJob){
+  async *crawlDomain({domain, resources}: ){
     this.crawlTs = new Date();
     this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;
@@ -234,12 +216,13 @@ export class Worker extends EventEmitter {
     };
     const jobInfo = {
       jobType: 'resourceCrawl' as const,
-      domain: origin,
+      origin: origin,
+      url
     };
     let jobResult: CrawlResourceResult;
     try {  
       robotsAllow(robots, url, config.http.userAgent);
-      const {triples, ts} = await this.fetchResource(r);
+      const {triples, ts} = await this.fetchResource(url);
       jobResult = {
         ...jobInfo,
         ok: true,
@@ -256,15 +239,13 @@ export class Worker extends EventEmitter {
     return jobResult as CrawlResourceResult;
   }
 
-  async fetchResource({url}: Resource){
+  async fetchResource(url: string){
     const resp = await this.makeHttpRequest(url);
     const res = await parseRdf(resp.rdf, resp.mime);
     return {ts: resp.ts, ...res};
   }
 
   makeHttpRequest = async (url: string, redirect=0) => {
-    let res;
-    const reqStart = Date.now();
     const timeout = config.http.domainCrawl.timeouts || 10*1000;
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const headers = {
@@ -295,7 +276,7 @@ export class Worker extends EventEmitter {
   }
 };
 
-const handleHttpError = (url: string, err) => {
+const handleHttpError = (url: string, err: any) => {
   if(err.response){
     let e = new HttpError(err.response.status);
     const details = {
