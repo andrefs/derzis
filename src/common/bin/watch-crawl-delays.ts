@@ -1,5 +1,5 @@
 import redis from 'redis';
-import {commonConf as config} from '../../config';
+import config from '@derzis/config';
 const client = redis.createClient({url: 'redis://localhost:6378'});
 import chalk from 'chalk';
 

@@ -25,78 +25,74 @@ export default {
               },
               ssePath: {
                 type: "string",
-                description: "A
-              }
-          },
-          description: {
-            type: "string",
-            description: "A description of the crawling process",
-            example: "Portuguese largest cities",
-          },
-          seeds: {
-            type: "array",
-            items: {
-              type: "string",
-              description: "Seed resources for the crawling process",
-              example: "https://dbpedia.org/resource/Lisbon",
-            }
-          },
-          params: {
-            type: "object",
-            properties: {
-              maxPathLength: {
-                type: "number",
-                description: "Maximum number of nodes for a path",
-                example: 3,
-              },
-              maxPathProps: {
-                type: "number",
-                description: "Maximum number of different properties for a path",
-                example: 2
+                description: "A path in this domain for listening for server sent events"
               }
             },
-          },
-          status: {
-            type: "boolean", // data type
-            description: "The status of the todo", // desc
-            example: false, // example of a completed value
-          },
-          description: {
-            type: "boolean", // data type
-            description: "The status of the todo", // desc
-            example: false, // example of a completed value
+            description: {
+              type: "string",
+              description: "A description of the crawling process",
+              example: "Portuguese largest cities",
+            },
+            seeds: {
+              type: "array",
+              items: {
+                type: "string",
+                description: "Seed resources for the crawling process",
+                example: "https://dbpedia.org/resource/Lisbon",
+              }
+            },
+            params: {
+              type: "object",
+              properties: {
+                maxPathLength: {
+                  type: "number",
+                  description: "Maximum number of nodes for a path",
+                  example: 3,
+                },
+                maxPathProps: {
+                  type: "number",
+                  description: "Maximum number of different properties for a path",
+                  example: 2
+                }
+              },
+            },
+            status: {
+              type: "boolean", // data type
+              description: "The status of the todo", // desc
+              example: false, // example of a completed value
+            },
           },
         },
-      },
-      // Todo input model
-      TodoInput: {
-        type: "object", // data type
-        properties: {
-          title: {
-            type: "string", // data type
-            description: "Todo's title", // desc
-            example: "Coding in JavaScript", // example of a title
-          },
-          completed: {
-            type: "boolean", // data type
-            description: "The status of the todo", // desc
-            example: false, // example of a completed value
+        // Todo input model
+        TodoInput: {
+          type: "object", // data type
+          properties: {
+            title: {
+              type: "string", // data type
+              description: "Todo's title", // desc
+              example: "Coding in JavaScript", // example of a title
+            },
+            completed: {
+              type: "boolean", // data type
+              description: "The status of the todo", // desc
+              example: false, // example of a completed value
+            },
           },
         },
-      },
-      // error model
-      Error: {
-        type: "object", //data type
-        properties: {
-          message: {
-            type: "string", // data type
-            description: "Error message", // desc
-            example: "Not found", // example of an error message
-          },
-          internal_code: {
-            type: "string", // data type
-            description: "Error internal code", // desc
-            example: "Invalid parameters", // example of an error internal code
+        // error model
+        Error: {
+          type: "object", //data type
+          properties: {
+            message: {
+              type: "string", // data type
+              description: "Error message", // desc
+              example: "Not found", // example of an error message
+            },
+            internal_code: {
+              type: "string", // data type
+              description: "Error internal code", // desc
+              example: "Invalid parameters", // example of an error internal code
+            },
           },
         },
       },

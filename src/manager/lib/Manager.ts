@@ -1,11 +1,12 @@
 import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import * as db from './db';
-import {Domain, Triple, Path, Resource, Process} from '@derzis/models';
+import {Domain, ITriple, Triple, Path, Resource, Process} from '@derzis/models';
 import {createLogger} from '@derzis/common';
 const log = createLogger('Manager');
 import CurrentJobs from './CurrentJobs';
-import { JobCapacity, JobType } from '../../worker/lib/Worker';
+import { CrawlResourceDetails, JobCapacity, JobType, JobRequest } from '@derzis/worker';
+import { ObjectId } from 'bson';
 
 interface JobsBeingSaved {
   domainCrawl: number;
@@ -105,8 +106,8 @@ export default class Manager {
     }
   }
 
-  async saveCrawl(sourceUrl, details){
-    const source = await Resource.markAsCrawled(sourceUrl, details);
+  async saveCrawl(sourceUrl: string, details: CrawlResourceDetails){
+    await Resource.markAsCrawled(sourceUrl, details);
     const triples = details.triples
                       .filter(t => t.subject.termType === 'NamedNode')
                       .filter(t => t.object.termType  === 'NamedNode')
@@ -121,7 +122,7 @@ export default class Manager {
       await Resource.addFromTriples(triples);
       const res = await Triple.upsertMany(sourceUrl, triples);
       if(res.upsertedCount){
-        const tids = Object.values(res.upsertedIds).map(i => ObjectId(i));
+        const tids = Object.values(res.upsertedIds).map(i => new ObjectId(i));
         const newTriples = await Triple.find({_id: {'$in': tids}});
         await this.updatePaths(sourceUrl, newTriples);
       }
@@ -130,7 +131,7 @@ export default class Manager {
   }
 
 
-  async updatePaths(sourceUrl, triples){
+  async updatePaths(sourceUrl: string, triples: ITriple[]){
     const query = {
       'head.url': sourceUrl,
       'nodes.count': {
@@ -288,7 +289,7 @@ export default class Manager {
                                   .select('url')
                                   .limit(resourcesPerDomain || 10)
                                   .lean();
-      await Resource.updateMany({_id: {'$in': heads.map(h => h._id)}}, {status: 'crawling'});
+      await Resource.updateMany({_id: {'$in': heads.map(h => h._id)}}, {status: 'crawling'}).lean();
       yield {domain, resources: heads};
     }
     if(noDomainsFound){
@@ -296,7 +297,7 @@ export default class Manager {
     }
   }
 
-  async *assignJobs(workerId: string, workerAvail: JobCapacity){
+  async *assignJobs(workerId: string, workerAvail: JobCapacity): AsyncIterable<JobRequest>{
     log.debug('assignJobs');
     if(this.beingSaved.count() > 2){
       console.warn('Too many jobs being saved, waiting for them to reduce before assigning new jobs');
@@ -308,16 +309,19 @@ export default class Manager {
       for await(const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)){
         if(this.jobs.registerJob(check.origin, 'robotsCheck')){
           assignedCheck++;
-          yield {jobType: 'robotsCheck', domain: check.origin};
+          yield {
+            type: 'robotsCheck',
+            origin: check.origin
+          };
         }
       }
     }
     if(workerAvail.domainCrawl){
       log.debug(`Getting ${workerAvail.domainCrawl} domainCrawl jobs for ${workerId}`);
-      for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl, workerAvail.resourcesPerDomain)){
+      for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl, workerAvail.domainCrawl.resourcesPerDomain)){
         if(crawl?.resources?.length && this.jobs.registerJob(crawl.domain.origin, 'domainCrawl')){
           assignedCrawl++;
-          yield {jobType: 'domainCrawl', ...crawl};
+          yield {type: 'domainCrawl', ...crawl};
         } else {
           log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
         }

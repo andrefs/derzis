@@ -9,13 +9,13 @@ import { IDomain } from '@derzis/models';
 
 
 export interface BaseJobRequest { Type: JobType };
-export interface RobotsCheckJobRequest extends BaseJobRequest { type:'robotsCheck', domain: IDomain };
-export interface ResourceCrawlJobRequest extends BaseJobRequest { type: 'resourceCrawl', domain: IDomain, url: string };
+export interface RobotsCheckJobRequest extends BaseJobRequest { type: 'robotsCheck', origin: string };
+export interface ResourceCrawlJobRequest extends BaseJobRequest { type: 'resourceCrawl', origin: string, url: string };
 export interface DomainCrawlJobRequest extends BaseJobRequest { type: 'domainCrawl', domain: IDomain, resources: {url: string}[] };
 export type JobRequest = RobotsCheckJobRequest | ResourceCrawlJobRequest | DomainCrawlJobRequest;
 
-type MessageType = 'askCurCap' | 'jobTimeout' | 'doJob' | 'jobDone' | 'shutdown' | 'repCurCap' | 'askJobs';
-export interface BaseMessage { type: MessageType, payload: {}};
+export type MessageType = 'askCurCap' | 'jobTimeout' | 'doJob' | 'jobDone' | 'shutdown' | 'repCurCap' | 'askJobs' | 'noCapacity';
+export interface BaseMessage { type: MessageType, payload: object };
 export interface ShutdownMessage extends BaseMessage {
   type: 'shutdown'
   payload: {
@@ -32,19 +32,10 @@ export interface JobTimeoutMessage extends BaseMessage {
 export interface AskCurCapMessage extends BaseMessage { type: 'askCurCap' };
 export interface RepCurCapMessage extends BaseMessage { type: 'repCurCap', payload: JobCapacity };
 export interface AskJobsMessage extends BaseMessage { type: 'askJobs', payload: JobCapacity };
-export interface DoJobMessage extends BaseMessage {
-  type: 'doJob',
-  payload: {
-    job: JobRequest
-  }
-};
-export interface JobDoneMessage extends BaseMessage {
-  type: 'jobDone',
-  payload: {
-    jobResult: JobResult
-  }
-};
-export type Message = ShutdownMessage | JobTimeoutMessage | AskCurCapMessage | RepCurCapMessage | AskJobsMessage | DoJobMessage | JobDoneMessage;
+export interface DoJobMessage extends BaseMessage { type: 'doJob', payload:  JobRequest };
+export interface JobDoneMessage extends BaseMessage { type: 'jobDone', payload: JobResult };
+export interface NoCapacityMessage extends BaseMessage { type: 'noCapacity' };
+export type Message = ShutdownMessage | JobTimeoutMessage | AskCurCapMessage | RepCurCapMessage | AskJobsMessage | DoJobMessage | JobDoneMessage | NoCapacityMessage;
 
 
 export class WorkerPubSub {
@@ -89,8 +80,8 @@ export class WorkerPubSub {
     log.info('Connecting to Redis');
     await this._redisClient.connect();
     this._pub = this._redisClient.duplicate();
-    await this._pub.connect();
     this._sub = this._redisClient.duplicate();
+    await this._pub.connect();
     await this._sub.connect();
 
     if(config.http.debug){
@@ -121,7 +112,7 @@ export class WorkerPubSub {
         return;
       }
       if(type === 'doJob'){
-        return this.doJob(payload.job);
+        return this.doJob(payload);
       }
     };
 
@@ -143,10 +134,10 @@ export class WorkerPubSub {
     if(!this.w.hasCapacity(job.type)){ } // TODO
 
     if(job.type === 'robotsCheck'){
-      const res = await this.w.checkRobots(job.domain.origin);
+      const res = await this.w.checkRobots(job.origin);
       this.pub({
         type: 'jobDone',
-        payload: {  jobResult: res }
+        payload: res
       });
       //this.reportCurrentCapacity();
       return;
@@ -156,17 +147,15 @@ export class WorkerPubSub {
       let i = 0;
       for await(const x of this.w.crawlDomain(job)){
         log.info(`Finished resourceCrawl ${++i}/${total} of ${job.domain.origin}`);
-        this.pub({ type: 'jobDone', payload: { jobResult: x }});
+        this.pub({ type: 'jobDone', payload: x });
       }
       this.pub({
         type:'jobDone',
-        payload: { 
-          jobResult: {
-            ok: true,
-            jobType: 'domainCrawl',
-            origin: job.domain.origin,
-            details: {}
-          }
+        payload: {
+          ok: true,
+          jobType: 'domainCrawl',
+          origin: job.domain.origin,
+          details: {}
         }
       });
       //this.reportCurrentCapacity();

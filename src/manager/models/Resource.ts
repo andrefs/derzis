@@ -4,8 +4,9 @@ import {Domain} from '@derzis/models';
 import {Path} from '@derzis/models'
 import { BulkWriteResult } from 'mongodb';
 import { IPath, IPathMethods } from './Path';
-import { ITriple } from './Triple';
+import { ITriple, SimpleTriple } from './Triple';
 import { IDomain } from './Domain';
+import { CrawlResourceDetails } from '@derzis/worker';
 
 interface IResource {
   url: string,
@@ -25,8 +26,8 @@ interface IResource {
 
 interface ResourceModel extends Model<IResource, {}> {
   addMany: (resources: {url:string, domain:string}[], pid: string) => Promise<IResource[]>,
-  addFromTriples: (triples: ITriple[]) => Promise<IResource[]>,
-  markAsCrawled: (url: string, details, error) => Promise<{path: IPath, domain: IDomain}>,
+  addFromTriples: (triples: SimpleTriple[]) => Promise<IResource[]>,
+  markAsCrawled: (url: string, details: CrawlResourceDetails, error?: boolean) => Promise<{path: IPath, domain: IDomain}>,
   insertSeeds: (urls: string[], pid: string) => Promise<IResource>,
   addPaths: (paths: HydratedDocument<IPath, IPathMethods>[]) => Promise<BulkWriteResult>,
   rmPath: (path: IPath) => Promise<void>,

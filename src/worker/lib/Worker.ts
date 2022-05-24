@@ -27,6 +27,8 @@ import LinkHeader from 'http-link-header';
 import {v4 as uuidv4} from 'uuid';
 import { IDomain } from '@derzis/models';
 import * as RDF from "@rdfjs/types";
+import { DomainCrawlJobRequest } from "./WorkerPubSub";
+import { OngoingJobs } from "@derzis/manager";
 
 export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
 export interface BaseJobResult {
@@ -55,7 +57,8 @@ export type BaseCrawlResourceResult = {
     ts: number,
   };
 } & BaseJobResult;
-export type CrawlResourceResultOk = { details: { triples: RDF.Quad[] }; } & BaseCrawlResourceResult & JobResultOk;
+export interface CrawlResourceDetails { triples: RDF.Quad[] };
+export type CrawlResourceResultOk = { details: CrawlResourceDetails; } & BaseCrawlResourceResult & JobResultOk;
 export type CrawlResourceResultError = { err: object } & BaseCrawlResourceResult & JobResultError;
 export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
 
@@ -92,7 +95,7 @@ export type JobResult =  CrawlResourceResult | RobotsCheckResult | CrawlDomainRe
 export interface Availability {
   currentCapacity: JobCapacity,
   currentJobs: OngoingJobs
-}
+};
 
 export interface JobCapacity {
   domainCrawl: {
@@ -103,15 +106,6 @@ export interface JobCapacity {
     capacity: number;
   };
 };
-
-export interface OngoingJobs {
-  domainCrawl: {
-    [domain: string]: boolean
-  },
-  robotsCheck: {
-    [domain: string]: boolean
-  }
-}
 
 interface JobsTimedOut {
   [domain: string]: boolean
@@ -183,7 +177,7 @@ export class Worker extends EventEmitter {
     };
   };
 
-  async *crawlDomain({domain, resources}: ){
+  async *crawlDomain({domain, resources}: DomainCrawlJobRequest){
     this.crawlTs = new Date();
     this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;

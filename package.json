@@ -6,6 +6,7 @@
   "author": "André Santos <andrefs@andrefs.com>",
   "license": "MIT",
   "type": "module",
+  "types": "index.d.ts",
   "scripts": {
     "test": "yarn node --experimental-vm-modules $(yarn bin jest)",
     "build": "tsc",

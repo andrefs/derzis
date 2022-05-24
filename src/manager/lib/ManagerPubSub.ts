@@ -4,8 +4,8 @@ import {createLogger} from '@derzis/common'
 const log = createLogger('Manager');
 import Manager from './Manager'
 import process from 'process';
-
-type PayloadType = 'askCurCap' | 'jobTimeout' | 'doJob' | 'jobDone' | 'shutdown' | 'repCurCap' | 'askJobs';
+import { JobCapacity, Message } from '@derzis/worker';
+const redisOpts = {url : `redis://{config.pubsub.host}:{config.pubsub.port}`};
 
 class ManagerPubSub {
   _m: Manager;
@@ -18,12 +18,13 @@ class ManagerPubSub {
 
   constructor(){
     this._m = new Manager();
+    this._redisClient = redis.createClient(redisOpts);
     this.listenManager();
   }
 
   listenManager(){
-    this._m.jobs.on('jobTimeout', (domain, jobType) => {
-      return this.broad('jobTimeout', {domain});
+    this._m.jobs.on('jobTimeout', (domain) => {
+      return this.broad({type: 'jobTimeout', payload: {domain}});
     });
   }
 
@@ -39,11 +40,7 @@ class ManagerPubSub {
 
   async connect(){
     log.info('Connecting to Redis');
-    const options = {
-      host: config.pubsub.host,
-      port: config.pubsub.port
-    };
-await this._redisClient.connect();
+    await this._redisClient.connect();
     this._pub = this._redisClient.duplicate();
     this._sub = this._redisClient.duplicate();
     this._broad = this._redisClient.duplicate();
@@ -59,21 +56,21 @@ await this._redisClient.connect();
     log.pubsub(`Subscribing to ${config.pubsub.workers.from.replace(/-.*$/,'')}*`);
 
 
-    const handleMessage = (message: string, channel: string) => {
+    const handleMessage = (msg: string, channel: string) => {
       const workerId = channel.match(/:([-\w]+)$/)[1];
-      const payload = JSON.parse(message);
-      log.pubsub('Got message from '+channel.replace(/-.*$/,''), payload.type)
-      if(Object.keys(payload.data).length){ log.debug('', payload.data); }
-      if(payload.type === 'repCurCap'){
-        return this.assignJobs(workerId, payload.data);
+      const {type, payload}: Message = JSON.parse(msg);
+      log.pubsub('Got message from '+channel.replace(/-.*$/,''), type)
+      if(Object.keys(payload).length){ log.debug('', payload); }
+      if(type === 'repCurCap'){
+        return this.assignJobs(workerId, payload);
       }
-      if(payload.type === 'jobDone'){
-        return this._m.updateJobResults(payload.data);
+      if(type === 'jobDone'){
+        return this._m.updateJobResults(payload);
       }
-      if(payload.type === 'shutdown'){
-        this._m.jobs.cancelJobs(payload.data.ongoingJobs, workerId);
+      if(type === 'shutdown'){
+        this._m.jobs.cancelJobs(payload.ongoingJobs, workerId);
       }
-      if(payload.type === 'noCapacity'){
+      if(type === 'noCapacity'){
         // return this._cancelJob(payload.data);
       }
     };
@@ -86,24 +83,23 @@ await this._redisClient.connect();
     log.pubsub(`Publishing to ${this._pubChannel}{workerId}`);
   }
 
-  pub(workerId: string, type: PayloadType, data: {jobType: JobType, data: Job){
-    const payload = {type, data};
+  pub(workerId: string, {type, payload}: Message){
     const channel = this._pubChannel+workerId;
     log.pubsub('Publishing message to '+channel.replace(/-.*$/,''), type);
-    if(Object.keys(data).length){ log.debug('', data); }
-    this._pub.publish(channel, JSON.stringify(payload));
+    if(Object.keys(payload).length){ log.debug('', payload); }
+    this._pub.publish(channel, JSON.stringify({type, payload}));
   }
 
-  broad(type, data = {}){
-    const payload = {type, data};
+  broad({type, payload}: Message){
     log.pubsub('Broadcasting message to '+this._broadChannel, type);
-    if(Object.keys(data).length){ log.debug('', data); }
-    this._broad.publish(this._broadChannel, JSON.stringify(payload));
+    if(Object.keys(payload).length){ log.debug('', payload); }
+    this._broad.publish(this._broadChannel, JSON.stringify({type, payload}));
   }
 
-  askCurrentCapacity(workerId?){
-    if(workerId){ return this.pub(workerId, 'askCurCap'); }
-    return this.broad('askCurCap');
+  askCurrentCapacity(workerId?: string){
+    const message = {type: 'askCurCap' as const, payload:{}};
+    if(workerId){ return this.pub(workerId, message); }
+    return this.broad(message);
   }
 
   //askStatus(workerId){
@@ -111,9 +107,9 @@ await this._redisClient.connect();
   //  return this.broad('askStatus');
   //}
 
-  async assignJobs(workerId, workerAvail){
+  async assignJobs(workerId: string, workerAvail: JobCapacity){
     for await(const job of this._m.assignJobs(workerId, workerAvail)){
-      this.pub(workerId, 'doJob', job);
+      this.pub(workerId, {type: 'doJob', payload: job});
     }
   }
 };

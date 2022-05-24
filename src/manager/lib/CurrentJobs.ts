@@ -2,13 +2,18 @@ import EventEmitter from 'events';
 import {Domain} from '@derzis/models'
 import config from '@derzis/config';
 import {createLogger} from '@derzis/common';
-import { JobType } from '../../worker/lib/Worker';
+import { JobType } from '@derzis/worker';
 const log = createLogger('Manager');
 
-interface OngoingJobs {
-  robotsCheck: { [domain: string]: string },
-  domainCrawl: { [domain: string]: string },
-};
+export interface OngoingJobs {
+  domainCrawl: {
+    [domain: string]: boolean
+  },
+  robotsCheck: {
+    [domain: string]: boolean
+  }
+}
+
 
 export default class CurrentJobs extends EventEmitter {
   _jobs: { [domain: string]: ReturnType<typeof setTimeout> };
