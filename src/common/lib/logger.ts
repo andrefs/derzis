@@ -1,4 +1,4 @@
-import winston, {format, transports} from 'winston';
+import winston, {format, LeveledLogMethod, Logger, transports} from 'winston';
 const {combine, timestamp, printf, colorize} = format;
 const color = colorize().colorize;
 import util from 'util';
@@ -50,8 +50,22 @@ const customFormat = printf(({
 
 //}) => colorize().colorize(level, `${timestamp} [${moduleName}] ${level}: ${message} ${formatMeta(meta)}`));
 
+enum LogLevels {
+  ERROR =   'error',
+  WARN =    'warn',
+  INFO =    'info',
+  HTTP =    'http',
+  PUBSUB =  'pubsub',
+  VERBOSE = 'verbose',
+  DEBUG =   'debug',
+  SILLY =   'silly',
+};
 
-const logger = winston.createLogger({
+export type MonkeyPatchedLogger = {
+  [level in LogLevels]?: LeveledLogMethod
+} & Logger;
+
+const logger: MonkeyPatchedLogger = winston.createLogger({
   levels: myCustomLevels.levels,
   transports: [
     new transports.Console({
@@ -65,7 +79,7 @@ const logger = winston.createLogger({
   ]
 });
 
-export const createLogger = (name: string) => {
+export const createLogger = (name: string): MonkeyPatchedLogger => {
   // set the default moduleName of the child
   return logger.child({moduleName: name});
 };

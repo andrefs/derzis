@@ -1,7 +1,9 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 import http from 'http';
 import https from 'https';
 
+
+type MonkeyPatchedAxiosRequestConfig = AxiosRequestConfig & {tsStart: number};
 
 
 export default function(logger){
@@ -20,7 +22,7 @@ export default function(logger){
     maxContentLength: 50 * 1000 * 1000
   });
 
-  instance.interceptors.request.use(config => {
+  instance.interceptors.request.use((config: MonkeyPatchedAxiosRequestConfig) => {
     config.tsStart = Date.now();
     if(logger){ logger.http(config.method.toUpperCase()+' '+config.url, JSON.stringify(config.headers)); }
     return config;
@@ -28,10 +30,11 @@ export default function(logger){
 
 
   instance.interceptors.response.use(response => {
+      const config = response.config as MonkeyPatchedAxiosRequestConfig;
       const now = Date.now();
-      response.headers['request-startTime'] = response.config.tsStart;
+      response.headers['request-startTime'] = config.tsStart;
       response.headers['request-endTime'] = now;
-      response.headers['request-duration'] = now - response.config.tsStart;
+      response.headers['request-duration'] = now - config.tsStart;
       if(logger){ logger.http(response.config.method.toUpperCase()+' '+response.config.url, response.status); }
       return response;
     },

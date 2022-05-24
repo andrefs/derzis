@@ -13,7 +13,7 @@
       "@derzis/models": [ "./src/manager/models/index.ts" ],
       "@derzis/common": [ "./src/common/lib/index.ts"],
       "@derzis/config": [ "./src/config.ts" ],
-      "@derzis/worker": [ "./src/worker/index.ts" ]
+      "@derzis/worker": [ "./src/worker/index.ts" ],
       "@derzis/manager": [ "./src/manager/index.ts" ]
     }
   },
