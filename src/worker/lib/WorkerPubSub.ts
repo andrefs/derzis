@@ -1,4 +1,4 @@
-import redis  from 'redis';
+import {createClient}  from 'redis';
 import config from '@derzis/config';
 const redisOpts = {url : `redis://${config.pubsub.host}:${config.pubsub.port}`};
 import {JobCapacity, JobResult, JobType, Worker} from './Worker';
@@ -41,16 +41,16 @@ export type Message = ShutdownMessage | JobTimeoutMessage | AskCurCapMessage | R
 
 export class WorkerPubSub {
   w: Worker;
-  _redisClient: ReturnType<typeof redis.createClient>;
-  _http: ReturnType<typeof redis.createClient>;
-  _pub: ReturnType<typeof redis.createClient>;
-  _sub: ReturnType<typeof redis.createClient>;
+  _redisClient: ReturnType<typeof createClient>;
+  _http: ReturnType<typeof createClient>;
+  _pub: ReturnType<typeof createClient>;
+  _sub: ReturnType<typeof createClient>;
   _pubChannel: string;
 
   constructor(){
     // FIXME Workers on different machines may have same PID
     this.w = new Worker();
-    this._redisClient = redis.createClient(redisOpts);
+    this._redisClient = createClient(redisOpts);
 
     log = createLogger(this.w.wShortId);
   }

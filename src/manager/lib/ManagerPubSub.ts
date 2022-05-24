@@ -1,4 +1,4 @@
-import redis from 'redis';
+import {createClient} from 'redis';
 import config from '@derzis/config';
 import {createLogger} from '@derzis/common'
 const log = createLogger('Manager');
@@ -9,16 +9,16 @@ const redisOpts = {url : `redis://${config.pubsub.host}:${config.pubsub.port}`};
 
 class ManagerPubSub {
   _m: Manager;
-  _redisClient: ReturnType<typeof redis.createClient>;
-  _broad: ReturnType<typeof redis.createClient>;
-  _pub: ReturnType<typeof redis.createClient>;
-  _sub: ReturnType<typeof redis.createClient>;
+  _redisClient: ReturnType<typeof createClient>;
+  _broad: ReturnType<typeof createClient>;
+  _pub: ReturnType<typeof createClient>;
+  _sub: ReturnType<typeof createClient>;
   _pubChannel: string;
   _broadChannel: string;
 
   constructor(){
     this._m = new Manager();
-    this._redisClient = redis.createClient(redisOpts);
+    this._redisClient = createClient(redisOpts);
     this.listenManager();
   }
 
