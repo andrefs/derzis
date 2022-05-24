@@ -7,7 +7,7 @@
   "types": "index.d.ts",
   "scripts": {
     "test": "yarn node --experimental-vm-modules $(yarn bin jest)",
-    "build": "tsc --project tsconfig.json && tsconfig-replace-paths --project tsconfig.json",
+    "build": "tsc --project tsconfig.json && tsconfig-replace-paths --project tsconfig.json && cp -r src/manager/views dist/src/manager/views",
     "postbuild": "cp package.json dist/package.json && cp yarn.lock dist/yarn.lock && cd dist && yarn install",
     "typecheck": "tsc -b tsconfig.json",
     "typecheck:watch": "yarn typecheck -w",
