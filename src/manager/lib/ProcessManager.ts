@@ -103,4 +103,4 @@ app.get('/processes/:pid/triples', async (req, res) => {
 });
 
 
-module.exports = app;
+export default app;

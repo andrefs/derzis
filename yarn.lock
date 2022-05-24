@@ -1230,6 +1230,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/express-handlebars@npm:^6.0.0":
+  version: 6.0.0
+  resolution: "@types/express-handlebars@npm:6.0.0"
+  dependencies:
+    express-handlebars: "*"
+  checksum: b31b6c29568652b987005d11e150d717b378d77804c128167dba11ae4abbba7406c4fb72c9d25c8f73891768cb13f9798a9686df39dd7ad0c71b5f8459856392
+  languageName: node
+  linkType: hard
+
 "@types/express-serve-static-core@npm:^4.17.18":
   version: 4.17.28
   resolution: "@types/express-serve-static-core@npm:4.17.28"
@@ -2394,6 +2403,7 @@ __metadata:
   dependencies:
     "@types/bluebird": ^3.5.36
     "@types/content-type": ^1.1.5
+    "@types/express-handlebars": ^6.0.0
     "@types/jest": ^27.5.1
     "@types/lodash": ^4.14.182
     "@types/mongoose": ^5.11.97
@@ -2722,6 +2732,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"express-handlebars@npm:*":
+  version: 6.0.6
+  resolution: "express-handlebars@npm:6.0.6"
+  dependencies:
+    glob: ^8.0.2
+    graceful-fs: ^4.2.10
+    handlebars: ^4.7.7
+  checksum: b34253f9f783cdfd94e83aebde66712b45a8a90dd140e5da42335ee715dec39acf334465a290a3f7bd51ee23467c907ed059c7cae24cc9129bca16cc969d60f7
+  languageName: node
+  linkType: hard
+
 "express-handlebars@npm:^5.3.4":
   version: 5.3.5
   resolution: "express-handlebars@npm:5.3.5"
@@ -2992,7 +3013,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob@npm:^8.0.1":
+"glob@npm:^8.0.1, glob@npm:^8.0.2":
   version: 8.0.3
   resolution: "glob@npm:8.0.3"
   dependencies:
@@ -3012,7 +3033,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graceful-fs@npm:^4.2.6, graceful-fs@npm:^4.2.8, graceful-fs@npm:^4.2.9":
+"graceful-fs@npm:^4.2.10, graceful-fs@npm:^4.2.6, graceful-fs@npm:^4.2.8, graceful-fs@npm:^4.2.9":
   version: 4.2.10
   resolution: "graceful-fs@npm:4.2.10"
   checksum: 3f109d70ae123951905d85032ebeae3c2a5a7a997430df00ea30df0e3a6c60cf6689b109654d6fdacd28810a053348c4d14642da1d075049e6be1ba5216218da

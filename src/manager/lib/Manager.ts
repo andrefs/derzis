@@ -5,7 +5,7 @@ import {Domain, Triple, Path, Resource, Process} from '@derzis/models';
 import {createLogger} from '@derzis/common';
 const log = createLogger('Manager');
 import CurrentJobs from './CurrentJobs';
-import { JobType } from '../../worker/lib/Worker';
+import { JobCapacity, JobType } from '../../worker/lib/Worker';
 
 interface JobsBeingSaved {
   domainCrawl: number;
@@ -296,16 +296,16 @@ export default class Manager {
     }
   }
 
-  async *assignJobs(workerId, workerAvail){
+  async *assignJobs(workerId: string, workerAvail: JobCapacity){
     log.debug('assignJobs');
     if(this.beingSaved.count() > 2){
       console.warn('Too many jobs being saved, waiting for them to reduce before assigning new jobs');
     }
     let assignedCheck = 0;
     let assignedCrawl = 0;
-    if(workerAvail.robotsCheck){
+    if(workerAvail.robotsCheck.capacity){
       log.debug(`Getting ${workerAvail.robotsCheck} robotsCheck jobs for ${workerId}`);
-      for await(const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck)){
+      for await(const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)){
         if(this.jobs.registerJob(check.origin, 'robotsCheck')){
           assignedCheck++;
           yield {jobType: 'robotsCheck', domain: check.origin};

@@ -57,6 +57,7 @@
   "devDependencies": {
     "@types/bluebird": "^3.5.36",
     "@types/content-type": "^1.1.5",
+    "@types/express-handlebars": "^6.0.0",
     "@types/jest": "^27.5.1",
     "@types/lodash": "^4.14.182",
     "@types/mongoose": "^5.11.97",

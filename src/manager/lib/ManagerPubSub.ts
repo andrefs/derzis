@@ -13,6 +13,7 @@ class ManagerPubSub {
   _pub: ReturnType<typeof redis.createClient>;
   _sub: ReturnType<typeof redis.createClient>;
   _pubChannel: string;
+  _broadChannel: string;
 
   constructor(){
     this._m = new Manager();
@@ -43,10 +44,10 @@ class ManagerPubSub {
     };
     await this._redisClient.connect();
     this._pub = this._redisClient.duplicate();
-    await this._pub.connect();
     this._sub = this._redisClient.duplicate();
-    await this._sub.connect();
     this._broad = this._redisClient.duplicate();
+    await this._pub.connect();
+    await this._sub.connect();
     await this._broad.connect();
 
     process.on('uncaughtException' , (...args) => {
@@ -55,7 +56,28 @@ class ManagerPubSub {
     });
 
     log.pubsub(`Subscribing to ${config.pubsub.workers.from.replace(/-.*$/,'')}*`);
-    this._sub.psubscribe(config.pubsub.workers.from+'*');
+
+
+    const handleMessage = (message: string, channel: string) => {
+      const workerId = channel.match(/:([-\w]+)$/)[1];
+      const payload = JSON.parse(message);
+      log.pubsub('Got message from '+channel.replace(/-.*$/,''), payload.type)
+      if(Object.keys(payload.data).length){ log.debug('', payload.data); }
+      if(payload.type === 'repCurCap'){
+        return this.assignJobs(workerId, payload.data);
+      }
+      if(payload.type === 'jobDone'){
+        return this._m.updateJobResults(payload.data);
+      }
+      if(payload.type === 'shutdown'){
+        this._m.jobs.cancelJobs(payload.data.ongoingJobs, workerId);
+      }
+      if(payload.type === 'noCapacity'){
+        // return this._cancelJob(payload.data);
+      }
+    };
+
+    this._sub.pSubscribe(config.pubsub.workers.from+'*', handleMessage);
 
     this._broadChannel = config.pubsub.manager.from;
     log.pubsub(`Broadcasting to ${this._broadChannel}`);
@@ -80,27 +102,6 @@ class ManagerPubSub {
     this._broad.publish(this._broadChannel, JSON.stringify(payload));
   }
 
-  _subEvents(){
-    this._sub.on('pmessage', (pattern, channel, message) => {
-      const workerId = channel.match(/:([-\w]+)$/)[1];
-      const payload = JSON.parse(message);
-      log.pubsub('Got message from '+channel.replace(/-.*$/,''), payload.type)
-      if(Object.keys(payload.data).length){ log.debug('', payload.data); }
-      if(payload.type === 'repCurCap'){
-        return this.assignJobs(workerId, payload.data);
-      }
-      if(payload.type === 'jobDone'){
-        return this._m.updateJobResults(payload.data);
-      }
-      if(payload.type === 'shutdown'){
-        this._m.jobs.cancelJobs(payload.data.ongoingJobs, workerId);
-      }
-      if(payload.type === 'noCapacity'){
-        // return this._cancelJob(payload.data);
-      }
-    });
-  }
-
   askCurrentCapacity(workerId?){
     if(workerId){ return this.pub(workerId, 'askCurCap'); }
     return this.broad('askCurCap');
@@ -117,5 +118,5 @@ class ManagerPubSub {
     }
   }
 };
+export default ManagerPubSub;
 
-module.exports = ManagerPubSub;

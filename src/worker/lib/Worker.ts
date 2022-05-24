@@ -1,5 +1,5 @@
 import Bluebird from "bluebird";
-import robotsParser from 'robots-parser';
+import robotsParser, { Robot } from 'robots-parser';
 import EventEmitter from 'events';
 import config from '@derzis/config';
 import Axios from './axios';
@@ -19,15 +19,77 @@ import {
   ConnectionResetError,
   RobotsForbiddenError,
   TimeoutError,
-  TooManyRedirectsError} from '../../common/lib/errors';
+  TooManyRedirectsError} from '@derzis/common';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import LinkHeader from 'http-link-header';
 import {v4 as uuidv4} from 'uuid';
-import { IDomain } from "../../manager/models/Domain";
+import { IDomain } from '@derzis/models';
+import * as RDF from "@rdfjs/types";
 
-interface JobCapacity {
+interface JobResult {
+  ok: boolean;
+  jobType: 'domainCrawl' | 'resourceCrawl' | 'robotsCheck',
+  domain: string,
+};
+
+interface JobResultOk extends JobResult {
+  ok: true,
+  details: object
+};
+
+interface JobResultError extends JobResult {
+  ok: false,
+  err: object,
+  details?: object
+};
+
+type BaseCrawlResourceResult = {
+  jobType: 'resourceCrawl',
+  details: {
+    crawlId: {
+      domainTs: Date,
+      counter: number
+    },
+    ts: number,
+  }
+} & JobResult;
+type CrawlResourceResultOk = { details: { triples: RDF.Quad[] }} & BaseCrawlResourceResult & JobResultOk;
+type CrawlResourceResultError = { err: object } & BaseCrawlResourceResult & JobResultError;
+type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
+
+type BaseRobotsCheckResult = {
+  jobType:'robotsCheck',
+  url: string,
+};
+type RobotsCheckResultOk = {
+  details: {
+    endTime: Date,
+    elapsedTime: number,
+    robots: object,
+    status: number
+  }
+} & BaseRobotsCheckResult & JobResultOk;
+type RobotsCheckResultError = {
+  err: WorkerError,
+  details?:{
+    endTime?: Date,
+    elapsedTime?: number,
+    message?: string,
+    stack?: any
+  }
+} & BaseRobotsCheckResult & JobResultError;
+type RobotsCheckResult = RobotsCheckResultOk | RobotsCheckResultError;
+
+
+
+export interface Availability {
+  currentCapacity: JobCapacity,
+  currentJobs: CurrentJobs
+}
+
+export interface JobCapacity {
   domainCrawl: {
     capacity: number;
     resourcesPerDomain: number;
@@ -83,7 +145,7 @@ export class Worker extends EventEmitter {
   crawlTs: Date;
   crawlCounter: number;
 
-  constructor(wId){
+  constructor(wId: string){
     super();
     this.wId = uuidv4();
     this.wShortId = this.wId.replace(/-.*$/, '');
@@ -97,43 +159,46 @@ export class Worker extends EventEmitter {
     this.jobsTimedout = {};
   }
 
-  availability(){
+  currentCapacity(): JobCapacity{
     const domCrawlCap = this.jobCapacity.domainCrawl.capacity;
     const robCheckCap = this.jobCapacity.robotsCheck.capacity;
     const curDomCrawl = Object.keys(this.currentJobs.domainCrawl).length;
     const curRobCheck = Object.keys(this.currentJobs.robotsCheck).length;
     const av = {
-      domainCrawl: domCrawlCap - curDomCrawl,
-      robotsCheck: robCheckCap - curRobCheck,
-      resourcesPerDomain: this.jobCapacity.domainCrawl.resourcesPerDomain
+      domainCrawl: {
+        capacity: domCrawlCap - curDomCrawl,
+        resourcesPerDomain: this.jobCapacity.domainCrawl.resourcesPerDomain
+      },
+      robotsCheck: {
+        capacity: robCheckCap - curRobCheck,
+      }
     };
     return av;
   }
 
-  status(){
+  status(): Availability {
     return {
-      availability: this.availability(),
+      currentCapacity: this.currentCapacity(),
       currentJobs: this.currentJobs
     };
   }
 
-  hasCapacity(jobType: JobType){
+  hasCapacity(jobType: JobType): boolean {
     return Object.keys(this.currentJobs[jobType]).length < this.jobCapacity[jobType].capacity;
   }
 
-  async checkRobots(domain: string){
+  async checkRobots(domain: string): Promise<RobotsCheckResult> {
     this.currentJobs.robotsCheck[domain] = true;
 
     const url = domain+'/robots.txt';
-    try {
-      const res = await fetchRobots(url);
-      delete this.currentJobs.robotsCheck[domain];
-      return res;
-    }
-    catch(err){
-      delete this.currentJobs.robotsCheck[domain];
-      return err;
-    }
+    const res = await fetchRobots(url);
+    delete this.currentJobs.robotsCheck[domain];
+    return {
+      ...res,
+      url,
+      domain,
+      jobType: 'robotsCheck'
+    };
   };
 
   async *crawlDomain({domain,resources}: DomainCrawlJob){
@@ -147,52 +212,51 @@ export class Worker extends EventEmitter {
     delay = setupDelay(domain.crawl.delay*1000*1.1); // ms to s, add 10% margin
 
     for(const r of resources){
-      if(this.jobsTimedout[domain.origin]){
-        delete this.jobsTimedout[domain.origin];
-        delete this.currentJobs.domainCrawl[domain.origin];
-        log.warn(`Stopping domain ${domain.origin} because Manager removed job`);
-        break;
-      }
-      this.crawlCounter++;
-      this.currentJobs.domainCrawl[domain.origin] = true;
-      try {
-        robotsAllow(robots, r.url, config.http.userAgent);
-        const details = await this.crawlResource(r);
-        delete this.currentJobs.domainCrawl[domain.origin];
-        yield {
-          url: r.url,
-          results: {
-            ok: true,
-            details: {
-              ...details,
-              crawlId: {
-                domainTs: this.crawlTs,
-                counter: this.crawlCounter
-              }
-            }
-          }
-        };
-      }
-      catch (err) {
-        delete this.currentJobs.domainCrawl[domain.origin];
-        yield {
-          url: r.url,
-          results: {
-            ...err,
-            details: {
-              ts: Date.now(),
-              crawlId: {
-                domainTs: this.crawlTs,
-                counter: this.crawlCounter
-              },
-            }
-          }
-        };
-      }
+      const res = await this.crawlResource(domain.origin, r.url, robots );
+      if(!res){ break; }
+      yield res;
     }
+    delete this.currentJobs.domainCrawl[domain.origin];
   }
 
-  async crawlResource({url}: Resource){
+  async crawlResource(origin: string , url: string, robots: Robot): Promise<CrawlResourceResult> {
+    if(this.jobsTimedout[origin]){
+      delete this.jobsTimedout[origin];
+      delete this.currentJobs.domainCrawl[origin];
+      log.warn(`Stopping domain ${origin} because Manager removed job`);
+      return;
+    }
+    this.crawlCounter++;
+    this.currentJobs.domainCrawl[origin] = true;
+    const crawlId = {
+      domainTs: this.crawlTs,
+      counter: this.crawlCounter
+    };
+    const jobInfo = {
+      jobType: 'resourceCrawl' as const,
+      domain: origin,
+    };
+    let jobResult: CrawlResourceResult;
+    try {  
+      robotsAllow(robots, url, config.http.userAgent);
+      const {triples, ts} = await this.fetchResource(r);
+      jobResult = {
+        ...jobInfo,
+        ok: true,
+        details: { crawlId, triples, ts }
+      };
+    } catch (err) {
+      jobResult = {
+        ...jobInfo,
+        ok: false,
+        details: { crawlId, ts: Date.now() },
+        err
+      };
+    }
+    return jobResult as CrawlResourceResult;
+  }
+
+  async fetchResource({url}: Resource){
     const resp = await this.makeHttpRequest(url);
     const res = await parseRdf(resp.rdf, resp.mime);
     return {ts: resp.ts, ...res};
@@ -227,7 +291,7 @@ export class Worker extends EventEmitter {
       }
       return {rdf: resp.data, ts: resp.headers['request-endTime'], mime};
     }
-    catch(err) { handleHttpError(url, err); }
+    catch(err) { return handleHttpError(url, err); }
   }
 };
 
@@ -238,32 +302,31 @@ const handleHttpError = (url: string, err) => {
       endTime: err.response.headers['request-endTime'],
       elapsedTime: err.response.headers['request-duration']
     };
-    throw {url, error: e, details};
+    return {url, err: e, details};
   }
   if(err.code && err.code === 'ECONNABORTED'){
-    throw {url, error: new TimeoutError(config.http.robotsCheck.timeouts)};
+    return {url, err: new TimeoutError(config.http.robotsCheck.timeouts)};
   }
   if(err.code && err.code === 'ENOTFOUND'){
-    throw {url, error: new DomainNotFoundError()};
+    return {url, err: new DomainNotFoundError()};
   }
   if(err.code && err.code === 'ECONNRESET'){
-    throw {url, error: new ConnectionResetError()};
+    return {url, err: new ConnectionResetError()};
   }
   if(err.name === 'TypeError' && err.response ){
-    throw {url, error: new MimeTypeError(err.response.headers['content-type'])};
+    return {url, err: new MimeTypeError(err.response.headers['content-type'])};
   }
   if(err instanceof WorkerError){
-    throw {error: err, url};
+    return {err: err, url};
   }
-  throw {error: new WorkerError(), url, details: {message:err.message, stack: err.stack}};
+  return {err: new WorkerError(), url, details: {message:err.message, stack: err.stack}};
 };
 
 const fetchRobots = async (url: string) => {
-  const reqStart = Date.now();
   const timeout = config.http.robotsCheck.timeouts || 10*1000;
   const maxRedirects = config.http.robotsCheck.maxRedirects || 5;
   const headers = {'User-Agent': config.http.userAgent};
-  return axios.get(url, {headers, timeout, maxRedirects})
+  let res = await axios.get(url, {headers, timeout, maxRedirects})
     .then(resp => ({
       details: {
         endTime: resp.headers['request-endTime'],
@@ -271,11 +334,14 @@ const fetchRobots = async (url: string) => {
         robots: resp.data,
         status: resp.status,
       },
-      ok: true
+      ok: true as const
     }))
-    .catch(err => handleHttpError(url, err));
+    .catch(err => ({
+      ...handleHttpError(url, err),
+      ok: false as const
+    }));
+  return res;
 };
-
 
 const robotsAllow = (robots:ReturnType<typeof robotsParser>, url: string, userAgent: string) => {
   if(!robots.isAllowed(url, userAgent)){
