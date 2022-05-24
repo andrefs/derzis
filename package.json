@@ -2,7 +2,6 @@
   "name": "derzis-common",
   "version": "0.1.0",
   "description": "Derzis: a Linked Data crawler",
-  "main": "index.js",
   "author": "André Santos <andrefs@andrefs.com>",
   "license": "MIT",
   "type": "module",
@@ -10,12 +9,12 @@
   "scripts": {
     "test": "yarn node --experimental-vm-modules $(yarn bin jest)",
     "build": "tsc --project tsconfig.json && tsconfig-replace-paths --project tsconfig.json",
-    "postbuild": "cp package.json build/package.json && cp yarn.lock build/yarn.lock && cd build && yarn install",
+    "postbuild": "cp package.json dist/package.json && cp yarn.lock dist/yarn.lock && cd dist && yarn install",
     "typecheck": "tsc -b tsconfig.json",
     "typecheck:watch": "yarn typecheck -w",
     "//watch-crawl-delays": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/common/bin/watch-crawl-delays.ts",
     "//worker": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/worker/bin/worker.ts",
-    "worker": "node build/worker/bin/worker"
+    "worker": "node dist/worker/bin/worker"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
