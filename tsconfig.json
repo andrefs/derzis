@@ -1,6 +1,7 @@
 {
   "declaration": true,
   "compilerOptions": {
+    "sourceMap": true,
     "target": "es2016",
     "lib": ["es2015.promise"],
     "module": "ESNEXT",

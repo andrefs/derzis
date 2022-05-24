@@ -5,7 +5,7 @@ const log = createLogger('Manager');
 import Manager from './Manager'
 import process from 'process';
 import { JobCapacity, Message } from '@derzis/worker';
-const redisOpts = {url : `redis://{config.pubsub.host}:{config.pubsub.port}`};
+const redisOpts = {url : `redis://${config.pubsub.host}:${config.pubsub.port}`};
 
 class ManagerPubSub {
   _m: Manager;

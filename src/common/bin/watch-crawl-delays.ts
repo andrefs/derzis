@@ -1,6 +1,7 @@
 import redis from 'redis';
 import config from '@derzis/config';
-const client = redis.createClient({url: 'redis://localhost:6378'});
+const redisOpts = {url : `redis://${config.pubsub.host}:${config.pubsub.port}`};
+const client = redis.createClient(redisOpts);
 import chalk from 'chalk';
 
 const run = async () => {

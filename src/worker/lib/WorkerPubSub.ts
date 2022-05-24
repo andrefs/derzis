@@ -1,6 +1,6 @@
 import redis  from 'redis';
 import config from '@derzis/config';
-const redisOpts = {url : `redis://{config.pubsub.host}:{config.pubsub.port}`};
+const redisOpts = {url : `redis://${config.pubsub.host}:${config.pubsub.port}`};
 import {JobCapacity, JobResult, JobType, Worker} from './Worker';
 import {createLogger} from '@derzis/common';
 import { MonkeyPatchedLogger } from '@derzis/common';
@@ -52,18 +52,7 @@ export class WorkerPubSub {
     this.w = new Worker();
     this._redisClient = redis.createClient(redisOpts);
 
-
     log = createLogger(this.w.wShortId);
-    log.info('Started');
-    this.connect();
-    this.reportCurrentCapacity();
-    if(config.periodicallyRepCurCap){
-      const interval = config.periodicallyRepCurCap;
-      const initDelay = 1000*(Math.floor(Math.random()*20)+1);
-      setTimeout(() => {
-        setInterval(() => this.reportCurrentCapacity(), interval);
-      }, initDelay);
-    }
   }
 
   exitHandler = (opts = {}) => {
@@ -75,6 +64,19 @@ export class WorkerPubSub {
 
   signalHandler = () => {
     return () => this.reportCurrentCapacity();
+  }
+
+  async start(){
+    log.info('Started');
+    await this.connect();
+    this.reportCurrentCapacity();
+    if(config.periodicallyRepCurCap){
+      const interval = config.periodicallyRepCurCap;
+      const initDelay = 1000*(Math.floor(Math.random()*20)+1);
+      setTimeout(() => {
+        setInterval(() => this.reportCurrentCapacity(), interval);
+      }, initDelay);
+    }
   }
 
   async connect(){
