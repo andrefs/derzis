@@ -123,7 +123,7 @@ export default class CurrentJobs extends EventEmitter {
       log.error(`Job for domain ${domain} already being performed`);
       return false;
     } else {
-      const timeout = 20*config.http[jobType].timeouts;
+      const timeout = 3*config.http[jobType].timeouts;
       const ts = new Date();
       this._jobs[domain] = setTimeout(() => this.cancelJob(domain, jobType, timeout, ts), timeout);
       return true;

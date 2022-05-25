@@ -46,6 +46,9 @@ export default {
       timeouts: 10*1000,
       maxRedirects: 5
     },
+    resourceCrawl: {
+      timeouts: 10*1000,
+    },
     domainCrawl: {
       timeouts: 10*1000,
       maxRedirects: 5
