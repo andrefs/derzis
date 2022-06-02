@@ -45,6 +45,26 @@ export interface JobResultError extends BaseJobResult {
   details?: object;
 };
 
+export interface HttpRequestResultError {
+  status: 'not_ok',
+  url: string,
+  err: WorkerError,
+  details?: {
+    message?: any,
+    stack?: any,
+    elapsedTime?: number,
+    endTime?: number
+  }
+};
+export interface HttpRequestResultOk {
+  status: 'ok';
+  rdf: string;
+  ts: number;
+  mime: string;
+};
+
+type HttpRequestResult = HttpRequestResultOk | HttpRequestResultError;
+
 export type CrawlResourceResultDetails = {
   crawlId: {
     domainTs: Date,
@@ -88,6 +108,7 @@ export type BaseCrawlDomainResult = { jobType: 'domainCrawl' } & BaseJobResult;
 export type BaseCrawlDomainResultOk = BaseCrawlDomainResult & JobResultOk;
 export type BaseCrawlDomainResultError = BaseCrawlDomainResult & JobResultError;
 export type CrawlDomainResult = BaseCrawlDomainResultOk | BaseCrawlDomainResultError;
+
 
 export type JobResult =  CrawlResourceResult | RobotsCheckResult | CrawlDomainResult;
 
@@ -213,14 +234,17 @@ export class Worker extends EventEmitter {
       url
     };
     let jobResult: CrawlResourceResult;
+    let res: CrawlResourceResult;
     try {  
       robotsAllow(robots, url, config.http.userAgent);
-      const {triples, ts} = await this.fetchResource(url);
-      jobResult = {
-        ...jobInfo,
-        status: 'ok',
-        details: { crawlId, triples, ts }
-      };
+      res = await this.fetchResource(url);
+      if(res.status === 'ok'){
+        jobResult = {
+          ...jobInfo,
+          status: 'ok',
+          details: { crawlId, triples: res.triples, ts: res.ts }
+        };
+      }
     } catch (err) {
       jobResult = {
         ...jobInfo,
@@ -233,12 +257,17 @@ export class Worker extends EventEmitter {
   }
 
   async fetchResource(url: string){
-    const resp = await this.makeHttpRequest(url);
-    const res = await parseRdf(resp.rdf, resp.mime);
-    return {ts: resp.ts, ...res};
+    let res = await this.makeHttpRequest(url);
+    if(res.status === 'ok'){
+      const {triples} = await parseRdf(res.rdf, res.mime);
+      return {...res, triples};
+    }
+    return res;
   }
 
-  makeHttpRequest = async (url: string, redirect=0) => {
+
+
+  makeHttpRequest = async (url: string, redirect=0): Promise<HttpRequestResult> => {
     const timeout = config.http.domainCrawl.timeouts || 10*1000;
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const headers = {
@@ -263,37 +292,38 @@ export class Worker extends EventEmitter {
         if(redirect >= maxRedirects){ throw new TooManyRedirectsError(url); } // TODO list of redirect URLs?
         return this.makeHttpRequest(newUrl, redirect+1);
       }
-      return {rdf: resp.data, ts: resp.headers['request-endTime'], mime};
+      return {status: 'ok', rdf: resp.data, ts: resp.headers['request-endTime'], mime};
     }
     catch(err) { return handleHttpError(url, err); }
   }
 };
 
-const handleHttpError = (url: string, err: any) => {
+const handleHttpError = (url: string, err: any): HttpRequestResultError => {
+  const res = {status: 'not_ok' as const, url};
   if(err.response){
     let e = new HttpError(err.response.status);
     const details = {
       endTime: err.response.headers['request-endTime'],
       elapsedTime: err.response.headers['request-duration']
     };
-    return {url, err: e, details};
+    return {...res, err: e, details};
   }
   if(err.code && err.code === 'ECONNABORTED'){
-    return {url, err: new TimeoutError(config.http.robotsCheck.timeouts)};
+    return {...res, err: new TimeoutError(config.http.robotsCheck.timeouts)};
   }
   if(err.code && err.code === 'ENOTFOUND'){
-    return {url, err: new DomainNotFoundError()};
+    return {...res, err: new DomainNotFoundError()};
   }
   if(err.code && err.code === 'ECONNRESET'){
-    return {url, err: new ConnectionResetError()};
+    return {...res, err: new ConnectionResetError()};
   }
   if(err.name === 'TypeError' && err.response ){
-    return {url, err: new MimeTypeError(err.response.headers['content-type'])};
+    return {...res, err: new MimeTypeError(err.response.headers['content-type'])};
   }
   if(err instanceof WorkerError){
-    return {err: err, url};
+    return {...res, err, url};
   }
-  return {err: new WorkerError(), url, details: {message:err.message, stack: err.stack}};
+  return {...res, err: new WorkerError(), details: {message:err.message, stack: err.stack}};
 };
 
 const fetchRobots = async (url: string) => {
@@ -319,8 +349,9 @@ const fetchRobots = async (url: string) => {
 
 const robotsAllow = (robots:ReturnType<typeof robotsParser>, url: string, userAgent: string) => {
   if(!robots.isAllowed(url, userAgent)){
-    throw new RobotsForbiddenError();
+    return new RobotsForbiddenError();
   }
+  return true;
 };
 
 const findRedirectUrl = (resp: AxiosResponse<any>) => {

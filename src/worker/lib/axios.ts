@@ -1,12 +1,13 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import http from 'http';
 import https from 'https';
+import { MonkeyPatchedLogger } from 'src/common/lib';
 
 
 type MonkeyPatchedAxiosRequestConfig = AxiosRequestConfig & {tsStart: number};
 
 
-export default function(logger){
+export default function(logger: MonkeyPatchedLogger){
   const instance = axios.create({
     // 10 sec timeout
     timeout: 10*1000,
@@ -22,10 +23,10 @@ export default function(logger){
     maxContentLength: 50 * 1000 * 1000
   });
 
-  instance.interceptors.request.use((config: MonkeyPatchedAxiosRequestConfig) => {
-    config.tsStart = Date.now();
-    if(logger){ logger.http(config.method.toUpperCase()+' '+config.url, JSON.stringify(config.headers)); }
-    return config;
+  instance.interceptors.request.use((config: AxiosRequestConfig): MonkeyPatchedAxiosRequestConfig => {
+    let newConfig = {...config, tsStart: Date.now() };
+    if(logger){ logger.http(newConfig?.method?.toUpperCase()+' '+newConfig.url, JSON.stringify(newConfig.headers)); }
+    return newConfig;
   });
 
 
@@ -35,7 +36,10 @@ export default function(logger){
       response.headers['request-startTime'] = config.tsStart;
       response.headers['request-endTime'] = now;
       response.headers['request-duration'] = now - config.tsStart;
-      if(logger){ logger.http(response.config.method.toUpperCase()+' '+response.config.url, response.status); }
+      if(logger){
+        logger.http(response?.config?.method?.toUpperCase() +
+                    ' ' +  response.config.url, response.status);
+      }
       return response;
     },
     error => {

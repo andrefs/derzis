@@ -2,6 +2,7 @@
   "declaration": true,
   "compilerOptions": {
     "sourceMap": true,
+    "strict": true,
     "target": "esnext",
     "lib": ["esnext"],
     "module": "nodenext",

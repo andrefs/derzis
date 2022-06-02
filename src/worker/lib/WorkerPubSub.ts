@@ -42,17 +42,16 @@ export type Message = ShutdownMessage | JobTimeoutMessage | AskCurCapMessage | R
 export class WorkerPubSub {
   w: Worker;
   _redisClient: ReturnType<typeof createClient>;
-  _http: ReturnType<typeof createClient>;
-  _pub: ReturnType<typeof createClient>;
-  _sub: ReturnType<typeof createClient>;
-  _pubChannel: string;
+  _http!: ReturnType<typeof createClient>;
+  _pub!: ReturnType<typeof createClient>;
+  _sub!: ReturnType<typeof createClient>;
+  _pubChannel!: string;
 
   constructor(){
     // FIXME Workers on different machines may have same PID
     this.w = new Worker();
-    this._redisClient = createClient(redisOpts);
-
     log = createLogger(this.w.wShortId);
+    this._redisClient = createClient(redisOpts);
   }
 
   exitHandler = (opts = {}) => {
@@ -101,7 +100,7 @@ export class WorkerPubSub {
 
     const handleMessage = (channel: string) =>  (msg: string) => {
       const message: Message = JSON.parse(msg);
-      log.pubsub('message from '+channel, message.type);
+      log.pubsub?.('message from '+channel, message.type);
       if(Object.keys(message.payload).length){ log.debug('', message.payload); }
 
 
@@ -120,14 +119,14 @@ export class WorkerPubSub {
     };
 
     this._pubChannel = config.pubsub.workers.from+this.w.wId;
-    log.pubsub(`Publishing to ${this._pubChannel}`);
-    log.pubsub('Subscribing to', [config.pubsub.manager.from, config.pubsub.workers.to+this.w.wId]);
+    log.pubsub?.(`Publishing to ${this._pubChannel}`);
+    log.pubsub?.('Subscribing to', [config.pubsub.manager.from, config.pubsub.workers.to+this.w.wId]);
     this._sub.subscribe(config.pubsub.manager.from, handleMessage(config.pubsub.manager.from));
     this._sub.subscribe(config.pubsub.workers.to+this.w.wId, handleMessage(config.pubsub.workers.to+this.w.wId));
   }
 
   pub({type, payload}: Message){
-    log.pubsub('Publishing message to '+this._pubChannel.replace(/-.*$/,''), type);
+    log.pubsub?.('Publishing message to '+this._pubChannel.replace(/-.*$/,''), type);
     if(Object.keys(payload).length){ log.debug('', payload); }
     this._pub.publish(this._pubChannel, JSON.stringify({type, payload}));
   }

@@ -5,8 +5,8 @@ const client = createClient(redisOpts);
 import chalk from 'chalk';
 
 const run = async () => {
-  let lastCalls = {};
-  let delays = {};
+  let lastCalls: {[origin: string]: number};
+  let delays: {[origin: string]: number};
 
   await client.connect();
   const subscriber = client.duplicate();
@@ -26,11 +26,13 @@ const run = async () => {
         if(!delays[domain]){
           console.warn('No Crawl-Delay for domain', domain);
         }
-        let delay = delays[domain] ? delays[domain] : undefined;
+        let delay: number | string | undefined = delays[domain] ? delays[domain] : undefined;
         if(lastCalls[domain]){
-          let timeInt = ((new Date(ts).getTime() - new Date(lastCalls[domain]).getTime())/1000).toString();
-          timeInt = timeInt < delays[domain] ? chalk.red(timeInt) : chalk.green(timeInt);
-          delay = delay > config.http.crawlDelay ? chalk.yellow(''+delay) : delay;
+          let timeInt: number | string = ((new Date(ts).getTime() - new Date(lastCalls[domain]).getTime())/1000);
+          timeInt = timeInt < delays[domain] ?
+            chalk.red(timeInt.toString()) :
+            chalk.green(timeInt.toString());
+          delay = delay && delay > config.http.crawlDelay ? chalk.yellow(''+delay) : delay;
           console.log(wId, domain+':', timeInt, `(${delay})`);
         }
         lastCalls[domain] = ts;
