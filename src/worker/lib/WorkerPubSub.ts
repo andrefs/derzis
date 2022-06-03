@@ -133,7 +133,7 @@ export class WorkerPubSub {
 
   // TODO check capacity
   async doJob(job: JobRequest){
-    if(!this.w.hasCapacity(job.type)){ } // TODO
+    if(job.type === 'resourceCrawl' || !this.w.hasCapacity(job.type)){ } // TODO
 
     if(job.type === 'robotsCheck'){
       const res = await this.w.checkRobots(job.origin);

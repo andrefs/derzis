@@ -29,9 +29,10 @@ const myCustomLevels = {
 
 winston.addColors(myCustomLevels.colors);
 
-const formatMeta = (meta) => {
+const formatMeta = (meta: {[x: string]: string}) => {
+  const sbl:any = Symbol.for('splat');
   // You can format the splat yourself
-  const splat = meta[Symbol.for('splat')];
+  const splat = meta[sbl];
   if (splat && splat.length) {
     return splat.length === 1 ? util.inspect(splat[0]) : util.inspect(splat);
   }
@@ -62,10 +63,10 @@ enum LogLevels {
 };
 
 export type MonkeyPatchedLogger = {
-  [level in LogLevels]?: LeveledLogMethod
+  [level in LogLevels]: LeveledLogMethod
 } & Logger;
 
-const logger: MonkeyPatchedLogger = winston.createLogger({
+const logger = winston.createLogger({
   levels: myCustomLevels.levels,
   transports: [
     new transports.Console({
@@ -81,5 +82,5 @@ const logger: MonkeyPatchedLogger = winston.createLogger({
 
 export const createLogger = (name: string): MonkeyPatchedLogger => {
   // set the default moduleName of the child
-  return logger.child({moduleName: name});
+  return logger.child({moduleName: name}) as MonkeyPatchedLogger;
 };
