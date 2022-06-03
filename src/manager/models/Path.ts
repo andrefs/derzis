@@ -3,6 +3,14 @@ import {urlType} from '@derzis/common';
 import config from '@derzis/config';
 import {Resource} from '@derzis/models';
 
+export interface PathSkeleton {
+  seed: {url: string},
+  head: {url: string},
+  predicates: {elems: string[]},
+  nodes: {elems: string[]},
+  parentPath: IPath
+}
+
 export interface IPath {
   seed: {
     url: string,

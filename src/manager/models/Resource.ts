@@ -86,7 +86,7 @@ schema.index({
 });
 
 schema.static('addMany', async function addMany(resources, pid){
-  let insertedDocs = [];
+  let insertedDocs: IResource[] = [];
   let existingDocs = [];
   await this.insertMany(resources, {ordered: false})
     .then(docs => insertedDocs = docs)
@@ -106,8 +106,8 @@ schema.static('addMany', async function addMany(resources, pid){
   return insertedDocs;
 });
 
-schema.static('addFromTriples', async function addFromTriples(triples, pid){
-  const resources = {};
+schema.static('addFromTriples', async function addFromTriples(triples: SimpleTriple[], pid){
+  const resources: {[pos: string]: boolean} = {};
   for (const t of triples){
     resources[t.subject] = true;
     resources[t.object] = true;
@@ -136,29 +136,31 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
   });
 
   // Domain
-  let filter = {origin: new URL(url).origin};
-  let d = await Domain.findOne(filter);
+  const baseFilter = {origin: new URL(url).origin};
+  let d = await Domain.findOne(baseFilter);
 
   if(oldRes){
-    let update = error ?
-      {
-        '$inc': {
-          'crawl.failed': 1
-        },
+    let updateInc = error ? 
+      { 'crawl.failed':  1 }:
+      { 'crawl.success': 1 };
+    const update = {
+      '$inc': {
+        ...updateInc,
+        'crawl.queued': -1,
+        'crawl.pathHeads': -oldRes.headCount
+      }
+    };
 
-      } : 
-      {
-        '$inc': {
-          'crawl.success': 1
-        }
-      };
-    update['$inc']['crawl.queued'] = -1;
-    update['$inc']['crawl.pathHeads'] = -oldRes.headCount;
-    await d.updateOne(update);
+    await d!.updateOne(update);
   }
 
-  const nextAllowed = new Date(details.ts + d.crawl.delay*1000);
-  filter['crawl.nextAllowed'] = {'$lt': nextAllowed};
+  const nextAllowed = new Date(details.ts + d!.crawl.delay*1000);
+  const filter = {
+    ...baseFilter,
+    'crawl.nextAllowed': {
+      '$lt': nextAllowed
+    }
+  };
   d = await Domain.findOneAndUpdate(filter,{'crawl.nextAllowed': nextAllowed});
 
   return {

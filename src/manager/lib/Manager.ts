@@ -1,12 +1,13 @@
 import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import * as db from './db';
-import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process} from '@derzis/models';
+import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process, PathSkeleton} from '@derzis/models';
 import {createLogger, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
 import CurrentJobs from './CurrentJobs';
 import { JobCapacity, JobType, JobRequest, JobResult, CrawlResourceResultOk, RobotsCheckResult } from '@derzis/worker';
 import { ObjectId } from 'bson';
+import { next } from 'cheerio/lib/api/traversing';
 
 interface JobsBeingSaved {
   domainCrawl: number;
@@ -40,14 +41,14 @@ export default class Manager {
     await db.connect();
   }
 
-  addToBeingSaved(domain: string, type: JobType){
+  addToBeingSaved(origin: string, type: JobType){
     this.beingSaved[type]++;
-    this.beingSavedByDomain[domain]++;
+    this.beingSavedByDomain[origin]++;
   };
 
-  removeFromBeingSaved(domain: string, type: JobType){
+  removeFromBeingSaved(origin: string, type: JobType){
     this.beingSaved[type]--;
-    this.beingSavedByDomain[domain]--;
+    this.beingSavedByDomain[origin]--;
   };
 
   async updateJobResults(jobResult: JobResult){
@@ -59,20 +60,20 @@ export default class Manager {
     }
     if(jobResult.jobType === 'robotsCheck'){
       log.info(`Saving robots data for ${jobResult.origin}`);
-      this.addToBeingSaved['robotsCheck'];
+      this.addToBeingSaved(jobResult.origin, jobResult.jobType);
       try {
         await this.saveRobots(jobResult);
       } catch (e) {
         // TODO handle errors
       } finally {
-        this.removeFromBeingSaved['robotsCheck'];
+        this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
         this.jobs.deregisterJob(jobResult.origin);
         log.debug(`Done saving robots data for ${jobResult.origin}`);
       }
     }
     if(jobResult.jobType === 'domainCrawl'){
       log.info(`Saving domain crawl for ${jobResult.origin}`);
-      this.addToBeingSaved['domainCrawl'];
+      this.addToBeingSaved(jobResult.origin, jobResult.jobType);
       try {
         await Domain.updateOne({origin: jobResult.origin},{
           '$set': {status: 'ready'},
@@ -81,7 +82,7 @@ export default class Manager {
       } catch (e) {
         // TODO handle errors
       } finally {
-        this.removeFromBeingSaved['domainCrawl'];
+        this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
         this.jobs.deregisterJob(jobResult.origin);
         log.debug(`Done saving domain crawl for ${jobResult.origin}`);
       }
@@ -89,7 +90,7 @@ export default class Manager {
     if(jobResult.jobType === 'resourceCrawl'){
       log.info(`Saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
       if(this.jobs.postponeTimeout(jobResult.origin)){
-        this.addToBeingSaved['resourceCrawl'];
+      this.addToBeingSaved(jobResult.origin, jobResult.jobType);
         try {
           if(jobResult.status === 'ok' ){
             await this.saveCrawl(jobResult);
@@ -99,7 +100,7 @@ export default class Manager {
         } catch (e) {
           // TODO handle errors
         } finally {
-          this.removeFromBeingSaved['resourceCrawl'];
+        this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
           log.debug(`Done saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
         }
       }
@@ -145,7 +146,7 @@ export default class Manager {
   }
 
   async addHeads(path: IPath, triples: ITriple[]){
-    let newPaths = {};
+    let newPaths: {[prop: string]: {[newHead: string]: PathSkeleton}} = {};
 
     for(const t of triples){
       if(t.subject === t.object){ continue; }
@@ -153,8 +154,8 @@ export default class Manager {
         continue;
       }
 
-      const newHead = t.subject === path.head.url ? t.object : t.subject;
-      const prop = t.predicate;
+      const newHead: string = t.subject === path.head.url ? t.object : t.subject;
+      const prop: string = t.predicate;
       // new head already contained in path
       if(path.nodes.elems.includes(newHead)){ continue; }
       // new predicate and path already has max preds
@@ -169,7 +170,7 @@ export default class Manager {
       newPaths[prop] = newPaths[prop] || {};
       if(!newPaths[prop][newHead]){
         const nodes = [...path.nodes.elems, newHead];
-        const np = {
+        const np: PathSkeleton = {
           seed: path.seed,
           head: {url: newHead},
           predicates: {elems: Array.from(new Set([...path.predicates.elems, prop]))},
@@ -180,11 +181,11 @@ export default class Manager {
       }
     }
 
-    const nps = [];
+    const nps: PathSkeleton[] = [];
     Object.values(newPaths).forEach(x => Object.values(x).forEach(y => nps.push(y)));
     if(!nps.length){ return; }
 
-    let paths = await Path.create(nps as IPath[]);
+    let paths = await Path.create(nps as PathSkeleton[]);
     paths = paths.filter(p => p.status === 'active');
 
     if(!paths.length){ return []; }
@@ -205,7 +206,7 @@ export default class Manager {
 
   async addExistingHead(path: PathDocument){
     const headResource = await Resource.findOne({url: path.head.url}).lean();
-    if(headResource.isSeed || path.nodes.elems.includes(headResource.url)){
+    if(headResource && (headResource.isSeed || path.nodes.elems.includes(headResource.url))){
       await path.markDisabled();
     }
     const props = new Set(path.predicates.elems);
@@ -219,7 +220,7 @@ export default class Manager {
     if(foundBetter){
       await path.markDisabled();
     }
-    const triples = await Triple.find({nodes: headResource.url});
+    const triples = await Triple.find({nodes: headResource!.url});
     await path.markFinished();
     return this.addHeads(path, triples);
   }
@@ -251,12 +252,16 @@ export default class Manager {
       const msCrawlDelay = 1000*crawlDelay;
       if(jobResult.err.httpStatus === 404){ robotStatus = 'not_found'; }
 
+      const endTime = jobResult.details?.endTime || Date.now();
+      const nextAllowed = jobResult.details ?
+                                new Date(endTime+(msCrawlDelay)) :
+                                Date.now()+1000
       doc = {
         '$set': {
           'robots.status': robotStatus,
           status: 'ready',
           'crawl.delay': crawlDelay,
-          'crawl.nextAllowed': new Date(jobResult.details.endTime+(msCrawlDelay))
+          'crawl.nextAllowed': nextAllowed
         }, '$unset': {workerId: ''}
       };
     } else {

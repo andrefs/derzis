@@ -138,8 +138,8 @@ export class Worker extends EventEmitter {
   currentJobs: OngoingJobs;
   accept: string;
   jobsTimedout: JobsTimedOut;
-  crawlTs: Date;
-  crawlCounter: number;
+  crawlTs!: Date;
+  crawlCounter!: number;
 
   constructor(){
     super();
@@ -179,7 +179,7 @@ export class Worker extends EventEmitter {
     };
   }
 
-  hasCapacity(jobType: JobType): boolean {
+  hasCapacity(jobType: 'domainCrawl'|'robotsCheck'): boolean {
     return Object.keys(this.currentJobs[jobType]).length < this.jobCapacity[jobType].capacity;
   }
 
@@ -234,18 +234,16 @@ export class Worker extends EventEmitter {
       url
     };
     let jobResult: CrawlResourceResult;
-    let res: CrawlResourceResult;
-    try {  
-      robotsAllow(robots, url, config.http.userAgent);
-      res = await this.fetchResource(url);
-      if(res.status === 'ok'){
-        jobResult = {
-          ...jobInfo,
-          status: 'ok',
-          details: { crawlId, triples: res.triples, ts: res.ts }
-        };
-      }
-    } catch (err) {
+    let err;
+    robotsAllow(robots, url, config.http.userAgent);
+    let res = await this.fetchResource(url);
+    if(res.status === 'ok'){
+      jobResult = {
+        ...jobInfo,
+        status: 'ok',
+        details: { crawlId, triples: res.triples, ts: res.ts }
+      };
+    } else {
       jobResult = {
         ...jobInfo,
         status: 'not_ok' as const,

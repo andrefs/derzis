@@ -91,7 +91,9 @@ app.get('/processes/:pid/triples', async (req, res) => {
   //res.setHeader('Content-Disposition', 'attachment; filename="triples.json"');
   res.write('[\n')
   const p = await Process.findOne({pid: req.params.pid});
-  const iter = p.getTriplesJson();
+  if(!p){ return res.status(404); }
+
+  const iter = p?.getTriplesJson();
   const readable = stream.Readable.from(iter, {encoding: 'utf8'});
   const transform = new stream.Transform({
     transform: (triple, _, callback) => {
