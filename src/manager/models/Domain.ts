@@ -1,3 +1,4 @@
+import {FilterQuery} from 'mongoose';
 import { Schema, model, Model, Document } from "mongoose";
 
 const errorTypes = ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT'];
@@ -118,8 +119,8 @@ DomainSchema.index({
   'robots.status': 1
 });
 
-DomainSchema.statics.upsertMany = async function(urls, pid){
-  let domains = {};
+DomainSchema.statics.upsertMany = async function(urls: string, pid: number){
+  let domains: {[url: string]: FilterQuery<IDomain>} = {};
 
   for(const u of urls){
     if(!domains[u]){

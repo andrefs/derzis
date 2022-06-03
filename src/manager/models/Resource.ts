@@ -137,7 +137,7 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
 
   // Domain
   const baseFilter = {origin: new URL(url).origin};
-  let d = await Domain.findOne(baseFilter);
+  let d = await Domain.findOne(baseFilter)!;
 
   if(oldRes){
     let updateInc = error ? 
