@@ -7,10 +7,10 @@ import { AxiosInstance, AxiosResponse } from "axios";
 let axios: AxiosInstance;
 import contentType from 'content-type';
 import parseRdf from './parse-rdf';
-import {createLogger} from '@derzis/common'
+import {createLogger, JobTimeoutError, MonkeyPatchedLogger} from '@derzis/common'
 import * as cheerio from 'cheerio';
 import winston from "winston";
-let log: winston.Logger;
+let log: MonkeyPatchedLogger;
 import {
   WorkerError,
   HttpError,
@@ -18,7 +18,7 @@ import {
   MimeTypeError,
   ConnectionResetError,
   RobotsForbiddenError,
-  TimeoutError,
+  RequestTimeoutError,
   TooManyRedirectsError} from '@derzis/common';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
@@ -78,7 +78,7 @@ export type BaseCrawlResourceResult = {
   details: CrawlResourceResultDetails;
 } & BaseJobResult;
 export type CrawlResourceResultOk = { details:{triples: RDF.Quad[]}; } & BaseCrawlResourceResult & JobResultOk;
-export type CrawlResourceResultError = { err: object } & BaseCrawlResourceResult & JobResultError;
+export type CrawlResourceResultError = { err: WorkerError } & BaseCrawlResourceResult & JobResultError;
 export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
 
 export type BaseRobotsCheckResult = {
@@ -216,27 +216,41 @@ export class Worker extends EventEmitter {
   }
 
   async crawlResource(origin: string , url: string, robots: Robot): Promise<CrawlResourceResult> {
-    if(this.jobsTimedout[origin]){
-      delete this.jobsTimedout[origin];
-      delete this.currentJobs.domainCrawl[origin];
-      log.warn(`Stopping domain ${origin} because Manager removed job`);
-      return;
-    }
-    this.crawlCounter++;
-    this.currentJobs.domainCrawl[origin] = true;
-    const crawlId = {
-      domainTs: this.crawlTs,
-      counter: this.crawlCounter
-    };
     const jobInfo = {
       jobType: 'resourceCrawl' as const,
       origin: origin,
       url
     };
+    const crawlId = {
+      domainTs: this.crawlTs,
+      counter: this.crawlCounter
+    };
+    if(this.jobsTimedout[origin]){
+      delete this.jobsTimedout[origin];
+      delete this.currentJobs.domainCrawl[origin];
+      log.warn(`Stopping domain ${origin} because Manager removed job`);
+      return {
+        ...jobInfo,
+        status: 'not_ok' as const,
+        details: { crawlId, ts: Date.now() },
+        err: new JobTimeoutError()
+      };
+    }
+    this.crawlCounter++;
+    this.currentJobs.domainCrawl[origin] = true;
     let jobResult: CrawlResourceResult;
-    let err;
-    robotsAllow(robots, url, config.http.userAgent);
+  
+    if(!robotsAllow(robots, url, config.http.userAgent)){
+      return {
+        ...jobInfo,
+        status: 'not_ok' as const,
+        details: { crawlId, ts: Date.now() },
+        err: new RobotsForbiddenError()
+      };
+    }
+
     let res = await this.fetchResource(url);
+  
     if(res.status === 'ok'){
       jobResult = {
         ...jobInfo,
@@ -248,7 +262,7 @@ export class Worker extends EventEmitter {
         ...jobInfo,
         status: 'not_ok' as const,
         details: { crawlId, ts: Date.now() },
-        err
+        err: res.err
       };
     }
     return jobResult as CrawlResourceResult;
@@ -307,7 +321,7 @@ const handleHttpError = (url: string, err: any): HttpRequestResultError => {
     return {...res, err: e, details};
   }
   if(err.code && err.code === 'ECONNABORTED'){
-    return {...res, err: new TimeoutError(config.http.robotsCheck.timeouts)};
+    return {...res, err: new RequestTimeoutError(config.http.robotsCheck.timeouts)};
   }
   if(err.code && err.code === 'ENOTFOUND'){
     return {...res, err: new DomainNotFoundError()};
@@ -346,10 +360,7 @@ const fetchRobots = async (url: string) => {
 };
 
 const robotsAllow = (robots:ReturnType<typeof robotsParser>, url: string, userAgent: string) => {
-  if(!robots.isAllowed(url, userAgent)){
-    return new RobotsForbiddenError();
-  }
-  return true;
+  return !!robots.isAllowed(url, userAgent);
 };
 
 const findRedirectUrl = (resp: AxiosResponse<any>) => {

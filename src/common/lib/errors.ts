@@ -19,12 +19,19 @@ export class RobotsForbiddenError extends WorkerError {
   constructor() { super(); }
 };
 
-export class TimeoutError extends WorkerError {
+export class RequestTimeoutError extends WorkerError {
   timeout: number;
-  errorType = 'timeout';
+  errorType = 'request_timeout';
   constructor(timeout: number) {
     super();
     this.timeout = timeout;
+  }
+};
+
+export class JobTimeoutError extends WorkerError {
+  errorType = 'job_timeout';
+  constructor() {
+    super();
   }
 };
 
