@@ -3,31 +3,27 @@ import robotsParser, { Robot } from 'robots-parser';
 import EventEmitter from 'events';
 import config from '@derzis/config';
 import Axios from './axios';
-import { AxiosInstance, AxiosResponse } from "axios";
+import { AxiosInstance } from "axios";
 let axios: AxiosInstance;
 import contentType from 'content-type';
 import parseRdf from './parse-rdf';
-import {createLogger, JobTimeoutError, MonkeyPatchedLogger} from '@derzis/common'
-import * as cheerio from 'cheerio';
-import winston from "winston";
 let log: MonkeyPatchedLogger;
 import {
+  createLogger,
+  JobTimeoutError,
+  MonkeyPatchedLogger,
   WorkerError,
-  HttpError,
-  DomainNotFoundError,
   MimeTypeError,
-  ConnectionResetError,
   RobotsForbiddenError,
-  RequestTimeoutError,
   TooManyRedirectsError} from '@derzis/common';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
-import LinkHeader from 'http-link-header';
 import {v4 as uuidv4} from 'uuid';
 import * as RDF from "@rdfjs/types";
 import { DomainCrawlJobRequest } from "./WorkerPubSub";
 import { OngoingJobs } from "@derzis/manager";
+import { fetchRobots, findRedirectUrl, handleHttpError, HttpRequestResult, robotsAllow } from "./worker-utils";
 
 export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
 export interface BaseJobResult {
@@ -45,25 +41,6 @@ export interface JobResultError extends BaseJobResult {
   details?: object;
 };
 
-export interface HttpRequestResultError {
-  status: 'not_ok',
-  url: string,
-  err: WorkerError,
-  details?: {
-    message?: any,
-    stack?: any,
-    elapsedTime?: number,
-    endTime?: number
-  }
-};
-export interface HttpRequestResultOk {
-  status: 'ok';
-  rdf: string;
-  ts: number;
-  mime: string;
-};
-
-type HttpRequestResult = HttpRequestResultOk | HttpRequestResultError;
 
 export type CrawlResourceResultDetails = {
   crawlId: {
@@ -187,7 +164,7 @@ export class Worker extends EventEmitter {
     this.currentJobs.robotsCheck[origin] = true;
 
     const url = origin+'/robots.txt';
-    const res = await fetchRobots(url);
+    const res = await fetchRobots(url, axios);
     delete this.currentJobs.robotsCheck[origin];
     return {
       ...res,
@@ -308,81 +285,5 @@ export class Worker extends EventEmitter {
     }
     catch(err) { return handleHttpError(url, err); }
   }
-};
-
-const handleHttpError = (url: string, err: any): HttpRequestResultError => {
-  const res = {status: 'not_ok' as const, url};
-  if(err.response){
-    let e = new HttpError(err.response.status);
-    const details = {
-      endTime: err.response.headers['request-endTime'],
-      elapsedTime: err.response.headers['request-duration']
-    };
-    return {...res, err: e, details};
-  }
-  if(err.code && err.code === 'ECONNABORTED'){
-    return {...res, err: new RequestTimeoutError(config.http.robotsCheck.timeouts)};
-  }
-  if(err.code && err.code === 'ENOTFOUND'){
-    return {...res, err: new DomainNotFoundError()};
-  }
-  if(err.code && err.code === 'ECONNRESET'){
-    return {...res, err: new ConnectionResetError()};
-  }
-  if(err.name === 'TypeError' && err.response ){
-    return {...res, err: new MimeTypeError(err.response.headers['content-type'])};
-  }
-  if(err instanceof WorkerError){
-    return {...res, err, url};
-  }
-  return {...res, err: new WorkerError(), details: {message:err.message, stack: err.stack}};
-};
-
-const fetchRobots = async (url: string) => {
-  const timeout = config.http.robotsCheck.timeouts || 10*1000;
-  const maxRedirects = config.http.robotsCheck.maxRedirects || 5;
-  const headers = {'User-Agent': config.http.userAgent};
-  let res = await axios.get(url, {headers, timeout, maxRedirects})
-    .then(resp => ({
-      details: {
-        endTime: resp.headers['request-endTime'],
-        elapsedTime: resp.headers['request-duration'],
-        robotsText: resp.data,
-        status: resp.status,
-      },
-      status: 'ok' as const
-    }))
-    .catch(err => ({
-      ...handleHttpError(url, err),
-      status: 'not_ok' as const
-    }));
-  return res;
-};
-
-const robotsAllow = (robots:ReturnType<typeof robotsParser>, url: string, userAgent: string) => {
-  return !!robots.isAllowed(url, userAgent);
-};
-
-const findRedirectUrl = (resp: AxiosResponse<any>) => {
-  // check Link header
-  if(resp.headers['Link']){
-    const links = LinkHeader.parse(resp.headers['Link']);
-    const link = links.refs.find(l => l.rel === 'alternate' && acceptedMimeTypes.some(aMT => l.type === aMT));
-    if(link){ return link.uri; }
-  }
-
-  // html
-  const mime = contentType.parse(resp.headers['content-type']).type;
-  if(mime === 'text/html'){
-    const $ = cheerio.load(resp.data);
-    for(const mime of config.http.acceptedMimeTypes){
-      // <link> tags
-      const link = $(`link[rel="alternate"][type="${mime}"]`);
-      if(link.length){
-        return link.first().attr('href');
-      }
-    }
-  }
-
 };
 
