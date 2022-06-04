@@ -96,7 +96,7 @@ export const robotsAllow =
      userAgent: string) => { return !!robots.isAllowed(url, userAgent);};
 
 export interface AxiosResponseHeaders {
-  Link: string;
+  Link?: string;
   'content-type': string;
 }
 ;

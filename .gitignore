@@ -9,3 +9,4 @@ dumps
 !.yarn/sdks
 !.yarn/versions
 dist
+coverage
