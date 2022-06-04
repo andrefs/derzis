@@ -281,7 +281,12 @@ export class Worker extends EventEmitter {
         if(redirect >= maxRedirects){ throw new TooManyRedirectsError(url); } // TODO list of redirect URLs?
         return this.makeHttpRequest(newUrl, redirect+1);
       }
-      return {status: 'ok', rdf: resp.data, ts: resp.headers['request-endTime'], mime};
+      return {
+        status: 'ok',
+        rdf: resp.data,
+        ts: resp.headers['request-endTime'],
+        mime
+      };
     }
     catch(err) { return handleHttpError(url, err); }
   }

@@ -27,7 +27,11 @@
     },
     "testEnvironment": "node",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
+      "@derzis/common": "<rootDir>/src/common/",
+      "@derzis/config": "<rootDir>/src/config/",
+      "@derzis/worker": "<rootDir>/src/worker/",
+      "@derzis/models": "<rootDir>/src/models/",
+      "@derzis/manager":"<rootDir>/src/manager/"
     }
   },
   "dependencies": {
