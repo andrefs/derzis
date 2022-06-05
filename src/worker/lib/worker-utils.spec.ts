@@ -1,12 +1,12 @@
+import {WorkerError} from '@derzis/common';
 import {jest} from '@jest/globals';
-import {AxiosInstance} from 'axios';
 
 import {
-  AxiosGet,
   fetchRobots,
   findRedirectUrl,
   findUrlInHtml,
-  findUrlInLinkHeader
+  findUrlInLinkHeader,
+  handleHttpError
 } from './worker-utils';
 
 describe('findUrlInLinkHeader', () => {
@@ -151,5 +151,96 @@ Object {
   "status": "ok",
 }
 `)
+  });
+});
+
+describe('handleHttpError', () => {
+  it('handles AxiosError with response', () => {
+    const err = {
+      response : {
+        headers : {
+          'request-endTime' : new Date('2020-01-01'),
+          'request-duration' : 1000,
+        },
+      },
+      isAxiosError : true
+    };
+    const res = handleHttpError('fakeurl', err)
+    expect(res).toMatchInlineSnapshot(`
+Object {
+  "details": Object {
+    "elapsedTime": 1000,
+    "endTime": 2020-01-01T00:00:00.000Z,
+  },
+  "err": [Error],
+  "status": "not_ok",
+  "url": "fakeurl",
+}
+`);
+    expect(res.err).toHaveProperty('errorType', 'http')
+  });
+
+  it('handles ECONNABORTED', () => {
+    const err = {code : 'ECONNABORTED', isAxiosError : true};
+    const res = handleHttpError('fakeurl', err)
+    expect(res).toMatchInlineSnapshot(`
+Object {
+  "err": [Error],
+  "status": "not_ok",
+  "url": "fakeurl",
+}
+`);
+    expect(res.err).toHaveProperty('errorType', 'request_timeout')
+  });
+
+  it('handles ENOTFOUND', () => {
+    const err = {code : 'ENOTFOUND', isAxiosError : true};
+    const res = handleHttpError('fakeurl', err)
+    expect(res).toMatchInlineSnapshot(`
+Object {
+  "err": [Error],
+  "status": "not_ok",
+  "url": "fakeurl",
+}
+`);
+    expect(res.err).toHaveProperty('errorType', 'host_not_found')
+  });
+  it('handles ECONNRESET', () => {
+    const err = {code : 'ECONNRESET', isAxiosError : true};
+    const res = handleHttpError('fakeurl', err)
+    expect(res).toMatchInlineSnapshot(`
+Object {
+  "err": [Error],
+  "status": "not_ok",
+  "url": "fakeurl",
+}
+`);
+    expect(res.err).toHaveProperty('errorType', 'connection_reset')
+  });
+  it.skip('handles content-type parse TypeError', () => {
+    const err = new TypeError('invalid media type')
+    const res = handleHttpError('fakeurl', err)
+    expect(res.status).toEqual('not_ok');
+    expect(res.err.toString()).toMatchInlineSnapshot(`[Error]`);
+  });
+  it('handles WorkerError', () => {
+    const err = new WorkerError();
+    const res = handleHttpError('fakeurl', err);
+    expect(res).toMatchInlineSnapshot(`
+Object {
+  "err": [Error],
+  "status": "not_ok",
+  "url": "fakeurl",
+}
+`);
+    expect(res.err).toEqual(err);
+  })
+  it('handles other errors', () => {
+    const err = new Error('test');
+    const res = handleHttpError('fakeurl', err);
+    expect(res.details?.message).toEqual('test');
+    expect(res.err).toMatchInlineSnapshot(`[Error]`);
+    expect(res.status).toEqual('not_ok');
+    expect(res.url).toEqual('fakeurl');
   });
 });

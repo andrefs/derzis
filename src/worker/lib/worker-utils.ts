@@ -8,12 +8,12 @@ import {
 } from '@derzis/common'
 import config from '@derzis/config';
 import {AxiosInstance} from 'axios';
+import axios from 'axios';
 import * as cheerio from 'cheerio';
 import contentType from 'content-type';
 import LinkHeader from 'http-link-header';
 
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
-import robotsParser from 'robots-parser';
 
 export interface HttpRequestResultError {
   status: 'not_ok', url: string, err: WorkerError,
@@ -34,27 +34,31 @@ export type HttpRequestResult = HttpRequestResultOk|HttpRequestResultError;
 export const handleHttpError =
     (url: string, err: any): HttpRequestResultError => {
       const res = {status : 'not_ok' as const, url};
-      if (err.response) {
-        let e = new HttpError(err.response.status);
-        const details = {
-          endTime : err.response.headers['request-endTime'],
-          elapsedTime : err.response.headers['request-duration']
-        };
-        return {...res, err : e, details};
+
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+          let e = new HttpError(err.response.status);
+          const details = {
+            endTime : err.response.headers['request-endTime'],
+            elapsedTime : err.response.headers['request-duration']
+          };
+          return {...res, err : e, details};
+        }
+        if (err.code && err.code === 'ECONNABORTED') {
+          return {
+            ...res,
+            err : new RequestTimeoutError(config.http.robotsCheck.timeouts)
+          };
+        }
+        if (err.code && err.code === 'ENOTFOUND') {
+          return {...res, err : new DomainNotFoundError()};
+        }
+        if (err.code && err.code === 'ECONNRESET') {
+          return {...res, err : new ConnectionResetError()};
+        }
       }
-      if (err.code && err.code === 'ECONNABORTED') {
-        return {
-          ...res,
-          err : new RequestTimeoutError(config.http.robotsCheck.timeouts)
-        };
-      }
-      if (err.code && err.code === 'ENOTFOUND') {
-        return {...res, err : new DomainNotFoundError()};
-      }
-      if (err.code && err.code === 'ECONNRESET') {
-        return {...res, err : new ConnectionResetError()};
-      }
-      if (err.name === 'TypeError' && err.response) {
+      // from contentType.parse
+      if (err?.name === 'TypeError' && err.response) {
         return {
           ...res,
           err : new MimeTypeError(err.response.headers['content-type'])
@@ -71,6 +75,7 @@ export const handleHttpError =
     };
 
 export type AxiosGet = Pick<AxiosInstance, 'get'>;
+
 export const fetchRobots = async (url: string, axios: AxiosGet) => {
   const timeout = config.http.robotsCheck.timeouts || 10 * 1000;
   const maxRedirects = config.http.robotsCheck.maxRedirects || 5;

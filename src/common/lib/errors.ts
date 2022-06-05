@@ -6,7 +6,7 @@ export class WorkerError extends Error {
     this.errorType = 'unknown_worker_error';
   }
 
-  toString() { '[' + this.constructor.name.toString() + '] ' + this.errorType; }
+  toString() { return '[' + this.constructor.name.toString() + '] ' + this.errorType; }
 };
 
 export class NoCapacityError extends WorkerError {
