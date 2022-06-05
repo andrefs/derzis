@@ -124,7 +124,7 @@ Object {
     "message": undefined,
     "stack": undefined,
   },
-  "err": [Error],
+  "err": [Unknown Worker Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
@@ -172,7 +172,7 @@ Object {
     "elapsedTime": 1000,
     "endTime": 2020-01-01T00:00:00.000Z,
   },
-  "err": [Error],
+  "err": [HTTP Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
@@ -185,7 +185,7 @@ Object {
     const res = handleHttpError('fakeurl', err)
     expect(res).toMatchInlineSnapshot(`
 Object {
-  "err": [Error],
+  "err": [Request Timeout Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
@@ -198,7 +198,7 @@ Object {
     const res = handleHttpError('fakeurl', err)
     expect(res).toMatchInlineSnapshot(`
 Object {
-  "err": [Error],
+  "err": [Host Not Found Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
@@ -210,7 +210,7 @@ Object {
     const res = handleHttpError('fakeurl', err)
     expect(res).toMatchInlineSnapshot(`
 Object {
-  "err": [Error],
+  "err": [Connection Reset Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
@@ -228,7 +228,7 @@ Object {
     const res = handleHttpError('fakeurl', err);
     expect(res).toMatchInlineSnapshot(`
 Object {
-  "err": [Error],
+  "err": [Unknown Worker Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
@@ -239,7 +239,7 @@ Object {
     const err = new Error('test');
     const res = handleHttpError('fakeurl', err);
     expect(res.details?.message).toEqual('test');
-    expect(res.err).toMatchInlineSnapshot(`[Error]`);
+    expect(res.err).toMatchInlineSnapshot(`[Unknown Worker Error]`);
     expect(res.status).toEqual('not_ok');
     expect(res.url).toEqual('fakeurl');
   });

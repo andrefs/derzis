@@ -1,5 +1,6 @@
 export class WorkerError extends Error {
   errorType: string;
+  name = 'Unknown Worker Error';
 
   constructor() {
     super();
@@ -11,17 +12,20 @@ export class WorkerError extends Error {
 
 export class NoCapacityError extends WorkerError {
   errorType = 'no_capacity';
+  name = 'No Capacity Error';
   constructor() { super(); }
 };
 
 export class RobotsForbiddenError extends WorkerError {
   errorType = 'robots_forbidden';
+  name = 'Robots Forbidden Error';
   constructor() { super(); }
 };
 
 export class RequestTimeoutError extends WorkerError {
   timeout: number;
   errorType = 'request_timeout';
+  name = 'Request Timeout Error';
   constructor(timeout: number) {
     super();
     this.timeout = timeout;
@@ -30,19 +34,22 @@ export class RequestTimeoutError extends WorkerError {
 
 export class JobTimeoutError extends WorkerError {
   errorType = 'job_timeout';
-  constructor() {
-    super();
-  }
+  name = 'Job Timeout Error';
+
+  constructor() { super(); }
 };
 
 export class ConnectionResetError extends WorkerError {
   errorType = 'connection_reset';
+  name = 'Connection Reset Error';
   constructor() { super(); }
 };
 
 export class TooManyRedirectsError extends WorkerError {
   lastUrl: string;
   errorType = 'too_many_redirects';
+  name = 'Too Many Redirect Error';
+
   constructor(lastUrl: string) {
     super();
     this.lastUrl = lastUrl;
@@ -52,6 +59,7 @@ export class TooManyRedirectsError extends WorkerError {
 export class HttpError extends WorkerError {
   httpStatus: number;
   errorType = 'http';
+  name = 'HTTP Error';
   constructor(httpStatus: number) {
     super();
     this.httpStatus = httpStatus;
@@ -60,6 +68,7 @@ export class HttpError extends WorkerError {
 
 export class DomainNotFoundError extends WorkerError {
   errorType = 'host_not_found';
+  name = 'Host Not Found Error';
   constructor() { super(); }
 };
 
@@ -67,6 +76,7 @@ export class MimeTypeError extends WorkerError {
   mimeType: string;
   httpStatus?: number;
   errorType = 'unsupported_mime_type';
+  name = 'Unsupported Mime Type Error';
 
   constructor(mimeType: string, info: {httpStatus?: number} = {}) {
     super();
@@ -82,6 +92,7 @@ export class ParsingError extends WorkerError {
   httpStatus!: number;
   errorMessage!: string;
   errorType = 'parsing';
+  name = 'Parsing Error';
 
   constructor(message: string,
               {httpStatus, mimeType}: {httpStatus: number, mimeType: string}) {

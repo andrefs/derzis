@@ -1,5 +1,5 @@
 import config from '@derzis/config';
-import {AxiosInstance} from "axios";
+import {AxiosInstance, AxiosResponse} from "axios";
 import Bluebird from "bluebird";
 import EventEmitter from 'events';
 import robotsParser, {Robot} from 'robots-parser';
@@ -13,7 +13,7 @@ let log: MonkeyPatchedLogger;
 import {
   createLogger,
   JobTimeoutError,
-  MonkeyPatchedLogger,
+MonkeyPatchedLogger,
   WorkerError,
   MimeTypeError,
   RobotsForbiddenError,
@@ -239,7 +239,7 @@ export class Worker extends EventEmitter {
   }
 
   async fetchResource(url: string) {
-    let res = await this.makeHttpRequest(url);
+    let res = await this.getHttpContent(url);
     if (res.status === 'ok') {
       const {triples} = await parseRdf(res.rdf, res.mime);
       return {...res, triples};
@@ -247,50 +247,66 @@ export class Worker extends EventEmitter {
     return res;
   }
 
-  makeHttpRequest =
-      async(url: string, redirect = 0): Promise<HttpRequestResult> => {
+  getHttpContent = async(url: string, redirect = 0): Promise<HttpRequestResult> => {
+    try {
+      const resp = await this.makeHttpRequest(url)
+      return this.handleHttpResponse(resp, redirect, url);
+    } catch (err) {
+      return handleHttpError(url, err);
+    }
+  }
+
+  makeHttpRequest = async (url: string) => {
     const timeout = config.http.domainCrawl.timeouts || 10 * 1000;
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const headers = {
       'User-Agent' : config.http.userAgent,
       'Accept' : this.accept
     };
-    try {
-      await delay();
-      this.emit('httpDebug', {
-        wId : this.wId,
-        type : 'request',
-        url,
-        ts : new Date(),
-        domain : new URL(url).origin
-      });
-      const opts = {
-        headers,
-        // prevent axios of parsing [ld+]json
-        transformResponse : (x: any) => x,
-        timeout,
-        maxRedirects
-      };
-      const resp = await axios.get(url, opts);
-      const mime = contentType.parse(resp.headers['content-type']).type;
-      if (!acceptedMimeTypes.some(aMT => mime === aMT)) {
-        const newUrl = findRedirectUrl(resp.headers, resp.data);
-        if (!newUrl) {
-          throw new MimeTypeError(mime);
-        }
-        if (redirect >= maxRedirects) {
-          throw new TooManyRedirectsError(url);
-        } // TODO list of redirect URLs?
-        return this.makeHttpRequest(newUrl, redirect + 1);
+    await delay();
+    this.emitHttpDebugEvent(url);
+    const opts = {
+      headers,
+      // prevent axios of parsing [ld+]json
+      transformResponse : (x: any) => x,
+      timeout,
+      maxRedirects
+    };
+    return axios.get(url, opts);
+  }
+
+
+
+  emitHttpDebugEvent = (url: string) => {
+    this.emit('httpDebug', {
+      wId : this.wId,
+      type : 'request',
+      url,
+      ts : new Date(),
+      domain : new URL(url).origin
+    });
+  }
+
+  handleHttpResponse = (resp: MinimalAxiosResponse, redirect: number, url: string) => {
+    const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
+    const mime = contentType.parse(resp.headers['content-type']).type;
+    if (!acceptedMimeTypes.some(aMT => mime === aMT)) {
+      const newUrl = findRedirectUrl(resp.headers, resp.data);
+      if (!newUrl) {
+        throw new MimeTypeError(mime);
       }
-      return {
-        status : 'ok',
-        rdf : resp.data,
-        ts : resp.headers['request-endTime'],
-        mime
-      };
-    } catch (err) {
-      return handleHttpError(url, err);
+      if (redirect >= maxRedirects) {
+        throw new TooManyRedirectsError(url);
+      } // TODO list of redirect URLs?
+      return this.getHttpContent(newUrl, redirect + 1);
     }
+    return {
+      status : 'ok' as const,
+      rdf : resp.data,
+      ts : resp.headers['request-endTime'],
+      mime
+    };
   }
 };
+
+export type MinimalAxiosResponse = Pick<AxiosResponse<any>, 'headers' | 'data'>;
