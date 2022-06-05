@@ -1,4 +1,5 @@
 import {jest} from '@jest/globals';
+import { MimeTypeError } from '@derzis/common';
 import {Worker as WorkerType} from './Worker';
 
 const mockFindRedirectUrl = jest.fn();
@@ -27,18 +28,21 @@ it.skip('emitHttpDebugEvent', () => {
 
 describe('handleHttpResponse', () => {
   describe('if mime type not accepted', () => {
-    it('tries to find redirect URL and throws if not found', async () => {
+    it('throws if redirect URL cannot be found', async () => {
       const resp = {
         headers: {
           'content-type': 'text/plain'
         },
         data: ''
       };
-
-      mockFindRedirectUrl.mockReturnValueOnce(undefined)
-
-      expect(() => {w.handleHttpResponse(resp, 0, 'fakeurl');}).toThrowErrorMatchingInlineSnapshot(`""`)
-      expect(mockFindRedirectUrl.mock.calls).toHaveLength(1);
+      expect(() => w.handleHttpResponse(resp, 0, 'fakeurl')).toThrow(MimeTypeError)
+      expect(() => w.handleHttpResponse(resp, 0, 'fakeurl')).toThrow('text/plain')
+      expect(mockFindRedirectUrl.mock.calls).toHaveLength(2);
     });
+
+    it.todo('throws if maxRedirects have been reached');
+    it.todo('calls .getHttpContent otherwise')
   });
+
+  it.todo('returns data');
 });

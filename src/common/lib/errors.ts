@@ -80,7 +80,7 @@ export class MimeTypeError extends WorkerError {
 
   constructor(mimeType: string, info: {httpStatus?: number} = {}) {
     super();
-    this.mimeType = mimeType;
+    this.mimeType = this.message = mimeType;
     if (info.httpStatus) {
       this.httpStatus = info.httpStatus;
     }
@@ -90,14 +90,13 @@ export class MimeTypeError extends WorkerError {
 export class ParsingError extends WorkerError {
   mimeType!: string;
   httpStatus!: number;
-  errorMessage!: string;
   errorType = 'parsing';
   name = 'Parsing Error';
 
   constructor(message: string,
               {httpStatus, mimeType}: {httpStatus: number, mimeType: string}) {
     super();
-    this.errorMessage = message;
+    this.message = message;
     if (httpStatus) {
       this.httpStatus = httpStatus;
     }
