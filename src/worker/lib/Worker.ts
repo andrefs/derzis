@@ -23,7 +23,7 @@ import {v4 as uuidv4} from 'uuid';
 import * as RDF from "@rdfjs/types";
 import { DomainCrawlJobRequest } from "./WorkerPubSub";
 import { OngoingJobs } from "@derzis/manager";
-import { fetchRobots, findRedirectUrl, handleHttpError, HttpRequestResult, robotsAllow } from "./worker-utils";
+import { fetchRobots, findRedirectUrl, handleHttpError, HttpRequestResult } from "./worker-utils";
 
 export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
 export interface BaseJobResult {
@@ -217,7 +217,7 @@ export class Worker extends EventEmitter {
     this.currentJobs.domainCrawl[origin] = true;
     let jobResult: CrawlResourceResult;
   
-    if(!robotsAllow(robots, url, config.http.userAgent)){
+    if(robots.isDisallowed(url, config.http.userAgent)){
       return {
         ...jobInfo,
         status: 'not_ok' as const,
@@ -276,7 +276,7 @@ export class Worker extends EventEmitter {
       const resp = await axios.get(url, opts);
       const mime = contentType.parse(resp.headers['content-type']).type;
       if(!acceptedMimeTypes.some(aMT => mime === aMT)){
-        const newUrl = findRedirectUrl(resp);
+        const newUrl = findRedirectUrl(resp.headers, resp.data);
         if(!newUrl){ throw new MimeTypeError(mime); }
         if(redirect >= maxRedirects){ throw new TooManyRedirectsError(url); } // TODO list of redirect URLs?
         return this.makeHttpRequest(newUrl, redirect+1);

@@ -70,7 +70,8 @@ export const handleHttpError =
       };
     };
 
-export const fetchRobots = async (url: string, axios: AxiosInstance) => {
+export type AxiosGet = Pick<AxiosInstance, 'get'>;
+export const fetchRobots = async (url: string, axios: AxiosGet) => {
   const timeout = config.http.robotsCheck.timeouts || 10 * 1000;
   const maxRedirects = config.http.robotsCheck.maxRedirects || 5;
   const headers = {'User-Agent' : config.http.userAgent};
@@ -90,10 +91,6 @@ export const fetchRobots = async (url: string, axios: AxiosInstance) => {
                   ({...handleHttpError(url, err), status : 'not_ok' as const}));
   return res;
 };
-
-export const robotsAllow =
-    (robots: ReturnType<typeof robotsParser>, url: string,
-     userAgent: string) => { return !!robots.isAllowed(url, userAgent);};
 
 export interface AxiosResponseHeaders {
   Link?: string;

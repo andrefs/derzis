@@ -1,4 +1,9 @@
+import {jest} from '@jest/globals';
+import {AxiosInstance} from 'axios';
+
 import {
+  AxiosGet,
+  fetchRobots,
   findRedirectUrl,
   findUrlInHtml,
   findUrlInLinkHeader
@@ -103,4 +108,48 @@ describe('findRedirectUrl', () => {
     expect(findRedirectUrl({'content-type' : 'text/html; charset=UTF-8'}, data))
         .toMatchInlineSnapshot(`"http://dbpedia.org/data/Aladdin.n3"`);
   });
-})
+});
+
+describe('fetchRobots', () => {
+  const mockAxios = {get : jest.fn<() => Promise<any>>()};
+
+  it('returns error if axios throws', async () => {
+    // const mock = {get : () => { return Promise.reject('error') }} as
+    // AxiosGet;
+
+    mockAxios.get.mockRejectedValueOnce('error');
+    expect(await fetchRobots('fakeurl', mockAxios)).toMatchInlineSnapshot(`
+Object {
+  "details": Object {
+    "message": undefined,
+    "stack": undefined,
+  },
+  "err": [Error],
+  "status": "not_ok",
+  "url": "fakeurl",
+}
+`)
+  });
+
+  it('returns result otherwise', async () => {
+    mockAxios.get.mockResolvedValueOnce({
+      headers : {
+        'request-endTime' : new Date('2020-01-01'),
+        'request-duration' : 1000,
+      },
+      data : '',
+      status : '200'
+    });
+    expect(await fetchRobots('fakeurl', mockAxios)).toMatchInlineSnapshot(`
+Object {
+  "details": Object {
+    "elapsedTime": 1000,
+    "endTime": 2020-01-01T00:00:00.000Z,
+    "robotsText": "",
+    "status": "200",
+  },
+  "status": "ok",
+}
+`)
+  });
+});
