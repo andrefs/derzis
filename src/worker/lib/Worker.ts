@@ -250,7 +250,7 @@ export class Worker extends EventEmitter {
   getHttpContent = async(url: string, redirect = 0): Promise<HttpRequestResult> => {
     try {
       const resp = await this.makeHttpRequest(url)
-      return this.handleHttpResponse(resp, redirect, url);
+      return await this.handleHttpResponse(resp, redirect, url);
     } catch (err) {
       return handleHttpError(url, err);
     }
@@ -287,7 +287,7 @@ export class Worker extends EventEmitter {
     });
   }
 
-  handleHttpResponse = (resp: MinimalAxiosResponse, redirect: number, url: string) => {
+  handleHttpResponse = async (resp: MinimalAxiosResponse, redirect: number, url: string) => {
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const mime = contentType.parse(resp.headers['content-type']).type;
     if (!acceptedMimeTypes.some(aMT => mime === aMT)) {
