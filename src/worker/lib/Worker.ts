@@ -250,7 +250,7 @@ export class Worker extends EventEmitter {
   getHttpContent = async(url: string, redirect = 0): Promise<HttpRequestResult> => {
     const httpResp = await this.makeHttpRequest(url)
     const res = await this.handleHttpResponse(httpResp, redirect, url);
-    return res?.status === 'ok' ? res : handleHttpError(url, res);
+    return res?.status === 'ok' ? res : handleHttpError(url, res.err);
   }
 
   makeHttpRequest = async (url: string) => {
@@ -290,10 +290,10 @@ export class Worker extends EventEmitter {
     if (!acceptedMimeTypes.some(aMT => mime === aMT)) {
       const newUrl = findRedirectUrl(resp.headers, resp.data);
       if (!newUrl) {
-        return new MimeTypeError(mime);
+        return {status: 'not_ok' as const, err: new MimeTypeError(mime)};
       }
       if (redirect >= maxRedirects) {
-        return new TooManyRedirectsError(url);
+        return {status: 'not_ok' as const, err: new TooManyRedirectsError(url)};
       } // TODO list of redirect URLs?
       return this.getHttpContent(newUrl, redirect + 1);
     }
