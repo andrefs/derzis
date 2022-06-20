@@ -1,8 +1,7 @@
 import {getSecret} from '@derzis/common';
 import _ from 'lodash';
 import 'dotenv/config';
-import {readPackage} from 'read-pkg';
-const pjson = await readPackage();
+import pjson from '../../package.json';
 
 export default {
   seeds: {
