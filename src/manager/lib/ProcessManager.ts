@@ -1,6 +1,6 @@
 import {Process, ProcessDocument} from '@derzis/models';
 import express from 'express';
-import exphbs from 'express-handlebars';
+import { create } from 'express-handlebars';
 import path from 'path';
 //const { v4: uuidv4 } = require('uuid');
 import swaggerUi from 'swagger-ui-express';
@@ -13,7 +13,7 @@ const app = express();
 app.use(morganMiddleware);
 //app.use(compression());
 
-const hbs = exphbs.create({
+const hbs = create({
   helpers: {
     ifEquals: function(arg1: any, arg2: any, options: any) {
       return (arg1 == arg2) ? options.fn(this) : options.inverse(this);
