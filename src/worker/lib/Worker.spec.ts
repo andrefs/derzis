@@ -34,25 +34,29 @@ beforeEach(() => {
   w = new Worker();
 });
 
-it.skip('emitHttpDebugEvent', () => {
+it('emitHttpDebugEvent', () => {
   w.emitHttpDebugEvent('http://example.org');
   let _ev;
   w.on('httpDebug', ev => _ev = ev);
   expect(_ev).toMatchInlineSnapshot(`undefined`);
 });
 
-describe.skip('handleHttpResponse', () => {
+describe('handleHttpResponse', () => {
   describe('if mime type not accepted', () => {
     it('returns error if redirect URL cannot be found', async () => {
       const resp = {
         headers: {
-          'content-type': 'text/plain'
+          'content-type': 'text/plajest.unstable_mockModulein'
         },
         data: ''
       };
-      //expect(() => w.handleHttpResponse(resp, 0, 'fakeurl')).toThrow(MimeTypeError)
-      expect(await w.handleHttpResponse(resp, 0, 'fakeurl')).toMatchInlineSnapshot();
-      expect(mockFindRedirectUrl.mock.calls).toHaveLength(2);
+      expect(await w.handleHttpResponse(resp, 0, 'fakeurl')).toMatchInlineSnapshot(`
+Object {
+  "err": [Unsupported Mime Type Error: text/plajest.unstable_mockmodulein],
+  "status": "not_ok",
+}
+`);
+      expect(mockFindRedirectUrl.mock.calls).toHaveLength(1);
     });
 
     it('returns error if maxRedirects have been reached', async () => {
@@ -63,7 +67,12 @@ describe.skip('handleHttpResponse', () => {
         data: ''
       };
       mockFindRedirectUrl.mockReturnValueOnce('anotherfakeurl')
-      expect(await w.handleHttpResponse(resp, 3, 'fakeurl')).toMatchInlineSnapshot()
+      expect(await w.handleHttpResponse(resp, 3, 'fakeurl')).toMatchInlineSnapshot(`
+Object {
+  "err": [Too Many Redirect Error],
+  "status": "not_ok",
+}
+`)
     });
 
     // need jest to fully support mocking modules
