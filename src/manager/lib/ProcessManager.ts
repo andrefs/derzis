@@ -101,7 +101,7 @@ app.get('/processes/:pid/triples', async (req, res) => {
     }
   });
   readable.pipe(transform).pipe(res, {end: false});
-  readable.on('end', () => res.write('\n]'));
+  readable.on('end', () => res.end('\n]'));
 });
 
 
