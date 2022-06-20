@@ -1,6 +1,8 @@
 import {getSecret} from '@derzis/common';
 import _ from 'lodash';
 import 'dotenv/config';
+import {readPackage} from 'read-pkg';
+const pjson = await readPackage();
 
 export default {
   seeds: {
@@ -53,7 +55,7 @@ export default {
       timeouts: 10*1000,
       maxRedirects: 5
     },
-    userAgent: 'FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/0.1.0',
+    userAgent: `FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/${pjson.version}`,
     acceptedMimeTypes: [
       'text/turtle',
       'application/trig',
