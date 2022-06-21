@@ -103,7 +103,7 @@ Object {
   "mime": "text/n3",
   "rdf": "this is the data",
   "status": "ok",
-  "ts": undefined,
+  "ts": NaN,
 }
 `)
   });

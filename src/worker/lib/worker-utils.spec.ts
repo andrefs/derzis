@@ -144,7 +144,7 @@ Object {
 Object {
   "details": Object {
     "elapsedTime": 1000,
-    "endTime": 2020-01-01T00:00:00.000Z,
+    "endTime": 1577836800000,
     "robotsText": "",
     "status": "200",
   },
@@ -170,7 +170,7 @@ describe('handleHttpError', () => {
 Object {
   "details": Object {
     "elapsedTime": 1000,
-    "endTime": 2020-01-01T00:00:00.000Z,
+    "endTime": 1577836800000,
   },
   "err": [HTTP Error],
   "status": "not_ok",
