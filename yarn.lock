@@ -1257,6 +1257,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/dotenv@npm:^8.2.0":
+  version: 8.2.0
+  resolution: "@types/dotenv@npm:8.2.0"
+  dependencies:
+    dotenv: "*"
+  checksum: a1f524da7dc18b09bdb6c2613b9abbbe8ca575621cce4625efc7f98daf2ba07c7dbab622c9bb394507a12c5c515f9cbbbba4aeec17b801c88faeb8e8e656d460
+  languageName: node
+  linkType: hard
+
 "@types/express-handlebars@npm:^6.0.0":
   version: 6.0.0
   resolution: "@types/express-handlebars@npm:6.0.0"
@@ -2461,6 +2470,7 @@ __metadata:
   dependencies:
     "@types/bluebird": ^3.5.36
     "@types/content-type": ^1.1.5
+    "@types/dotenv": ^8.2.0
     "@types/express-handlebars": ^6.0.0
     "@types/jest": ^28.1.1
     "@types/lodash": ^4.14.182
@@ -2614,6 +2624,13 @@ __metadata:
     domelementtype: ^2.3.0
     domhandler: ^5.0.1
   checksum: 23aa7a840572d395220e173cb6263b0d028596e3950100520870a125af33ff819e6f609e1606d6f7d73bd9e7feb03bb404286e57a39063b5384c62b724d987b3
+  languageName: node
+  linkType: hard
+
+"dotenv@npm:*":
+  version: 16.0.1
+  resolution: "dotenv@npm:16.0.1"
+  checksum: f459ffce07b977b7f15d8cc4ee69cdff77d4dd8c5dc8c85d2d485ee84655352c2415f9dd09d42b5b5985ced3be186130871b34e2f3e2569ebc72fbc2e8096792
   languageName: node
   linkType: hard
 

@@ -62,6 +62,7 @@
   "devDependencies": {
     "@types/bluebird": "^3.5.36",
     "@types/content-type": "^1.1.5",
+    "@types/dotenv": "^8.2.0",
     "@types/express-handlebars": "^6.0.0",
     "@types/jest": "^28.1.1",
     "@types/lodash": "^4.14.182",

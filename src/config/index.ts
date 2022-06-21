@@ -1,5 +1,4 @@
 import {getSecret} from '@derzis/common';
-import _ from 'lodash';
 import 'dotenv/config';
 import pjson from '../../package.json';
 
