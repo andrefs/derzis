@@ -87,6 +87,16 @@ export class MimeTypeError extends WorkerError {
   };
 };
 
+export class AxiosError extends WorkerError {
+  name = 'Axios Error';
+  errorType = 'axios_error';
+
+  constructor(axiosError: any){
+    super();
+    this.message = axiosError.message;
+  }
+};
+
 export class ParsingError extends WorkerError {
   mimeType!: string;
   httpStatus!: number;

@@ -33,9 +33,9 @@ export default function(logger: MonkeyPatchedLogger){
   instance.interceptors.response.use(response => {
       const config = response.config as MonkeyPatchedAxiosRequestConfig;
       const now = Date.now();
-      response.headers['request-startTime'] = config.tsStart;
-      response.headers['request-endTime'] = now;
-      response.headers['request-duration'] = now - config.tsStart;
+      response.headers['request-startTime'] = String(config.tsStart);
+      response.headers['request-endTime'] = String(now);
+      response.headers['request-duration'] = String(now - config.tsStart);
       if(logger){
         logger.http(response?.config?.method?.toUpperCase() +
                     ' ' +  response.config.url, response.status);

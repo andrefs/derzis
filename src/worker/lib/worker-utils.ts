@@ -16,9 +16,15 @@ import LinkHeader from 'http-link-header';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 
 export interface HttpRequestResultError {
-  status: 'not_ok', url: string, err: WorkerError,
-      details
-      ?: {message?: any, stack?: any, elapsedTime?: number, endTime?: number}
+  status: 'not_ok',
+  url: string,
+  err: WorkerError,
+  details?: {
+    message?: any,
+    stack?: any,
+    elapsedTime?: number,
+    endTime?: number
+  }
 }
 ;
 export interface HttpRequestResultOk {
@@ -39,8 +45,8 @@ export const handleHttpError =
         if (err.response) {
           let e = new HttpError(err.response.status);
           const details = {
-            endTime : err.response.headers['request-endTime'],
-            elapsedTime : err.response.headers['request-duration']
+            endTime : Number(err.response.headers['request-endTime']),
+            elapsedTime : Number(err.response.headers['request-duration'])
           };
           return {...res, err : e, details};
         }
@@ -84,8 +90,8 @@ export const fetchRobots = async (url: string, axios: AxiosGet) => {
       await axios.get(url, {headers, timeout, maxRedirects})
           .then(resp => ({
                   details : {
-                    endTime : resp.headers['request-endTime'],
-                    elapsedTime : resp.headers['request-duration'],
+                    endTime : Number(resp.headers['request-endTime']),
+                    elapsedTime : Number(resp.headers['request-duration']),
                     robotsText : resp.data,
                     status : resp.status,
                   },
@@ -99,7 +105,7 @@ export const fetchRobots = async (url: string, axios: AxiosGet) => {
 
 export interface AxiosResponseHeaders {
   Link?: string;
-  'content-type': string;
+  'content-type'?: string;
 }
 ;
 
@@ -114,7 +120,10 @@ export const findRedirectUrl =
       }
 
       // check html
-      return findUrlInHtml(data, headers['content-type']);
+      const ct = headers['content-type'];
+      if(ct){
+        return findUrlInHtml(data, ct);
+      }
     };
 
 export const findUrlInLinkHeader = (linkHeader: string) => {

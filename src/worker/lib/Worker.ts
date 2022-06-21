@@ -17,7 +17,8 @@ MonkeyPatchedLogger,
   WorkerError,
   MimeTypeError,
   RobotsForbiddenError,
-  TooManyRedirectsError
+  TooManyRedirectsError,
+  AxiosError
 } from '@derzis/common';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
@@ -27,6 +28,7 @@ import * as RDF from "@rdfjs/types";
 import {DomainCrawlJobRequest} from "./WorkerPubSub";
 import {OngoingJobs} from "@derzis/manager";
 import {
+    AxiosResponseHeaders,
   fetchRobots,
   findRedirectUrl,
   handleHttpError,
@@ -248,8 +250,11 @@ export class Worker extends EventEmitter {
   }
 
   getHttpContent = async(url: string, redirect = 0): Promise<HttpRequestResult> => {
-    const httpResp = await this.makeHttpRequest(url)
-    const res = await this.handleHttpResponse(httpResp, redirect, url);
+    const resp = await this.makeHttpRequest(url);
+    if(resp.status === 'not_ok'){
+      return resp;
+    }
+    const res = await this.handleHttpResponse(resp.res, redirect, url);
     return res?.status === 'ok' ? res : handleHttpError(url, res.err);
   }
 
@@ -269,7 +274,20 @@ export class Worker extends EventEmitter {
       timeout,
       maxRedirects
     };
-    return axios.get(url, opts);
+    try {
+      const res = await axios.get(url, opts);
+      return {
+        status: 'ok' as const,
+        res: res as MinimalAxiosResponse
+      };
+    }
+    catch(err){
+      return {
+        status: 'not_ok' as const,
+        url,
+        err: new AxiosError(err)
+      }
+    }
   }
 
 
@@ -288,7 +306,7 @@ export class Worker extends EventEmitter {
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const mime = contentType.parse(resp.headers['content-type']).type;
     if (!acceptedMimeTypes.some(aMT => mime === aMT)) {
-      const newUrl = findRedirectUrl(resp.headers, resp.data);
+      const newUrl = findRedirectUrl(resp.headers as AxiosResponseHeaders, resp.data);
       if (!newUrl) {
         return {status: 'not_ok' as const, err: new MimeTypeError(mime)};
       }
@@ -300,7 +318,7 @@ export class Worker extends EventEmitter {
     return {
       status : 'ok' as const,
       rdf : resp.data,
-      ts : resp.headers['request-endTime'],
+      ts : Number(resp.headers['request-endTime']),
       mime
     };
   }
