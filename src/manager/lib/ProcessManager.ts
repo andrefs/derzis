@@ -8,6 +8,7 @@ import * as docs from '../docs';
 import morganMiddleware from './morganMiddleware';
 import stream from 'stream';
 //import compression from 'compression';
+import pjson from '../../../package.json';
 
 const app = express();
 app.use(morganMiddleware);
@@ -24,6 +25,8 @@ const hbs = create({
   },
   extname: '.hbs'
 });
+
+app.locals.version = pjson.version;
 
 app.engine('.hbs', hbs.engine);
 app.set('views', path.join(__dirname, '..', 'views'));
