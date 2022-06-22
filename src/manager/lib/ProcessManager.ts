@@ -6,7 +6,7 @@ import path from 'path';
 import swaggerUi from 'swagger-ui-express';
 import * as docs from '../docs';
 import morganMiddleware from './morganMiddleware';
-import stream from 'stream';
+import stream, { Readable } from 'stream';
 //import compression from 'compression';
 import pjson from '../../../package.json';
 
@@ -98,13 +98,16 @@ app.get('/processes/:pid/triples', async (req, res) => {
 
   const iter = p?.getTriplesJson();
   const readable = stream.Readable.from(iter, {encoding: 'utf8'});
+  let i=0;
   const transform = new stream.Transform({
     transform: (triple, _, callback) => {
-      callback(null, '  '+triple+',\n')
+      const res = i === 0 ? '  '+triple : ',\n  '+triple;
+      i++;
+      callback(null, res)
     }
   });
   readable.pipe(transform).pipe(res, {end: false});
-  readable.on('end', () => res.end('\n]'));
+  readable.on('end', () => Readable.from('\n]').pipe(res));
 });
 
 

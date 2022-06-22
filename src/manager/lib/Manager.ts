@@ -305,7 +305,7 @@ export default class Manager {
   async *assignJobs(workerId: string, workerAvail: JobCapacity): AsyncIterable<JobRequest>{
     log.debug('assignJobs');
     if(this.beingSaved.count() > 2){
-      log.warn('Too many jobs being saved, waiting for them to reduce before assigning new jobs');
+      log.warn(`Too many jobs (${this.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`);
     }
     let assignedCheck = 0;
     let assignedCrawl = 0;
