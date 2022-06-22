@@ -340,7 +340,7 @@ export default class Manager {
     if(this.finished > 5){
       log.info('No current processes running, starting new process');
       Process.startNext();
-      //console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.finished, workerAvail, assignedCheck, assignedCrawl, this.jobs.count(), this.beingSaved.count());
+      console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.finished, workerAvail, assignedCheck, assignedCrawl, this.jobs.toString(), this.beingSaved);
     }
   }
 };
