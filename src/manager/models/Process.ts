@@ -56,10 +56,9 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>({
 
 
 schema.pre('save', async function() {
-  this
-  const today =   this.pid = new Date(new Date().setUTCHours(0, 0, 0, 0)).toISOString();
+  const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await this.collection.countDocuments({createdAt: {$gt: today}});
-  this.pid = today.split('T')[0] + '-' +count;
+  this.pid = today.toISOString().split('T')[0] + '-' +count;
   this.notification.ssePath = `/processes/${this.pid}/events`;
 });
 
