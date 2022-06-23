@@ -8,7 +8,7 @@ import { ITriple, SimpleTriple } from './Triple';
 import { IDomain } from './Domain';
 import { CrawlResourceResultDetails } from '@derzis/worker';
 
-interface IResource {
+export interface IResource {
   url: string,
   domain: string,
   isSeed: boolean,
@@ -25,8 +25,8 @@ interface IResource {
 };
 
 interface ResourceModel extends Model<IResource, {}> {
-  addMany: (resources: {url:string, domain:string}[], pid: string) => Promise<IResource[]>,
-  addFromTriples: (triples: SimpleTriple[]) => Promise<IResource[]>,
+  addMany: (resources: {url:string, domain:string}[], pids: string[]) => Promise<IResource[]>,
+  addFromTriples: (source: IResource, triples: SimpleTriple[]) => Promise<IResource[]>,
   markAsCrawled: (url: string, details: CrawlResourceResultDetails, error?: boolean) => Promise<{path: IPath, domain: IDomain}>,
   insertSeeds: (urls: string[], pid: string) => Promise<IResource>,
   addPaths: (paths: HydratedDocument<IPath, IPathMethods>[]) => Promise<BulkWriteResult>,
@@ -85,10 +85,10 @@ schema.index({
   processIds: 1
 });
 
-schema.static('addMany', async function addMany(resources, pid){
+schema.static('addMany', async function addMany(resources, pids){
   let insertedDocs: IResource[] = [];
-  let existingDocs = [];
-  await this.insertMany(resources, {ordered: false})
+  let existingDocs: IResource[] = [];
+  await this.insertMany(resources.map((r: IResource) => ({...r, processIds: pids})), {ordered: false})
     .then(docs => insertedDocs = docs)
     .catch(err => {
       for(const e of err.writeErrors){
@@ -100,13 +100,19 @@ schema.static('addMany', async function addMany(resources, pid){
       insertedDocs = err.insertedDocs;
     });
 
+  if(existingDocs.length){
+    await this.updateMany(
+      {url: {$in: existingDocs.map(d => d.url)}},
+      {$addToSet: {processIds: {$each: pids}}}
+    );
+  }
   if(insertedDocs.length){
-    await Domain.upsertMany(insertedDocs.map(d => d.domain), pid);
+    await Domain.upsertMany(resources.map((r: IResource) => r.domain), pids);
   }
   return insertedDocs;
 });
 
-schema.static('addFromTriples', async function addFromTriples(triples: SimpleTriple[], pid){
+schema.static('addFromTriples', async function addFromTriples(source: IResource, triples: SimpleTriple[]){
   const resources: {[pos: string]: boolean} = {};
   for (const t of triples){
     resources[t.subject] = true;
@@ -115,8 +121,8 @@ schema.static('addFromTriples', async function addFromTriples(triples: SimpleTri
 
   return await this.addMany(Object.keys(resources).map(u => ({
     url: u,
-    domain: new URL(u).origin
-  })), pid);
+    domain: new URL(u).origin,
+  })), source.processIds);
 });
 
 
@@ -179,9 +185,8 @@ schema.static('insertSeeds', async function insertSeeds(urls, pid){
         $setOnInsert: {
           url: u,
           domain: new URL(u).origin,
-          pid
         },
-        $push: {processIds: pid}
+        $addToSet: {processIds: pid}
       },
       upsert: true,
       setDefaultsOnInsert: true

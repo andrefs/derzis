@@ -1,13 +1,12 @@
 import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import * as db from './db';
-import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process, PathSkeleton} from '@derzis/models';
+import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process, PathSkeleton, IResource} from '@derzis/models';
 import {createLogger, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
 import CurrentJobs from './CurrentJobs';
 import { JobCapacity, JobType, JobRequest, JobResult, CrawlResourceResultOk, RobotsCheckResult } from '@derzis/worker';
 import { ObjectId } from 'bson';
-import { next } from 'cheerio/lib/api/traversing';
 
 interface JobsBeingSaved {
   domainCrawl: number;
@@ -120,7 +119,8 @@ export default class Manager {
                         object: t.object.value,
                       }));
     if(triples.length){
-      await Resource.addFromTriples(triples);
+      const source = await Resource.findOne({url: jobResult.url}) as IResource;
+      await Resource.addFromTriples(source, triples);
       const res = await Triple.upsertMany(jobResult.url, triples);
       if(res.upsertedCount){
         const tids = Object.values(res.upsertedIds).map(i => new ObjectId(i));
@@ -206,6 +206,7 @@ export default class Manager {
 
   async addExistingHead(path: PathDocument){
     const headResource = await Resource.findOne({url: path.head.url}).lean();
+    // path gone back to seed or to repeated resource
     if(headResource && (headResource.isSeed || path.nodes.elems.includes(headResource.url))){
       await path.markDisabled();
     }

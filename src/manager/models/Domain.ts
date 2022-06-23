@@ -34,7 +34,7 @@ export interface IDomain {
 interface IDomainDocument extends IDomain, Document {};
 
 interface IDomainModel extends Model<IDomainDocument> {
-  upsertMany: (urls: string[], pid: string) => Promise<void>,
+  upsertMany: (urls: string[], pids: string[]) => Promise<void>,
   domainsToCheck: (wId: string, limit: number) => Iterable<IDomain>,
   domainsToCrawl: (wId: string, limit: number) => Iterable<IDomain>
 };
@@ -119,7 +119,7 @@ DomainSchema.index({
   'robots.status': 1
 });
 
-DomainSchema.statics.upsertMany = async function(urls: string, pid: number){
+DomainSchema.statics.upsertMany = async function(urls: string, pids: string[]){
   let domains: {[url: string]: FilterQuery<IDomain>} = {};
 
   for(const u of urls){
@@ -129,7 +129,7 @@ DomainSchema.statics.upsertMany = async function(urls: string, pid: number){
         update: {
           '$inc': {'crawl.queued': 0},
           $addToSet: {
-            processIds: pid
+            processIds: pids
           }
         },
         upsert: true
