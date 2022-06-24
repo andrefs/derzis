@@ -63,13 +63,19 @@ schema.pre('save', async function() {
 });
 
 schema.method('getTriples', async function*() {
-  const resources = Resource.find({processIds: this.pid}).select('url').lean();
-  for await(const r of resources){
-    const triples = Triple.find({nodes: r.url}).select('subject predicate object').lean();
-    for await(const {subject, predicate, object} of triples){
-      yield {subject, predicate, object};
-    }
-  }
+  const resources = await Resource.find({processIds: this.pid}).select('url').lean();
+  const triples = Triple.find({nodes: {$in: resources.map(r => r.url)}});
+  for await(const {subject, predicate, object} of triples){
+    yield {subject, predicate, object};
+  };
+
+  //const resources = Resource.find({processIds: this.pid}).select('url').lean();
+  //for await(const r of resources){
+  //  const triples = Triple.find({nodes: r.url}).select('subject predicate object').lean();
+  //  for await(const {subject, predicate, object} of triples){
+  //    yield {subject, predicate, object};
+  //  }
+  //}
 });
 
 schema.method('getTriplesJson', async function*(){

@@ -9,6 +9,7 @@ import morganMiddleware from './morganMiddleware';
 import stream, { Readable } from 'stream';
 //import compression from 'compression';
 import pjson from '../../../package.json';
+import zlib from 'zlib';
 
 const app = express();
 app.use(morganMiddleware);
@@ -90,11 +91,13 @@ app.post('/processes', async (req, res) => {
 });
 
 app.get('/processes/:pid/triples', async (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  //res.setHeader('Content-Disposition', 'attachment; filename="triples.json"');
-  res.write('[\n')
   const p = await Process.findOne({pid: req.params.pid});
   if(!p){ return res.status(404); }
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', 'attachment; filename="triples.json.gz"');
+
+  const gz = zlib.createGzip().pipe(res, {end: false});
 
   const iter = p?.getTriplesJson();
   const readable = stream.Readable.from(iter, {encoding: 'utf8'});
@@ -106,8 +109,10 @@ app.get('/processes/:pid/triples', async (req, res) => {
       callback(null, res)
     }
   });
-  readable.pipe(transform).pipe(res, {end: false});
-  readable.on('end', () => Readable.from('\n]').pipe(res));
+
+  Readable.from('[\n').pipe(gz, {end: false});
+  readable.pipe(transform).pipe(gz, {end: false});
+  readable.on('end', () => Readable.from('\n]').pipe(gz));
 });
 
 
