@@ -121,7 +121,7 @@ export default class Manager {
     if(triples.length){
       const source = await Resource.findOne({url: jobResult.url}) as IResource;
       await Resource.addFromTriples(source, triples);
-      const res = await Triple.upsertMany(jobResult.url, triples);
+      const res = await Triple.upsertMany(source, triples);
       if(res.upsertedCount){
         const tids = Object.values(res.upsertedIds).map(i => new ObjectId(i));
         const newTriples = await Triple.find({_id: {'$in': tids}});
