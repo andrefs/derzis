@@ -153,6 +153,7 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
       '$inc': {
         ...updateInc,
         'crawl.queued': -1,
+        'crawl.crawling': -1,
         'crawl.pathHeads': -oldRes.headCount
       }
     };

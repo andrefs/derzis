@@ -51,7 +51,11 @@ export default class Manager {
   };
 
   async updateJobResults(jobResult: JobResult){
-    log.debug('updateJobResults', this.finished, this.jobs.toString(), this.beingSaved);
+    log.debug('updateJobResults', {
+      finished: this.finished,
+      jobs: this.jobs.toString(),
+      beingSaved: this.beingSaved
+    });
     this.finished = 0;
     if(!this.jobs.isJobRegistered(jobResult.origin)){
       //log.error(`Something went wrong: cannot update job results for ${data.domain} (no such job registered)`);
@@ -70,22 +74,22 @@ export default class Manager {
         log.debug(`Done saving robots data for ${jobResult.origin}`);
       }
     }
-    if(jobResult.jobType === 'domainCrawl'){
-      log.info(`Saving domain crawl for ${jobResult.origin}`);
-      this.addToBeingSaved(jobResult.origin, jobResult.jobType);
-      try {
-        await Domain.updateOne({origin: jobResult.origin},{
-          '$set': {status: 'ready'},
-          '$unset': {workerId: ''}
-        });
-      } catch (e) {
-        // TODO handle errors
-      } finally {
-        this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
-        this.jobs.deregisterJob(jobResult.origin);
-        log.debug(`Done saving domain crawl for ${jobResult.origin}`);
-      }
-    }
+    //if(jobResult.jobType === 'domainCrawl'){
+    //  log.info(`Saving domain crawl for ${jobResult.origin}`);
+    //  this.addToBeingSaved(jobResult.origin, jobResult.jobType);
+    //  try {
+    //    await Domain.updateOne({origin: jobResult.origin},{
+    //      '$set': {status: 'ready'},
+    //      '$unset': {workerId: ''}
+    //    });
+    //  } catch (e) {
+    //    // TODO handle errors
+    //  } finally {
+    //    this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
+    //    this.jobs.deregisterJob(jobResult.origin);
+    //    log.debug(`Done saving domain crawl for ${jobResult.origin}`);
+    //  }
+    //}
     if(jobResult.jobType === 'resourceCrawl'){
       log.info(`Saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
       if(this.jobs.postponeTimeout(jobResult.origin)){
@@ -99,8 +103,22 @@ export default class Manager {
         } catch (e) {
           // TODO handle errors
         } finally {
-        this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
+          this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
           log.debug(`Done saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
+          const res = await Domain.updateOne(
+            {
+              origin: jobResult.origin,
+              'crawl.crawling': 0
+            },{
+              $set: {status: 'ready'},
+              $unset: {workerId: ''}
+            }
+          );
+          if(res.acknowledged && res.modifiedCount){
+            //this.removeFromBeingSaved(jobResult.origin, 'domainCrawl');
+            this.jobs.deregisterJob(jobResult.origin);
+            log.debug(`Done saving domain crawl for ${jobResult.origin}`);
+          }
         }
       }
     }
@@ -296,6 +314,7 @@ export default class Manager {
                                   .limit(resourcesPerDomain || 10)
                                   .lean();
       await Resource.updateMany({_id: {'$in': heads.map(h => h._id)}}, {status: 'crawling'}).lean();
+      await Domain.updateOne({origin: domain.origin}, {'crawl.crawling': heads.length});
       yield {domain, resources: heads};
     }
     if(noDomainsFound){
@@ -304,7 +323,7 @@ export default class Manager {
   }
 
   async *assignJobs(workerId: string, workerAvail: JobCapacity): AsyncIterable<JobRequest>{
-    log.debug('assignJobs');
+    log.debug('XXXXXXXXXXX assignJobs');
     if(this.beingSaved.count() > 2){
       log.warn(`Too many jobs (${this.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`);
     }

@@ -23,6 +23,7 @@ export interface IDomain {
     delay: number,
     queued: number,
     success: number,
+    crawling: number,
     pathHeads: number,
     failed: number,
     nextAllowed: Date
@@ -88,6 +89,10 @@ const DomainSchema: Schema<IDomainDocument> = new Schema({
       default: 0
     },
     success: {
+      type: Number,
+      default: 0
+    },
+    crawling: {
       type: Number,
       default: 0
     },
