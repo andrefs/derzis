@@ -1,16 +1,21 @@
 import {FilterQuery} from 'mongoose';
 import { Schema, model, Model, Document } from "mongoose";
 
-const errorTypes = ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT'];
+const errorTypes = ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN'];
 
 export interface IDomain {
   origin: string,
   status: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling',
-  err: {
-    count: {
-      E_ROBOTS_TIMEOUT: number,
-      E_RESOURCE_TIMEOUT: number
+  error: Boolean,
+  lastWarnings: [{
+    errType: {
+      type: String,
+      enum: String
     }
+  }],
+  warnings: {
+    E_ROBOTS_TIMEOUT: number,
+    E_RESOURCE_TIMEOUT: number
   },
   robots: {
     status: 'unvisited' | 'checking' | 'not_found' | 'error' | 'done'
@@ -52,23 +57,30 @@ const DomainSchema: Schema<IDomainDocument> = new Schema({
     enum: ['unvisited', 'checking', 'error', 'ready', 'crawling'],
     default: 'unvisited'
   },
-  err: {
-    last: [{
-      errType: {
-        type: String,
-        enum: errorTypes,
-      }
-    }],
-    count: {
-      E_ROBOTS_TIMEOUT: {
-        type: Number,
-        default: 0,
-      },
-      E_RESOURCE_TIMEOUT: {
-        type: Number,
-        default: 0,
-      }
+  error: Boolean,
+  lastWarnings: [{
+    errType: {
+      type: String,
+      enum: errorTypes,
     }
+  }],
+  warnings: {
+    E_ROBOTS_TIMEOUT: {
+      type: Number,
+      default: 0,
+    },
+    E_RESOURCE_TIMEOUT: {
+      type: Number,
+      default: 0,
+    },
+    E_DOMAIN_NOT_FOUND: {
+      type: Number,
+      default: 0,
+    },
+    E_UNKNOWN: {
+      type: Number,
+      default: 0,
+    },
   },
   robots: {
     status: {

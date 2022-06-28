@@ -2,10 +2,10 @@ import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import * as db from './db';
 import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process, PathSkeleton, IResource} from '@derzis/models';
-import {createLogger, HttpError } from '@derzis/common';
+import {createLogger, DomainNotFoundError, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
 import CurrentJobs from './CurrentJobs';
-import { JobCapacity, JobType, JobRequest, JobResult, CrawlResourceResultOk, RobotsCheckResult } from '@derzis/worker';
+import { JobCapacity, JobType, JobRequest, JobResult, RobotsCheckResult, CrawlResourceResult } from '@derzis/worker';
 import { ObjectId } from 'bson';
 
 interface JobsBeingSaved {
@@ -97,11 +97,7 @@ export default class Manager {
       if(this.jobs.postponeTimeout(jobResult.origin)){
       this.addToBeingSaved(jobResult.origin, jobResult.jobType);
         try {
-          if(jobResult.status === 'ok' ){
-            await this.saveCrawl(jobResult);
-          } else {
-            await Resource.markAsCrawled(jobResult.url, jobResult.details, true);
-          }
+          await this.saveCrawl(jobResult);
         } catch (e) {
           // TODO handle errors
           log.error(`Error saving robots for ${jobResult.url}`);
@@ -128,7 +124,10 @@ export default class Manager {
     }
   }
 
-  async saveCrawl(jobResult: CrawlResourceResultOk){
+  async saveCrawl(jobResult: CrawlResourceResult){
+    if(jobResult.status === 'not_ok'){
+      return await Resource.markAsCrawled(jobResult.url, jobResult.details, jobResult.err);
+    }
     await Resource.markAsCrawled(jobResult.url, jobResult.details);
     const triples = jobResult.details.triples
                       .filter(t => t.subject.termType === 'NamedNode')
@@ -285,15 +284,46 @@ export default class Manager {
           status: 'ready',
           'crawl.delay': crawlDelay,
           'crawl.nextAllowed': nextAllowed
-        }, '$unset': {workerId: ''}
+        },
+        '$unset': {workerId: ''}
       };
-    } else {
-      // TODO store error
-      // TODO what should status be?
+    }
+    else if(jobResult.err instanceof DomainNotFoundError){
+      doc = {
+        '$set': {
+          'robots.status': 'error',
+          status: 'error',
+          error: true,
+        },
+        '$push': {
+          'lastWarnings': {
+            '$each': [{errType: 'E_DOMAIN_NOT_FOUND'}],
+            '$slice': -10
+          }
+        },
+        '$inc': {
+          'warnings.E_DOMAIN_NOT_FOUND': 1
+        },
+        '$unset': {workerId: ''}
+      };
+    }
+    else {
+      log.error(`Unknown error in robots check for ${jobResult.origin}`);
+      log.error(jobResult);
       doc = {
         '$set': {
           'robots.status': 'error'
-        }, '$unset': {workerId: ''}
+        },
+        '$push': {
+          'lastWarnings': {
+            '$each': [{errType: 'E_UNKNOWN'}],
+            '$slice': -10
+          }
+        },
+        '$inc': {
+          'warnings.E_UNKNOWN': 1
+        },
+        '$unset': {workerId: ''}
       };
     }
 

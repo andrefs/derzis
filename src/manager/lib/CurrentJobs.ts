@@ -86,13 +86,13 @@ export default class CurrentJobs extends EventEmitter {
           workerId: undefined,
         },
         '$push': {
-          'err.last': {
+          'lastWarnings': {
             '$each': [{errType: 'E_ROBOTS_TIMEOUT'}],
             '$slice': -10
           }
         },
         '$inc': {
-          'err.count.E_ROBOTS_TIMEOUT': 1
+          'warnings.E_ROBOTS_TIMEOUT': 1
         },
       };
       await Domain.updateMany({origin}, update);
@@ -104,13 +104,13 @@ export default class CurrentJobs extends EventEmitter {
           workerId: undefined
         },
         '$push': {
-          'err.last': {
+          'lastWarnings': {
             '$each': [{errType: 'E_RESOURCE_TIMEOUT'}],
             '$slice': -10
           }
         },
         '$inc': {
-          'err.count.E_RESOURCE_TIMEOUT': 1
+          'warnings.E_RESOURCE_TIMEOUT': 1
         },
       };
       await Domain.updateMany({origin}, {'$set': update});

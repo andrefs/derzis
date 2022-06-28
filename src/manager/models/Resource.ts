@@ -1,5 +1,5 @@
 import { HydratedDocument, Model, model, Schema, Types } from 'mongoose';
-import {urlType} from '@derzis/common';
+import {urlType, WorkerError} from '@derzis/common';
 import {Domain} from '@derzis/models';
 import {Path} from '@derzis/models'
 import { BulkWriteResult } from 'mongodb';
@@ -27,7 +27,7 @@ export interface IResource {
 interface ResourceModel extends Model<IResource, {}> {
   addMany: (resources: {url:string, domain:string}[], pids: string[]) => Promise<IResource[]>,
   addFromTriples: (source: IResource, triples: SimpleTriple[]) => Promise<IResource[]>,
-  markAsCrawled: (url: string, details: CrawlResourceResultDetails, error?: boolean) => Promise<{path: IPath, domain: IDomain}>,
+  markAsCrawled: (url: string, details: CrawlResourceResultDetails, error?: WorkerError) => Promise<{path: IPath, domain: IDomain}>,
   insertSeeds: (urls: string[], pid: string) => Promise<IResource>,
   addPaths: (paths: HydratedDocument<IPath, IPathMethods>[]) => Promise<BulkWriteResult>,
   rmPath: (path: IPath) => Promise<void>,

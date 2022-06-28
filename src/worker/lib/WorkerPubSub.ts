@@ -33,7 +33,7 @@ export interface JobTimeoutMessage extends BaseMessage {
 export interface AskCurCapMessage extends BaseMessage { type: 'askCurCap' };
 export interface RepCurCapMessage extends BaseMessage { type: 'repCurCap', payload: JobCapacity };
 export interface AskJobsMessage extends BaseMessage { type: 'askJobs', payload: JobCapacity };
-export interface DoJobMessage extends BaseMessage { type: 'doJob', payload:  JobRequest };
+export interface DoJobMessage extends BaseMessage { type: 'doJob', payload:  Exclude<JobRequest, ResourceCrawlJobRequest> };
 export interface JobDoneMessage extends BaseMessage { type: 'jobDone', payload: JobResult };
 export interface NoCapacityMessage extends BaseMessage { type: 'noCapacity' };
 export type Message = ShutdownMessage | JobTimeoutMessage | AskCurCapMessage | RepCurCapMessage | AskJobsMessage | DoJobMessage | JobDoneMessage | NoCapacityMessage;
