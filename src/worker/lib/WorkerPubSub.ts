@@ -131,9 +131,18 @@ export class WorkerPubSub {
     this._pub.publish(this._pubChannel, JSON.stringify({type, payload}));
   }
 
-  // TODO check capacity
-  async doJob(job: JobRequest){
-    if(job.type === 'resourceCrawl' || !this.w.hasCapacity(job.type)){ } // TODO
+  async doJob(job: Exclude<JobRequest, ResourceCrawlJobRequest>){
+    if(!this.w.hasCapacity(job.type)){
+      if(job.type === 'domainCrawl'){
+        // TODO send NoCapacityMessage
+        log.error(`No capacity for ${job.type} on ${job.domain.origin}`);
+      }
+      if(job.type === 'robotsCheck'){
+        // TODO send NoCapacityMessage
+        log.error(`No capacity for ${job.type} on ${job.origin}`);
+      }
+    }
+
 
     if(job.type === 'robotsCheck'){
       const res = await this.w.checkRobots(job.origin);

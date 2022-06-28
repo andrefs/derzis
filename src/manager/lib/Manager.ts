@@ -68,6 +68,8 @@ export default class Manager {
         await this.saveRobots(jobResult);
       } catch (e) {
         // TODO handle errors
+        log.error(`Error saving robots for ${jobResult.origin}`);
+        log.info(jobResult);
       } finally {
         this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
         this.jobs.deregisterJob(jobResult.origin);
@@ -102,6 +104,8 @@ export default class Manager {
           }
         } catch (e) {
           // TODO handle errors
+          log.error(`Error saving robots for ${jobResult.url}`);
+          log.info(jobResult);
         } finally {
           this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
           log.debug(`Done saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
