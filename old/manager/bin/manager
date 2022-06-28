@@ -1,4 +1,0 @@
-#!/bin/bash
-
-CURPATH=$(dirname "$0")
-time node --max_old_space_size=24576 $CURPATH/manager.js
