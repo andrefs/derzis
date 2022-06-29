@@ -5,7 +5,7 @@ import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process, P
 import {createLogger, DomainNotFoundError, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
 import CurrentJobs from './CurrentJobs';
-import { JobCapacity, JobType, JobRequest, JobResult, RobotsCheckResult, CrawlResourceResult } from '@derzis/worker';
+import { JobCapacity, JobType, JobRequest, JobResult, RobotsCheckResult, CrawlResourceResult, ResourceCrawlJobRequest } from '@derzis/worker';
 import { ObjectId } from 'bson';
 
 interface JobsBeingSaved {
@@ -347,7 +347,7 @@ export default class Manager {
                                   .select('url')
                                   .limit(resourcesPerDomain || 10)
                                   .lean();
-      await Resource.updateMany({_id: {'$in': heads.map(h => h._id)}}, {status: 'crawling'}).lean();
+      await Resource.updateMany({url: {'$in': heads.map(h => h.url)}}, {status: 'crawling'}).lean();
       await Domain.updateOne({origin: domain.origin}, {'crawl.crawling': heads.length});
       yield {domain, resources: heads};
     }
@@ -356,7 +356,7 @@ export default class Manager {
     }
   }
 
-  async *assignJobs(workerId: string, workerAvail: JobCapacity): AsyncIterable<JobRequest>{
+  async *assignJobs(workerId: string, workerAvail: JobCapacity): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>>{
     log.debug('XXXXXXXXXXX assignJobs');
     if(this.beingSaved.count() > 2){
       log.warn(`Too many jobs (${this.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`);
