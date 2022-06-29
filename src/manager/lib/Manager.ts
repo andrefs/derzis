@@ -243,10 +243,10 @@ export default class Manager {
         }, '$unset': {workerId: ''}
       };
     }
-    else if(jobResult.err instanceof HttpError){
+    else if(jobResult.err.errorType === 'http'){
       let robotStatus = 'error';
       const msCrawlDelay = 1000*crawlDelay;
-      if(jobResult.err.httpStatus === 404){ robotStatus = 'not_found'; }
+      if((jobResult.err as HttpError).httpStatus === 404){ robotStatus = 'not_found'; }
 
       const endTime = jobResult.details?.endTime || Date.now();
       const nextAllowed = jobResult.details ?
@@ -262,7 +262,7 @@ export default class Manager {
         '$unset': {workerId: ''}
       };
     }
-    else if(jobResult.err instanceof DomainNotFoundError){
+    else if(jobResult.err.errorType === 'host_not_found'){
       doc = {
         '$set': {
           'robots.status': 'error',
