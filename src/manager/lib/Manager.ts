@@ -352,7 +352,7 @@ export default class Manager {
     if(workerAvail.domainCrawl){
       log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
       for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl.capacity, workerAvail.domainCrawl.resourcesPerDomain)){
-        if(crawl?.resources?.length && this.jobs.registerJob(crawl.domain.origin, 'domainCrawl')){
+        if(crawl?.resources?.length && await this.jobs.registerJob(crawl.domain.origin, 'domainCrawl')){
           assignedCrawl++;
           yield {type: 'domainCrawl', ...crawl};
         } else {
