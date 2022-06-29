@@ -4,35 +4,18 @@ import * as db from './db';
 import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process, PathSkeleton, IResource} from '@derzis/models';
 import {createLogger, DomainNotFoundError, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
-import CurrentJobs from './CurrentJobs';
-import { JobCapacity, JobType, JobRequest, JobResult, RobotsCheckResult, CrawlResourceResult, ResourceCrawlJobRequest } from '@derzis/worker';
+import RunningJobs from './RunningJobs';
+import { JobCapacity, JobRequest, JobResult, RobotsCheckResult, CrawlResourceResult, ResourceCrawlJobRequest } from '@derzis/worker';
 import { ObjectId } from 'bson';
 
-interface JobsBeingSaved {
-  domainCrawl: number;
-  resourceCrawl: number;
-  robotsCheck: number;
-  count: () => number;
-};
+export {OngoingJobs} from './RunningJobs';
 
 export default class Manager {
-  jobs: CurrentJobs;
-  beingSaved: JobsBeingSaved;
-  beingSavedByDomain: {[domain: string]: number }
+  jobs: RunningJobs;
   finished: number;
 
   constructor(){
-    this.jobs = new CurrentJobs();
-    this.beingSaved = {
-      domainCrawl: 0,
-      resourceCrawl: 0,
-      robotsCheck: 0,
-      count: () => {
-        const bs = this.beingSaved;
-        return bs.domainCrawl + bs.resourceCrawl + bs.robotsCheck
-      }
-    };
-    this.beingSavedByDomain = {};
+    this.jobs = new RunningJobs();
     this.finished = 0;
   }
 
@@ -40,21 +23,12 @@ export default class Manager {
     await db.connect();
   }
 
-  addToBeingSaved(origin: string, type: JobType){
-    this.beingSaved[type]++;
-    this.beingSavedByDomain[origin]++;
-  };
-
-  removeFromBeingSaved(origin: string, type: JobType){
-    this.beingSaved[type]--;
-    this.beingSavedByDomain[origin]--;
-  };
 
   async updateJobResults(jobResult: JobResult){
     log.debug('updateJobResults', {
       finished: this.finished,
       jobs: this.jobs.toString(),
-      beingSaved: this.beingSaved
+      beingSaved: this.jobs.beingSaved
     });
     this.finished = 0;
     if(!this.jobs.isJobRegistered(jobResult.origin)){
@@ -63,7 +37,7 @@ export default class Manager {
     }
     if(jobResult.jobType === 'robotsCheck'){
       log.info(`Saving robots data for ${jobResult.origin}`);
-      this.addToBeingSaved(jobResult.origin, jobResult.jobType);
+      this.jobs.addToBeingSaved(jobResult.origin, jobResult.jobType);
       try {
         await this.saveRobots(jobResult);
       } catch (e) {
@@ -71,7 +45,7 @@ export default class Manager {
         log.error(`Error saving robots for ${jobResult.origin}`);
         log.info(jobResult);
       } finally {
-        this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
+        this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
         this.jobs.deregisterJob(jobResult.origin);
         log.debug(`Done saving robots data for ${jobResult.origin}`);
       }
@@ -95,7 +69,7 @@ export default class Manager {
     if(jobResult.jobType === 'resourceCrawl'){
       log.info(`Saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
       if(this.jobs.postponeTimeout(jobResult.origin)){
-      this.addToBeingSaved(jobResult.origin, jobResult.jobType);
+      this.jobs.addToBeingSaved(jobResult.origin, jobResult.jobType);
         try {
           await this.saveCrawl(jobResult);
         } catch (e) {
@@ -103,7 +77,7 @@ export default class Manager {
           log.error(`Error saving robots for ${jobResult.url}`);
           log.info(jobResult);
         } finally {
-          this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
+          this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
           log.debug(`Done saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
           const res = await Domain.updateOne(
             {
@@ -358,8 +332,8 @@ export default class Manager {
 
   async *assignJobs(workerId: string, workerAvail: JobCapacity): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>>{
     log.debug('XXXXXXXXXXX assignJobs');
-    if(this.beingSaved.count() > 2){
-      log.warn(`Too many jobs (${this.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`);
+    if(this.jobs.beingSaved.count() > 2){
+      log.warn(`Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`);
     }
     let assignedCheck = 0;
     let assignedCrawl = 0;
@@ -386,7 +360,7 @@ export default class Manager {
         }
       }
     }
-    if(!assignedCheck && !assignedCrawl && !this.jobs.count() && !this.beingSaved.count()){
+    if(!assignedCheck && !assignedCrawl && !this.jobs.count() && !this.jobs.beingSaved.count()){
       log.info('Could not find any domains to check or crawl and there are no outstanding jobs');
       this.finished++;
     }
@@ -394,7 +368,7 @@ export default class Manager {
     if(this.finished > 5){
       log.info('No current processes running, starting new process');
       await Process.startNext();
-      console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.finished, workerAvail, assignedCheck, assignedCrawl, this.jobs.toString(), this.beingSaved);
+      console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!', this.finished, workerAvail, assignedCheck, assignedCrawl, this.jobs.toString());
     }
   }
 };

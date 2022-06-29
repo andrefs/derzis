@@ -12,23 +12,56 @@ export interface OngoingJobs {
   robotsCheck: {
     [domain: string]: boolean
   }
-}
+};
+
+interface JobsBeingSaved {
+  domainCrawl: number;
+  resourceCrawl: number;
+  robotsCheck: number;
+  count: () => number;
+};
 
 
-export default class CurrentJobs extends EventEmitter {
-  _jobs: { [domain: string]: ReturnType<typeof setTimeout> };
+
+export default class RunningJobs extends EventEmitter {
+  _running: { [domain: string]: ReturnType<typeof setTimeout> };
+  beingSaved: JobsBeingSaved;
+  beingSavedByDomain: {[domain: string]: number }
 
   constructor(){
     super();
-    this._jobs = {};
+
+    this.beingSaved = {
+      domainCrawl: 0,
+      resourceCrawl: 0,
+      robotsCheck: 0,
+      count: () => {
+        const bs = this.beingSaved;
+        return bs.domainCrawl + bs.resourceCrawl + bs.robotsCheck
+      }
+    };
+    this.beingSavedByDomain = {};
+    this._running = {};
   }
 
+  addToBeingSaved(origin: string, type: JobType){
+    this.beingSaved[type]++;
+    this.beingSavedByDomain[origin]++;
+  };
+
+  removeFromBeingSaved(origin: string, type: JobType){
+    this.beingSaved[type]--;
+    this.beingSavedByDomain[origin]--;
+  };
+
   toString(){
-    return Object.keys(this._jobs).join(', ');
+    return `Running: ${Object.keys(this._running).join(', ')}, ` + 
+      `beingSaved: ${this.beingSaved.toString()}, ` + 
+      `beingSavedByDomain: ${this.beingSavedByDomain.toString()}`;
   }
 
   isJobRegistered(domain: string){
-    if(!this._jobs[domain]){
+    if(!this._running[domain]){
       log.error(`No job for ${domain} found in current jobs list`);
       return false;
     }
@@ -36,28 +69,28 @@ export default class CurrentJobs extends EventEmitter {
   }
 
   deregisterJob(domain: string){
-    if(this._jobs[domain]){
-      clearTimeout(this._jobs[domain]);
-      delete this._jobs[domain];
+    if(this._running[domain]){
+      clearTimeout(this._running[domain]);
+      delete this._running[domain];
     }
   }
 
   postponeTimeout(domain: string){
-    if(!this._jobs[domain]){
+    if(!this._running[domain]){
       log.error(`No job for ${domain} found in current jobs list`);
       return false;
     }
-    clearTimeout(this._jobs[domain]);
+    clearTimeout(this._running[domain]);
     const timeout = 3*config.http.domainCrawl.timeouts;
     const ts = new Date();
-    this._jobs[domain] = setTimeout(() => this.cancelJob(domain, 'domainCrawl', timeout, ts), timeout);
+    this._running[domain] = setTimeout(() => this.cancelJob(domain, 'domainCrawl', timeout, ts), timeout);
     return true;
   }
 
   async cleanJobs(){
     log.info(`Cleaning outstanding jobs`);
-    if(Object.keys(this._jobs).length){
-      for(const j in this._jobs){
+    if(Object.keys(this._running).length){
+      for(const j in this._running){
         this.deregisterJob(j);
       }
     }
@@ -74,7 +107,7 @@ export default class CurrentJobs extends EventEmitter {
   }
 
   async cancelJob(origin: string, jobType: JobType, timeout: number, ts: Date){
-    if(this._jobs[origin]){
+    if(this._running[origin]){
       log.warn(`Job ${jobType} for domain ${origin} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
       this.deregisterJob(origin);
     }
@@ -119,13 +152,18 @@ export default class CurrentJobs extends EventEmitter {
   }
 
   registerJob(domain: string, jobType: JobType){
-    if(this._jobs[domain]){
+    if(this._running[domain]){
       log.error(`Job for domain ${domain} already being performed`);
       return false;
     } else {
       const timeout = 3*config.http[jobType].timeouts;
       const ts = new Date();
-      this._jobs[domain] = setTimeout(() => this.cancelJob(domain, jobType, timeout, ts), timeout);
+      this._running[domain] = setTimeout(() => {
+        if(this.beingSavedByDomain[domain]){
+          throw `Job for domain ${domain} timedout while being saved`; // TODO proper handling
+        }
+        this.cancelJob(domain, jobType, timeout, ts);
+      }, timeout);
       return true;
     }
   }
@@ -134,7 +172,7 @@ export default class CurrentJobs extends EventEmitter {
     let domains: string[];
     domains = Object.keys(ongoingJobs.robotsCheck);
     if(domains.length){
-      for(const d in domains){ delete this._jobs[d]; }
+      for(const d in domains){ delete this._running[d]; }
       const update = {
         status: 'unvisited',
         'robots.status': 'unvisited',
@@ -147,7 +185,7 @@ export default class CurrentJobs extends EventEmitter {
 
     domains = Object.keys(ongoingJobs.domainCrawl);
     if(domains.length){
-      for(const d in domains){ delete this._jobs[d]; }
+      for(const d in domains){ delete this._running[d]; }
       const update = {
         status: 'ready',
         workerId: undefined
@@ -159,7 +197,7 @@ export default class CurrentJobs extends EventEmitter {
   }
 
   count(){
-    return Object.keys(this._jobs).length;
+    return Object.keys(this._running).length;
   }
 
 };
