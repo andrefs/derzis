@@ -309,7 +309,7 @@ export default class Manager {
     }
     else {
       log.error(`Unknown error in robots check for ${jobResult.origin}`);
-      log.error(jobResult);
+      console.log(jobResult);
       doc = {
         '$set': {
           'robots.status': 'error'
