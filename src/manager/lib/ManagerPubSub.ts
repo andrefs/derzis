@@ -56,7 +56,7 @@ class ManagerPubSub {
     log.pubsub(`Subscribing to ${config.pubsub.workers.from.replace(/-.*$/,'')}*`);
 
 
-    const handleMessage = (msg: string, channel: string) => {
+    const handleMessage = async (msg: string, channel: string) => {
       const workerId = channel.match(/:([-\w]+)$/)?.[1];
       const message: Message = JSON.parse(msg);
       log.pubsub('Got message from '+channel.replace(/-.*$/,''), message.type)
@@ -68,7 +68,7 @@ class ManagerPubSub {
         return this._m.updateJobResults(message.payload);
       }
       if(message.type === 'shutdown'){
-        this._m.jobs.cancelJobs(message.payload.ongoingJobs, workerId!);
+        await this._m.jobs.cancelJobs(message.payload.ongoingJobs, workerId!);
       }
       if(message.type === 'noCapacity'){
         // return this._cancelJob(payload.data);

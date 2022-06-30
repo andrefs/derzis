@@ -2,7 +2,7 @@ import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import * as db from './db';
 import {Domain, ITriple, Triple, IPath, PathDocument, Path, Resource, Process, PathSkeleton, IResource} from '@derzis/models';
-import {createLogger, DomainNotFoundError, HttpError } from '@derzis/common';
+import {createLogger, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
 import { JobCapacity, JobRequest, JobResult, RobotsCheckResult, CrawlResourceResult, ResourceCrawlJobRequest } from '@derzis/worker';
@@ -89,7 +89,6 @@ export default class Manager {
             }
           );
           if(res.acknowledged && res.modifiedCount){
-            //this.removeFromBeingSaved(jobResult.origin, 'domainCrawl');
             this.jobs.deregisterJob(jobResult.origin);
             log.debug(`Done saving domain crawl for ${jobResult.origin}`);
           }
@@ -223,7 +222,7 @@ export default class Manager {
 
   async saveRobots(jobResult: RobotsCheckResult){
     let crawlDelay = config.http.crawlDelay || 1;
-    let doc: object = {workerId: undefined};
+    let doc: object = {'$unset': {workerId: ''}};
 
     if(jobResult.status === 'ok'){
       const robots = robotsParser(jobResult.origin+'/robots.txt', jobResult.details.robotsText);
@@ -340,7 +339,7 @@ export default class Manager {
     if(workerAvail.robotsCheck.capacity){
       log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
       for await(const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)){
-        if(this.jobs.registerJob(check.origin, 'robotsCheck')){
+        if(await this.jobs.registerJob(check.origin, 'robotsCheck')){
           assignedCheck++;
           yield {
             type: 'robotsCheck',
