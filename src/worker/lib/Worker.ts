@@ -132,6 +132,10 @@ export class Worker extends EventEmitter {
     this.jobsTimedout = {};
   }
 
+  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl'>){
+    return !!this.currentJobs[jobType][domain];
+  }
+
   currentCapacity(): JobCapacity {
     const domCrawlCap = this.jobCapacity.domainCrawl.capacity;
     const robCheckCap = this.jobCapacity.robotsCheck.capacity;

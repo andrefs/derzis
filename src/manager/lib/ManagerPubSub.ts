@@ -70,8 +70,8 @@ class ManagerPubSub {
       if(message.type === 'shutdown'){
         await this._m.jobs.cancelJobs(message.payload.ongoingJobs, workerId!);
       }
-      if(message.type === 'noCapacity'){
-        // return this._cancelJob(payload.data);
+      if(message.type === 'noCapacity' || message.type === 'alreadyBeingDone'){
+        this._m.jobs.cleanJob(message.payload.origin, message.payload.jobType);
       }
     };
 

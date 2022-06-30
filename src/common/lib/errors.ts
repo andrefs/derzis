@@ -16,6 +16,12 @@ export class NoCapacityError extends WorkerError {
   constructor() { super(); }
 };
 
+export class AlreadyBeingDone extends WorkerError {
+  errorType = 'already_being_done';
+  name = 'Already Being Done';
+  constructor() { super(); }
+};
+
 export class RobotsForbiddenError extends WorkerError {
   errorType = 'robots_forbidden';
   name = 'Robots Forbidden Error';
