@@ -65,7 +65,8 @@ export default {
     ],
     debug: {
       pubsubChannel: 'derzis:http',
-    }
+    },
+    serverPort: 5432
   }
 };
 

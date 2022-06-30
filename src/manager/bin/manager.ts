@@ -1,12 +1,15 @@
 //const Manager = require('../lib/Manager');
 //const m = new Manager();
 
+import config from '@derzis/config';
 import ManagerPubSub from '../lib/ManagerPubSub';
 const mps = new ManagerPubSub();
 import webapp from '../lib/ProcessManager';
+import {createLogger} from '@derzis/common';
+const log = createLogger('Manager');
 
-webapp.listen(3000, () => {
-  console.log('Webapp listening on port 3000');
+webapp.listen(config.http.serverPort, () => {
+  log.info(`Webapp listening on port ${config.http.serverPort}`);
 });
 
 
