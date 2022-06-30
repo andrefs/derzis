@@ -62,16 +62,16 @@ class ManagerPubSub {
       log.pubsub('Got message from '+channel.replace(/-.*$/,''), message.type)
       if(Object.keys(message.payload).length){ log.debug('', message.payload); }
       if(message.type === 'repCurCap'){
-        return this.assignJobs(workerId!, message.payload);
+        return await this.assignJobs(workerId!, message.payload);
       }
       if(message.type === 'jobDone'){
-        return this._m.updateJobResults(message.payload);
+        return await this._m.updateJobResults(message.payload);
       }
       if(message.type === 'shutdown'){
         await this._m.jobs.cancelJobs(message.payload.ongoingJobs, workerId!);
       }
       if(message.type === 'noCapacity' || message.type === 'alreadyBeingDone'){
-        this._m.jobs.cleanJob(message.payload.origin, message.payload.jobType);
+        await this._m.jobs.cleanJob(message.payload.origin, message.payload.jobType);
       }
     };
 
