@@ -4,16 +4,18 @@ import rdfParser from 'rdf-parse';
 import * as RDF from "@rdfjs/types";
 
 interface parsedRdf {
-  triples: RDF.Quad[]
+  triples: RDF.Quad[],
+  errors: Error[]
 };
 
 const parseRdf = (rdf:string, mime: string): Promise<parsedRdf> => {
   let triples: RDF.Quad[] = [];
+  let errors: Error[] = [];
   if(!rdf){ return Bluebird.resolve({triples}); }
-  return new Bluebird((resolve, reject) => rdfParser.parse(streamify(rdf), {contentType: mime})
+  return new Bluebird((resolve) => rdfParser.parse(streamify(rdf), {contentType: mime})
     .on('data',  quad => triples.push(quad))
-    .on('error', err  => reject(err))
-    .on('end',   ()   => resolve({triples})));
+    .on('error', err  => errors.push(err))
+    .on('end',   ()   => resolve({triples, errors})));
 };
 
 export default parseRdf;

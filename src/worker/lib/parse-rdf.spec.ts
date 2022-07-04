@@ -10,6 +10,8 @@ describe('parse', () => {
 
     expect(tripIt).toHaveProperty('triples');
     expect(tripIt.triples).toHaveLength(3);
+    expect(tripIt).toHaveProperty('errors');
+    expect(tripIt.errors).toHaveLength(0);
   });
 });
 

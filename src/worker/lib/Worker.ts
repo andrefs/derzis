@@ -247,7 +247,8 @@ export class Worker extends EventEmitter {
   async fetchResource(url: string) {
     let res = await this.getHttpContent(url);
     if (res.status === 'ok') {
-      const {triples} = await parseRdf(res.rdf, res.mime);
+      const {triples, errors} = await parseRdf(res.rdf, res.mime);
+      // TODO do something with errors
       return {...res, triples};
     }
     return res;
