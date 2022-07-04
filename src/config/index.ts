@@ -12,11 +12,11 @@ export default {
     name: getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'derzis-dev',
     user: getSecret('MONGODB_USER') || process.env.MONGODB_USER || undefined,
     pass: getSecret('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,
-    debug: false
+    debug: true
   },
   graph: {
-    maxPathLength: getSecret('MAX_PATH_LENGTH') || process.env.MAX_PATH_LENGTH || 10,
-    maxPathProps:  getSecret('MAX_PATH_PROPS') || process.env.MAX_PATH_PROPS || 4
+    maxPathLength: getSecret('MAX_PATH_LENGTH') || process.env.MAX_PATH_LENGTH || 3,
+    maxPathProps:  getSecret('MAX_PATH_PROPS') || process.env.MAX_PATH_PROPS || 1
   },
   pubsub: {
     debug: false,
