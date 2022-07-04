@@ -82,7 +82,7 @@ export default class Manager {
           const res = await Domain.updateOne(
             {
               origin: jobResult.origin,
-              'crawl.crawling': 0
+              'crawl.ongoing': 0
             },{
               $set: {status: 'ready'},
               $unset: {workerId: ''}
@@ -321,7 +321,7 @@ export default class Manager {
                                   .limit(resourcesPerDomain || 10)
                                   .lean();
       await Resource.updateMany({url: {'$in': heads.map(h => h.url)}}, {status: 'crawling'}).lean();
-      await Domain.updateOne({origin: domain.origin}, {'crawl.crawling': heads.length});
+      await Domain.updateOne({origin: domain.origin}, {'crawl.ongoing': heads.length});
       yield {domain, resources: heads};
     }
     if(noDomainsFound){
