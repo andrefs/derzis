@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import {Domain} from '@derzis/models'
+import {Domain, Resource} from '@derzis/models'
 import config from '@derzis/config';
 import {createLogger} from '@derzis/common';
 import { JobType } from '@derzis/worker';
@@ -105,6 +105,7 @@ export default class RunningJobs extends EventEmitter {
       await Domain.updateMany({origin}, update);
     }
     if(jobType === 'domainCrawl'){
+      await Resource.updateMany({origin, status: 'crawling'}, {status: 'unvisited'});
       const update = {
         '$set': {status: 'ready'},
         '$unset': {workerId: '' },
