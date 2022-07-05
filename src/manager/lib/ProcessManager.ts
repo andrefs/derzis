@@ -94,10 +94,10 @@ app.get('/processes/:pid/triples', async (req, res) => {
   const p = await Process.findOne({pid: req.params.pid});
   if(!p){ return res.status(404); }
 
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Type', 'application/gzip');
   res.setHeader('Content-Disposition', 'attachment; filename="triples.json.gz"');
 
-  const gz = zlib.createGzip().pipe(res, {end: false});
+  const gz = zlib.createGzip();
 
   const iter = p?.getTriplesJson();
   const readable = stream.Readable.from(iter, {encoding: 'utf8'});
@@ -113,6 +113,7 @@ app.get('/processes/:pid/triples', async (req, res) => {
   Readable.from('[\n').pipe(gz, {end: false});
   readable.pipe(transform).pipe(gz, {end: false});
   readable.on('end', () => Readable.from('\n]').pipe(gz));
+  gz.pipe(res);
 });
 
 
