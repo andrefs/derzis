@@ -199,7 +199,7 @@ DomainSchema.statics.domainsToCrawl = async function*(wId, limit){
   const options = {
     new:true,
     sort: {'crawl.pathHeads': -1},
-    fields: 'origin crawl robots.text jobId'
+    fields: 'origin crawl robots.text jobId status'
   };
   for(let i=0; i<limit; i++){
     const jobId = await Counter.genId('jobs');
