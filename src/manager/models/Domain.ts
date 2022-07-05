@@ -1,5 +1,6 @@
 import {FilterQuery} from 'mongoose';
 import { Schema, model, Model, Document } from "mongoose";
+import { Counter } from './Counter';
 
 const errorTypes = ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN'];
 
@@ -24,6 +25,7 @@ export interface IDomain {
     elapsedTime: number
   },
   workerId: string,
+  jobId: number,
   crawl: {
     delay: number,
     queued: number,
@@ -94,6 +96,7 @@ const DomainSchema: Schema<IDomainDocument> = new Schema({
     // host, protocol, actual host, ...
   },
   workerId: String,
+  jobId: Number,
   crawl: {
     delay: Number,
     queued: {
@@ -136,6 +139,10 @@ DomainSchema.index({
   'robots.status': 1
 });
 
+DomainSchema.index({
+  'jobId': 1
+});
+
 DomainSchema.statics.upsertMany = async function(urls: string, pids: string[]){
   let domains: {[url: string]: FilterQuery<IDomain>} = {};
 
@@ -162,18 +169,20 @@ DomainSchema.statics.domainsToCheck = async function*(wId, limit){
     robots: {status: 'unvisited'},
     'crawl.pathHeads': {'$gt': 0},
   };
-  const update = {
-    '$set': {
-      'robots.status': 'checking',
-      workerId: wId
-    }
-  };
   const options = {
     new:true,
     sort:  {'crawl.pathHeads': -1},
-    fields: 'origin'
+    fields: 'origin jobId'
   };
   for(let i=0; i<limit; i++){
+    const jobId = await Counter.genId('jobs');
+    const update = {
+      '$set': {
+        'robots.status': 'checking',
+        jobId,
+        workerId: wId
+      }
+    };
     const d = await this.findOneAndUpdate(query, update, options).lean();
     if(d){ yield d; }
     else { return; }
@@ -187,13 +196,19 @@ DomainSchema.statics.domainsToCrawl = async function*(wId, limit){
     'crawl.pathHeads': {'$gt': 0},
     'crawl.nextAllowed': {'$lte': Date.now()}
   };
-  const update = {'$set': {status: 'crawling', workerId: wId}};
   const options = {
     new:true,
     sort: {'crawl.pathHeads': -1},
-    fields: 'origin crawl robots.text'
+    fields: 'origin crawl robots.text jobId'
   };
   for(let i=0; i<limit; i++){
+    const jobId = await Counter.genId('jobs');
+    const update = {
+      '$set': {
+        status: 'crawling',
+        workerId: wId,
+        jobId
+      }};
     const d = await this.findOneAndUpdate(query, update, options).lean();
     if(d){
       if(d.robots && !Object.keys(d.robots).length){ delete d.robots; }

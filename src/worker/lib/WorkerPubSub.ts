@@ -12,7 +12,8 @@ import {IDomain} from '@derzis/models';
 import {OngoingJobs} from '@derzis/manager';
 
 export interface BaseJobRequest {
-  type: JobType
+  type: JobType,
+  jobId: number,
 }
 ;
 export interface RobotsCheckJobRequest extends BaseJobRequest {
@@ -68,7 +69,8 @@ export interface NoCapacityMessage extends BaseMessage {
   type: 'noCapacity',
   payload: {
     origin: string,
-    jobType: Exclude<JobType, 'resourceCrawl'>
+    jobType: Exclude<JobType, 'resourceCrawl'>,
+    jobId: number
   }
 }
 ;
@@ -76,7 +78,8 @@ export interface AlreadyBeingDoneMessage extends BaseMessage {
   type: 'alreadyBeingDone',
   payload: {
     origin: string,
-    jobType: Exclude<JobType, 'resourceCrawl'>
+    jobType: Exclude<JobType, 'resourceCrawl'>,
+    jobId: number
   }
 }
 ;
@@ -192,16 +195,18 @@ export class WorkerPubSub {
   async doJob(job: Exclude<JobRequest, ResourceCrawlJobRequest>) {
     const origin = job.type === 'domainCrawl' ? job.domain.origin : job.origin;
     if (this.w.alreadyBeingDone(origin, job.type)) {
-      log.error(`Job ${job.type} on ${origin} already being done`);
-      this.pub({type : 'alreadyBeingDone', payload: {jobType: job.type, origin}});
+      log.error(`Job ${job.type} on ${origin} already being done, so job #${job.jobId} was refused.`);
+      this.pub({type : 'alreadyBeingDone', payload: {jobType: job.type, origin, jobId: job.jobId}});
+      return;
     }
     if (!this.w.hasCapacity(job.type)) {
-      log.error(`No capacity for ${job.type} on ${origin}`);
-      this.pub({type : 'noCapacity', payload: {jobType: job.type, origin}});
+      log.error(`No capacity for job ${job.type} on ${origin}, so job #${job.jobId} was refused.`);
+      this.pub({type : 'noCapacity', payload: {jobType: job.type, origin, jobId: job.jobId}});
+      return;
     }
 
     if (job.type === 'robotsCheck') {
-      const res = await this.w.checkRobots(job.origin);
+      const res = await this.w.checkRobots(job.jobId, job.origin);
       this.pub({type : 'jobDone', payload : res});
       // this.reportCurrentCapacity();
       return;
@@ -211,12 +216,13 @@ export class WorkerPubSub {
       let i = 0;
       for await (const x of this.w.crawlDomain(job)) {
         log.info(
-            `Finished resourceCrawl ${++i}/${total} of ${job.domain.origin}`);
+            `Finished resourceCrawl ${++i}/${total} of ${job.domain.origin} (job #${job.jobId})`);
         this.pub({type : 'jobDone', payload : x});
       }
       this.pub({
         type : 'jobDone',
         payload : {
+          jobId: job.jobId,
           status : 'ok' as const,
           jobType : 'domainCrawl',
           origin : job.domain.origin,

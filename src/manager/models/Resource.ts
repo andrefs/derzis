@@ -17,6 +17,7 @@ export interface IResource {
   paths: Types.DocumentArray<IPath>,
   minPathLength: number,
   headCount: number,
+  jobId: number,
   crawlId: {
     domainTs: Date,
     counter: number
@@ -60,6 +61,7 @@ const schema = new Schema<IResource, ResourceModel>({
     type: Number,
     default: 0
   },
+  jobId: Number,
   crawlId: {
     domainTs: Schema.Types.Date,
     counter: Number

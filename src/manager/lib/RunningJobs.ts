@@ -24,7 +24,12 @@ interface JobsBeingSaved {
 
 
 export default class RunningJobs extends EventEmitter {
-  _running: { [domain: string]: ReturnType<typeof setTimeout> };
+  _running: {
+    [domain: string]: {
+      timeout: ReturnType<typeof setTimeout>,
+      jobId: number
+    }
+  };
   beingSaved: JobsBeingSaved;
   beingSavedByDomain: {[domain: string]: number }
 
@@ -70,28 +75,34 @@ export default class RunningJobs extends EventEmitter {
 
   deregisterJob(domain: string){
     if(this._running[domain]){
-      clearTimeout(this._running[domain]);
+      const jobId = this._running[domain].jobId;
+      clearTimeout(this._running[domain].timeout);
       delete this._running[domain];
+      log.info(`Deregistered job #${jobId} from domain ${domain}`)
     }
   }
 
   postponeTimeout(domain: string){
     if(!this.isJobRegistered(domain)){ return false; }
-    clearTimeout(this._running[domain]);
+    clearTimeout(this._running[domain].timeout);
     const timeout = 3*config.http.domainCrawl.timeouts;
     const ts = new Date();
-    this._running[domain] = setTimeout(async () => await this.cancelJob(domain, 'domainCrawl', timeout, ts), timeout);
+    this._running[domain].timeout = setTimeout(async () => await this.timeoutJob(domain, 'domainCrawl', timeout, ts), timeout);
     return true;
   }
 
   async cleanJob(origin: string, jobType: JobType){
+    log.info(`Cleaning job ${jobType} from domain ${origin}`)
     if(jobType === 'robotsCheck'){
       const update = {
         '$set': {
           status: 'unvisited',
           'robots.status': 'error',
         },
-        '$unset': {workerId: '' },
+        '$unset': {
+          workerId: '',
+          jobId: ''
+        },
         '$push': {
           'lastWarnings': {
             '$each': [{errType: 'E_ROBOTS_TIMEOUT'}],
@@ -108,7 +119,10 @@ export default class RunningJobs extends EventEmitter {
       await Resource.updateMany({origin, status: 'crawling'}, {status: 'unvisited'});
       const update = {
         '$set': {status: 'ready'},
-        '$unset': {workerId: '' },
+        '$unset': {
+          workerId: '',
+          jobId: ''
+        },
         '$push': {
           'lastWarnings': {
             '$each': [{errType: 'E_RESOURCE_TIMEOUT'}],
@@ -121,7 +135,7 @@ export default class RunningJobs extends EventEmitter {
     }
   }
 
-  async cleanJobs(){
+  async cancelAllJobs(){
     log.info(`Cleaning outstanding jobs`);
     if(Object.keys(this._running).length){
       for(const j in this._running){
@@ -133,65 +147,91 @@ export default class RunningJobs extends EventEmitter {
         status: 'unvisited',
         'robots.status': 'unvisited',
       },
-      '$unset': {workerId: ''}
+      '$unset': {
+        workerId: '',
+        jobId: ''
+      }
     });
     await Domain.updateMany({status: 'crawling'}, {
       '$set': {status: 'ready'},
-      '$unset': {workerId: ''}
+      '$unset': {
+        workerId: '',
+        jobId: ''
+      }
     });
     return;
   }
 
-  async cancelJob(origin: string, jobType: JobType, timeout: number, ts: Date){
+  async timeoutJob(origin: string, jobType: JobType, timeout: number, ts: Date){
     if(this._running[origin]){
-      log.warn(`Job ${jobType} for domain ${origin} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
-      this.deregisterJob(origin);
+      const jobId = this._running[origin].jobId;
+      log.warn(`Job #${jobId} ${jobType} for domain ${origin} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
     }
-    await this.cleanJob(origin, jobType);
-    this.emit('jobTimeout', origin, jobType);
+    this.cancelJob(origin, jobType);
+    this.emit('jobTimeout', {origin, jobType});
   }
 
-  async registerJob(domain: string, jobType: JobType){
+  async cancelJob(origin: string, jobType: JobType){
+    const jobId = this._running[origin].jobId;
+    log.info(`Canceling job ${jobId} ${jobType} on ${origin}`);
+    this.deregisterJob(origin);
+    await this.cleanJob(origin, jobType);
+  }
+
+  async registerJob(newJobId: number, domain: string, jobType: JobType){
     if(this._running[domain]){
-      log.error(`Job ${jobType} for domain ${domain} already being performed`);
+      const oldJobId = this._running[domain].jobId;
+      log.error(`Job ${jobType} for domain ${domain} already being performed (#${oldJobId}), so job #${newJobId} was refused`);
       await this.cleanJob(domain, jobType);
       return false;
     } else {
       const timeout = 3*config.http[jobType].timeouts;
       const ts = new Date();
-      this._running[domain] = setTimeout(async () => {
-        if(this.beingSavedByDomain[domain]){
-          throw `Job ${jobType} for domain ${domain} timedout while being saved`; // TODO proper handling
-        }
-        await this.cancelJob(domain, jobType, timeout, ts);
-      }, timeout);
+      this._running[domain] = {
+        timeout: setTimeout(async () => {
+          if(this.beingSavedByDomain[domain]){
+            const jobId = this._running[domain].jobId;
+            throw `Job #${jobId} ${jobType} for domain ${domain} timedout while being saved`; // TODO proper handling
+          }
+          await this.timeoutJob(domain, jobType, timeout, ts);
+        }, timeout),
+        jobId: newJobId
+      };
       return true;
     }
   }
 
-  async cancelJobs(ongoingJobs: OngoingJobs, workerId: string){
+  async cancelWorkerJobs(ongoingJobs: OngoingJobs, workerId: string){
     let domains: string[];
     domains = Object.keys(ongoingJobs.robotsCheck);
+    log.info(`Canceling worker ${workerId} robotsCheck jobs on ${domains.join(', ')}`);
     if(domains.length){
-      for(const d in domains){ delete this._running[d]; }
+      for(const d in domains){ this.deregisterJob(d); }
       const update = {
         '$set': {
           status: 'unvisited',
           'robots.status': 'unvisited',
         },
-        '$unset': {workerId: ''}
+        '$unset': {
+          workerId: '',
+          jobId: ''
+        }
       };
       let filter = {origin: {'$in': domains}, workerId: ''};
       if(workerId){ filter.workerId = workerId; }
       await Domain.updateMany({origin: {'$in': domains}}, update);
     }
 
+    log.info(`Canceling worker ${workerId} robotsCheck jobs on ${domains.join(', ')}`);
     domains = Object.keys(ongoingJobs.domainCrawl);
     if(domains.length){
       for(const d in domains){ delete this._running[d]; }
       const update = {
         '$set': {status: 'ready'},
-        '$unset': {workerId: ''}
+        '$unset': {
+          workerId: '',
+          jobId: ''
+        }
       };
       let filter = {origin: {'$in': domains}, workerId: ''};
       if(workerId){ filter.workerId = workerId; }

@@ -36,18 +36,18 @@ export default class Manager {
       return;
     }
     if(jobResult.jobType === 'robotsCheck'){
-      log.info(`Saving robots data for ${jobResult.origin}`);
+      log.info(`Saving robots data (job #${jobResult.jobId}) for ${jobResult.origin}`);
       this.jobs.addToBeingSaved(jobResult.origin, jobResult.jobType);
       try {
         await this.saveRobots(jobResult);
       } catch (e) {
         // TODO handle errors
-        log.error(`Error saving robots for ${jobResult.origin}`);
+        log.error(`Error saving robots (job #${jobResult.jobId}) for ${jobResult.origin}`);
         log.info(jobResult);
       } finally {
         this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
         this.jobs.deregisterJob(jobResult.origin);
-        log.debug(`Done saving robots data for ${jobResult.origin}`);
+        log.debug(`Done saving robots data (job #${jobResult.jobId}) for ${jobResult.origin}`);
       }
     }
     //if(jobResult.jobType === 'domainCrawl'){
@@ -67,30 +67,35 @@ export default class Manager {
     //  }
     //}
     if(jobResult.jobType === 'resourceCrawl'){
-      log.info(`Saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
+      log.info(`Saving resource crawl (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`);
       if(this.jobs.postponeTimeout(jobResult.origin)){
       this.jobs.addToBeingSaved(jobResult.origin, jobResult.jobType);
         try {
           await this.saveCrawl(jobResult);
         } catch (e) {
           // TODO handle errors
-          log.error(`Error saving robots for ${jobResult.url}`);
+          log.error(`Error saving robots (job #${jobResult.jobId}) for ${jobResult.url}`);
           log.info(jobResult);
         } finally {
           this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
-          log.debug(`Done saving resource crawl for domain ${jobResult.origin}: ${jobResult.url}`);
+          log.debug(`Done saving resource crawl (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`);
           const res = await Domain.updateOne(
             {
               origin: jobResult.origin,
+              jobId: jobResult.jobId,
               'crawl.ongoing': 0
             },{
               $set: {status: 'ready'},
-              $unset: {workerId: ''}
+              $unset: {
+                workerId: '',
+                jobId: ''
+              }
             }
+
           );
           if(res.acknowledged && res.modifiedCount){
             this.jobs.deregisterJob(jobResult.origin);
-            log.debug(`Done saving domain crawl for ${jobResult.origin}`);
+            log.debug(`Done saving domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}`);
           }
         }
       }
@@ -222,7 +227,12 @@ export default class Manager {
 
   async saveRobots(jobResult: RobotsCheckResult){
     let crawlDelay = config.http.crawlDelay || 1;
-    let doc: object = {'$unset': {workerId: ''}};
+    let doc: object = {
+      '$unset': {
+        workerId: '',
+        jobId: ''
+      }
+    };
 
     if(jobResult.status === 'ok'){
       const robots = robotsParser(jobResult.origin+'/robots.txt', jobResult.details.robotsText);
@@ -258,7 +268,10 @@ export default class Manager {
           'crawl.delay': crawlDelay,
           'crawl.nextAllowed': nextAllowed
         },
-        '$unset': {workerId: ''}
+        '$unset': {
+          workerId: '',
+          jobId: ''
+        }
       };
     }
     else if(jobResult.err.errorType === 'host_not_found'){
@@ -277,11 +290,14 @@ export default class Manager {
         '$inc': {
           'warnings.E_DOMAIN_NOT_FOUND': 1
         },
-        '$unset': {workerId: ''}
+        '$unset': {
+          workerId: '',
+          jobId: ''
+        }
       };
     }
     else {
-      log.error(`Unknown error in robots check for ${jobResult.origin}`);
+      log.error(`Unknown error in robots check (job #${jobResult.jobId}) for ${jobResult.origin}`);
       console.log(jobResult);
       doc = {
         '$set': {
@@ -296,12 +312,22 @@ export default class Manager {
         '$inc': {
           'warnings.E_UNKNOWN': 1
         },
-        '$unset': {workerId: ''}
+        '$unset': {
+          workerId: '',
+          jobId: ''
+        }
       };
     }
 
-    return await Domain.findOneAndUpdate({origin: jobResult.origin}, doc, {new: true})
-      .catch(err => log.error(err));
+    return await Domain.findOneAndUpdate(
+      {
+        origin: jobResult.origin,
+        jobId: jobResult.jobId
+      },
+      doc,
+      {new: true}
+    )
+    .catch(err => log.error(err));
   }
 
   async *domainsToCrawl(workerId: string, limit: number, resourcesPerDomain: number){
@@ -320,8 +346,8 @@ export default class Manager {
                                   .select('url')
                                   .limit(resourcesPerDomain || 10)
                                   .lean();
-      await Resource.updateMany({url: {'$in': heads.map(h => h.url)}}, {status: 'crawling'}).lean();
-      await Domain.updateOne({origin: domain.origin}, {'crawl.ongoing': heads.length});
+      await Resource.updateMany({url: {'$in': heads.map(h => h.url)}}, {status: 'crawling', jobId: domain.jobId}).lean();
+      await Domain.updateOne({origin: domain.origin, jobId: domain.jobId}, {'crawl.ongoing': heads.length});
       yield {domain, resources: heads};
     }
     if(noDomainsFound){
@@ -330,7 +356,6 @@ export default class Manager {
   }
 
   async *assignJobs(workerId: string, workerAvail: JobCapacity): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>>{
-    log.debug('XXXXXXXXXXX assignJobs');
     if(this.jobs.beingSaved.count() > 2){
       log.warn(`Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`);
     }
@@ -339,10 +364,11 @@ export default class Manager {
     if(workerAvail.robotsCheck.capacity){
       log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
       for await(const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)){
-        if(await this.jobs.registerJob(check.origin, 'robotsCheck')){
+        if(await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')){
           assignedCheck++;
           yield {
             type: 'robotsCheck',
+            jobId: check.jobId,
             origin: check.origin
           };
         }
@@ -351,9 +377,13 @@ export default class Manager {
     if(workerAvail.domainCrawl){
       log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
       for await(const crawl of this.domainsToCrawl(workerId, workerAvail.domainCrawl.capacity, workerAvail.domainCrawl.resourcesPerDomain)){
-        if(crawl?.resources?.length && await this.jobs.registerJob(crawl.domain.origin, 'domainCrawl')){
+        if(crawl?.resources?.length && await this.jobs.registerJob(crawl.domain.jobId, crawl.domain.origin, 'domainCrawl')){
           assignedCrawl++;
-          yield {type: 'domainCrawl', ...crawl};
+          yield {
+            type: 'domainCrawl',
+            jobId: crawl.domain.jobId,
+            ...crawl
+          };
         } else {
           log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
         }

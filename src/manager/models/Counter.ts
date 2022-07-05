@@ -6,8 +6,9 @@ export interface ICounter {
 }
 
 interface ICounterDocument extends ICounter, Document {};
-interface ICounterModel extends Model<ICounterDocument> {};
-
+interface ICounterModel extends Model<ICounterDocument> {
+  genId: (name: String) => Promise<number>
+};
 
 interface ICounterDocument extends ICounter, Document {};
 
@@ -27,6 +28,20 @@ CounterSchema.index({
   name: 1,
 });
 
+
+CounterSchema.statics.genId = async function(name: string){
+  const c = await this.findOneAndUpdate(
+    {name: 'jobs'},
+    {$inc: {value: 1}},
+    {
+      upsert: true,
+      returnDocument: 'after',
+      lean: true,
+      projection: 'value'
+    }
+  );
+  return c.value;
+};
 
 export const Counter = model<ICounterDocument, ICounterModel>('Counter', CounterSchema);
 

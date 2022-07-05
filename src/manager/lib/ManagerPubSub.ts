@@ -23,8 +23,8 @@ class ManagerPubSub {
   }
 
   listenManager(){
-    this._m.jobs.on('jobTimeout', ({origin}) => {
-      return this.broad({type: 'jobTimeout', payload: {origin}});
+    this._m.jobs.on('jobTimeout', (payload) => {
+      return this.broad({type: 'jobTimeout', payload});
     });
   }
 
@@ -32,7 +32,7 @@ class ManagerPubSub {
     log.info('Started');
     log.info('Connecting to MongoDB');
     await this._m.connect();
-    await this._m.jobs.cleanJobs();
+    await this._m.jobs.cancelAllJobs();
     await this.connect();
     //await this._m.startNewProcess();
     this.askCurrentCapacity();
@@ -68,10 +68,15 @@ class ManagerPubSub {
         return await this._m.updateJobResults(message.payload);
       }
       if(message.type === 'shutdown'){
-        await this._m.jobs.cancelJobs(message.payload.ongoingJobs, workerId!);
+        await this._m.jobs.cancelWorkerJobs(message.payload.ongoingJobs, workerId!);
       }
       if(message.type === 'noCapacity' || message.type === 'alreadyBeingDone'){
-        await this._m.jobs.cleanJob(message.payload.origin, message.payload.jobType);
+        const reason = message.type === 'noCapacity' ?
+          `worker ${workerId} has no capacity` :
+          `it is already being done by worker ${workerId}`;
+        await
+        log.info(`Job #${message.payload.jobId} ${message.payload.jobType} on ${message.payload.origin} was refused because ${reason}`);
+        await this._m.jobs.cancelJob(message.payload.origin, message.payload.jobType);
       }
     };
 

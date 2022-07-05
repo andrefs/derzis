@@ -39,6 +39,7 @@ export type JobType = 'domainCrawl'|'robotsCheck'|'resourceCrawl';
 export interface BaseJobResult {
   status: 'ok'|'not_ok', jobType: JobType;
   origin: string,
+  jobId: number
 }
 ;
 export interface JobResultOk extends BaseJobResult {
@@ -165,16 +166,16 @@ export class Worker extends EventEmitter {
            this.jobCapacity[jobType].capacity;
   }
 
-  async checkRobots(origin: string): Promise<RobotsCheckResult> {
+  async checkRobots(jobId: number, origin: string): Promise<RobotsCheckResult> {
     this.currentJobs.robotsCheck[origin] = true;
 
     const url = origin + '/robots.txt';
     const res = await fetchRobots(url, axios);
     delete this.currentJobs.robotsCheck[origin];
-    return {...res, url, origin, jobType : 'robotsCheck'};
+    return {...res, url, jobId, origin, jobType : 'robotsCheck'};
   };
 
-  async * crawlDomain({domain, resources}: DomainCrawlJobRequest) {
+  async * crawlDomain({jobId, domain, resources}: DomainCrawlJobRequest) {
     this.crawlTs = new Date();
     this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;
@@ -188,7 +189,7 @@ export class Worker extends EventEmitter {
         setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
 
     for (const r of resources) {
-      const res = await this.crawlResource(domain.origin, r.url, robots);
+      const res = await this.crawlResource(jobId, domain.origin, r.url, robots);
       if (!res) {
         break;
       }
@@ -197,14 +198,14 @@ export class Worker extends EventEmitter {
     delete this.currentJobs.domainCrawl[domain.origin];
   }
 
-  async crawlResource(origin: string, url: string,
+  async crawlResource(jobId: number, origin: string, url: string,
                       robots: Robot): Promise<CrawlResourceResult> {
-    const jobInfo = {jobType : 'resourceCrawl' as const, origin : origin, url};
+    const jobInfo = {jobType : 'resourceCrawl' as const, jobId, origin : origin, url};
     const crawlId = {domainTs : this.crawlTs, counter : this.crawlCounter};
     if (this.jobsTimedout[origin]) {
       delete this.jobsTimedout[origin];
       delete this.currentJobs.domainCrawl[origin];
-      log.warn(`Stopping domain ${origin} because Manager removed job`);
+      log.warn(`Stopping domain ${origin} because Manager removed job #${jobId})`);
       return {
         ...jobInfo,
         status : 'not_ok' as const,
