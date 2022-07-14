@@ -74,7 +74,7 @@ export default class Manager {
           await this.saveCrawl(jobResult);
         } catch (e) {
           // TODO handle errors
-          log.error(`Error saving robots (job #${jobResult.jobId}) for ${jobResult.url}`);
+          log.error(`Error saving resource crawl (job #${jobResult.jobId}) for ${jobResult.url}`);
           log.info(jobResult);
         } finally {
           this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);

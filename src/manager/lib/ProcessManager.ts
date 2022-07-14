@@ -1,4 +1,4 @@
-import {Process, ProcessDocument} from '@derzis/models';
+import {Process, ProcessDocument, Resource} from '@derzis/models';
 import express from 'express';
 import { create } from 'express-handlebars';
 import path from 'path';
@@ -14,6 +14,22 @@ import zlib from 'zlib';
 const app = express();
 app.use(morganMiddleware);
 //app.use(compression());
+//
+
+const secondsToString = (seconds: number) => {
+  const numYears = Math.floor(seconds / 31536000);
+  const numDays = Math.floor((seconds % 31536000) / 86400); 
+  const numHours = Math.floor(((seconds % 31536000) % 86400) / 3600);
+  const numMinutes = Math.floor((((seconds % 31536000) % 86400) % 3600) / 60);
+  const numSeconds = Math.round((((seconds % 31536000) % 86400) % 3600) % 60);
+  let res = [];
+  if(numYears)  { res.push(numYears > 1 ? `${numYears} years` : `1 year`); }
+  if(numDays)   { res.push(numDays > 1 ? `${numDays} days` : `1 day`); }
+  if(numHours)  { res.push(numHours > 1 ? `${numHours} hours` : `1 hour`); }
+  if(numMinutes){ res.push(numMinutes > 1 ? `${numMinutes} minutes` : `1 minute`); }
+  if(numSeconds){ res.push(numSeconds > 1 ? `${numSeconds} seconds` : `1 second`); }
+  return res.join(' ');
+}
 
 const hbs = create({
   helpers: {
@@ -55,10 +71,13 @@ app.get('/processes/new', (req, res) => {
 
 app.get('/processes/:pid', async (req, res) => {
   const _p: ProcessDocument = await Process.findOne({pid: req.params.pid}).lean();
+  const lastResource = await Resource.findOne().sort({updatedAt: -1});
+  const timeRunning = lastResource ? (lastResource!.updatedAt.getTime() - _p.createdAt.getTime())/1000 : null;
   const p = {
     ..._p,
     createdAt: _p.createdAt?.toISOString(),
     updatedAt: _p.updatedAt?.toISOString() || _p.createdAt,
+    timeRunning: timeRunning ? secondsToString(timeRunning) : '',
     notification: {
       ..._p.notification,
       email: _p.notification.email

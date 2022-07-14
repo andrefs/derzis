@@ -22,7 +22,8 @@ export interface IResource {
     domainTs: Date,
     counter: number
   },
-  processIds: Types.Array<string>
+  processIds: Types.Array<string>,
+  updatedAt: Date,
 };
 
 interface ResourceModel extends Model<IResource, {}> {
