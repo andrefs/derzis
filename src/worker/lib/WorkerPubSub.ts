@@ -148,8 +148,10 @@ export class WorkerPubSub {
     process.on('SIGINT', this.exitHandler({signal : 'SIGINT'}));
     process.on('SIGUSR1', this.signalHandler());
     process.on('SIGUSR2', this.signalHandler());
-    process.on('uncaughtException',
-               (...args) => log.error('Uncaught exception', args));
+    process.on('uncaughtException', (...args) => {
+      log.error('Uncaught exception', args);
+      process.exit(1);
+    });
 
     const handleMessage = (channel: string) => (msg: string) => {
       const message: Message = JSON.parse(msg);
