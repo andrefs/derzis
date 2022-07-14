@@ -10,3 +10,5 @@ dumps
 !.yarn/versions
 dist
 coverage
+*.log
+*.log.gz

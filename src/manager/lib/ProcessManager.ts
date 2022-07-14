@@ -92,10 +92,10 @@ app.get('/processes/:pid', async (req, res) => {
 });
 
 app.get('/processes/:pid/stats', async (req, res) => {
-  const p: ProcessDocument = await Process.findOne({pid: req.params.pid}).lean();
+  const p = await Process.findOne({pid: req.params.pid});
   if(!p){ return res.status(404); }
 
-  const stats = await p.getStats();
+  const stats = await p.getInfo();
   res.json(stats);
 });
 

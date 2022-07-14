@@ -1,6 +1,9 @@
-import mongoose, { Document, model, Model, Schema, Types } from 'mongoose';
+import { Document, model, Model, Schema, Types } from 'mongoose';
 import {Resource} from './Resource';
 import {Triple, SimpleTriple} from './Triple'
+import {humanize} from 'humanize-digest';
+import { Domain } from './Domain';
+import { Path } from './Path';
 
 export interface IProcess {
   pid: string,
@@ -22,6 +25,7 @@ export type ProcessDocument = IProcess & Document & { updatedAt: Date, createdAt
 interface IProcessMethods {
   getTriples(): AsyncIterable<SimpleTriple>,
   getTriplesJson(): AsyncIterable<string>
+  getInfo(): object
 };
 
 interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
@@ -58,7 +62,9 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>({
 schema.pre('save', async function() {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await this.collection.countDocuments({createdAt: {$gt: today}});
-  this.pid = today.toISOString().split('T')[0] + '-' +count;
+  const date = today.toISOString().split('T')[0] + '-' +count;
+  const word = humanize(date);
+  this.pid = `${word}-${date}`;
   this.notification.ssePath = `/processes/${this.pid}/events`;
 });
 
@@ -74,6 +80,47 @@ schema.method('getTriplesJson', async function*(){
     yield JSON.stringify(t);
   }
 });
+
+schema.method('getInfo', async function(){
+  const baseFilter = {processIds: this.pid};
+  const lastResource = await Resource.findOne(baseFilter).sort({updatedAt: -1});
+  return {
+    resources: {
+      total: await Resource.countDocuments(baseFilter).lean(),
+      done:  await Resource.countDocuments({...baseFilter, status: 'done'}).lean(), // TODO add index
+      seed:  await Resource.countDocuments({...baseFilter, isSeed: true}).lean(), // TODO add index
+    },
+    triples: {
+      total: await Triple.countDocuments(baseFilter).lean(),
+    },
+    domains: {
+      total:    await Domain.countDocuments(baseFilter).lean(),
+      ready:    await Domain.countDocuments({...baseFilter, status: 'ready'}).lean(), // TODO add index
+      crawling: await Domain.countDocuments({...baseFilter, status: 'crawling'}).lean(), // TODO add index
+      error:    await Domain.countDocuments({...baseFilter, status: 'error'}).lean(), // TODO add index
+    },
+    paths: {
+      total:    await Path.countDocuments({'seed.url': {$in : this.seeds}}).lean(),
+      finished:    await Path.countDocuments({'seed.url': {$in : this.seeds}, status: 'finished'}).lean(), // TODO add index
+      disabled:    await Path.countDocuments({'seed.url': {$in : this.seeds}, status: 'disabled'}).lean(), // TODO add index
+      active:    await Path.countDocuments({'seed.url': {$in : this.seeds}, status: 'active'}).lean(), // TODO add index
+    },
+    // TODO remove allPaths
+    allPaths: {
+      total:    await Path.countDocuments().lean(),
+      finished:    await Path.countDocuments({status: 'finished'}).lean(), // TODO add index
+      disabled:    await Path.countDocuments({status: 'disabled'}).lean(), // TODO add index
+      active:    await Path.countDocuments({status: 'active'}).lean(), // TODO add index
+    },
+    createdAt: this.createdAt,
+    timeRunning: lastResource ? (lastResource!.updatedAt.getTime() - this.createdAt.getTime())/1000 : null,
+    params: this.params,
+    notification: this.notification,
+    status: this.status,
+    seeds: this.seeds
+  }
+});
+
 
 // TODO configurable number of simultaneous processes
 schema.static('startNext', async function(){
