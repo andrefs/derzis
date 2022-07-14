@@ -71,6 +71,8 @@ app.get('/processes/new', (req, res) => {
 
 app.get('/processes/:pid', async (req, res) => {
   const _p: ProcessDocument = await Process.findOne({pid: req.params.pid}).lean();
+  if(!_p){ return res.status(404); }
+
   const lastResource = await Resource.findOne().sort({updatedAt: -1});
   const timeRunning = lastResource ? (lastResource!.updatedAt.getTime() - _p.createdAt.getTime())/1000 : null;
   const p = {
@@ -88,6 +90,15 @@ app.get('/processes/:pid', async (req, res) => {
   const host = req.protocol + '://' + req.get('host');
   res.render('process', {process: p, host});
 });
+
+app.get('/processes/:pid/stats', async (req, res) => {
+  const p: ProcessDocument = await Process.findOne({pid: req.params.pid}).lean();
+  if(!p){ return res.status(404); }
+
+  const stats = await p.getStats();
+  res.json(stats);
+});
+
 
 app.post('/processes', async (req, res) => {
   const seeds = req.body.seeds

@@ -2516,6 +2516,7 @@ __metadata:
     express: ^4.17.1
     express-handlebars: ^6.0.6
     http-link-header: ^1.0.3
+    humanize-digest: ^1.0.0
     jest: ^28.1.0
     lodash: ^4.17.21
     mongoose: ^6.3.4
@@ -3364,6 +3365,15 @@ __metadata:
   version: 2.1.0
   resolution: "human-signals@npm:2.1.0"
   checksum: b87fd89fce72391625271454e70f67fe405277415b48bcc0117ca73d31fa23a4241787afdc8d67f5a116cf37258c052f59ea82daffa72364d61351423848e3b8
+  languageName: node
+  linkType: hard
+
+"humanize-digest@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "humanize-digest@npm:1.0.0"
+  bin:
+    humanize: dist/cjs/humanize.js
+  checksum: c4b05ae3cc13a62d97217681ddd3bd76d35c4f85374f44ea773b49295fe99b167c284f2314ad0828dd2c5d0a43a2e04ff01b30111eb6d3932e75c68d436a3551
   languageName: node
   linkType: hard
 
