@@ -25,7 +25,7 @@ export type ProcessDocument = IProcess & Document & { updatedAt: Date, createdAt
 interface IProcessMethods {
   getTriples(): AsyncIterable<SimpleTriple>,
   getTriplesJson(): AsyncIterable<string>
-  getInfo(): object
+  getInfo(): Promise<object>
 };
 
 interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
@@ -95,6 +95,7 @@ schema.method('getInfo', async function(){
     },
     domains: {
       total:    await Domain.countDocuments(baseFilter).lean(),
+      beingCrawled: (await Domain.find({...baseFilter, status: 'crawling'}).select('origin').lean()).map(d => d.origin),
       ready:    await Domain.countDocuments({...baseFilter, status: 'ready'}).lean(), // TODO add index
       crawling: await Domain.countDocuments({...baseFilter, status: 'crawling'}).lean(), // TODO add index
       error:    await Domain.countDocuments({...baseFilter, status: 'error'}).lean(), // TODO add index
