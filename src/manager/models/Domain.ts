@@ -1,5 +1,6 @@
 import {FilterQuery} from 'mongoose';
 import { Schema, model, Model, Document } from "mongoose";
+import { RobotsCheckResultOk } from 'src/worker';
 import { Counter } from './Counter';
 
 const errorTypes = ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN'];
@@ -42,6 +43,7 @@ export interface IDomain {
 interface IDomainDocument extends IDomain, Document {};
 
 interface IDomainModel extends Model<IDomainDocument> {
+  saveRobotsOk: (jobResult: RobotsCheckResultOk, crawlDelay: number) => Promise<IDomain>,
   upsertMany: (urls: string[], pids: string[]) => Promise<void>,
   domainsToCheck: (wId: string, limit: number) => Iterable<IDomain>,
   domainsToCrawl: (wId: string, limit: number) => Iterable<IDomain>
@@ -142,6 +144,30 @@ DomainSchema.index({
 DomainSchema.index({
   'jobId': 1
 });
+
+DomainSchema.statics.saveRobotsOk = async function(jobResult: RobotsCheckResultOk, crawlDelay: number){
+  const msCrawlDelay = 1000*crawlDelay;
+  const doc = {
+    '$set': {
+      'robots.text': jobResult.details.robotsText,
+      'robots.checked': jobResult.details.endTime,
+      'robots.elapsedTime': jobResult.details.elapsedTime,
+      'robots.status': 'done',
+      status: 'ready',
+      'crawl.delay': crawlDelay,
+      'crawl.nextAllowed': new Date(jobResult.details.endTime+(msCrawlDelay)),
+      lastAccessed: jobResult.details.endTime
+    }, '$unset': {workerId: ''}
+  };
+  return await Domain.findOneAndUpdate(
+    {
+      origin: jobResult.origin,
+      jobId: jobResult.jobId
+    },
+    doc,
+    {new: true}
+  );
+};
 
 DomainSchema.statics.upsertMany = async function(urls: string, pids: string[]){
   let domains: {[url: string]: FilterQuery<IDomain>} = {};

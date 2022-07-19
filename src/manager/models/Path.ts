@@ -1,7 +1,7 @@
 import { HydratedDocument, Model, model, Schema, Types } from "mongoose";
 import {urlType} from '@derzis/common';
 import config from '@derzis/config';
-import {Resource} from '@derzis/models';
+import {Resource, Domain} from '@derzis/models';
 
 export interface PathSkeleton {
   seed: {url: string},
@@ -27,7 +27,7 @@ export interface IPath {
   head: {
     url: string,
     domain: string,
-    alreadyCrawled: boolean
+    needsCrawling: boolean
   },
   parentPath: Types.ObjectId,
   status: 'active' | 'disabled' | 'finished'
@@ -57,9 +57,9 @@ const schema = new Schema<IPath, {}, IPathMethods>({
   head: {
     url: {...urlType, required: true},
     domain: urlType,
-    alreadyCrawled: {
+    needsCrawling: {
       type: Boolean,
-      default: false
+      default: true
     }
   },
   parentPath: {
@@ -91,9 +91,10 @@ schema.pre('save', async function(){
   if(this.predicates.count){
     this.lastPredicate = this.predicates.elems[this.predicates.count-1];
   }
-  this.head.domain = new URL(this.head.url).origin;
   const head = await Resource.findOne({url: this.head.url});
-  this.head.alreadyCrawled = head?.status !== 'unvisited';
+  const domain = await Domain.findOne({origin: this.head.url}).select('status').lean();
+  this.head.domain = new URL(this.head.url).origin;
+  this.head.needsCrawling = !domain || (head?.status === 'unvisited' && domain.status !== 'error');
   if(head?.status === 'error'){
     this.status = 'disabled';
     await Resource.rmPath(this);

@@ -196,7 +196,7 @@ export default class Manager {
 
   async addExistingHeads(paths: PathDocument[]){
     for(const p of paths){
-      if(p.head.alreadyCrawled){
+      if(!p.head.needsCrawling){
         await this.addExistingHead(p);
       }
     }
@@ -237,20 +237,7 @@ export default class Manager {
     if(jobResult.status === 'ok'){
       const robots = robotsParser(jobResult.origin+'/robots.txt', jobResult.details.robotsText);
       crawlDelay = robots.getCrawlDelay(config.http.userAgent) || crawlDelay;
-      const msCrawlDelay = 1000*crawlDelay;
-
-      doc = {
-        '$set': {
-          'robots.text': jobResult.details.robotsText,
-          'robots.checked': jobResult.details.endTime,
-          'robots.elapsedTime': jobResult.details.elapsedTime,
-          'robots.status': 'done',
-          status: 'ready',
-          'crawl.delay': crawlDelay,
-          'crawl.nextAllowed': new Date(jobResult.details.endTime+(msCrawlDelay)),
-          lastAccessed: jobResult.details.endTime
-        }, '$unset': {workerId: ''}
-      };
+      return Domain.saveRobotsOk(jobResult, crawlDelay);
     }
     else if(jobResult.err.errorType === 'http'){
       let robotStatus = 'error';
@@ -334,7 +321,6 @@ export default class Manager {
     let noDomainsFound = true;
     for await(const domain of Domain.domainsToCrawl(workerId, limit)){
       noDomainsFound = false;
-      //const heads = await Path.find({'head.alreadyCrawled': false, 'head.domain': domain.origin})
       const filter = {
         domain: domain.origin,
         status: 'unvisited',

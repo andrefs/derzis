@@ -141,7 +141,7 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
 
   // Paths
   const path = await Path.updateMany({'head.url': url}, {
-    'head.alreadyCrawled': true
+    'head.needsCrawling': false
   });
 
   // Domain
