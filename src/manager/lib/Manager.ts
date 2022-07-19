@@ -50,22 +50,6 @@ export default class Manager {
         log.debug(`Done saving robots data (job #${jobResult.jobId}) for ${jobResult.origin}`);
       }
     }
-    //if(jobResult.jobType === 'domainCrawl'){
-    //  log.info(`Saving domain crawl for ${jobResult.origin}`);
-    //  this.addToBeingSaved(jobResult.origin, jobResult.jobType);
-    //  try {
-    //    await Domain.updateOne({origin: jobResult.origin},{
-    //      '$set': {status: 'ready'},
-    //      '$unset': {workerId: ''}
-    //    });
-    //  } catch (e) {
-    //    // TODO handle errors
-    //  } finally {
-    //    this.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
-    //    this.jobs.deregisterJob(jobResult.origin);
-    //    log.debug(`Done saving domain crawl for ${jobResult.origin}`);
-    //  }
-    //}
     if(jobResult.jobType === 'resourceCrawl'){
       log.info(`Saving resource crawl (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`);
       if(this.jobs.postponeTimeout(jobResult.origin)){
@@ -239,82 +223,9 @@ export default class Manager {
       crawlDelay = robots.getCrawlDelay(config.http.userAgent) || crawlDelay;
       return Domain.saveRobotsOk(jobResult, crawlDelay);
     }
-    else if(jobResult.err.errorType === 'http'){
-      let robotStatus = 'error';
-      const msCrawlDelay = 1000*crawlDelay;
-      if((jobResult.err as HttpError).httpStatus === 404){ robotStatus = 'not_found'; }
-
-      const endTime = jobResult.details?.endTime || Date.now();
-      const nextAllowed = jobResult.details ?
-                                new Date(endTime+(msCrawlDelay)) :
-                                Date.now()+1000
-      doc = {
-        '$set': {
-          'robots.status': robotStatus,
-          status: 'ready',
-          'crawl.delay': crawlDelay,
-          'crawl.nextAllowed': nextAllowed
-        },
-        '$unset': {
-          workerId: '',
-          jobId: ''
-        }
-      };
-    }
-    else if(jobResult.err.errorType === 'host_not_found'){
-      doc = {
-        '$set': {
-          'robots.status': 'error',
-          status: 'error',
-          error: true,
-        },
-        '$push': {
-          'lastWarnings': {
-            '$each': [{errType: 'E_DOMAIN_NOT_FOUND'}],
-            '$slice': -10
-          }
-        },
-        '$inc': {
-          'warnings.E_DOMAIN_NOT_FOUND': 1
-        },
-        '$unset': {
-          workerId: '',
-          jobId: ''
-        }
-      };
-    }
     else {
-      log.error(`Unknown error in robots check (job #${jobResult.jobId}) for ${jobResult.origin}`);
-      console.log(jobResult);
-      doc = {
-        '$set': {
-          'robots.status': 'error'
-        },
-        '$push': {
-          'lastWarnings': {
-            '$each': [{errType: 'E_UNKNOWN'}],
-            '$slice': -10
-          }
-        },
-        '$inc': {
-          'warnings.E_UNKNOWN': 1
-        },
-        '$unset': {
-          workerId: '',
-          jobId: ''
-        }
-      };
+      return Domain.saveRobotsError(jobResult, crawlDelay);
     }
-
-    return await Domain.findOneAndUpdate(
-      {
-        origin: jobResult.origin,
-        jobId: jobResult.jobId
-      },
-      doc,
-      {new: true}
-    )
-    .catch(err => log.error(err));
   }
 
   async *domainsToCrawl(workerId: string, limit: number, resourcesPerDomain: number){

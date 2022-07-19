@@ -1,7 +1,9 @@
 import {FilterQuery} from 'mongoose';
 import { Schema, model, Model, Document } from "mongoose";
-import { RobotsCheckResultOk } from 'src/worker';
+import { HttpError, createLogger } from 'src/common';
+import { RobotsCheckResultError, RobotsCheckResultOk } from 'src/worker';
 import { Counter } from './Counter';
+const log = createLogger('Domain');
 
 const errorTypes = ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN'];
 
@@ -44,6 +46,10 @@ interface IDomainDocument extends IDomain, Document {};
 
 interface IDomainModel extends Model<IDomainDocument> {
   saveRobotsOk: (jobResult: RobotsCheckResultOk, crawlDelay: number) => Promise<IDomain>,
+  saveRobotsError: (jobResult: RobotsCheckResultError, crawlDelay?: number) => Promise<IDomain>,
+  //saveRobotsNotFound: (jobResult: RobotsCheckResultError, crawlDelay: number) => Promise<IDomain>,
+  //saveRobotsHostNotFoundError: (jobResult: RobotsCheckResultError) => Promise<IDomain>,
+  //saveRobotsUnknownError: (jobResult: RobotsCheckResultError) => Promise<IDomain>,
   upsertMany: (urls: string[], pids: string[]) => Promise<void>,
   domainsToCheck: (wId: string, limit: number) => Iterable<IDomain>,
   domainsToCrawl: (wId: string, limit: number) => Iterable<IDomain>
@@ -144,6 +150,83 @@ DomainSchema.index({
 DomainSchema.index({
   'jobId': 1
 });
+
+
+const robotsNotFound = (jobResult: RobotsCheckResultError, crawlDelay: number) => {
+  let robotStatus = 'error';
+  const msCrawlDelay = 1000*crawlDelay;
+  if((jobResult.err as HttpError).httpStatus === 404){ robotStatus = 'not_found'; }
+  
+  const endTime = jobResult.details?.endTime || Date.now();
+  const nextAllowed = jobResult.details ?
+                            new Date(endTime+(msCrawlDelay)) :
+                            Date.now()+1000
+  return {
+    '$set': {
+      'robots.status': robotStatus,
+      status: 'ready',
+      'crawl.delay': crawlDelay,
+      'crawl.nextAllowed': nextAllowed
+    },
+    '$unset': {
+      workerId: '',
+      jobId: ''
+    }
+  };
+};
+
+const robotsUnknownError = (jobResult: RobotsCheckResultError) => {
+  log.error(`Unknown error in robots check (job #${jobResult.jobId}) for ${jobResult.origin}`);
+  console.log(jobResult);
+  return {
+    '$set': {
+      'robots.status': 'error'
+    },
+    '$push': {
+      'lastWarnings': {
+        '$each': [{errType: 'E_UNKNOWN'}],
+        '$slice': -10
+      }
+    },
+    '$inc': {
+      'warnings.E_UNKNOWN': 1
+    },
+    '$unset': {
+      workerId: '',
+      jobId: ''
+    }
+  };
+};
+
+const robotsHostNotFoundError = (jobResult: RobotsCheckResultError) => {
+  return {
+    '$set': {
+      'robots.status': 'error',
+      status: 'error',
+      error: true,
+    },
+    '$push': {
+      'lastWarnings': {
+        '$each': [{errType: 'E_DOMAIN_NOT_FOUND'}],
+        '$slice': -10
+      }
+    },
+    '$inc': {
+      'warnings.E_DOMAIN_NOT_FOUND': 1
+    },
+    '$unset': {
+      workerId: '',
+      jobId: ''
+    }
+  };
+};
+
+DomainSchema.statics.saveRobotsError = async function(jobResult: RobotsCheckResultError, crawlDelay: number){
+  const doc = jobResult.err.errorType === 'http' ? robotsNotFound(jobResult, crawlDelay) :
+              jobResult.err.errorType === 'host_not_found' ? robotsHostNotFoundError(jobResult) :
+              robotsUnknownError(jobResult);
+
+};
 
 DomainSchema.statics.saveRobotsOk = async function(jobResult: RobotsCheckResultOk, crawlDelay: number){
   const msCrawlDelay = 1000*crawlDelay;
