@@ -36,7 +36,7 @@
               <th>Seeds</th>
               <td>
                 {{#each process.seeds}}
-                <p><a href="{{this}}">{{this}}</a></p>
+                <p class="seed"><a href="{{this}}">{{this}}</a></p>
                 {{/each}}
               </td>
             </tr>
@@ -68,7 +68,7 @@
             </tr>
             <tr>
               <th>Server-sent events URL</th>
-              <td><a href="{{process.notification.ssePath}}">{{process.notification.ssePath}}</a></td>
+              <td><a href="{{host}}/{{process.notification.ssePath}}">{{process.notification.ssePath}}</a></td>
             </tr>
           </tbody>
         </table>
