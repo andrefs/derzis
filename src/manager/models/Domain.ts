@@ -3,6 +3,7 @@ import { Schema, model, Model, Document } from "mongoose";
 import { HttpError, createLogger } from 'src/common';
 import { RobotsCheckResultError, RobotsCheckResultOk } from 'src/worker';
 import { Counter } from './Counter';
+import { Path } from './Path';
 const log = createLogger('Domain');
 
 const errorTypes = ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN'];
@@ -198,7 +199,7 @@ const robotsUnknownError = (jobResult: RobotsCheckResultError) => {
   };
 };
 
-const robotsHostNotFoundError = (jobResult: RobotsCheckResultError) => {
+const robotsHostNotFoundError = () => {
   return {
     '$set': {
       'robots.status': 'error',
@@ -223,9 +224,29 @@ const robotsHostNotFoundError = (jobResult: RobotsCheckResultError) => {
 
 DomainSchema.statics.saveRobotsError = async function(jobResult: RobotsCheckResultError, crawlDelay: number){
   const doc = jobResult.err.errorType === 'http' ? robotsNotFound(jobResult, crawlDelay) :
-              jobResult.err.errorType === 'host_not_found' ? robotsHostNotFoundError(jobResult) :
+              jobResult.err.errorType === 'host_not_found' ? robotsHostNotFoundError() :
               robotsUnknownError(jobResult);
 
+
+  const d = await Domain.findOneAndUpdate(
+    {
+      origin: jobResult.origin,
+      jobId: jobResult.jobId
+    },
+    doc,
+    {new: true}
+  );
+
+  if(jobResult.err.errorType === 'host_not_found'){
+    await Path.updateMany(
+      { 'head.domain': d?.origin },
+      {
+        'head.needsCrawling': false
+      }
+    );
+  }
+
+  return d;
 };
 
 DomainSchema.statics.saveRobotsOk = async function(jobResult: RobotsCheckResultOk, crawlDelay: number){
@@ -240,7 +261,11 @@ DomainSchema.statics.saveRobotsOk = async function(jobResult: RobotsCheckResultO
       'crawl.delay': crawlDelay,
       'crawl.nextAllowed': new Date(jobResult.details.endTime+(msCrawlDelay)),
       lastAccessed: jobResult.details.endTime
-    }, '$unset': {workerId: ''}
+    },
+    '$unset': {
+      workerId: '',
+      jobId: ''
+    }
   };
   return await Domain.findOneAndUpdate(
     {
