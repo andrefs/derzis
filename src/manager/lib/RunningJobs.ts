@@ -51,6 +51,7 @@ export default class RunningJobs extends EventEmitter {
 
   addToBeingSaved(origin: string, type: JobType){
     this.beingSaved[type]++;
+    this.beingSavedByDomain[origin] = this.beingSavedByDomain[origin] || 0;
     this.beingSavedByDomain[origin]++;
   };
 
