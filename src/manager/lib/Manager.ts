@@ -141,7 +141,7 @@ export default class Manager {
       const prop: string = t.predicate;
       // new head already contained in path
       if(path.nodes.elems.includes(newHead)){ continue; }
-      // new predicate and path already has max preds
+    // new predicate and path already has max preds
       if(!path.predicates.elems.includes(prop) &&
          path.predicates.count >= config.graph.maxPathProps){
         continue;
@@ -211,12 +211,6 @@ export default class Manager {
 
   async saveRobots(jobResult: RobotsCheckResult){
     let crawlDelay = config.http.crawlDelay || 1;
-    let doc: object = {
-      '$unset': {
-        workerId: '',
-        jobId: ''
-      }
-    };
 
     if(jobResult.status === 'ok'){
       const robots = robotsParser(jobResult.origin+'/robots.txt', jobResult.details.robotsText);
@@ -287,7 +281,7 @@ export default class Manager {
       }
     }
     if(!assignedCheck && !assignedCrawl && !this.jobs.count() && !this.jobs.beingSaved.count()){
-      log.info('Could not find any domains to check or crawl and there are no outstanding jobs');
+      log.info('Could not find any domains to check or crawl and there are no outstanding jobs', this.jobs);
       this.finished++;
     }
     //FIXME
