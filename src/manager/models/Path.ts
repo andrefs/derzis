@@ -8,7 +8,7 @@ export interface PathSkeleton {
   head: {url: string},
   predicates: {elems: string[]},
   nodes: {elems: string[]},
-  parentPath: IPath
+  parentPath: IPath,
 }
 
 export interface IPath {
@@ -98,7 +98,7 @@ schema.pre('save', async function(){
   const domain = await Domain.findOne({origin: this.head.url}).select('status').lean();
   this.head.domain = new URL(this.head.url).origin;
   this.head.needsCrawling = !domain || (head?.status === 'unvisited' && domain.status !== 'error');
-  if(head?.status === 'error'){
+  if(head?.status === 'error' || domain?.status === 'error'){
     this.status = 'disabled';
     await Resource.rmPath(this);
     return;

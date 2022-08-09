@@ -165,7 +165,7 @@ const robotsNotFound = (jobResult: RobotsCheckResultError, crawlDelay: number) =
   return {
     '$set': {
       'robots.status': robotStatus,
-      status: 'ready',
+      status: 'ready' as const,
       'crawl.delay': crawlDelay,
       'crawl.nextAllowed': nextAllowed
     },
@@ -181,7 +181,7 @@ const robotsUnknownError = (jobResult: RobotsCheckResultError) => {
   console.log(jobResult);
   return {
     '$set': {
-      'robots.status': 'error'
+      'robots.status': 'error' as const
     },
     '$push': {
       'lastWarnings': {
@@ -202,8 +202,8 @@ const robotsUnknownError = (jobResult: RobotsCheckResultError) => {
 const robotsHostNotFoundError = () => {
   return {
     '$set': {
-      'robots.status': 'error',
-      status: 'error',
+      'robots.status': 'error' as const,
+      status: 'error' as const,
       error: true,
     },
     '$push': {
@@ -331,7 +331,7 @@ DomainSchema.statics.domainsToCrawl = async function*(wId, limit){
     'crawl.nextAllowed': {'$lte': Date.now()}
   };
   const options = {
-    new:true,
+    returnDocument: 'before',
     sort: {'crawl.pathHeads': -1},
     fields: 'origin crawl robots.text jobId status'
   };
@@ -343,8 +343,9 @@ DomainSchema.statics.domainsToCrawl = async function*(wId, limit){
         workerId: wId,
         jobId
       }};
-    const d = await this.findOneAndUpdate(query, update, options).lean();
-    if(d){
+    const oldDoc = await this.findOneAndUpdate(query, update, options).lean();
+    if(oldDoc){
+      const d = await this.findOne({origin: oldDoc.origin}).lean();
       if(d.robots && !Object.keys(d.robots).length){ delete d.robots; }
       yield d;
     }

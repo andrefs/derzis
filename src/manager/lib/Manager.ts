@@ -137,11 +137,11 @@ export default class Manager {
         continue;
       }
 
-      const newHead: string = t.subject === path.head.url ? t.object : t.subject;
+      const newHeadUrl: string = t.subject === path.head.url ? t.object : t.subject;
       const prop: string = t.predicate;
       // new head already contained in path
-      if(path.nodes.elems.includes(newHead)){ continue; }
-    // new predicate and path already has max preds
+      if(path.nodes.elems.includes(newHeadUrl)){ continue; }
+      // new predicate and path already has max preds
       if(!path.predicates.elems.includes(prop) &&
          path.predicates.count >= config.graph.maxPathProps){
         continue;
@@ -150,17 +150,19 @@ export default class Manager {
       if(path.nodes.count >= config.graph.maxPathLength){
         continue;
       }
+
+
       newPaths[prop] = newPaths[prop] || {};
-      if(!newPaths[prop][newHead]){
-        const nodes = [...path.nodes.elems, newHead];
+      if(!newPaths[prop][newHeadUrl]){
+        const nodes = [...path.nodes.elems, newHeadUrl];
         const np: PathSkeleton = {
           seed: path.seed,
-          head: {url: newHead},
+          head: {url: newHeadUrl},
           predicates: {elems: Array.from(new Set([...path.predicates.elems, prop]))},
           nodes: {elems: nodes},
           parentPath: path
         };
-        newPaths[prop][newHead] = np;
+        newPaths[prop][newHeadUrl] = np;
       }
     }
 
