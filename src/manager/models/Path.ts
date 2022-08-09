@@ -30,7 +30,10 @@ export interface IPath {
     needsCrawling: boolean
   },
   parentPath: Types.ObjectId,
-  status: 'active' | 'disabled' | 'finished'
+  status:
+      'active'
+    | 'disabled' // a better alternative path was found
+    | 'finished' // path reached limits
 };
 
 export interface IPathMethods {

@@ -140,7 +140,8 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
 
 
   // Paths
-  const path = await Path.updateMany({'head.url': url}, {
+  const paths = await Path.updateMany({'head.url': url}, {
+    status: 'disabled',
     'head.needsCrawling': false
   });
 
@@ -174,7 +175,7 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
   d = await Domain.findOneAndUpdate(filter,{'crawl.nextAllowed': nextAllowed});
 
   return {
-    path,
+    paths,
     domain: d
   };
 });
