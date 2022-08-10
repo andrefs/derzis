@@ -95,8 +95,9 @@ schema.pre('save', async function(){
     this.lastPredicate = this.predicates.elems[this.predicates.count-1];
   }
   const head = await Resource.findOne({url: this.head.url});
-  const domain = await Domain.findOne({origin: this.head.url}).select('status').lean();
-  this.head.domain = new URL(this.head.url).origin;
+  const origin = new URL(this.head.url).origin;
+  const domain = await Domain.findOne({origin}).select('status').lean();
+  this.head.domain = origin;
   this.head.needsCrawling = !domain || (head?.status === 'unvisited' && domain.status !== 'error');
   if(head?.status === 'error' || domain?.status === 'error'){
     this.status = 'disabled';
