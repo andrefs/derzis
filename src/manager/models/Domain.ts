@@ -43,7 +43,7 @@ export interface IDomain {
   processIds: string[]
 };
 
-interface IDomainDocument extends IDomain, Document {};
+export interface IDomainDocument extends IDomain, Document {};
 
 interface IDomainModel extends Model<IDomainDocument> {
   saveRobotsOk: (jobResult: RobotsCheckResultOk, crawlDelay: number) => Promise<IDomain>,

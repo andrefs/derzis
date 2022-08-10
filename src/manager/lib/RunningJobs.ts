@@ -1,8 +1,9 @@
 import EventEmitter from 'events';
-import {Domain, Resource} from '@derzis/models'
+import {Domain, IDomainDocument, Resource} from '@derzis/models'
 import config from '@derzis/config';
 import {createLogger} from '@derzis/common';
 import { JobType } from '@derzis/worker';
+import { UpdateQuery } from 'mongoose';
 const log = createLogger('Manager');
 
 export interface OngoingJobs {
@@ -62,8 +63,8 @@ export default class RunningJobs extends EventEmitter {
 
   toString(){
     return `Running: ${Object.keys(this._running).join(', ')}, ` + 
-      `beingSaved: ${this.beingSaved.toString()}, ` + 
-      `beingSavedByDomain: ${this.beingSavedByDomain.toString()}`;
+      `beingSaved: ${JSON.stringify(this.beingSaved)}, ` + 
+      `beingSavedByDomain: ${JSON.stringify(this.beingSavedByDomain)}`;
   }
 
   isJobRegistered(domain: string){
@@ -92,17 +93,11 @@ export default class RunningJobs extends EventEmitter {
     return true;
   }
 
-  async cleanJob(origin: string, jobType: JobType){
-    log.info(`Cleaning job ${jobType} from domain ${origin}`)
-    if(jobType === 'robotsCheck'){
-      const update = {
+  async cleanTimedOutJob(origin: string, jobType: JobType){
+    const customUpdate: UpdateQuery<IDomainDocument> = jobType === 'robotsCheck' ?
+      {
         '$set': {
-          status: 'unvisited',
           'robots.status': 'error',
-        },
-        '$unset': {
-          workerId: '',
-          jobId: ''
         },
         '$push': {
           'lastWarnings': {
@@ -113,17 +108,7 @@ export default class RunningJobs extends EventEmitter {
         '$inc': {
           'warnings.E_ROBOTS_TIMEOUT': 1
         },
-      };
-      await Domain.updateMany({origin}, update);
-    }
-    if(jobType === 'domainCrawl'){
-      await Resource.updateMany({origin, status: 'crawling'}, {status: 'unvisited'});
-      const update = {
-        '$set': {status: 'ready'},
-        '$unset': {
-          workerId: '',
-          jobId: ''
-        },
+      } : {
         '$push': {
           'lastWarnings': {
             '$each': [{errType: 'E_RESOURCE_TIMEOUT'}],
@@ -132,6 +117,30 @@ export default class RunningJobs extends EventEmitter {
         },
         '$inc': {'warnings.E_RESOURCE_TIMEOUT': 1},
       };
+      return this.cleanJob(origin, jobType, customUpdate);
+  };
+
+  async cleanJob(origin: string, jobType: JobType, customUpdate?: UpdateQuery<IDomainDocument>){
+    log.info(`Cleaning job ${jobType} from domain ${origin}`)
+    if(jobType === 'robotsCheck'){
+      const update = customUpdate || {};
+      update['$set'] = update['$set'] || {};
+      update['$set']['status'] = 'unvisited';
+      update['$unset'] = update['$unset'] || {};
+      update['$unset']['workerId'] = '';
+      update['$unset']['jobId'] = '';
+
+      await Domain.updateMany({origin}, update);
+    }
+    if(jobType === 'domainCrawl'){
+      await Resource.updateMany({origin, status: 'crawling'}, {status: 'unvisited'});
+      const update = customUpdate || {};
+      update['$set'] = update['$set'] || {};
+      update['status'] = 'ready';
+      update['$unset'] = update['$unset'] || {};
+      update['$unset']['workerId'] = '';
+      update['$unset']['jobId'] = '';
+
       const res = await Domain.updateMany({origin}, update);
     }
   }
@@ -168,8 +177,15 @@ export default class RunningJobs extends EventEmitter {
       const jobId = this._running[origin].jobId;
       log.warn(`Job #${jobId} ${jobType} for domain ${origin} timed out (${timeout/1000}s started at ${ts.toISOString()})`);
     }
-    this.cancelJob(origin, jobType);
+    this.cancelTimedOutJob(origin, jobType);
     this.emit('jobTimeout', {origin, jobType});
+  }
+
+  async cancelTimedOutJob(origin: string, jobType: JobType){
+    const jobId = this._running[origin].jobId;
+    log.info(`Canceling job ${jobId} ${jobType} on ${origin}`);
+    this.deregisterJob(origin);
+    await this.cleanTimedOutJob(origin, jobType);
   }
 
   async cancelJob(origin: string, jobType: JobType){
