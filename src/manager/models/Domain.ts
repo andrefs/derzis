@@ -181,7 +181,8 @@ const robotsUnknownError = (jobResult: RobotsCheckResultError) => {
   console.log(jobResult);
   return {
     '$set': {
-      'robots.status': 'error' as const
+      'robots.status': 'error' as const,
+      status: 'ready' as const,
     },
     '$push': {
       'lastWarnings': {
