@@ -1,4 +1,6 @@
 import { Schema, model, Model, Document } from "mongoose";
+import { createLogger } from 'src/common';
+const log = createLogger('Counter');
 
 export interface ICounter {
   name: String,
@@ -40,6 +42,7 @@ CounterSchema.statics.genId = async function(name: string){
       projection: 'value'
     }
   );
+  log.debug(`Generated job id ${c.value}`)
   return c.value;
 };
 
