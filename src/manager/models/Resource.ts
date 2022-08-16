@@ -136,7 +136,7 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
     paths: [],
     headCount: 0,
     crawlId: details.crawlId
-  });
+  }, {returnDocument: 'before'});
 
 
   // Paths
@@ -147,7 +147,6 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
 
   // Domain
   const baseFilter = {origin: new URL(url).origin};
-  let d = await Domain.findOne(baseFilter)!;
 
   if(oldRes){
     let updateInc = error ? 
@@ -162,8 +161,10 @@ schema.static('markAsCrawled', async function markAsCrawled(url, details, error)
       }
     };
 
-    await d!.updateOne(update);
+    await Domain.findOneAndUpdate(baseFilter, update);
   }
+
+  let d = await Domain.findOne(baseFilter)!;
 
   const nextAllowed = new Date(details.ts + d!.crawl.delay*1000);
   const filter = {
