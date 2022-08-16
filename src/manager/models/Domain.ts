@@ -229,7 +229,7 @@ DomainSchema.statics.saveRobotsError = async function(jobResult: RobotsCheckResu
               robotsUnknownError(jobResult);
 
 
-  const d = await Domain.findOneAndUpdate(
+  let d = await Domain.findOneAndUpdate(
     {
       origin: jobResult.origin,
       jobId: jobResult.jobId
@@ -239,12 +239,14 @@ DomainSchema.statics.saveRobotsError = async function(jobResult: RobotsCheckResu
   );
 
   if(jobResult.err.errorType === 'host_not_found'){
-    await Path.updateMany(
-      { 'head.domain': d?.origin },
-      {
-        'head.needsCrawling': false
-      }
-    );
+    for await (const path of Path.find({'head.domain': jobResult.origin})){
+      await path.markDisabled();
+      d = await Domain.findOneAndUpdate(
+        {origin: jobResult.origin},
+        {$inc: {'crawl.pathHeads': -1}},
+        {new: true}
+      )
+    }
   }
 
   return d;
@@ -350,7 +352,9 @@ DomainSchema.statics.domainsToCrawl = async function*(wId, limit){
       if(d.robots && !Object.keys(d.robots).length){ delete d.robots; }
       yield d;
     }
-    else { return; }
+    else {
+      return;
+    }
   }
   return;
 };
