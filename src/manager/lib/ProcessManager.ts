@@ -91,6 +91,15 @@ app.get('/processes/:pid', async (req, res) => {
   res.render('process', {process: p, host});
 });
 
+app.get('/processes/last/stats', async (req, res) => {
+  const p = await Process.findOne().sort({createdAt: -1});
+  if(!p){ return res.status(404); }
+
+  const stats = await p.getInfo();
+  res.json(stats);
+});
+
+
 app.get('/processes/:pid/stats', async (req, res) => {
   const p = await Process.findOne({pid: req.params.pid});
   if(!p){ return res.status(404); }
@@ -99,14 +108,6 @@ app.get('/processes/:pid/stats', async (req, res) => {
   res.json(stats);
 });
 
-
-app.get('/processes/last/stats', async (req, res) => {
-  const p = await Process.findOne().sort({createdAt: -1});
-  if(!p){ return res.status(404); }
-
-  const stats = await p.getInfo();
-  res.json(stats);
-});
 
 
 
@@ -130,8 +131,8 @@ app.post('/processes', async (req, res) => {
   res.redirect(303, '/processes/'+p.pid);
 });
 
-app.get('/processes/:pid/triples', async (req, res) => {
-  const p = await Process.findOne({pid: req.params.pid});
+app.get('/processes/last/triples', async (req, res) => {
+  const p = await Process.findOne().sort({createdAt: -1});
   if(!p){ return res.status(404); }
 
   res.setHeader('Content-Type', 'application/gzip');
@@ -156,8 +157,9 @@ app.get('/processes/:pid/triples', async (req, res) => {
   gz.pipe(res);
 });
 
-app.get('/processes/last/triples', async (req, res) => {
-  const p = await Process.findOne().sort({createdAt: -1});
+
+app.get('/processes/:pid/triples', async (req, res) => {
+  const p = await Process.findOne({pid: req.params.pid});
   if(!p){ return res.status(404); }
 
   res.setHeader('Content-Type', 'application/gzip');
