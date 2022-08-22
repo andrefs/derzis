@@ -88,6 +88,8 @@ schema.method('getInfo', async function(){
     resources: {
       total: await Resource.countDocuments(baseFilter).lean(),
       done:  await Resource.countDocuments({...baseFilter, status: 'done'}).lean(), // TODO add index
+      crawling:  await Resource.countDocuments({...baseFilter, status: 'crawling'}).lean(), // TODO add index
+      error:  await Resource.countDocuments({...baseFilter, status: 'error'}).lean(), // TODO add index
       seed:  await Resource.countDocuments({...baseFilter, isSeed: true}).lean(), // TODO add index
     },
     triples: {

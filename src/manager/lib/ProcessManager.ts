@@ -100,6 +100,16 @@ app.get('/processes/:pid/stats', async (req, res) => {
 });
 
 
+app.get('/processes/last/stats', async (req, res) => {
+  const p = await Process.findOne().sort({createdAt: -1});
+  if(!p){ return res.status(404); }
+
+  const stats = await p.getInfo();
+  res.json(stats);
+});
+
+
+
 app.post('/processes', async (req, res) => {
   const seeds = req.body.seeds
                       .flatMap((s: string) => s.split(/\s*[\n,]\s*/))
@@ -122,6 +132,32 @@ app.post('/processes', async (req, res) => {
 
 app.get('/processes/:pid/triples', async (req, res) => {
   const p = await Process.findOne({pid: req.params.pid});
+  if(!p){ return res.status(404); }
+
+  res.setHeader('Content-Type', 'application/gzip');
+  res.setHeader('Content-Disposition', 'attachment; filename="triples.json.gz"');
+
+  const gz = zlib.createGzip();
+
+  const iter = p?.getTriplesJson();
+  const readable = stream.Readable.from(iter, {encoding: 'utf8'});
+  let i=0;
+  const transform = new stream.Transform({
+    transform: (triple, _, callback) => {
+      const res = i === 0 ? '  '+triple : ',\n  '+triple;
+      i++;
+      callback(null, res)
+    }
+  });
+
+  Readable.from('[\n').pipe(gz, {end: false});
+  readable.pipe(transform).pipe(gz, {end: false});
+  readable.on('end', () => Readable.from('\n]').pipe(gz));
+  gz.pipe(res);
+});
+
+app.get('/processes/last/triples', async (req, res) => {
+  const p = await Process.findOne().sort({createdAt: -1});
   if(!p){ return res.status(404); }
 
   res.setHeader('Content-Type', 'application/gzip');
