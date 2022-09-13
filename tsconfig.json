@@ -15,7 +15,7 @@
     "baseUrl": "./",
     "rootDir": "./",
     "paths": {
-      "@derzis/models":  [ "./src/manager/models/" ],
+      "@derzis/models":  [ "./src/models/" ],
       "@derzis/common":  [ "./src/common/lib/" ],
       "@derzis/config":  [ "./src/config/" ],
       "@derzis/worker":  [ "./src/worker/" ],
