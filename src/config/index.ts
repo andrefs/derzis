@@ -6,13 +6,25 @@ export default {
   seeds: {
     file: process.env.SEEDS_FILE || '/data/seeds.txt'
   },
-  db: {
-    host: getSecret('MONGODB_HOST') || process.env.MONGODB_HOST || 'localhost',
-    port: getSecret('MONGODB_PORT') || process.env.MONGODB_PORT || '27018',
-    name: getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'derzis-dev',
-    user: getSecret('MONGODB_USER') || process.env.MONGODB_USER || undefined,
-    pass: getSecret('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,
-    debug: false
+  manager: {
+    db: {
+      host: getSecret('MONGODB_HOST') || process.env.MONGODB_HOST || 'localhost',
+      port: getSecret('MONGODB_PORT') || process.env.MONGODB_PORT || '27018',
+      name: getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'drzs-mng-dev',
+      user: getSecret('MONGODB_USER') || process.env.MONGODB_USER || undefined,
+      pass: getSecret('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,
+      debug: false
+    },
+  },
+  worker: {
+    db: {
+      host: getSecret('MONGODB_HOST') || process.env.MONGODB_HOST || 'localhost',
+      port: getSecret('MONGODB_PORT') || process.env.MONGODB_PORT || '27018',
+      name: getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'drzs-wrk-dev',
+      user: getSecret('MONGODB_USER') || process.env.MONGODB_USER || undefined,
+      pass: getSecret('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,
+      debug: false
+    },
   },
   graph: {
     maxPathLength: getSecret('MAX_PATH_LENGTH') || process.env.MAX_PATH_LENGTH || 10,
