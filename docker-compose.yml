@@ -1,4 +1,4 @@
-version: "3.8"
+version: '3.8'
 
 services:
   worker:
@@ -19,7 +19,7 @@ services:
       - pubsub
     restart: unless-stopped
     ports:
-      - "6378:6379"
+      - '6378:6379'
   manager:
     build:
       context: ./
@@ -34,17 +34,18 @@ services:
     environment:
       MONGODB_HOST: db
       REDIS_HOST: pubsub
-      MAX_PATH_LENGTH: "${MAX_PATH_LENGTH}"
-      MAX_PATH_PROPS: "${MAX_PATH_PROPS}"
+      MAX_PATH_LENGTH: '${MAX_PATH_LENGTH}'
+      MAX_PATH_PROPS: '${MAX_PATH_PROPS}'
     volumes:
       - type: bind
         source: ./data/export
         target: /data/export
     ports:
-      - "3000:3000"
+      - '3000:3000'
   db:
     image: mongo
-    restart: unless-stopped
+    restart:
+      unless-stopped
       #environment:
       #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
       #  MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGODB_PASS
@@ -53,7 +54,7 @@ services:
         source: ./data/db
         target: /data/db
     ports:
-      - "27018:27017"
+      - '27018:27017'
     networks:
       - database
         #secrets:

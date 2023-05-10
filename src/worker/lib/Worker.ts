@@ -3,6 +3,7 @@ import {AxiosInstance, AxiosResponse} from "axios";
 import Bluebird from "bluebird";
 import EventEmitter from 'events';
 import robotsParser, {Robot} from 'robots-parser';
+import {Resource} from '@derzis/models';
 
 import Axios from './axios';
 
@@ -198,6 +199,10 @@ export class Worker extends EventEmitter {
     delete this.currentJobs.domainCrawl[domain.origin];
   }
 
+  async getResourceFromCache(url: string) {
+    return Resource.findOne({url});
+  }
+
   async crawlResource(jobId: number, origin: string, url: string,
                       robots: Robot): Promise<CrawlResourceResult> {
     const jobInfo = {jobType : 'resourceCrawl' as const, jobId, origin : origin, url};
@@ -226,7 +231,16 @@ export class Worker extends EventEmitter {
       };
     }
 
-    let res = await this.fetchResource(url);
+    let res = await this.getResourceFromCache(url);
+    if(res){
+      return  {
+        ...jobInfo,
+        status : 'ok',
+        details : {crawlId, triples : res.triples, ts : res.ts, cached: true}
+      } as CrawlResourceResult;
+    }
+
+    res = await this.fetchResource(url);
 
     if (res.status === 'ok') {
       jobResult = {

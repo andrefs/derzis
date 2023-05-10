@@ -8,10 +8,10 @@ FROM node:14 as build
 ENV NODE_ENV=production
 WORKDIR /home/node/derzis/worker
 
-COPY --chown=node:node ["common/package.json", "common/yarn.lock", "../common/"]
+COPY --chown=node:node ["package.json", "yarn.lock", "../common/"]
 RUN cd ../common && yarn install --frozen-lockfile
 
-COPY --chown=node:node ["worker/package.json", "worker/yarn.lock", "./"]
+COPY --chown=node:node ["package.json", "yarn.lock", "./"]
 RUN yarn install --frozen-lockfile
 
 
@@ -24,8 +24,8 @@ COPY --from=build /home/node/derzis /usr/src/derzis
 WORKDIR /usr/src/derzis/worker
 
 
-COPY ./common ../common/
-COPY ./worker ./
+COPY ./src/common ../common/
+COPY ./src/worker ./
 
 USER 1000
 CMD ["bin/worker.js"]
