@@ -1,8 +1,8 @@
 import { FilterQuery } from 'mongoose';
 import { Schema, model, Model, Document } from 'mongoose';
 import { UpdateOneModel } from 'mongodb';
-import { HttpError, createLogger } from 'src/common';
-import { RobotsCheckResultError, RobotsCheckResultOk } from 'src/worker';
+import { HttpError, createLogger } from '@derzis/common';
+import { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/worker';
 import { Counter } from './Counter';
 import { Path } from './Path';
 const log = createLogger('Domain');
