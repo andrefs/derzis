@@ -373,7 +373,7 @@ DomainSchema.statics.domainsToCrawl = async function*(wId, limit) {
     'crawl.nextAllowed': { $lte: Date.now() },
   };
   const options = {
-    returnDocument: 'before',
+    returnDocument: 'before' as const,
     sort: { 'crawl.pathHeads': -1 },
     fields: 'origin crawl robots.text jobId status',
   };
