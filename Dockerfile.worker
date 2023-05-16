@@ -11,9 +11,8 @@ WORKDIR /home/node/derzis/worker
 
 COPY --chown=node:node ["src/", "./src/"]
 
-COPY --chown=node:node ["package.json", "yarn.lock", ".yarnrc.yml", "tsconfig.json", "./"]
-COPY --chown=node:node [".yarn",  "./.yarn/"]
-RUN yarn install --frozen-lockfile
+COPY --chown=node:node ["package.json", "package-lock.json", "tsconfig.json", "./"]
+RUN npm ci
 
 RUN yarn run build
 
