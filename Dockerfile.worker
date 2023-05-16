@@ -12,9 +12,11 @@ WORKDIR /home/node/derzis/worker
 COPY --chown=node:node ["src/", "./src/"]
 
 COPY --chown=node:node ["package.json", "package-lock.json", "tsconfig.json", "./"]
-RUN npm ci
+RUN npm install --include=dev
 
-RUN yarn run build
+RUN npm run build
+RUN rm -rf node_modules
+
 
 # Run stage
 
@@ -29,5 +31,5 @@ COPY ./dist/src/common ../common/
 COPY ./dist/src/worker ./
 
 USER 1000
-CMD ["bin/worker.js"]
+#CMD ["bin/worker.js"]
 
