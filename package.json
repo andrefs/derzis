@@ -75,6 +75,6 @@
     "ts-node": "^10.7.0",
     "tsconfig-paths": "^4.0.0",
     "tsconfig-replace-paths": "^0.0.11",
-    "typescript": "next"
+    "typescript": "5.0.4"
   }
 }
