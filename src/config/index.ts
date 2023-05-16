@@ -42,7 +42,7 @@ export default {
   },
   pubsub: {
     debug: false,
-    port: getSecret('REDIS_PORT') || process.env.REDIS_PORT || 6378,
+    port: getSecret('REDIS_PORT') || process.env.REDIS_PORT || 6379,
     host: getSecret('REDIS_HOST') || process.env.REDIS_HOST || 'localhost',
     manager: {
       from: 'derzis:fromManager',
