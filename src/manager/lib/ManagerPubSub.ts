@@ -1,11 +1,13 @@
-import {createClient} from 'redis';
+import { createClient } from 'redis';
 import config from '@derzis/config';
-import {createLogger} from '@derzis/common'
+import { createLogger } from '@derzis/common';
 const log = createLogger('Manager');
-import Manager from './Manager'
+import Manager from './Manager';
 import process from 'process';
 import { JobCapacity, Message } from '@derzis/worker';
-const redisOpts = {url : `redis://${config.pubsub.host}:${config.pubsub.port}`};
+const redisOpts = {
+  url: `redis://${config.pubsub.host}:${config.pubsub.port}`,
+};
 
 class ManagerPubSub {
   _m: Manager;
@@ -16,19 +18,19 @@ class ManagerPubSub {
   _pubChannel!: string;
   _broadChannel!: string;
 
-  constructor(){
+  constructor() {
     this._m = new Manager();
     this._redisClient = createClient(redisOpts);
     this.listenManager();
   }
 
-  listenManager(){
+  listenManager() {
     this._m.jobs.on('jobTimeout', (payload) => {
-      return this.broad({type: 'jobTimeout', payload});
+      return this.broad({ type: 'jobTimeout', payload });
     });
   }
 
-  async start(){
+  async start() {
     log.info('Started');
     log.info('Connecting to MongoDB');
     await this._m.connect();
@@ -38,7 +40,7 @@ class ManagerPubSub {
     this.askCurrentCapacity();
   }
 
-  async connect(){
+  async connect() {
     log.info('Connecting to Redis');
     await this._redisClient.connect();
     this._pub = this._redisClient.duplicate();
@@ -48,39 +50,56 @@ class ManagerPubSub {
     await this._sub.connect();
     await this._broad.connect();
 
-    process.on('uncaughtException' , (...args) => {
+    process.on('uncaughtException', (...args) => {
       log.error('Uncaught exception', args);
       process.exit(1);
     });
 
-    log.pubsub(`Subscribing to ${config.pubsub.workers.from.replace(/-.*$/,'')}*`);
-
+    log.pubsub(
+      `Subscribing to ${config.pubsub.workers.from.replace(/-.*$/, '')}*`
+    );
 
     const handleMessage = async (msg: string, channel: string) => {
       const workerId = channel.match(/:([-\w]+)$/)?.[1];
       const message: Message = JSON.parse(msg);
-      log.pubsub('Got message from '+channel.replace(/-.*$/,''), message.type)
-      if(Object.keys(message.payload).length){ log.debug('', message.payload); }
-      if(message.type === 'repCurCap'){
+      log.pubsub(
+        'Got message from ' + channel.replace(/-.*$/, ''),
+        message.type
+      );
+      if (Object.keys(message.payload).length) {
+        log.debug('', message.payload);
+      }
+      if (message.type === 'repCurCap') {
         return await this.assignJobs(workerId!, message.payload);
       }
-      if(message.type === 'jobDone'){
+      if (message.type === 'jobDone') {
         return await this._m.updateJobResults(message.payload);
       }
-      if(message.type === 'shutdown'){
-        await this._m.jobs.cancelWorkerJobs(message.payload.ongoingJobs, workerId!);
+      if (message.type === 'shutdown') {
+        await this._m.jobs.cancelWorkerJobs(
+          message.payload.ongoingJobs,
+          workerId!
+        );
       }
-      if(message.type === 'noCapacity' || message.type === 'alreadyBeingDone'){
-        const reason = message.type === 'noCapacity' ?
-          `worker ${workerId} has no capacity` :
-          `it is already being done by worker ${workerId}`;
-        await
-        log.info(`Job #${message.payload.jobId} ${message.payload.jobType} on ${message.payload.origin} was refused because ${reason}`);
-        await this._m.jobs.cancelJob(message.payload.origin, message.payload.jobType);
+      if (
+        message.type === 'noCapacity' ||
+        message.type === 'alreadyBeingDone'
+      ) {
+        const reason =
+          message.type === 'noCapacity'
+            ? `worker ${workerId} has no capacity`
+            : `it is already being done by worker ${workerId}`;
+        await log.info(
+          `Job #${message.payload.jobId} ${message.payload.jobType} on ${message.payload.origin} was refused because ${reason}`
+        );
+        await this._m.jobs.cancelJob(
+          message.payload.origin,
+          message.payload.jobType
+        );
       }
     };
 
-    this._sub.pSubscribe(config.pubsub.workers.from+'*', handleMessage);
+    this._sub.pSubscribe(config.pubsub.workers.from + '*', handleMessage);
 
     this._broadChannel = config.pubsub.manager.from;
     log.pubsub(`Broadcasting to ${this._broadChannel}`);
@@ -88,22 +107,28 @@ class ManagerPubSub {
     log.pubsub(`Publishing to ${this._pubChannel}{workerId}`);
   }
 
-  pub(workerId: string, {type, payload}: Message){
-    const channel = this._pubChannel+workerId;
-    log.pubsub('Publishing message to '+channel.replace(/-.*$/,''), type);
-    if(Object.keys(payload).length){ log.debug('', payload); }
-    this._pub.publish(channel, JSON.stringify({type, payload}));
+  pub(workerId: string, { type, payload }: Message) {
+    const channel = this._pubChannel + workerId;
+    log.pubsub('Publishing message to ' + channel.replace(/-.*$/, ''), type);
+    if (Object.keys(payload).length) {
+      log.debug('', payload);
+    }
+    this._pub.publish(channel, JSON.stringify({ type, payload }));
   }
 
-  broad({type, payload}: Message){
-    log.pubsub('Broadcasting message to '+this._broadChannel, type);
-    if(Object.keys(payload).length){ log.debug('', payload); }
-    this._broad.publish(this._broadChannel, JSON.stringify({type, payload}));
+  broad({ type, payload }: Message) {
+    log.pubsub('Broadcasting message to ' + this._broadChannel, type);
+    if (Object.keys(payload).length) {
+      log.debug('', payload);
+    }
+    this._broad.publish(this._broadChannel, JSON.stringify({ type, payload }));
   }
 
-  askCurrentCapacity(workerId?: string){
-    const message = {type: 'askCurCap' as const, payload:{}};
-    if(workerId){ return this.pub(workerId, message); }
+  askCurrentCapacity(workerId?: string) {
+    const message = { type: 'askCurCap' as const, payload: {} };
+    if (workerId) {
+      return this.pub(workerId, message);
+    }
     return this.broad(message);
   }
 
@@ -112,11 +137,10 @@ class ManagerPubSub {
   //  return this.broad('askStatus');
   //}
 
-  async assignJobs(workerId: string, workerAvail: JobCapacity){
-    for await(const job of this._m.assignJobs(workerId, workerAvail)){
-      this.pub(workerId, {type: 'doJob', payload: job});
+  async assignJobs(workerId: string, workerAvail: JobCapacity) {
+    for await (const job of this._m.assignJobs(workerId, workerAvail)) {
+      this.pub(workerId, { type: 'doJob', payload: job });
     }
   }
-};
+}
 export default ManagerPubSub;
-

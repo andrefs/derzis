@@ -219,40 +219,43 @@ schema.static(
   }
 );
 
-schema.static('insertSeeds', async function insertSeeds(urls, pid) {
-  const upserts = urls.map((u: string) => ({
-    updateOne: {
-      filter: { url: u },
-      update: {
-        $set: { isSeed: true },
-        $setOnInsert: {
-          url: u,
-          domain: new URL(u).origin,
+schema.static(
+  'insertSeeds',
+  async function insertSeeds(urls: string[], pid: string) {
+    const upserts = urls.map((u: string) => ({
+      updateOne: {
+        filter: { url: u },
+        update: {
+          $set: { isSeed: true },
+          $setOnInsert: {
+            url: u,
+            domain: new URL(u).origin,
+          },
+          $addToSet: { processIds: pid },
         },
-        $addToSet: { processIds: pid },
+        upsert: true,
+        setDefaultsOnInsert: true,
       },
-      upsert: true,
-      setDefaultsOnInsert: true,
-    },
-  }));
+    }));
 
-  const res = await this.bulkWrite(upserts);
-  await Domain.upsertMany(
-    urls.map((u: string) => new URL(u).origin),
-    pid
-  );
+    const res = await this.bulkWrite(upserts);
+    await Domain.upsertMany(
+      urls.map((u: string) => new URL(u).origin),
+      [pid]
+    );
 
-  const paths: IPath[] = urls.map((u: string) => ({
-    seed: { url: u },
-    head: { url: u },
-    nodes: { elems: [u] },
-    predicates: { elems: [] },
-    status: 'active',
-  }));
+    const paths = urls.map((u: string) => ({
+      seed: { url: u },
+      head: { url: u },
+      nodes: { elems: [u] },
+      predicates: { elems: [] },
+      status: 'active',
+    }));
 
-  const insPaths = await Path.create(paths);
-  return this.addPaths(insPaths);
-});
+    const insPaths = await Path.create(paths);
+    return this.addPaths(insPaths);
+  }
+);
 
 schema.static('addPaths', async function addPaths(paths) {
   const res = await this.bulkWrite(

@@ -42,10 +42,10 @@ services:
         target: /data/export
     ports:
       - '3000:3000'
+      - '5432:5432'
   db:
     image: mongo
-    restart:
-      unless-stopped
+    restart: unless-stopped
       #environment:
       #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
       #  MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGODB_PASS

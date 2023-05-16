@@ -10,7 +10,7 @@ export default {
     db: {
       host:
         getSecret('MONGODB_HOST') || process.env.MONGODB_HOST || 'localhost',
-      port: getSecret('MONGODB_PORT') || process.env.MONGODB_PORT || '27018',
+      port: getSecret('MONGODB_PORT') || process.env.MONGODB_PORT || '27017',
       name:
         getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'drzs-mng-dev',
       user: getSecret('MONGODB_USER') || process.env.MONGODB_USER || undefined,
