@@ -11,20 +11,18 @@ export default {
       host:
         getSecret('MONGODB_HOST') || process.env.MONGODB_HOST || 'localhost',
       port: getSecret('MONGODB_PORT') || process.env.MONGODB_PORT || '27017',
-      name:
-        getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'drzs-mng-dev',
+      name: getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'drzs-dev',
       user: getSecret('MONGODB_USER') || process.env.MONGODB_USER || undefined,
       pass: getSecret('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,
-      debug: false,
+      debug: true,
     },
   },
   worker: {
     db: {
       host:
         getSecret('MONGODB_HOST') || process.env.MONGODB_HOST || 'localhost',
-      port: getSecret('MONGODB_PORT') || process.env.MONGODB_PORT || '27018',
-      name:
-        getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'drzs-wrk-dev',
+      port: getSecret('MONGODB_PORT') || process.env.MONGODB_PORT || '27017',
+      name: getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'drzs-dev',
       user: getSecret('MONGODB_USER') || process.env.MONGODB_USER || undefined,
       pass: getSecret('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,
       debug: false,

@@ -1,91 +1,106 @@
 import config from '@derzis/config';
-import {createClient} from 'redis';
+import { createClient } from 'redis';
 
 const redisOpts = {
-  url : `redis://${config.pubsub.host}:${config.pubsub.port}`
+  url: `redis://${config.pubsub.host}:${config.pubsub.port}`,
 };
-import {JobCapacity, JobResult, JobType, Worker} from './Worker';
-import {createLogger} from '@derzis/common';
-import {MonkeyPatchedLogger} from '@derzis/common';
+import { JobCapacity, JobResult, JobType, Worker } from './Worker';
+import { createLogger } from '@derzis/common';
+import { MonkeyPatchedLogger } from '@derzis/common';
 let log: MonkeyPatchedLogger;
-import {IDomain} from '@derzis/models';
-import {OngoingJobs} from '@derzis/manager';
+import { IDomain } from '@derzis/models';
+import { OngoingJobs } from '@derzis/manager';
 
 export interface BaseJobRequest {
-  type: JobType,
-  jobId: number,
+  type: JobType;
+  jobId: number;
 }
-;
 export interface RobotsCheckJobRequest extends BaseJobRequest {
-  type: 'robotsCheck', origin: string
+  type: 'robotsCheck';
+  origin: string;
 }
-;
 export interface ResourceCrawlJobRequest extends BaseJobRequest {
-  type: 'resourceCrawl', origin: string, url: string
+  type: 'resourceCrawl';
+  origin: string;
+  url: string;
 }
-;
 export interface DomainCrawlJobRequest extends BaseJobRequest {
-  type: 'domainCrawl', domain: IDomain, resources: {url: string}[]
+  type: 'domainCrawl';
+  domain: IDomain;
+  resources: { url: string }[];
 }
-;
 export type JobRequest =
-    RobotsCheckJobRequest|ResourceCrawlJobRequest|DomainCrawlJobRequest;
+  | RobotsCheckJobRequest
+  | ResourceCrawlJobRequest
+  | DomainCrawlJobRequest;
 
-export type MessageType = 'askCurCap'|'jobTimeout'|'doJob'|'jobDone'|'shutdown'|
-    'repCurCap'|'askJobs'|'noCapacity'|'alreadyBeingDone';
+export type MessageType =
+  | 'askCurCap'
+  | 'jobTimeout'
+  | 'doJob'
+  | 'jobDone'
+  | 'shutdown'
+  | 'repCurCap'
+  | 'askJobs'
+  | 'noCapacity'
+  | 'alreadyBeingDone';
 export interface BaseMessage {
-  type: MessageType, payload: object
+  type: MessageType;
+  payload: object;
 }
-;
 export interface ShutdownMessage extends BaseMessage {
-  type: 'shutdown'
-  payload: {signal: string, ongoingJobs: OngoingJobs}
+  type: 'shutdown';
+  payload: { signal: string; ongoingJobs: OngoingJobs };
 }
-;
 export interface JobTimeoutMessage extends BaseMessage {
-  type: 'jobTimeout', payload: {origin: string}
+  type: 'jobTimeout';
+  payload: { origin: string };
 }
 export interface AskCurCapMessage extends BaseMessage {
-  type: 'askCurCap'
+  type: 'askCurCap';
 }
-;
 export interface RepCurCapMessage extends BaseMessage {
-  type: 'repCurCap', payload: JobCapacity
+  type: 'repCurCap';
+  payload: JobCapacity;
 }
-;
 export interface AskJobsMessage extends BaseMessage {
-  type: 'askJobs', payload: JobCapacity
+  type: 'askJobs';
+  payload: JobCapacity;
 }
-;
 export interface DoJobMessage extends BaseMessage {
-  type: 'doJob', payload: Exclude<JobRequest, ResourceCrawlJobRequest>
+  type: 'doJob';
+  payload: Exclude<JobRequest, ResourceCrawlJobRequest>;
 }
-;
 export interface JobDoneMessage extends BaseMessage {
-  type: 'jobDone', payload: JobResult
+  type: 'jobDone';
+  payload: JobResult;
 }
-;
 export interface NoCapacityMessage extends BaseMessage {
-  type: 'noCapacity',
+  type: 'noCapacity';
   payload: {
-    origin: string,
-    jobType: Exclude<JobType, 'resourceCrawl'>,
-    jobId: number
-  }
+    origin: string;
+    jobType: Exclude<JobType, 'resourceCrawl'>;
+    jobId: number;
+  };
 }
-;
 export interface AlreadyBeingDoneMessage extends BaseMessage {
-  type: 'alreadyBeingDone',
+  type: 'alreadyBeingDone';
   payload: {
-    origin: string,
-    jobType: Exclude<JobType, 'resourceCrawl'>,
-    jobId: number
-  }
+    origin: string;
+    jobType: Exclude<JobType, 'resourceCrawl'>;
+    jobId: number;
+  };
 }
-;
-export type Message = ShutdownMessage|JobTimeoutMessage|AskCurCapMessage|
-    RepCurCapMessage|AskJobsMessage|DoJobMessage|JobDoneMessage|
-    NoCapacityMessage|AlreadyBeingDoneMessage;
+export type Message =
+  | ShutdownMessage
+  | JobTimeoutMessage
+  | AskCurCapMessage
+  | RepCurCapMessage
+  | AskJobsMessage
+  | DoJobMessage
+  | JobDoneMessage
+  | NoCapacityMessage
+  | AlreadyBeingDoneMessage;
 
 export class WorkerPubSub {
   w: Worker;
@@ -103,10 +118,10 @@ export class WorkerPubSub {
   }
 
   exitHandler = (opts = {}) => {
-    return ({signal}: {signal: string}) => {
+    return ({ signal }: { signal: string }) => {
       this.pub({
-        type : 'shutdown',
-        payload : {...opts, signal, ongoingJobs : this.w.currentJobs}
+        type: 'shutdown',
+        payload: { ...opts, signal, ongoingJobs: this.w.currentJobs },
       });
       process.exit(signal ? 1 : 0);
     };
@@ -114,18 +129,23 @@ export class WorkerPubSub {
 
   signalHandler = () => {
     return () => this.reportCurrentCapacity();
-  }
+  };
 
-  async start(){
+  async start() {
     log.info('Started');
+
+    // connect to db
+    await this.w.connect();
+    // connect to redis
     await this.connect();
+
     this.reportCurrentCapacity();
     if (config.periodicallyRepCurCap) {
       const interval = config.periodicallyRepCurCap;
       const initDelay = 1000 * (Math.floor(Math.random() * 20) + 1);
-      setTimeout(
-          () => { setInterval(() => this.reportCurrentCapacity(), interval); },
-          initDelay);
+      setTimeout(() => {
+        setInterval(() => this.reportCurrentCapacity(), interval);
+      }, initDelay);
     }
   }
 
@@ -140,12 +160,15 @@ export class WorkerPubSub {
     if (config.http.debug) {
       this._http = this._redisClient.duplicate();
       await this._http.connect();
-      this.w.on('httpDebug',
-                ev => this._http.publish(config.http.debug.pubsubChannel,
-                                         JSON.stringify(ev, null, 2)));
+      this.w.on('httpDebug', (ev) =>
+        this._http.publish(
+          config.http.debug.pubsubChannel,
+          JSON.stringify(ev, null, 2)
+        )
+      );
     }
 
-    process.on('SIGINT', this.exitHandler({signal : 'SIGINT'}));
+    process.on('SIGINT', this.exitHandler({ signal: 'SIGINT' }));
     process.on('SIGUSR1', this.signalHandler());
     process.on('SIGUSR2', this.signalHandler());
     process.on('uncaughtException', (...args) => {
@@ -176,40 +199,57 @@ export class WorkerPubSub {
 
     this._pubChannel = config.pubsub.workers.from + this.w.wId;
     log.pubsub?.(`Publishing to ${this._pubChannel}`);
-    log.pubsub?.(
-        'Subscribing to',
-        [ config.pubsub.manager.from, config.pubsub.workers.to + this.w.wId ]);
-    this._sub.subscribe(config.pubsub.manager.from,
-                        handleMessage(config.pubsub.manager.from));
-    this._sub.subscribe(config.pubsub.workers.to + this.w.wId,
-                        handleMessage(config.pubsub.workers.to + this.w.wId));
+    log.pubsub?.('Subscribing to', [
+      config.pubsub.manager.from,
+      config.pubsub.workers.to + this.w.wId,
+    ]);
+    this._sub.subscribe(
+      config.pubsub.manager.from,
+      handleMessage(config.pubsub.manager.from)
+    );
+    this._sub.subscribe(
+      config.pubsub.workers.to + this.w.wId,
+      handleMessage(config.pubsub.workers.to + this.w.wId)
+    );
   }
 
-  pub({type, payload}: Message) {
+  pub({ type, payload }: Message) {
     log.pubsub?.(
-        'Publishing message to ' + this._pubChannel.replace(/-.*$/, ''), type);
+      'Publishing message to ' + this._pubChannel.replace(/-.*$/, ''),
+      type
+    );
     if (Object.keys(payload).length) {
       log.debug('', payload);
     }
-    this._pub.publish(this._pubChannel, JSON.stringify({type, payload}));
+    this._pub.publish(this._pubChannel, JSON.stringify({ type, payload }));
   }
 
   async doJob(job: Exclude<JobRequest, ResourceCrawlJobRequest>) {
     const origin = job.type === 'domainCrawl' ? job.domain.origin : job.origin;
     if (this.w.alreadyBeingDone(origin, job.type)) {
-      log.error(`Job ${job.type} on ${origin} already being done, so job #${job.jobId} was refused.`);
-      this.pub({type : 'alreadyBeingDone', payload: {jobType: job.type, origin, jobId: job.jobId}});
+      log.error(
+        `Job ${job.type} on ${origin} already being done, so job #${job.jobId} was refused.`
+      );
+      this.pub({
+        type: 'alreadyBeingDone',
+        payload: { jobType: job.type, origin, jobId: job.jobId },
+      });
       return;
     }
     if (!this.w.hasCapacity(job.type)) {
-      log.error(`No capacity for job ${job.type} on ${origin}, so job #${job.jobId} was refused.`);
-      this.pub({type : 'noCapacity', payload: {jobType: job.type, origin, jobId: job.jobId}});
+      log.error(
+        `No capacity for job ${job.type} on ${origin}, so job #${job.jobId} was refused.`
+      );
+      this.pub({
+        type: 'noCapacity',
+        payload: { jobType: job.type, origin, jobId: job.jobId },
+      });
       return;
     }
 
     if (job.type === 'robotsCheck') {
       const res = await this.w.checkRobots(job.jobId, job.origin);
-      this.pub({type : 'jobDone', payload : res});
+      this.pub({ type: 'jobDone', payload: res });
       // this.reportCurrentCapacity();
       return;
     }
@@ -218,18 +258,20 @@ export class WorkerPubSub {
       let i = 0;
       for await (const x of this.w.crawlDomain(job)) {
         log.info(
-            `Finished resourceCrawl ${++i}/${total} of ${job.domain.origin} (job #${job.jobId})`);
-        this.pub({type : 'jobDone', payload : x});
+          `Finished resourceCrawl ${++i}/${total} of ${job.domain.origin
+          } (job #${job.jobId})`
+        );
+        this.pub({ type: 'jobDone', payload: x });
       }
       this.pub({
-        type : 'jobDone',
-        payload : {
+        type: 'jobDone',
+        payload: {
           jobId: job.jobId,
-          status : 'ok' as const,
-          jobType : 'domainCrawl',
-          origin : job.domain.origin,
-          details : {}
-        }
+          status: 'ok' as const,
+          jobType: 'domainCrawl',
+          origin: job.domain.origin,
+          details: {},
+        },
       });
       // this.reportCurrentCapacity();
       return;
@@ -238,11 +280,11 @@ export class WorkerPubSub {
 
   reportCurrentCapacity() {
     const jc = this.w.jobCapacity;
-    this.pub({type : 'repCurCap', payload : jc});
+    this.pub({ type: 'repCurCap', payload: jc });
   }
 
   askJobs() {
     const jc = this.w.jobCapacity;
-    this.pub({type : 'askJobs', payload : jc});
+    this.pub({ type: 'askJobs', payload: jc });
   }
-};
+}

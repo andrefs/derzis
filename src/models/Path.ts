@@ -53,10 +53,7 @@ const schema = new Schema<IPath, {}, IPathMethods>(
       elems: [urlType],
       count: Number,
     },
-    lastPredicate: {
-      type: urlType,
-      required: false,
-    },
+    lastPredicate: urlType,
     nodes: {
       elems: [urlType],
       count: Number,

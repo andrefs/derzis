@@ -3,6 +3,7 @@ import { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { Robot } from 'robots-parser';
+import * as db from './db';
 import { IResource, Resource } from '@derzis/models';
 
 import Axios from './axios';
@@ -139,6 +140,11 @@ export class Worker extends EventEmitter {
   crawlTs!: Date;
   crawlCounter!: number;
 
+  async connect() {
+    log.info('Connecting to MongoDB');
+    await db.connect();
+  }
+
   constructor() {
     super();
     this.wId = uuidv4();
@@ -198,11 +204,13 @@ export class Worker extends EventEmitter {
   }
 
   async *crawlDomain({ jobId, domain, resources }: DomainCrawlJobRequest) {
+    console.log('XXXXXXXx 1');
     this.crawlTs = new Date();
     this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;
     const robotsText = domain?.robots?.text || '';
     const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
+    console.log('XXXXXXXx 2');
 
     this.emit('httpDebug', {
       type: 'delay',
@@ -210,15 +218,20 @@ export class Worker extends EventEmitter {
       delay: domain.crawl.delay,
     });
     delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
+    console.log('XXXXXXXx 3');
 
     for (const r of resources) {
+      console.log('XXXXXXXx 4');
       const res = await this.crawlResource(jobId, domain.origin, r.url, robots);
       if (!res) {
         break;
       }
+      console.log('XXXXXXXx 5');
       yield res;
     }
+    console.log('XXXXXXXx 6');
     delete this.currentJobs.domainCrawl[domain.origin];
+    console.log('XXXXXXXx 7');
   }
 
   async getResourceFromCache(url: string) {
@@ -231,14 +244,17 @@ export class Worker extends EventEmitter {
     url: string,
     robots: Robot
   ): Promise<CrawlResourceResult> {
+    console.log('XXXXXXXx 4.1');
     const jobInfo = {
       jobType: 'resourceCrawl' as const,
       jobId,
       origin: origin,
       url,
     };
+    console.log('XXXXXXXx 4.2');
     const crawlId = { domainTs: this.crawlTs, counter: this.crawlCounter };
     if (this.jobsTimedout[origin]) {
+      console.log('XXXXXXXx 4.3');
       delete this.jobsTimedout[origin];
       delete this.currentJobs.domainCrawl[origin];
       log.warn(
@@ -251,11 +267,14 @@ export class Worker extends EventEmitter {
         err: new JobTimeoutError(),
       };
     }
+    console.log('XXXXXXXx 4.4');
     this.crawlCounter++;
     this.currentJobs.domainCrawl[origin] = true;
     let jobResult: CrawlResourceResult;
 
+    console.log('XXXXXXXx 4.5');
     if (robots.isDisallowed(url, config.http.userAgent)) {
+      console.log('XXXXXXXx 4.6');
       return {
         ...jobInfo,
         status: 'not_ok' as const,
@@ -263,9 +282,12 @@ export class Worker extends EventEmitter {
         err: new RobotsForbiddenError(),
       };
     }
+    console.log('XXXXXXXx 4.7', { url });
 
     let cachedRes = await this.getResourceFromCache(url);
+    console.log('XXXXXXXx 4.8');
     if (cachedRes) {
+      console.log('XXXXXXXx 4.9');
       return {
         ...jobInfo,
         status: 'ok',
@@ -278,15 +300,18 @@ export class Worker extends EventEmitter {
       } as CrawlResourceResultOk;
     }
 
+    console.log('XXXXXXXx 4.10');
     let res = await this.fetchResource(url);
 
     if (res.status === 'ok') {
+      console.log('XXXXXXXx 4.11');
       jobResult = {
         ...jobInfo,
         status: 'ok',
         details: { crawlId, triples: res.triples, ts: res.ts },
       };
     } else {
+      console.log('XXXXXXXx 4.12');
       jobResult = {
         ...jobInfo,
         status: 'not_ok' as const,
@@ -294,6 +319,7 @@ export class Worker extends EventEmitter {
         err: res.err,
       };
     }
+    console.log('XXXXXXXx 4.13');
     return jobResult as CrawlResourceResult;
   }
 

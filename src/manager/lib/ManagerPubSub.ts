@@ -32,7 +32,6 @@ class ManagerPubSub {
 
   async start() {
     log.info('Started');
-    log.info('Connecting to MongoDB');
     await this._m.connect();
     await this._m.jobs.cancelAllJobs();
     await this.connect();
