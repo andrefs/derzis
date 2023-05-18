@@ -1,6 +1,6 @@
 {
   "name": "derzis-common",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Derzis: a Linked Data crawler",
   "author": "André Santos <andrefs@andrefs.com>",
   "license": "MIT",
