@@ -34,7 +34,6 @@ COPY --from=build /home/node/derzis/package.json ./package.json
 WORKDIR /usr/src/derzis/src/worker
 
 
-
 USER 1000
 CMD ["bin/worker.js"]
 

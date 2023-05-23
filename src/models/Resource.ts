@@ -96,6 +96,11 @@ schema.virtual('process', {
 });
 
 schema.index({
+  url: 1,
+  status: 1,
+});
+
+schema.index({
   domain: 1,
   status: 1,
   minPathLength: 1,

@@ -5,7 +5,7 @@ services:
     build:
       context: ./
       dockerfile: ./Dockerfile.worker
-    #scale: 3
+    # scale: 3
     depends_on:
       - pubsub
       - db

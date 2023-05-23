@@ -142,7 +142,8 @@ export class Worker extends EventEmitter {
 
   async connect() {
     log.info('Connecting to MongoDB');
-    await db.connect();
+    const conn = await db.connect();
+    log.info(`MongoDB connection ready state: ${conn.connection.readyState}`);
   }
 
   constructor() {
@@ -235,7 +236,10 @@ export class Worker extends EventEmitter {
   }
 
   async getResourceFromCache(url: string) {
-    return Resource.findOne({ url });
+    console.log('XXXXXXXXXXX 4.7.1');
+    const res = await Resource.findOne({ url, status: 'done' });
+    console.log('XXXXXXXXXXX 4.7.2', { res });
+    return res;
   }
 
   async crawlResource(
@@ -244,7 +248,7 @@ export class Worker extends EventEmitter {
     url: string,
     robots: Robot
   ): Promise<CrawlResourceResult> {
-    console.log('XXXXXXXx 4.1');
+    console.log('XXXXXXXx 4.1', { url });
     const jobInfo = {
       jobType: 'resourceCrawl' as const,
       jobId,

@@ -25,7 +25,7 @@ export default {
       name: getSecret('MONGODB_NAME') || process.env.MONGODB_NAME || 'drzs-dev',
       user: getSecret('MONGODB_USER') || process.env.MONGODB_USER || undefined,
       pass: getSecret('MONGODB_PASS') || process.env.MONGODB_PASS || undefined,
-      debug: false,
+      debug: true,
     },
   },
   graph: {
