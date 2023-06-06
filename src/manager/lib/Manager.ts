@@ -170,35 +170,49 @@ export default class Manager {
     }
   }
 
+  shouldCreateNewPath(t: ITriple, path: IPath) {
+    // triple is reflexive
+    if (t.subject === t.object) {
+      return false;
+    }
+    // triple is not connected to path
+    if (t.subject !== path.head.url && t.object !== path.head.url) {
+      return false;
+    }
+
+    const newHeadUrl: string =
+      t.subject === path.head.url ? t.object : t.subject;
+    const prop: string = t.predicate;
+
+    // new head already contained in path
+    if (path.nodes.elems.includes(newHeadUrl)) {
+      return false;
+    }
+    // new predicate and path already has max preds
+    if (
+      !path.predicates.elems.includes(prop) &&
+      path.predicates.count >= config.graph.maxPathProps
+    ) {
+      return false;
+    }
+    // path already has max length
+    if (path.nodes.count >= config.graph.maxPathLength) {
+      return false;
+    }
+    return true;
+  }
+
   async addHeads(path: IPath, triples: ITriple[]) {
     let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
 
     for (const t of triples) {
-      if (t.subject === t.object) {
-        continue;
-      }
-      if (t.subject !== path.head.url && t.object !== path.head.url) {
+      if (!this.shouldCreateNewPath(t, path)) {
         continue;
       }
 
       const newHeadUrl: string =
         t.subject === path.head.url ? t.object : t.subject;
       const prop: string = t.predicate;
-      // new head already contained in path
-      if (path.nodes.elems.includes(newHeadUrl)) {
-        continue;
-      }
-      // new predicate and path already has max preds
-      if (
-        !path.predicates.elems.includes(prop) &&
-        path.predicates.count >= config.graph.maxPathProps
-      ) {
-        continue;
-      }
-      // path already has max length
-      if (path.nodes.count >= config.graph.maxPathLength) {
-        continue;
-      }
 
       newPaths[prop] = newPaths[prop] || {};
       if (!newPaths[prop][newHeadUrl]) {
