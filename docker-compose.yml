@@ -8,12 +8,12 @@ services:
     # scale: 3
     depends_on:
       - pubsub
-      - db
-    networks:
-      - pubsub
       - database
+    networks:
+      - ps
+      - db
     environment:
-      MONGODB_HOST: db
+      MONGODB_HOST: database
       REDIS_HOST: pubsub
       MAX_PATH_LENGTH: '${MAX_PATH_LENGTH}'
       MAX_PATH_PROPS: '${MAX_PATH_PROPS}'
@@ -21,7 +21,7 @@ services:
   pubsub:
     image: redis
     networks:
-      - pubsub
+      - ps
     restart: unless-stopped
     ports:
       - '6378:6379'
@@ -32,12 +32,12 @@ services:
     restart: unless-stopped
     depends_on:
       - pubsub
-      - db
-    networks:
-      - pubsub
       - database
+    networks:
+      - ps
+      - db
     environment:
-      MONGODB_HOST: db
+      MONGODB_HOST: database
       REDIS_HOST: pubsub
       MAX_PATH_LENGTH: '${MAX_PATH_LENGTH}'
       MAX_PATH_PROPS: '${MAX_PATH_PROPS}'
@@ -48,8 +48,8 @@ services:
     ports:
       - '3000:3000'
       - '5432:5432'
-  db:
-    image: mongo
+  database:
+    image: mongo:4
     restart: unless-stopped
       #environment:
       #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
@@ -61,7 +61,7 @@ services:
     ports:
       - '27018:27017'
     networks:
-      - database
+      - db
         #secrets:
         #  MONGODB_PORT:
         #    external: true
@@ -70,5 +70,5 @@ services:
         #  MONGODB_PASS:
         #    external: true
 networks:
-  database:
-  pubsub:
+  db:
+  ps:
