@@ -6,8 +6,8 @@
   "license": "MIT",
   "types": "index.d.ts",
   "scripts": {
-    "test": "node --experimental-vm-modules $(npm bin jest) --coverage",
-    "test:watch": "node --experimental-vm-modules $(npm bin jest) --coverage --watch",
+    "test": "NODE_OPTIONS=--experimental-vm-modules npx jest ",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules npx jest --watch",
     "build": "tsc --project tsconfig.json && tsconfig-replace-paths --project tsconfig.json && cp -r src/manager/views dist/src/manager/views",
     "postbuild": "cp package.json dist/package.json && cp package-lock.json dist/package-lock.json && cd dist && npm install",
     "typecheck": "tsc -b tsconfig.json",
@@ -21,10 +21,16 @@
     "extensionsToTreatAsEsm": [
       ".ts"
     ],
-    "globals": {
-      "ts-jest": {
-        "useESM": true
-      }
+    "modulePathIgnorePatterns": [
+      "<rootDir>/dist/"
+    ],
+    "transform": {
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
     },
     "testEnvironment": "node",
     "moduleNameMapper": {
