@@ -1,4 +1,7 @@
-import {isValid} from './url'
+import { isValid } from './url';
+import { jest } from '@jest/globals';
+
+jest.useFakeTimers();
 
 describe('URL isValid', () => {
   it('returns true on valid URL', async () => {
@@ -7,7 +10,6 @@ describe('URL isValid', () => {
 
     expect(res).toBeTruthy();
   });
-
 
   it('returns false on invalid URL', async () => {
     const notUrl = 'xasxass///';

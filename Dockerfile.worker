@@ -3,29 +3,36 @@
 
 # Build stage
 
-FROM node:14 as build
+FROM node:20 as build
 
 ENV NODE_ENV=production
-WORKDIR /home/node/derzis/worker
+WORKDIR /home/node/derzis/
 
-COPY --chown=node:node ["common/package.json", "common/yarn.lock", "../common/"]
-RUN cd ../common && yarn install --frozen-lockfile
 
-COPY --chown=node:node ["worker/package.json", "worker/yarn.lock", "./"]
-RUN yarn install --frozen-lockfile
+COPY --chown=node:node ["src/", "./src/"]
+
+COPY --chown=node:node ["package.json", "package-lock.json", "tsconfig.json", "./"]
+RUN npm install --include=dev
+
+RUN npm run build
+RUN rm -rf node_modules
+
+RUN npm ci --only=production
 
 
 # Run stage
 
-FROM gcr.io/distroless/nodejs:14
+FROM gcr.io/distroless/nodejs20-debian11
 ENV NODE_ENV=production
 
-COPY --from=build /home/node/derzis /usr/src/derzis
-WORKDIR /usr/src/derzis/worker
+WORKDIR /usr/src/derzis/
 
+COPY --from=build /home/node/derzis/dist/src ./src/
+COPY --from=build /home/node/derzis/node_modules ./node_modules/
+COPY --from=build /home/node/derzis/package.json ./package.json
 
-COPY ./common ../common/
-COPY ./worker ./
+WORKDIR /usr/src/derzis/src/worker
+
 
 USER 1000
 CMD ["bin/worker.js"]

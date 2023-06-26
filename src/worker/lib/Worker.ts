@@ -1,8 +1,10 @@
 import config from '@derzis/config';
-import {AxiosInstance, AxiosResponse} from "axios";
-import Bluebird from "bluebird";
+import { AxiosInstance, AxiosResponse } from 'axios';
+import Bluebird from 'bluebird';
 import EventEmitter from 'events';
-import robotsParser, {Robot} from 'robots-parser';
+import robotsParser, { Robot } from 'robots-parser';
+import * as db from './db';
+import { IResource, Resource } from '@derzis/models';
 
 import Axios from './axios';
 
@@ -18,94 +20,114 @@ import {
   MimeTypeError,
   RobotsForbiddenError,
   TooManyRedirectsError,
-  AxiosError
+  AxiosError,
 } from '@derzis/common';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
-import {v4 as uuidv4} from 'uuid';
-import * as RDF from "@rdfjs/types";
-import {DomainCrawlJobRequest} from "./WorkerPubSub";
-import {OngoingJobs} from "@derzis/manager";
+import { v4 as uuidv4 } from 'uuid';
+import * as RDF from '@rdfjs/types';
+import { DomainCrawlJobRequest } from './WorkerPubSub';
+import { OngoingJobs } from '@derzis/manager';
 import {
   AxiosResponseHeaders,
   fetchRobots,
   findRedirectUrl,
   handleHttpError,
-  HttpRequestResult
-} from "./worker-utils";
+  HttpRequestResult,
+} from './worker-utils';
 
-export type JobType = 'domainCrawl'|'robotsCheck'|'resourceCrawl';
+export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
+
 export interface BaseJobResult {
-  status: 'ok'|'not_ok', jobType: JobType;
-  origin: string,
-  jobId: number
+  status: 'ok' | 'not_ok';
+  jobType: JobType;
+  origin: string;
+  jobId: number;
 }
-;
 export interface JobResultOk extends BaseJobResult {
-  status: 'ok', details: object;
+  status: 'ok';
+  details: object;
 }
-;
 export interface JobResultError extends BaseJobResult {
-  status: 'not_ok', err: object;
+  status: 'not_ok';
+  err: object;
   details?: object;
 }
-;
 
 export type CrawlResourceResultDetails = {
-  crawlId: {domainTs: Date, counter: number},
-  ts: number,
+  crawlId: { domainTs: Date; counter: number };
+  ts: number;
 };
 export type BaseCrawlResourceResult = {
-  jobType: 'resourceCrawl'; url : string; details : CrawlResourceResultDetails;
-}&BaseJobResult;
+  jobType: 'resourceCrawl';
+  url: string;
+  details: CrawlResourceResultDetails;
+} & BaseJobResult;
+
 export type CrawlResourceResultOk = {
-  details: {triples: RDF.Quad[]};
-}&BaseCrawlResourceResult&JobResultOk;
+  details: { triples: RDF.Quad[] };
+} & BaseCrawlResourceResult &
+  JobResultOk;
+
 export type CrawlResourceResultError = {
-  err: WorkerError
-}&BaseCrawlResourceResult&JobResultError;
+  err: WorkerError;
+} & BaseCrawlResourceResult &
+  JobResultError;
+
 export type CrawlResourceResult =
-    CrawlResourceResultOk|CrawlResourceResultError;
+  | CrawlResourceResultOk
+  | CrawlResourceResultError;
 
 export type BaseRobotsCheckResult = {
-  jobType: 'robotsCheck',
-  url: string,
-}&BaseJobResult;
+  jobType: 'robotsCheck';
+  url: string;
+} & BaseJobResult;
 export type RobotsCheckResultOk = {
-  details:
-      {endTime: number, elapsedTime: number, robotsText: string, status: number}
-}&BaseRobotsCheckResult&JobResultOk;
+  details: {
+    endTime: number;
+    elapsedTime: number;
+    robotsText: string;
+    status: number;
+  };
+} & BaseRobotsCheckResult &
+  JobResultOk;
 export type RobotsCheckResultError = {
-  err: WorkerError,
-  details
-  ?: {endTime?: number, elapsedTime?: number, message?: string, stack?: any}
-}&BaseRobotsCheckResult&JobResultError;
-export type RobotsCheckResult = RobotsCheckResultOk|RobotsCheckResultError;
+  err: WorkerError;
+  details?: {
+    endTime?: number;
+    elapsedTime?: number;
+    message?: string;
+    stack?: any;
+  };
+} & BaseRobotsCheckResult &
+  JobResultError;
+export type RobotsCheckResult = RobotsCheckResultOk | RobotsCheckResultError;
 
 export type BaseCrawlDomainResult = {
-  jobType: 'domainCrawl'
-}&BaseJobResult;
-export type BaseCrawlDomainResultOk = BaseCrawlDomainResult&JobResultOk;
-export type BaseCrawlDomainResultError = BaseCrawlDomainResult&JobResultError;
+  jobType: 'domainCrawl';
+} & BaseJobResult;
+export type BaseCrawlDomainResultOk = BaseCrawlDomainResult & JobResultOk;
+export type BaseCrawlDomainResultError = BaseCrawlDomainResult & JobResultError;
 export type CrawlDomainResult =
-    BaseCrawlDomainResultOk|BaseCrawlDomainResultError;
+  | BaseCrawlDomainResultOk
+  | BaseCrawlDomainResultError;
 
-export type JobResult = CrawlResourceResult|RobotsCheckResult|CrawlDomainResult;
+export type JobResult =
+  | CrawlResourceResult
+  | RobotsCheckResult
+  | CrawlDomainResult;
 
 export interface Availability {
-  currentCapacity: JobCapacity, currentJobs: OngoingJobs
+  currentCapacity: JobCapacity;
+  currentJobs: OngoingJobs;
 }
-;
-
 export interface JobCapacity {
-  domainCrawl: {capacity: number; resourcesPerDomain : number;};
-  robotsCheck: {capacity: number;};
+  domainCrawl: { capacity: number; resourcesPerDomain: number };
+  robotsCheck: { capacity: number };
 }
-;
-
 interface JobsTimedOut {
-  [domain: string]: boolean
+  [domain: string]: boolean;
 }
 
 export class Worker extends EventEmitter {
@@ -118,6 +140,12 @@ export class Worker extends EventEmitter {
   crawlTs!: Date;
   crawlCounter!: number;
 
+  async connect() {
+    log.info('Connecting to MongoDB');
+    const conn = await db.connect();
+    log.info(`MongoDB connection ready state: ${conn.connection.readyState}`);
+  }
+
   constructor() {
     super();
     this.wId = uuidv4();
@@ -125,15 +153,14 @@ export class Worker extends EventEmitter {
     log = createLogger(this.wShortId);
     axios = Axios(log);
     this.jobCapacity = config.jobs;
-    this.currentJobs = {domainCrawl : {}, robotsCheck : {}};
-    this.accept =
-        acceptedMimeTypes
-            .map((m, i) => `${m}; q=${Math.round(100 / (i + 2)) / 100}`)
-            .join(', ');
+    this.currentJobs = { domainCrawl: {}, robotsCheck: {} };
+    this.accept = acceptedMimeTypes
+      .map((m, i) => `${m}; q=${Math.round(100 / (i + 2)) / 100}`)
+      .join(', ');
     this.jobsTimedout = {};
   }
 
-  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl'>){
+  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl'>) {
     return !!this.currentJobs[jobType][domain];
   }
 
@@ -143,27 +170,29 @@ export class Worker extends EventEmitter {
     const curDomCrawl = Object.keys(this.currentJobs.domainCrawl).length;
     const curRobCheck = Object.keys(this.currentJobs.robotsCheck).length;
     const av = {
-      domainCrawl : {
-        capacity : domCrawlCap - curDomCrawl,
-        resourcesPerDomain : this.jobCapacity.domainCrawl.resourcesPerDomain
+      domainCrawl: {
+        capacity: domCrawlCap - curDomCrawl,
+        resourcesPerDomain: this.jobCapacity.domainCrawl.resourcesPerDomain,
       },
-      robotsCheck : {
-        capacity : robCheckCap - curRobCheck,
-      }
+      robotsCheck: {
+        capacity: robCheckCap - curRobCheck,
+      },
     };
     return av;
   }
 
   status(): Availability {
     return {
-      currentCapacity : this.currentCapacity(),
-      currentJobs : this.currentJobs
+      currentCapacity: this.currentCapacity(),
+      currentJobs: this.currentJobs,
     };
   }
 
-  hasCapacity(jobType: 'domainCrawl'|'robotsCheck'): boolean {
-    return Object.keys(this.currentJobs[jobType]).length <
-           this.jobCapacity[jobType].capacity;
+  hasCapacity(jobType: 'domainCrawl' | 'robotsCheck'): boolean {
+    return (
+      Object.keys(this.currentJobs[jobType]).length <
+      this.jobCapacity[jobType].capacity
+    );
   }
 
   async checkRobots(jobId: number, origin: string): Promise<RobotsCheckResult> {
@@ -172,21 +201,22 @@ export class Worker extends EventEmitter {
     const url = origin + '/robots.txt';
     const res = await fetchRobots(url, axios);
     delete this.currentJobs.robotsCheck[origin];
-    return {...res, url, jobId, origin, jobType : 'robotsCheck'};
-  };
+    return { ...res, url, jobId, origin, jobType: 'robotsCheck' };
+  }
 
-  async * crawlDomain({jobId, domain, resources}: DomainCrawlJobRequest) {
+  async *crawlDomain({ jobId, domain, resources }: DomainCrawlJobRequest) {
     this.crawlTs = new Date();
     this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;
     const robotsText = domain?.robots?.text || '';
     const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
 
-    this.emit(
-        'httpDebug',
-        {type : 'delay', domain : domain.origin, delay : domain.crawl.delay});
-    delay =
-        setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
+    this.emit('httpDebug', {
+      type: 'delay',
+      domain: domain.origin,
+      delay: domain.crawl.delay,
+    });
+    delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
 
     for (const r of resources) {
       const res = await this.crawlResource(jobId, domain.origin, r.url, robots);
@@ -198,19 +228,34 @@ export class Worker extends EventEmitter {
     delete this.currentJobs.domainCrawl[domain.origin];
   }
 
-  async crawlResource(jobId: number, origin: string, url: string,
-                      robots: Robot): Promise<CrawlResourceResult> {
-    const jobInfo = {jobType : 'resourceCrawl' as const, jobId, origin : origin, url};
-    const crawlId = {domainTs : this.crawlTs, counter : this.crawlCounter};
+  async getResourceFromCache(url: string) {
+    return Resource.findOne({ url, status: 'done' });
+  }
+
+  async crawlResource(
+    jobId: number,
+    origin: string,
+    url: string,
+    robots: Robot
+  ): Promise<CrawlResourceResult> {
+    const jobInfo = {
+      jobType: 'resourceCrawl' as const,
+      jobId,
+      origin: origin,
+      url,
+    };
+    const crawlId = { domainTs: this.crawlTs, counter: this.crawlCounter };
     if (this.jobsTimedout[origin]) {
       delete this.jobsTimedout[origin];
       delete this.currentJobs.domainCrawl[origin];
-      log.warn(`Stopping domain ${origin} because Manager removed job #${jobId})`);
+      log.warn(
+        `Stopping domain ${origin} because Manager removed job #${jobId})`
+      );
       return {
         ...jobInfo,
-        status : 'not_ok' as const,
-        details : {crawlId, ts : Date.now()},
-        err : new JobTimeoutError()
+        status: 'not_ok' as const,
+        details: { crawlId, ts: Date.now() },
+        err: new JobTimeoutError(),
       };
     }
     this.crawlCounter++;
@@ -220,10 +265,24 @@ export class Worker extends EventEmitter {
     if (robots.isDisallowed(url, config.http.userAgent)) {
       return {
         ...jobInfo,
-        status : 'not_ok' as const,
-        details : {crawlId, ts : Date.now()},
-        err : new RobotsForbiddenError()
+        status: 'not_ok' as const,
+        details: { crawlId, ts: Date.now() },
+        err: new RobotsForbiddenError(),
       };
+    }
+
+    let cachedRes = await this.getResourceFromCache(url);
+    if (cachedRes) {
+      return {
+        ...jobInfo,
+        status: 'ok',
+        details: {
+          crawlId,
+          triples: cachedRes.triples.map((t) => t.toObject()),
+          ts: crawlId.domainTs.getTime(),
+          cached: true,
+        },
+      } as CrawlResourceResultOk;
     }
 
     let res = await this.fetchResource(url);
@@ -231,15 +290,15 @@ export class Worker extends EventEmitter {
     if (res.status === 'ok') {
       jobResult = {
         ...jobInfo,
-        status : 'ok',
-        details : {crawlId, triples : res.triples, ts : res.ts}
+        status: 'ok',
+        details: { crawlId, triples: res.triples, ts: res.ts },
       };
     } else {
       jobResult = {
         ...jobInfo,
-        status : 'not_ok' as const,
-        details : {crawlId, ts : Date.now()},
-        err : res.err
+        status: 'not_ok' as const,
+        details: { crawlId, ts: Date.now() },
+        err: res.err,
       };
     }
     return jobResult as CrawlResourceResult;
@@ -248,84 +307,89 @@ export class Worker extends EventEmitter {
   async fetchResource(url: string) {
     let res = await this.getHttpContent(url);
     if (res.status === 'ok') {
-      const {triples, errors} = await parseRdf(res.rdf, res.mime);
+      const { triples, errors } = await parseRdf(res.rdf, res.mime);
       // TODO do something with errors
-      return {...res, triples};
+      return { ...res, triples };
     }
     return res;
   }
 
-  getHttpContent = async(url: string, redirect = 0):
-      Promise<HttpRequestResult> => {
-        const resp = await this.makeHttpRequest(url);
-        if (resp.status === 'not_ok') {
-          return resp;
-        }
-        const res = await this.handleHttpResponse(resp.res, redirect, url);
-        return res?.status === 'ok' ? res : handleHttpError(url, res.err);
-      }
+  getHttpContent = async (
+    url: string,
+    redirect = 0
+  ): Promise<HttpRequestResult> => {
+    const resp = await this.makeHttpRequest(url);
+    if (resp.status === 'not_ok') {
+      return resp;
+    }
+    const res = await this.handleHttpResponse(resp.res, redirect, url);
+    return res?.status === 'ok' ? res : handleHttpError(url, res.err);
+  };
 
-  makeHttpRequest =
-      async (url: string) => {
+  makeHttpRequest = async (url: string) => {
     const timeout = config.http.domainCrawl.timeouts || 10 * 1000;
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const headers = {
-      'User-Agent' : config.http.userAgent,
-      'Accept' : this.accept
+      'User-Agent': config.http.userAgent,
+      Accept: this.accept,
     };
     await delay();
     this.emitHttpDebugEvent(url);
     const opts = {
       headers,
       // prevent axios of parsing [ld+]json
-      transformResponse : (x: any) => x,
+      transformResponse: (x: any) => x,
       timeout,
-      maxRedirects
+      maxRedirects,
     };
     try {
       const res = await axios.get(url, opts);
-      return {status : 'ok' as const, res : res as MinimalAxiosResponse};
+      return { status: 'ok' as const, res: res as MinimalAxiosResponse };
     } catch (err) {
-      return { status: 'not_ok' as const, url, err: new AxiosError(err) }
+      return { status: 'not_ok' as const, url, err: new AxiosError(err) };
     }
-  }
+  };
 
-  emitHttpDebugEvent =
-      (url: string) => {
-        this.emit('httpDebug', {
-          wId : this.wId,
-          type : 'request',
-          url,
-          ts : new Date(),
-          domain : new URL(url).origin
-        });
-      }
+  emitHttpDebugEvent = (url: string) => {
+    this.emit('httpDebug', {
+      wId: this.wId,
+      type: 'request',
+      url,
+      ts: new Date(),
+      domain: new URL(url).origin,
+    });
+  };
 
-  handleHttpResponse =
-      async (resp: MinimalAxiosResponse, redirect: number, url: string) => {
+  handleHttpResponse = async (
+    resp: MinimalAxiosResponse,
+    redirect: number,
+    url: string
+  ) => {
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const mime = contentType.parse(resp.headers['content-type']).type;
-    if (!acceptedMimeTypes.some(aMT => mime === aMT)) {
-      const newUrl =
-          findRedirectUrl(resp.headers as AxiosResponseHeaders, resp.data);
+    if (!acceptedMimeTypes.some((aMT) => mime === aMT)) {
+      const newUrl = findRedirectUrl(
+        resp.headers as AxiosResponseHeaders,
+        resp.data
+      );
       if (!newUrl) {
-        return {status : 'not_ok' as const, err : new MimeTypeError(mime)};
+        return { status: 'not_ok' as const, err: new MimeTypeError(mime) };
       }
       if (redirect >= maxRedirects) {
         return {
-          status : 'not_ok' as const,
-          err : new TooManyRedirectsError(url)
+          status: 'not_ok' as const,
+          err: new TooManyRedirectsError(url),
         };
       } // TODO list of redirect URLs?
       return this.getHttpContent(newUrl, redirect + 1);
     }
     return {
-      status : 'ok' as const,
-      rdf : resp.data,
-      ts : Number(resp.headers['request-endTime']),
-      mime
+      status: 'ok' as const,
+      rdf: resp.data,
+      ts: Number(resp.headers['request-endTime']),
+      mime,
     };
-  }
-};
+  };
+}
 
-export type MinimalAxiosResponse = Pick<AxiosResponse<any>, 'headers'|'data'>;
+export type MinimalAxiosResponse = Pick<AxiosResponse<any>, 'headers' | 'data'>;

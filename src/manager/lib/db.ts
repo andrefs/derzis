@@ -1,16 +1,16 @@
 import config from '@derzis/config';
 import mongoose from 'mongoose';
-if(config.db.debug){
+if(config.manager.db.debug){
   mongoose.set('debug', true);
 }
 
 let auth = '';
-if(config.db.user){ auth += config.db.user+':'; }
-if(config.db.pass){ auth += config.db.pass+'@' }
+if(config.manager.db.user){ auth += config.manager.db.user+':'; }
+if(config.manager.db.pass){ auth += config.manager.db.pass+'@' }
 
-export const uri = `mongodb://${auth}${config.db.host}:${config.db.port}/${config.db.name}`
+export const uri = `mongodb://${auth}${config.manager.db.host}:${config.manager.db.port}/${config.manager.db.name}`
 
 export const connect = () => {
-  const conn = mongoose.connect(uri || 'mongodb://localhost/derzis-crawler');
+  const conn = mongoose.connect(uri || 'mongodb://localhost/drzs-mng');
   return conn;
 };

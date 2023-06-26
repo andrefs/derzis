@@ -1,44 +1,47 @@
-import {WorkerError} from '@derzis/common';
-import {jest} from '@jest/globals';
+import { WorkerError } from '@derzis/common';
+import { jest } from '@jest/globals';
 
 import {
   fetchRobots,
   findRedirectUrl,
   findUrlInHtml,
   findUrlInLinkHeader,
-  handleHttpError
+  handleHttpError,
 } from './worker-utils';
+
+jest.useFakeTimers();
 
 describe('findUrlInLinkHeader', () => {
   it('returns undefined if there are no alternate links', () => {
     const linkHeader =
-        '<http://creativecommons.org/licenses/by-sa/3.0/>; rel="license", <http://dbpedia.org/resource/Aladdin>; rev="describedby"';
+      '<http://creativecommons.org/licenses/by-sa/3.0/>; rel="license", <http://dbpedia.org/resource/Aladdin>; rev="describedby"';
     expect(findUrlInLinkHeader(linkHeader)).toBeUndefined();
   });
 
   it('returns undefined if mime type is not accepted', () => {
     const linkHeader =
-        '<http://dbpedia.org/data/Aladdin.rabelz>; rel="alternate"; type="false/rabelz"';
+      '<http://dbpedia.org/data/Aladdin.rabelz>; rel="alternate"; type="false/rabelz"';
     expect(findUrlInLinkHeader(linkHeader)).toBeUndefined();
   });
 
   it('returns a link when it finds one', () => {
     const linkHeader =
-        '<http://dbpedia.org/data/Aladdin.n3>; rel="alternate"; type="text/n3"; title="Structured Descriptor Document (N3 format)"';
+      '<http://dbpedia.org/data/Aladdin.n3>; rel="alternate"; type="text/n3"; title="Structured Descriptor Document (N3 format)"';
     expect(findUrlInLinkHeader(linkHeader)).toMatchInlineSnapshot(`
-Object {
+{
   "rel": "alternate",
   "title": "Structured Descriptor Document (N3 format)",
   "type": "text/n3",
   "uri": "http://dbpedia.org/data/Aladdin.n3",
 }
-`)
+`);
   });
 });
 
 describe('findUrlInHtml', () => {
-  it('returns undefined if mime type is not html',
-     () => { expect(findUrlInHtml('', 'false/rabelz')).toBeUndefined(); });
+  it('returns undefined if mime type is not html', () => {
+    expect(findUrlInHtml('', 'false/rabelz')).toBeUndefined();
+  });
   it('returns undefined if <link> cannot be found', () => {
     const data = `
     <html>
@@ -78,9 +81,10 @@ describe('findUrlInHtml', () => {
       </head>
     </html>
     `;
-    expect(findUrlInHtml(data, 'text/html; charset=UTF-8'))
-        .toEqual('http://dbpedia.org/data/Aladdin.n3');
-  })
+    expect(findUrlInHtml(data, 'text/html; charset=UTF-8')).toEqual(
+      'http://dbpedia.org/data/Aladdin.n3'
+    );
+  });
 });
 
 describe('findRedirectUrl', () => {
@@ -89,12 +93,12 @@ describe('findRedirectUrl', () => {
 
   it('can get url from Link header', () => {
     const headers = {
-      Link :
-          '<http://dbpedia.org/data/Aladdin.n3>; rel="alternate"; type="text/n3"',
-      'content-type' : 'text/html; charset=UTF-8'
+      Link: '<http://dbpedia.org/data/Aladdin.n3>; rel="alternate"; type="text/n3"',
+      'content-type': 'text/html; charset=UTF-8',
     };
-    expect(findRedirectUrl(headers, ''))
-        .toMatchInlineSnapshot(`"http://dbpedia.org/data/Aladdin.n3"`);
+    expect(findRedirectUrl(headers, '')).toMatchInlineSnapshot(
+      `"http://dbpedia.org/data/Aladdin.n3"`
+    );
   });
 
   it('can get url from <link> in html', () => {
@@ -105,13 +109,14 @@ describe('findRedirectUrl', () => {
       </head>
     </html>
     `;
-    expect(findRedirectUrl({'content-type' : 'text/html; charset=UTF-8'}, data))
-        .toMatchInlineSnapshot(`"http://dbpedia.org/data/Aladdin.n3"`);
+    expect(
+      findRedirectUrl({ 'content-type': 'text/html; charset=UTF-8' }, data)
+    ).toMatchInlineSnapshot(`"http://dbpedia.org/data/Aladdin.n3"`);
   });
 });
 
 describe('fetchRobots', () => {
-  const mockAxios = {get : jest.fn<() => Promise<any>>()};
+  const mockAxios = { get: jest.fn<() => Promise<any>>() };
 
   it('returns error if axios throws', async () => {
     // const mock = {get : () => { return Promise.reject('error') }} as
@@ -119,8 +124,8 @@ describe('fetchRobots', () => {
 
     mockAxios.get.mockRejectedValueOnce('error');
     expect(await fetchRobots('fakeurl', mockAxios)).toMatchInlineSnapshot(`
-Object {
-  "details": Object {
+{
+  "details": {
     "message": undefined,
     "stack": undefined,
   },
@@ -128,21 +133,21 @@ Object {
   "status": "not_ok",
   "url": "fakeurl",
 }
-`)
+`);
   });
 
   it('returns result otherwise', async () => {
     mockAxios.get.mockResolvedValueOnce({
-      headers : {
-        'request-endTime' : new Date('2020-01-01'),
-        'request-duration' : 1000,
+      headers: {
+        'request-endTime': new Date('2020-01-01'),
+        'request-duration': 1000,
       },
-      data : '',
-      status : '200'
+      data: '',
+      status: '200',
     });
     expect(await fetchRobots('fakeurl', mockAxios)).toMatchInlineSnapshot(`
-Object {
-  "details": Object {
+{
+  "details": {
     "elapsedTime": 1000,
     "endTime": 1577836800000,
     "robotsText": "",
@@ -150,25 +155,25 @@ Object {
   },
   "status": "ok",
 }
-`)
+`);
   });
 });
 
 describe('handleHttpError', () => {
   it('handles AxiosError with response', () => {
     const err = {
-      response : {
-        headers : {
-          'request-endTime' : new Date('2020-01-01'),
-          'request-duration' : 1000,
+      response: {
+        headers: {
+          'request-endTime': new Date('2020-01-01'),
+          'request-duration': 1000,
         },
       },
-      isAxiosError : true
+      isAxiosError: true,
     };
-    const res = handleHttpError('fakeurl', err)
+    const res = handleHttpError('fakeurl', err);
     expect(res).toMatchInlineSnapshot(`
-Object {
-  "details": Object {
+{
+  "details": {
     "elapsedTime": 1000,
     "endTime": 1577836800000,
   },
@@ -177,49 +182,49 @@ Object {
   "url": "fakeurl",
 }
 `);
-    expect(res.err).toHaveProperty('errorType', 'http')
+    expect(res.err).toHaveProperty('errorType', 'http');
   });
 
   it('handles ECONNABORTED', () => {
-    const err = {code : 'ECONNABORTED', isAxiosError : true};
-    const res = handleHttpError('fakeurl', err)
+    const err = { code: 'ECONNABORTED', isAxiosError: true };
+    const res = handleHttpError('fakeurl', err);
     expect(res).toMatchInlineSnapshot(`
-Object {
+{
   "err": [Request Timeout Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
 `);
-    expect(res.err).toHaveProperty('errorType', 'request_timeout')
+    expect(res.err).toHaveProperty('errorType', 'request_timeout');
   });
 
   it('handles ENOTFOUND', () => {
-    const err = {code : 'ENOTFOUND', isAxiosError : true};
-    const res = handleHttpError('fakeurl', err)
+    const err = { code: 'ENOTFOUND', isAxiosError: true };
+    const res = handleHttpError('fakeurl', err);
     expect(res).toMatchInlineSnapshot(`
-Object {
+{
   "err": [Host Not Found Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
 `);
-    expect(res.err).toHaveProperty('errorType', 'host_not_found')
+    expect(res.err).toHaveProperty('errorType', 'host_not_found');
   });
   it('handles ECONNRESET', () => {
-    const err = {code : 'ECONNRESET', isAxiosError : true};
-    const res = handleHttpError('fakeurl', err)
+    const err = { code: 'ECONNRESET', isAxiosError: true };
+    const res = handleHttpError('fakeurl', err);
     expect(res).toMatchInlineSnapshot(`
-Object {
+{
   "err": [Connection Reset Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
 `);
-    expect(res.err).toHaveProperty('errorType', 'connection_reset')
+    expect(res.err).toHaveProperty('errorType', 'connection_reset');
   });
   it.skip('handles content-type parse TypeError', () => {
-    const err = new TypeError('invalid media type')
-    const res = handleHttpError('fakeurl', err)
+    const err = new TypeError('invalid media type');
+    const res = handleHttpError('fakeurl', err);
     expect(res.status).toEqual('not_ok');
     expect(res.err.toString()).toMatchInlineSnapshot(`[Error]`);
   });
@@ -227,14 +232,14 @@ Object {
     const err = new WorkerError();
     const res = handleHttpError('fakeurl', err);
     expect(res).toMatchInlineSnapshot(`
-Object {
+{
   "err": [Unknown Worker Error],
   "status": "not_ok",
   "url": "fakeurl",
 }
 `);
     expect(res.err).toEqual(err);
-  })
+  });
   it('handles other errors', () => {
     const err = new Error('test');
     const res = handleHttpError('fakeurl', err);

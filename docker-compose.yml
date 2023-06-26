@@ -1,25 +1,30 @@
-version: "3.8"
+version: '3.8'
 
 services:
   worker:
     build:
       context: ./
       dockerfile: ./Dockerfile.worker
-    #scale: 3
+    # scale: 3
     depends_on:
       - pubsub
+      - database
     networks:
-      - pubsub
+      - ps
+      - db
     environment:
+      MONGODB_HOST: database
       REDIS_HOST: pubsub
+      MAX_PATH_LENGTH: '${MAX_PATH_LENGTH}'
+      MAX_PATH_PROPS: '${MAX_PATH_PROPS}'
     restart: unless-stopped
   pubsub:
     image: redis
     networks:
-      - pubsub
+      - ps
     restart: unless-stopped
     ports:
-      - "6378:6379"
+      - '6378:6379'
   manager:
     build:
       context: ./
@@ -27,23 +32,24 @@ services:
     restart: unless-stopped
     depends_on:
       - pubsub
-      - db
-    networks:
-      - pubsub
       - database
+    networks:
+      - ps
+      - db
     environment:
-      MONGODB_HOST: db
+      MONGODB_HOST: database
       REDIS_HOST: pubsub
-      MAX_PATH_LENGTH: "${MAX_PATH_LENGTH}"
-      MAX_PATH_PROPS: "${MAX_PATH_PROPS}"
+      MAX_PATH_LENGTH: '${MAX_PATH_LENGTH}'
+      MAX_PATH_PROPS: '${MAX_PATH_PROPS}'
     volumes:
       - type: bind
         source: ./data/export
         target: /data/export
     ports:
-      - "3000:3000"
-  db:
-    image: mongo
+      - '3000:3000'
+      - '5432:5432'
+  database:
+    image: mongo:4
     restart: unless-stopped
       #environment:
       #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
@@ -53,9 +59,9 @@ services:
         source: ./data/db
         target: /data/db
     ports:
-      - "27018:27017"
+      - '27018:27017'
     networks:
-      - database
+      - db
         #secrets:
         #  MONGODB_PORT:
         #    external: true
@@ -64,5 +70,5 @@ services:
         #  MONGODB_PASS:
         #    external: true
 networks:
-  database:
-  pubsub:
+  db:
+  ps:
