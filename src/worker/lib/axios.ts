@@ -1,9 +1,11 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { InternalAxiosRequestConfig } from 'axios';
 import http from 'http';
 import https from 'https';
 import { MonkeyPatchedLogger } from '@derzis/common';
 
-type MonkeyPatchedAxiosRequestConfig = AxiosRequestConfig & { tsStart: number };
+type MonkeyPatchedAxiosRequestConfig = InternalAxiosRequestConfig & {
+  tsStart: number;
+};
 
 export default function(logger: MonkeyPatchedLogger) {
   const instance = axios.create({
@@ -22,7 +24,7 @@ export default function(logger: MonkeyPatchedLogger) {
   });
 
   instance.interceptors.request.use(
-    (config: AxiosRequestConfig): MonkeyPatchedAxiosRequestConfig => {
+    (config: InternalAxiosRequestConfig): MonkeyPatchedAxiosRequestConfig => {
       let newConfig = { ...config, tsStart: Date.now() };
       if (logger) {
         logger.http(
