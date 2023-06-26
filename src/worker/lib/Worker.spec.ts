@@ -1,5 +1,4 @@
 import { jest } from '@jest/globals';
-import { MimeTypeError, TooManyRedirectsError } from '@derzis/common';
 import { Worker as WorkerType } from './Worker';
 
 const mockFindRedirectUrl = jest.fn();
@@ -56,8 +55,8 @@ describe('handleHttpResponse', () => {
         },
         data: '',
       };
-      expect(await w.handleHttpResponse(resp, 0, 'fakeurl')).
-toMatchInlineSnapshot(`
+      expect(await w.handleHttpResponse(resp, 0, 'fakeurl'))
+        .toMatchInlineSnapshot(`
 {
   "err": [Unsupported Mime Type Error: text/plajest.unstable_mockmodulein],
   "status": "not_ok",
@@ -74,8 +73,8 @@ toMatchInlineSnapshot(`
         data: '',
       };
       mockFindRedirectUrl.mockReturnValueOnce('anotherfakeurl');
-      expect(await w.handleHttpResponse(resp, 3, 'fakeurl')).
-toMatchInlineSnapshot(`
+      expect(await w.handleHttpResponse(resp, 3, 'fakeurl'))
+        .toMatchInlineSnapshot(`
 {
   "err": [Too Many Redirect Error],
   "status": "not_ok",
@@ -106,8 +105,8 @@ toMatchInlineSnapshot(`
       },
       data: 'this is the data',
     };
-    expect(await w.handleHttpResponse(resp, 0, 'fakeurl')).
-toMatchInlineSnapshot(`
+    expect(await w.handleHttpResponse(resp, 0, 'fakeurl'))
+          .toMatchInlineSnapshot(`
 {
   "mime": "text/n3",
   "rdf": "this is the data",
