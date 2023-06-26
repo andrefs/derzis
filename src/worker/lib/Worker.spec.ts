@@ -14,6 +14,11 @@ jest.unstable_mockModule('./worker-utils', () => ({
 
 jest.unstable_mockModule('@derzis/config', () => ({
   default: {
+    worker: {
+      db: {
+        debug: true,
+      },
+    },
     http: {
       acceptedMimeTypes: ['text/n3'],
       domainCrawl: {
@@ -51,9 +56,9 @@ describe('handleHttpResponse', () => {
         },
         data: '',
       };
-      expect(await w.handleHttpResponse(resp, 0, 'fakeurl'))
-        .toMatchInlineSnapshot(`
-Object {
+      expect(await w.handleHttpResponse(resp, 0, 'fakeurl')).
+toMatchInlineSnapshot(`
+{
   "err": [Unsupported Mime Type Error: text/plajest.unstable_mockmodulein],
   "status": "not_ok",
 }
@@ -69,9 +74,9 @@ Object {
         data: '',
       };
       mockFindRedirectUrl.mockReturnValueOnce('anotherfakeurl');
-      expect(await w.handleHttpResponse(resp, 3, 'fakeurl'))
-        .toMatchInlineSnapshot(`
-Object {
+      expect(await w.handleHttpResponse(resp, 3, 'fakeurl')).
+toMatchInlineSnapshot(`
+{
   "err": [Too Many Redirect Error],
   "status": "not_ok",
 }
@@ -101,9 +106,9 @@ Object {
       },
       data: 'this is the data',
     };
-    expect(await w.handleHttpResponse(resp, 0, 'fakeurl'))
-      .toMatchInlineSnapshot(`
-Object {
+    expect(await w.handleHttpResponse(resp, 0, 'fakeurl')).
+toMatchInlineSnapshot(`
+{
   "mime": "text/n3",
   "rdf": "this is the data",
   "status": "ok",
