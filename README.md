@@ -19,8 +19,7 @@ be executed without using containers.
 #### Running
 
 - Edit `data/seeds.txt` and add the IRIs for the seed resources.
-- Edit `common/config.js`, `worker/config.js` or `manager/config.js`
-  to modify the crawler parameters.
+- Edit `src/config/index.ts` to modify the crawler parameters.
 - Run `docker-compose up --build`.
 
 ### Locally
@@ -35,5 +34,7 @@ be executed without using containers.
 #### Running
 
 - Run `npm run build` on the root folder
+- Make sure you have Redis and MongoDB running.
+- Edit `dist/src/config/index.js` to modify the crawler parameters.
 - Open a terminal and run `node ./dist/src/manager/bin/manager.js`.
 - Open another terminal and run `./dist/src/worker/bin/worker-pool`.
