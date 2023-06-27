@@ -1,4 +1,4 @@
-# derzis-crawler [![Node.js CI](https://github.com/andrefs/derzis/actions/workflows/node.js.yml/badge.svg?branch=testing)](https://github.com/andrefs/derzis/actions/workflows/node.js.yml)
+# derzis [![Node.js CI](https://github.com/andrefs/derzis/actions/workflows/node.js.yml/badge.svg?branch=testing)](https://github.com/andrefs/derzis/actions/workflows/node.js.yml)
 
 <img src="https://icons.getbootstrap.com/assets/icons/cloud-lightning.svg"  width="100" height="100">
 
