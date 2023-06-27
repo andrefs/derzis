@@ -35,5 +35,5 @@ be executed without using containers.
 #### Running
 
 - Run `npm run build` on the root folder
-- Open a terminal and run `node ./dist/manager/bin/manager.js`.
-- Open another terminal and run `./dist/worker/bin/worker-pool`.
+- Open a terminal and run `node ./dist/src/manager/bin/manager.js`.
+- Open another terminal and run `./dist/src/worker/bin/worker-pool`.
