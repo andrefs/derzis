@@ -143,11 +143,7 @@ app.post('/processes', async (req, res) => {
     },
     seeds: uniqueSeeds,
   });
-<<<<<<< Updated upstream
   await Process.startNext();
-=======
-  //await Process.startNext();
->>>>>>> Stashed changes
   res.redirect(303, '/processes/' + p.pid);
 });
 

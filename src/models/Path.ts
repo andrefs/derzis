@@ -9,10 +9,6 @@ export interface PathSkeleton {
   predicates: { elems: string[] };
   nodes: { elems: string[] };
   parentPath: IPath;
-<<<<<<< Updated upstream
-=======
-  processId: string;
->>>>>>> Stashed changes
 }
 
 export interface IPath {
@@ -34,10 +30,6 @@ export interface IPath {
     needsCrawling: boolean;
   };
   parentPath: Types.ObjectId;
-<<<<<<< Updated upstream
-=======
-  processId: string;
->>>>>>> Stashed changes
   status:
   | 'active'
   | 'disabled' // a better alternative path was found
