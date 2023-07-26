@@ -8,12 +8,21 @@ services:
     # scale: 3
     depends_on:
       - pubsub
+<<<<<<< Updated upstream
       - database
     networks:
       - ps
       - db
     environment:
       MONGODB_HOST: database
+=======
+      - db
+    networks:
+      - pubsub
+      - database
+    environment:
+      MONGODB_HOST: db
+>>>>>>> Stashed changes
       REDIS_HOST: pubsub
       MAX_PATH_LENGTH: '${MAX_PATH_LENGTH}'
       MAX_PATH_PROPS: '${MAX_PATH_PROPS}'
@@ -48,8 +57,12 @@ services:
     ports:
       - '3000:3000'
       - '5432:5432'
+<<<<<<< Updated upstream
   database:
-    image: mongo:4
+=======
+  db:
+>>>>>>> Stashed changes
+    image: mongo
     restart: unless-stopped
       #environment:
       #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
