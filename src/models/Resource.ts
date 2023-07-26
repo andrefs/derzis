@@ -28,13 +28,9 @@ export interface IResource {
 
 interface ResourceModel extends Model<IResource, {}> {
   addMany: (
-    resources: { url: string; domain: string }[],
-    pids: string[]
+    resources: { url: string; domain: string }[]
   ) => Promise<IResource[]>;
-  addFromTriples: (
-    source: IResource,
-    triples: SimpleTriple[]
-  ) => Promise<IResource[]>;
+  addFromTriples: (triples: SimpleTriple[]) => Promise<IResource[]>;
   markAsCrawled: (
     url: string,
     details: CrawlResourceResultDetails,
@@ -146,7 +142,7 @@ schema.static('addMany', async function addMany(resources, pids) {
 
 schema.static(
   'addFromTriples',
-  async function addFromTriples(source: IResource, triples: SimpleTriple[]) {
+  async function addFromTriples(triples: SimpleTriple[]) {
     const resources: { [pos: string]: boolean } = {};
     for (const t of triples) {
       resources[t.subject] = true;
@@ -157,8 +153,7 @@ schema.static(
       Object.keys(resources).map((u) => ({
         url: u,
         domain: new URL(u).origin,
-      })),
-      source.processIds
+      }))
     );
   }
 );
