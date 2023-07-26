@@ -43,10 +43,10 @@ const secondsToString = (seconds: number) => {
 
 const hbs = create({
   helpers: {
-    ifEquals: function(arg1: any, arg2: any, options: any) {
+    ifEquals: function (arg1: any, arg2: any, options: any) {
       return arg1 == arg2 ? options.fn(this) : options.inverse(this);
     },
-    join: function(arg1: any, arg2: any) {
+    join: function (arg1: any, arg2: any) {
       return [...arg1].join(arg2);
     },
   },
@@ -133,11 +133,11 @@ app.post('/processes', async (req, res) => {
     .filter((s: string) => !s.match(/^\s*$/));
   const uniqueSeeds = [...new Set(seeds)];
 
-  const domains: { [key: string]: number } = {};
+  const pathHeads: { [key: string]: number } = {};
   for (const s of seeds) {
     const domain = new URL(s).origin;
-    domains[domain] = domains[domain] || 0;
-    domains[domain]++;
+    pathHeads[domain] = pathHeads[domain] || 0;
+    pathHeads[domain]++;
   }
 
   const p = await Process.create({
@@ -150,7 +150,7 @@ app.post('/processes', async (req, res) => {
       webhook: req.body.webhook,
     },
     seeds: uniqueSeeds,
-    domains,
+    pathHeads,
   });
   await Process.startNext();
   res.redirect(303, '/processes/' + p.pid);

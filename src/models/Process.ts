@@ -18,7 +18,7 @@ export interface IProcess {
     maxPathLength: number;
     maxPathProps: number;
   };
-  domains: {
+  pathHeads: {
     required: true;
     type: Map<string, number>;
     of: number;
@@ -60,7 +60,7 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
       maxPathLength: Number,
       maxPathProps: Number,
     },
-    domains: {
+    pathHeads: {
       type: Map,
       of: Number,
     },
@@ -73,7 +73,7 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
   { timestamps: true }
 );
 
-schema.pre('save', async function() {
+schema.pre('save', async function () {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await this.collection.countDocuments({
     createdAt: { $gt: today },
@@ -84,20 +84,20 @@ schema.pre('save', async function() {
   this.notification.ssePath = `/processes/${this.pid}/events`;
 });
 
-schema.method('getTriples', async function*() {
+schema.method('getTriples', async function* () {
   const triples = Triple.find({ processIds: this.pid });
   for await (const { subject, predicate, object } of triples) {
     yield { subject, predicate, object };
   }
 });
 
-schema.method('getTriplesJson', async function*() {
+schema.method('getTriplesJson', async function* () {
   for await (const t of this.getTriples()) {
     yield JSON.stringify(t);
   }
 });
 
-schema.method('getInfo', async function() {
+schema.method('getInfo', async function () {
   const baseFilter = { processIds: this.pid };
   const lastResource = await Resource.findOne(baseFilter).sort({
     updatedAt: -1,
@@ -181,7 +181,7 @@ schema.method('getInfo', async function() {
 });
 
 // TODO configurable number of simultaneous processes
-schema.static('startNext', async function() {
+schema.static('startNext', async function () {
   const runningProcs = await this.countDocuments({ status: 'running' });
   if (!runningProcs) {
     const process = await this.findOneAndUpdate(
