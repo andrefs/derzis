@@ -18,6 +18,11 @@ export interface IProcess {
     maxPathLength: number;
     maxPathProps: number;
   };
+  domains: {
+    required: true;
+    type: Map<string, number>;
+    of: number;
+  };
   status: 'queued' | 'running' | 'done' | 'error';
 }
 
@@ -54,6 +59,10 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
     params: {
       maxPathLength: Number,
       maxPathProps: Number,
+    },
+    domains: {
+      type: Map,
+      of: Number,
     },
     status: {
       type: String,
