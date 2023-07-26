@@ -128,10 +128,18 @@ app.get('/processes/:pid/stats', async (req, res) => {
 });
 
 app.post('/processes', async (req, res) => {
-  const seeds = req.body.seeds
+  const seeds: string[] = req.body.seeds
     .flatMap((s: string) => s.split(/\s*[\n,]\s*/))
     .filter((s: string) => !s.match(/^\s*$/));
   const uniqueSeeds = [...new Set(seeds)];
+
+  const domains: { [key: string]: number } = {};
+  for (const s of seeds) {
+    const domain = new URL(s).origin;
+    domains[domain] = domains[domain] || 0;
+    domains[domain]++;
+  }
+
   const p = await Process.create({
     params: {
       maxPathLength: req.body.maxPathLength,
@@ -142,6 +150,7 @@ app.post('/processes', async (req, res) => {
       webhook: req.body.webhook,
     },
     seeds: uniqueSeeds,
+    domains,
   });
   await Process.startNext();
   res.redirect(303, '/processes/' + p.pid);
