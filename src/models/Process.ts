@@ -20,8 +20,7 @@ export interface IProcess {
   };
   pathHeads: {
     required: true;
-    type: Map<string, number>;
-    of: number;
+    type: { [key: string]: number };
   };
   status: 'queued' | 'running' | 'done' | 'error';
 }
@@ -61,8 +60,7 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
       maxPathProps: Number,
     },
     pathHeads: {
-      type: Map,
-      of: Number,
+      type: Object,
     },
     status: {
       type: String,
