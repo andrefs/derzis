@@ -18,9 +18,9 @@ be executed without using containers.
 
 #### Running
 
-- Edit `data/seeds.txt` and add the IRIs for the seed resources.
 - Edit `src/config/index.ts` to modify the crawler parameters.
 - Run `docker-compose up --build`.
+- The web app will be accessible at http://localhost:5432/processes
 
 ### Locally
 
