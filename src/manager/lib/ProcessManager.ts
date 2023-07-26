@@ -133,11 +133,13 @@ app.post('/processes', async (req, res) => {
     .filter((s: string) => !s.match(/^\s*$/));
   const uniqueSeeds = [...new Set(seeds)];
 
-  const pathHeads: { [key: string]: number } = {};
+  const pathHeads: Map<string, number> = new Map();
   for (const s of seeds) {
     const domain = new URL(s).origin;
-    pathHeads[domain] = pathHeads[domain] || 0;
-    pathHeads[domain]++;
+    if (!pathHeads.get(domain)) {
+      pathHeads.set(domain, 0);
+    }
+    pathHeads.set(domain, pathHeads.get(domain)! + 1);
   }
 
   const p = await Process.create({
