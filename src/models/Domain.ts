@@ -68,7 +68,6 @@ interface IDomainModel extends Model<IDomainDocument> {
   //saveRobotsUnknownError: (jobResult: RobotsCheckResultError) => Promise<IDomain>,
   upsertMany: (urls: string[], pids: string[]) => Promise<void>;
   domainsToCheck: (wId: string, limit: number) => Iterable<IDomain>;
-  domainsToCheck2: (wId: string, limit: number) => Iterable<IDomain>;
   domainsToCrawl: (wId: string, limit: number) => Iterable<IDomain>;
 }
 
@@ -339,36 +338,38 @@ DomainSchema.statics.upsertMany = async function (
   return this.bulkWrite(Object.values(domains).map((d) => ({ updateOne: d })));
 };
 
-DomainSchema.statics.domainsToCheck = async function* (wId, limit) {
-  const query = {
-    robots: { status: 'unvisited' },
-    'crawl.pathHeads': { $gt: 0 },
-  };
-  const options = {
-    new: true,
-    sort: { 'crawl.pathHeads': -1 },
-    fields: 'origin jobId',
-  };
-  for (let i = 0; i < limit; i++) {
-    const jobId = await Counter.genId('jobs');
-    const update = {
-      $set: {
-        'robots.status': 'checking',
-        jobId,
-        workerId: wId,
-      },
-    };
-    const d = await this.findOneAndUpdate(query, update, options).lean();
-    if (d) {
-      yield d;
-    } else {
-      return;
-    }
-  }
-  return;
-};
+// OLD VERSION
+//
+// DomainSchema.statics.domainsToCheck = async function* (wId, limit) {
+//   const query = {
+//     robots: { status: 'unvisited' },
+//     'crawl.pathHeads': { $gt: 0 },
+//   };
+//   const options = {
+//     new: true,
+//     sort: { 'crawl.pathHeads': -1 },
+//     fields: 'origin jobId',
+//   };
+//   for (let i = 0; i < limit; i++) {
+//     const jobId = await Counter.genId('jobs');
+//     const update = {
+//       $set: {
+//         'robots.status': 'checking',
+//         jobId,
+//         workerId: wId,
+//       },
+//     };
+//     const d = await this.findOneAndUpdate(query, update, options).lean();
+//     if (d) {
+//       yield d;
+//     } else {
+//       return;
+//     }
+//   }
+//   return;
+// };
 
-DomainSchema.statics.domainsToCheck2 = async function* (wId, limit) {
+DomainSchema.statics.domainsToCheck = async function* (wId, limit) {
   let domainsFound = 0;
   let procSkip = 0;
   let pathSkip = 0;
