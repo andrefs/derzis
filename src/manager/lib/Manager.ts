@@ -367,34 +367,34 @@ export default class Manager {
         }
       }
     }
-    //if (workerAvail.domainCrawl) {
-    //  log.debug(
-    //    `Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`
-    //  );
-    //  for await (const crawl of this.domainsToCrawl(
-    //    workerId,
-    //    workerAvail.domainCrawl.capacity,
-    //    workerAvail.domainCrawl.resourcesPerDomain
-    //  )) {
-    //    if (
-    //      crawl?.resources?.length &&
-    //      (await this.jobs.registerJob(
-    //        crawl.domain.jobId,
-    //        crawl.domain.origin,
-    //        'domainCrawl'
-    //      ))
-    //    ) {
-    //      assignedCrawl++;
-    //      yield {
-    //        type: 'domainCrawl',
-    //        jobId: crawl.domain.jobId,
-    //        ...crawl,
-    //      };
-    //    } else {
-    //      log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
-    //    }
-    //  }
-    //}
+    if (workerAvail.domainCrawl) {
+      log.debug(
+        `Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`
+      );
+      for await (const crawl of this.domainsToCrawl(
+        workerId,
+        workerAvail.domainCrawl.capacity,
+        workerAvail.domainCrawl.resourcesPerDomain
+      )) {
+        if (
+          crawl?.resources?.length &&
+          (await this.jobs.registerJob(
+            crawl.domain.jobId,
+            crawl.domain.origin,
+            'domainCrawl'
+          ))
+        ) {
+          assignedCrawl++;
+          yield {
+            type: 'domainCrawl',
+            jobId: crawl.domain.jobId,
+            ...crawl,
+          };
+        } else {
+          log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
+        }
+      }
+    }
     if (
       !assignedCheck &&
       !assignedCrawl &&
