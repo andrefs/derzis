@@ -56,8 +56,14 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
       },
     ],
     params: {
-      maxPathLength: Number,
-      maxPathProps: Number,
+      maxPathLength: {
+        type: Number,
+        default: 2,
+      },
+      maxPathProps: {
+        type: Number,
+        default: 1,
+      },
     },
     pathHeads: {
       type: Object,
@@ -70,6 +76,9 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
   },
   { timestamps: true }
 );
+
+schema.index({ status: 1 });
+schema.index({ createdAt: 1 });
 
 schema.pre('save', async function () {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));

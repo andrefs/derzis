@@ -9,9 +9,11 @@ export interface PathSkeleton {
   predicates: { elems: string[] };
   nodes: { elems: string[] };
   parentPath: IPath;
+  processId: string;
 }
 
 export interface IPath {
+  processId: string;
   seed: {
     url: string;
   };
@@ -31,9 +33,14 @@ export interface IPath {
   };
   parentPath: Types.ObjectId;
   status:
-  | 'active'
-  | 'disabled' // a better alternative path was found
-  | 'finished'; // path reached limits
+    | 'active'
+    | 'disabled' // a better alternative path was found
+    | 'finished'; // path reached limits
+  status2: {
+    type: 'ready' | 'processing';
+    required: true;
+    default: 'ready';
+  };
 }
 
 export interface IPathMethods {
@@ -42,10 +49,14 @@ export interface IPathMethods {
 }
 
 export type PathDocument = HydratedDocument<IPath, IPathMethods>;
-export interface PathModel extends Model<IPath, {}, IPathMethods> { }
+export interface PathModel extends Model<IPath, {}, IPathMethods> {}
 
 const schema = new Schema<IPath, {}, IPathMethods>(
   {
+    processId: {
+      type: String,
+      required: true,
+    },
     seed: {
       url: { ...urlType, required: true },
     },
@@ -75,9 +86,17 @@ const schema = new Schema<IPath, {}, IPathMethods>(
       enum: ['active', 'disabled', 'finished'],
       default: 'active',
     },
+    status2: {
+      type: String,
+      enum: ['ready', 'processing'],
+      required: true,
+      default: 'ready',
+    },
   },
   { timestamps: true }
 );
+
+schema.index({ processId: 1 });
 
 schema.index({
   'seed.url': 1,
@@ -90,7 +109,7 @@ schema.index({
   'nodes.count': 1,
 });
 
-schema.pre('save', async function() {
+schema.pre('save', async function () {
   this.nodes.count = this.nodes.elems.length;
   this.predicates.count = this.predicates.elems.length;
   if (this.predicates.count) {
@@ -115,14 +134,14 @@ schema.pre('save', async function() {
   this.status = 'active';
 });
 
-schema.method('markDisabled', async function() {
+schema.method('markDisabled', async function () {
   this.status = 'disabled';
   await this.save();
   await Resource.rmPath(this);
   return;
 });
 
-schema.method('markFinished', async function() {
+schema.method('markFinished', async function () {
   this.status = 'finished';
   await this.save();
   await Resource.rmPath(this);

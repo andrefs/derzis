@@ -245,11 +245,13 @@ schema.static(
     );
 
     const paths = urls.map((u: string) => ({
+      processId: pid,
       seed: { url: u },
       head: { url: u },
       nodes: { elems: [u] },
       predicates: { elems: [] },
       status: 'active',
+      status2: 'processing',
     }));
 
     const insPaths = await Path.create(paths);
