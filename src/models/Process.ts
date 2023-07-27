@@ -3,7 +3,7 @@ import { Resource } from './Resource';
 import { Triple, SimpleTriple } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
-import { Path } from './Path';
+import { Path, PathDocument } from './Path';
 
 export interface IProcess {
   pid: string;
@@ -27,14 +27,17 @@ export interface IProcess {
 
 export type ProcessDocument = IProcess &
   Document & { updatedAt: Date; createdAt: Date };
+
 interface IProcessMethods {
   getTriples(): AsyncIterable<SimpleTriple>;
   getTriplesJson(): AsyncIterable<string>;
   getInfo(): Promise<object>;
+  getPaths(pathSkip: number, pathLimit: number): Promise<PathDocument[]>;
 }
 
 interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
   startNext(): Promise<boolean>;
+  getOneRunning(skip: number): Promise<IProcess & IProcessMethods>;
 }
 
 const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
@@ -102,6 +105,20 @@ schema.method('getTriplesJson', async function* () {
   for await (const t of this.getTriples()) {
     yield JSON.stringify(t);
   }
+});
+
+schema.method('getPaths', async function (skip = 0, limit = 20) {
+  const paths = await Path.find({
+    processId: this.pid,
+    'nodes.count': { $lte: this.params.maxPathLength },
+    'predicates.count': { $lte: this.params.maxPathProps },
+  })
+    .sort({ 'nodes.count': -1 })
+    .limit(limit)
+    .skip(skip)
+    .select('head.domain head.url')
+    .lean();
+  return paths;
 });
 
 schema.method('getInfo', async function () {
@@ -202,6 +219,13 @@ schema.static('startNext', async function () {
     }
   }
   return false;
+});
+
+schema.static('getOneRunning', async function (skip = 0) {
+  const x = await this.findOne({ status: 'running' })
+    .sort({ createdAt: -1 })
+    .skip(skip);
+  return x;
 });
 
 export const Process = model<IProcess, ProcessModel>('Process', schema);

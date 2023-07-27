@@ -69,9 +69,9 @@ interface IDomainModel extends Model<IDomainDocument> {
   upsertMany: (urls: string[], pids: string[]) => Promise<void>;
   domainsToCheck: (wId: string, limit: number) => Iterable<IDomain>;
   domainsToCrawl: (wId: string, limit: number) => Iterable<IDomain>;
+  lockForRobotsCheck: (wId: string, origins: string[]) => Promise<IDomain[]>;
 }
-
-const DomainSchema: Schema<IDomainDocument> = new Schema(
+const schema: Schema<IDomainDocument> = new Schema(
   {
     origin: {
       type: String,
@@ -154,21 +154,21 @@ const DomainSchema: Schema<IDomainDocument> = new Schema(
   { timestamps: true }
 );
 
-DomainSchema.index({
+schema.index({
   status: 1,
   'crawl.pathHeads': 1,
   'crawl.nextAllowed': -1,
 });
 
-DomainSchema.index({
+schema.index({
   'crawl.nextAllowed': -1,
 });
 
-DomainSchema.index({
+schema.index({
   'robots.status': 1,
 });
 
-DomainSchema.index({
+schema.index({
   jobId: 1,
 });
 
@@ -249,7 +249,7 @@ const robotsHostNotFoundError = () => {
   };
 };
 
-DomainSchema.statics.saveRobotsError = async function (
+schema.statics.saveRobotsError = async function (
   jobResult: RobotsCheckResultError,
   crawlDelay: number
 ) {
@@ -283,7 +283,7 @@ DomainSchema.statics.saveRobotsError = async function (
   return d;
 };
 
-DomainSchema.statics.saveRobotsOk = async function (
+schema.statics.saveRobotsOk = async function (
   jobResult: RobotsCheckResultOk,
   crawlDelay: number
 ) {
@@ -314,10 +314,7 @@ DomainSchema.statics.saveRobotsOk = async function (
   );
 };
 
-DomainSchema.statics.upsertMany = async function (
-  urls: string,
-  pids: string[]
-) {
+schema.statics.upsertMany = async function (urls: string, pids: string[]) {
   let domains: { [url: string]: UpdateOneModel<IDomain> } = {};
 
   for (const u of urls) {
@@ -369,70 +366,69 @@ DomainSchema.statics.upsertMany = async function (
 //   return;
 // };
 
-DomainSchema.statics.domainsToCheck = async function* (wId, limit) {
+schema.statics.lockForRobotsCheck = async function (
+  wId: string,
+  origins: [string]
+) {
+  const jobId = await Counter.genId('jobs');
+  const query = {
+    origin: { $in: origins },
+    status: 'unvisited',
+  };
+  const update = {
+    $set: {
+      status: 'checking',
+      jobId,
+      workerId: wId,
+    },
+  };
+  const options = {
+    new: true,
+    fields: 'origin jobId',
+  };
+  await this.findOneAndUpdate(query, update, options);
+  return this.find({ jobId }).lean();
+};
+
+schema.statics.domainsToCheck = async function* (wId, limit) {
   let domainsFound = 0;
   let procSkip = 0;
-  let pathSkip = 0;
   let pathLimit = 20;
 
-  while (domainsFound < limit) {
-    const proc = await Process.findOne({ status: 'running' })
-      .sort({ createdAt: 1 })
-      .select('pid params')
-      .skip(procSkip);
-
+  PROCESS_LOOP: while (domainsFound < limit) {
+    const proc = await Process.getOneRunning(procSkip);
     if (!proc) {
       return;
     }
+    procSkip++;
 
-    const paths = await Path.find({
-      processId: proc.pid,
-      'nodes.count': { $lte: proc.params.maxPathLength },
-      'predicates.count': { $lte: proc.params.maxPathProps },
-    })
-      .sort({ 'nodes.count': -1 })
-      .limit(pathLimit)
-      .select('head.domain head.url')
-      .skip(pathSkip);
+    let pathSkip = 0;
+    PATHS_LOOP: while (domainsFound < limit) {
+      const paths = await proc.getPaths(pathSkip, pathLimit);
 
-    // if this process has no more available paths, skip them
-    if (!paths.length) {
-      procSkip++;
-      continue;
-    }
+      // if this process has no more available paths, skip it
+      if (!paths.length) {
+        continue PROCESS_LOOP;
+      }
+      pathSkip += pathLimit;
 
-    const origins = new Set<string>(paths.map((p) => p.head.domain));
+      const origins = new Set<string>(paths.map((p) => p.head.domain));
+      const domains = await Domain.lockForRobotsCheck(wId, Array.from(origins));
 
-    for (const origin of origins) {
-      const jobId = await Counter.genId('jobs');
+      // these paths returned no available domains, skip them
+      if (!domains.length) {
+        continue PATHS_LOOP;
+      }
 
-      const query = {
-        robots: { status: 'unvisited' },
-        origin,
-      };
-      const options = {
-        new: true,
-        fields: 'origin jobId',
-      };
-      const update = {
-        $set: {
-          'robots.status': 'checking',
-          jobId,
-          workerId: wId,
-        },
-      };
-      const d = await this.findOneAndUpdate(query, update, options).lean();
-      if (d) {
+      for (const d of domains) {
         yield d;
-      } else {
-        pathSkip += pathLimit;
       }
     }
   }
   return;
 };
 
-DomainSchema.statics.domainsToCrawl = async function* (wId, limit) {
+schema.statics.domainsToCrawl = async function* (wId, limit) {
   const query = {
     status: 'ready',
     'crawl.pathHeads': { $gt: 0 },
@@ -466,7 +462,4 @@ DomainSchema.statics.domainsToCrawl = async function* (wId, limit) {
   return;
 };
 
-export const Domain = model<IDomainDocument, IDomainModel>(
-  'Domain',
-  DomainSchema
-);
+export const Domain = model<IDomainDocument, IDomainModel>('Domain', schema);
