@@ -218,6 +218,7 @@ export default class Manager {
       if (!newPaths[prop][newHeadUrl]) {
         const nodes = [...path.nodes.elems, newHeadUrl];
         const np: PathSkeleton = {
+          processId: path.processId,
           seed: path.seed,
           head: { url: newHeadUrl },
           predicates: {
@@ -350,7 +351,7 @@ export default class Manager {
       log.debug(
         `Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`
       );
-      for await (const check of Domain.domainsToCheck(
+      for await (const check of Domain.domainsToCheck2(
         workerId,
         workerAvail.robotsCheck.capacity
       )) {

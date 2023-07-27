@@ -5,6 +5,7 @@ import { HttpError, createLogger } from '@derzis/common';
 import { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/worker';
 import { Counter } from './Counter';
 import { Path } from './Path';
+import { Process } from './Process';
 const log = createLogger('Domain');
 
 const errorTypes = [
@@ -51,7 +52,7 @@ export interface IDomain {
   processIds: string[];
 }
 
-export interface IDomainDocument extends IDomain, Document { }
+export interface IDomainDocument extends IDomain, Document {}
 
 interface IDomainModel extends Model<IDomainDocument> {
   saveRobotsOk: (
@@ -67,6 +68,7 @@ interface IDomainModel extends Model<IDomainDocument> {
   //saveRobotsUnknownError: (jobResult: RobotsCheckResultError) => Promise<IDomain>,
   upsertMany: (urls: string[], pids: string[]) => Promise<void>;
   domainsToCheck: (wId: string, limit: number) => Iterable<IDomain>;
+  domainsToCheck2: (wId: string, limit: number) => Iterable<IDomain>;
   domainsToCrawl: (wId: string, limit: number) => Iterable<IDomain>;
 }
 
@@ -248,7 +250,7 @@ const robotsHostNotFoundError = () => {
   };
 };
 
-DomainSchema.statics.saveRobotsError = async function(
+DomainSchema.statics.saveRobotsError = async function (
   jobResult: RobotsCheckResultError,
   crawlDelay: number
 ) {
@@ -256,8 +258,8 @@ DomainSchema.statics.saveRobotsError = async function(
     jobResult.err.errorType === 'http'
       ? robotsNotFound(jobResult, crawlDelay)
       : jobResult.err.errorType === 'host_not_found'
-        ? robotsHostNotFoundError()
-        : robotsUnknownError(jobResult);
+      ? robotsHostNotFoundError()
+      : robotsUnknownError(jobResult);
 
   let d = await Domain.findOneAndUpdate(
     {
@@ -282,7 +284,7 @@ DomainSchema.statics.saveRobotsError = async function(
   return d;
 };
 
-DomainSchema.statics.saveRobotsOk = async function(
+DomainSchema.statics.saveRobotsOk = async function (
   jobResult: RobotsCheckResultOk,
   crawlDelay: number
 ) {
@@ -313,7 +315,7 @@ DomainSchema.statics.saveRobotsOk = async function(
   );
 };
 
-DomainSchema.statics.upsertMany = async function(
+DomainSchema.statics.upsertMany = async function (
   urls: string,
   pids: string[]
 ) {
@@ -337,7 +339,7 @@ DomainSchema.statics.upsertMany = async function(
   return this.bulkWrite(Object.values(domains).map((d) => ({ updateOne: d })));
 };
 
-DomainSchema.statics.domainsToCheck = async function*(wId, limit) {
+DomainSchema.statics.domainsToCheck = async function* (wId, limit) {
   const query = {
     robots: { status: 'unvisited' },
     'crawl.pathHeads': { $gt: 0 },
@@ -366,7 +368,70 @@ DomainSchema.statics.domainsToCheck = async function*(wId, limit) {
   return;
 };
 
-DomainSchema.statics.domainsToCrawl = async function*(wId, limit) {
+DomainSchema.statics.domainsToCheck2 = async function* (wId, limit) {
+  let domainsFound = 0;
+  let procSkip = 0;
+  let pathSkip = 0;
+  let pathLimit = 20;
+
+  while (domainsFound < limit) {
+    const proc = await Process.findOne({ status: 'running' })
+      .sort({ createdAt: 1 })
+      .select('pid params')
+      .skip(procSkip);
+
+    if (!proc) {
+      return;
+    }
+
+    const paths = await Path.find({
+      processId: proc.pid,
+      'nodes.count': { $lte: proc.params.maxPathLength },
+      'predicates.count': { $lte: proc.params.maxPathProps },
+    })
+      .sort({ 'nodes.count': -1 })
+      .limit(pathLimit)
+      .select('head.domain head.url')
+      .skip(pathSkip);
+
+    // if this process has no more available paths, skip them
+    if (!paths.length) {
+      procSkip++;
+      continue;
+    }
+
+    const origins = new Set<string>(paths.map((p) => p.head.domain));
+
+    for (const origin of origins) {
+      const jobId = await Counter.genId('jobs');
+
+      const query = {
+        robots: { status: 'unvisited' },
+        origin,
+      };
+      const options = {
+        new: true,
+        fields: 'origin jobId',
+      };
+      const update = {
+        $set: {
+          'robots.status': 'checking',
+          jobId,
+          workerId: wId,
+        },
+      };
+      const d = await this.findOneAndUpdate(query, update, options).lean();
+      if (d) {
+        yield d;
+      } else {
+        pathSkip += pathLimit;
+      }
+    }
+  }
+  return;
+};
+
+DomainSchema.statics.domainsToCrawl = async function* (wId, limit) {
   const query = {
     status: 'ready',
     'crawl.pathHeads': { $gt: 0 },

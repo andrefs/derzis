@@ -154,7 +154,7 @@ app.post('/processes', async (req, res) => {
     seeds: uniqueSeeds,
     pathHeads,
   });
-  //await Process.startNext();
+  await Process.startNext();
   res.redirect(303, '/processes/' + p.pid);
 });
 
