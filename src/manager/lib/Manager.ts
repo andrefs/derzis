@@ -351,8 +351,7 @@ export default class Manager {
       log.debug(
         `Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`
       );
-      console.warn('XXXXXXXXXXX calling domainsToCheck2');
-      for await (const check of Domain.domainsToCheck2(
+      for await (const check of Domain.domainsToCheck(
         workerId,
         workerAvail.robotsCheck.capacity
       )) {
