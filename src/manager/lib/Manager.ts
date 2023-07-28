@@ -81,7 +81,7 @@ export default class Manager {
       if (this.jobs.postponeTimeout(jobResult.origin)) {
         this.jobs.addToBeingSaved(jobResult.origin, jobResult.jobType);
         try {
-          await this.saveCrawl(jobResult);
+          await this.saveCrawl2(jobResult);
         } catch (e) {
           // TODO handle errors
           log.error(
@@ -119,6 +119,43 @@ export default class Manager {
     }
   }
 
+  async saveCrawl2(jobResult: CrawlResourceResult) {
+    console.log('XXXXXXXXXXXX saveCrawl2', { jobResult });
+    if (jobResult.status === 'not_ok') {
+      return await Resource.markAsCrawled(
+        jobResult.url,
+        jobResult.details,
+        jobResult.err
+      );
+    }
+    await Resource.markAsCrawled(jobResult.url, jobResult.details);
+    const triples = jobResult.details.triples
+      .filter((t) => t.subject.termType === 'NamedNode')
+      .filter((t) => t.object.termType === 'NamedNode')
+      .filter(
+        (t) =>
+          t.object.value === jobResult.url || t.subject.value === jobResult.url
+      )
+      .map((t) => ({
+        subject: t.subject.value,
+        predicate: t.predicate.value,
+        object: t.object.value,
+      }));
+    console.log('XXXXXXXXXXXX 90', { triples });
+    if (triples.length) {
+      const source = (await Resource.findOne({
+        url: jobResult.url,
+      })) as IResource;
+      console.log('XXXXXXXXXXXX 91', { source });
+
+      await Resource.addFromTriples(triples);
+      const pids = await Path.distinct('processId', {
+        'head.url': jobResult.url,
+      });
+      console.log('XXXXXXXXXXXX 99', { pids });
+    }
+  }
+
   async saveCrawl(jobResult: CrawlResourceResult) {
     if (jobResult.status === 'not_ok') {
       return await Resource.markAsCrawled(
@@ -144,6 +181,7 @@ export default class Manager {
       const source = (await Resource.findOne({
         url: jobResult.url,
       })) as IResource;
+
       await Resource.addFromTriples(triples);
       const res = await Triple.upsertMany(source, triples);
       if (res.upsertedCount) {
