@@ -114,6 +114,10 @@ schema.static('addMany', async function addMany(resources) {
       insertedDocs = err.insertedDocs;
     });
 
+  if (insertedDocs.length) {
+    await Domain.upsertMany(resources.map((r: IResource) => r.domain));
+  }
+
   return insertedDocs;
 });
 
