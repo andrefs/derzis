@@ -183,7 +183,7 @@ export default class Manager {
       })) as IResource;
 
       await Resource.addFromTriples(triples);
-      const res = await Triple.upsertMany(source, triples);
+      const res = await Triple.upsertMany(source, triples, []); // missing pids here
       if (res.upsertedCount) {
         const tids = Object.values(res.upsertedIds).map((i) => new ObjectId(i));
         const newTriples = await Triple.find({ _id: { $in: tids } });
