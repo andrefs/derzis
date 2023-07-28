@@ -463,6 +463,7 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
 
   PROCESS_LOOP: while (domainsFound < domLimit) {
     const proc = await Process.getOneRunning(procSkip);
+    console.log('XXXXXXXXxx 1', { proc });
     if (!proc) {
       return;
     }
@@ -471,6 +472,7 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
     let pathSkip = 0;
     PATHS_LOOP: while (domainsFound < domLimit) {
       const paths = await proc.getPaths(pathSkip, pathLimit);
+      console.log('XXXXXXXXxx 2', { paths });
 
       // if this process has no more available paths, skip it
       if (!paths.length) {
@@ -479,10 +481,12 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       pathSkip += pathLimit;
 
       const origins = new Set<string>(paths.map((p) => p.head.domain));
+      console.log('XXXXXXXXxx 3', { origins });
       const domains = await Domain.lockForCrawl(
         wId,
         Array.from(origins).slice(0, 20)
       );
+      console.log('XXXXXXXXxx 4', { domains });
 
       const domainInfo: {
         [origin: string]: DomainCrawlJobInfo;
@@ -490,7 +494,9 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       for (const d of domains) {
         domainInfo[d.origin] = { domain: d, resources: [] };
       }
+      console.log('XXXXXXXXxx 5', { domainInfo });
       for (const p of paths) {
+        console.log('XXXXXXXXxx 6', { pHeadDomain: p.head.domain });
         if (p.head.domain in domainInfo) {
           domainInfo[p.head.domain].resources!.push({ url: p.head.url });
         }
@@ -504,7 +510,7 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       for (const d in domainInfo) {
         const dPathHeads = domainInfo[d].resources!.map((r) => r.url);
 
-        const addRes = await Resource.find({
+        const additionalResources = await Resource.find({
           origin: d,
           status: 'unvisited',
           url: { $nin: dPathHeads },
@@ -512,15 +518,18 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
           .limit(resLimit - dPathHeads.length)
           .select('url')
           .lean();
-        yield {
+        console.log('XXXXXXXXxx 7', { additionalResources });
+        let res = {
           domain: domainInfo[d].domain,
           resources: [
             ...domainInfo[d].resources,
-            addRes.map((r) => ({
+            ...additionalResources.map((r) => ({
               url: r.url,
             })),
           ],
         };
+        console.log('XXXXXXXXxx 8', { res });
+        yield res;
       }
     }
   }
