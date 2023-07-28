@@ -54,7 +54,6 @@ export interface IDomain {
     nextAllowed: Date;
   };
   lastAccessed: Date;
-  processIds: string[];
 }
 
 export interface IDomainDocument extends IDomain, Document {}
@@ -71,7 +70,7 @@ interface IDomainModel extends Model<IDomainDocument> {
   //saveRobotsNotFound: (jobResult: RobotsCheckResultError, crawlDelay: number) => Promise<IDomain>,
   //saveRobotsHostNotFoundError: (jobResult: RobotsCheckResultError) => Promise<IDomain>,
   //saveRobotsUnknownError: (jobResult: RobotsCheckResultError) => Promise<IDomain>,
-  upsertMany: (urls: string[], pids: string[]) => Promise<void>;
+  upsertMany: (urls: string[]) => Promise<void>;
   domainsToCheck: (wId: string, limit: number) => Iterable<IDomain>;
   domainsToCrawl: (wId: string, limit: number) => Iterable<IDomain>;
   domainsToCrawl2: (
@@ -160,7 +159,6 @@ const schema: Schema<IDomainDocument> = new Schema(
       nextAllowed: Schema.Types.Date,
     },
     lastAccessed: Schema.Types.Date,
-    processIds: [String],
   },
   { timestamps: true }
 );
@@ -325,7 +323,7 @@ schema.statics.saveRobotsOk = async function (
   );
 };
 
-schema.statics.upsertMany = async function (urls: string, pids: string[]) {
+schema.statics.upsertMany = async function (urls: string) {
   let domains: { [url: string]: UpdateOneModel<IDomain> } = {};
 
   for (const u of urls) {
@@ -334,9 +332,6 @@ schema.statics.upsertMany = async function (urls: string, pids: string[]) {
         filter: { origin: u },
         update: {
           $inc: { 'crawl.queued': 0 },
-          $addToSet: {
-            processIds: { $each: pids },
-          },
         },
         upsert: true,
       };
@@ -496,7 +491,9 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
         domainInfo[d.origin] = { domain: d, resources: [] };
       }
       for (const p of paths) {
-        domainInfo[p.head.domain].resources!.push({ url: p.head.url });
+        if (p.head.domain in domainInfo) {
+          domainInfo[p.head.domain].resources!.push({ url: p.head.url });
+        }
       }
 
       // these paths returned no available domains, skip them

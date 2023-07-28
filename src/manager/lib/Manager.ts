@@ -85,9 +85,10 @@ export default class Manager {
         } catch (e) {
           // TODO handle errors
           log.error(
-            `Error saving resource crawl (job #${jobResult.jobId}) for ${jobResult.url}`
+            `Error saving resource crawl (job #${jobResult.jobId}) for ${jobResult.url}`,
+            e
           );
-          log.info(jobResult);
+          log.info('', jobResult);
         } finally {
           this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
           log.debug(
