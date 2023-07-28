@@ -490,14 +490,12 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       );
 
       const domainInfo: {
-        [origin: string]: { domain: IDomain; resources: { url: string }[] };
+        [origin: string]: DomainCrawlJobInfo;
       } = {};
       for (const d of domains) {
         domainInfo[d.origin] = { domain: d, resources: [] };
       }
       for (const p of paths) {
-        domainInfo[p.head.domain].resources =
-          domainInfo[p.head.domain].resources || [];
         domainInfo[p.head.domain].resources!.push({ url: p.head.url });
       }
 
@@ -509,19 +507,23 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       for (const d in domainInfo) {
         const dPathHeads = domainInfo[d].resources!.map((r) => r.url);
 
-        let addRes = [];
-        if (dPathHeads.length <= resLimit) {
-          addRes = await Resource.getUnvisited(d, dPathHeads, resLimit);
-          yield {
-            domain: domainInfo[d].domain,
-            resources: [
-              ...domainInfo[d].resources,
-              addRes.map((r) => ({
-                url: r.url,
-              })),
-            ],
-          };
-        }
+        const addRes = await Resource.find({
+          origin: d,
+          status: 'unvisited',
+          url: { $nin: dPathHeads },
+        })
+          .limit(resLimit - dPathHeads.length)
+          .select('url')
+          .lean();
+        yield {
+          domain: domainInfo[d].domain,
+          resources: [
+            ...domainInfo[d].resources,
+            addRes.map((r) => ({
+              url: r.url,
+            })),
+          ],
+        };
       }
     }
   }
