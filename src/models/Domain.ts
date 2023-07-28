@@ -2,10 +2,15 @@ import { FilterQuery } from 'mongoose';
 import { Schema, model, Model, Document } from 'mongoose';
 import { UpdateOneModel } from 'mongodb';
 import { HttpError, createLogger } from '@derzis/common';
-import { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/worker';
+import {
+  DomainCrawlJobInfo,
+  RobotsCheckResultError,
+  RobotsCheckResultOk,
+} from '@derzis/worker';
 import { Counter } from './Counter';
 import { Path } from './Path';
 import { Process } from './Process';
+import { Resource } from './Resource';
 const log = createLogger('Domain');
 
 const errorTypes = [
@@ -69,7 +74,13 @@ interface IDomainModel extends Model<IDomainDocument> {
   upsertMany: (urls: string[], pids: string[]) => Promise<void>;
   domainsToCheck: (wId: string, limit: number) => Iterable<IDomain>;
   domainsToCrawl: (wId: string, limit: number) => Iterable<IDomain>;
+  domainsToCrawl2: (
+    wId: string,
+    domLimit: number,
+    resLimit: number
+  ) => AsyncIterable<DomainCrawlJobInfo>;
   lockForRobotsCheck: (wId: string, origins: string[]) => Promise<IDomain[]>;
+  lockForCrawl: (wId: string, origins: string[]) => Promise<IDomain[]>;
 }
 const schema: Schema<IDomainDocument> = new Schema(
   {
@@ -390,6 +401,28 @@ schema.statics.lockForRobotsCheck = async function (
   return this.find({ jobId }).lean();
 };
 
+schema.statics.lockForCrawl = async function (wId: string, origins: [string]) {
+  const jobId = await Counter.genId('jobs');
+  const query = {
+    origin: { $in: origins },
+    status: 'ready',
+    'crawl.nextAllowed': { $lte: Date.now() },
+  };
+  const update = {
+    $set: {
+      status: 'crawling',
+      jobId,
+      workerId: wId,
+    },
+  };
+  const options = {
+    new: true,
+    fields: 'origin jobId',
+  };
+  await this.findOneAndUpdate(query, update, options);
+  return this.find({ jobId }).lean();
+};
+
 schema.statics.domainsToCheck = async function* (wId, limit) {
   let domainsFound = 0;
   let procSkip = 0;
@@ -426,6 +459,72 @@ schema.statics.domainsToCheck = async function* (wId, limit) {
     }
   }
   return;
+};
+
+schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
+  let domainsFound = 0;
+  let procSkip = 0;
+  let pathLimit = 20;
+
+  PROCESS_LOOP: while (domainsFound < domLimit) {
+    const proc = await Process.getOneRunning(procSkip);
+    if (!proc) {
+      return;
+    }
+    procSkip++;
+
+    let pathSkip = 0;
+    PATHS_LOOP: while (domainsFound < domLimit) {
+      const paths = await proc.getPaths(pathSkip, pathLimit);
+
+      // if this process has no more available paths, skip it
+      if (!paths.length) {
+        continue PROCESS_LOOP;
+      }
+      pathSkip += pathLimit;
+
+      const origins = new Set<string>(paths.map((p) => p.head.domain));
+      const domains = await Domain.lockForCrawl(
+        wId,
+        Array.from(origins).slice(0, 20)
+      );
+
+      const domainInfo: {
+        [origin: string]: { domain: IDomain; resources: { url: string }[] };
+      } = {};
+      for (const d of domains) {
+        domainInfo[d.origin] = { domain: d, resources: [] };
+      }
+      for (const p of paths) {
+        domainInfo[p.head.domain].resources =
+          domainInfo[p.head.domain].resources || [];
+        domainInfo[p.head.domain].resources!.push({ url: p.head.url });
+      }
+
+      // these paths returned no available domains, skip them
+      if (!domains.length) {
+        continue PATHS_LOOP;
+      }
+
+      for (const d in domainInfo) {
+        const dPathHeads = domainInfo[d].resources!.map((r) => r.url);
+
+        let addRes = [];
+        if (dPathHeads.length <= resLimit) {
+          addRes = await Resource.getUnvisited(d, dPathHeads, resLimit);
+          yield {
+            domain: domainInfo[d].domain,
+            resources: [
+              ...domainInfo[d].resources,
+              addRes.map((r) => ({
+                url: r.url,
+              })),
+            ],
+          };
+        }
+      }
+    }
+  }
 };
 
 schema.statics.domainsToCrawl = async function* (wId, limit) {
