@@ -22,7 +22,6 @@ export interface IResource {
     domainTs: Date;
     counter: number;
   };
-  processIds: Types.Array<string>;
   updatedAt: Date;
 }
 
@@ -84,17 +83,9 @@ const schema = new Schema<IResource, ResourceModel>(
       domainTs: Schema.Types.Date,
       counter: Number,
     },
-    processIds: [String],
   },
   { timestamps: true }
 );
-
-schema.virtual('process', {
-  ref: 'Process',
-  localField: 'processIds',
-  foreignField: 'pid',
-  justOne: false,
-});
 
 schema.index({
   url: 1,
@@ -108,17 +99,10 @@ schema.index({
   headCount: 1,
 });
 
-schema.index({
-  processIds: 1,
-});
-
-schema.static('addMany', async function addMany(resources, pids) {
+schema.static('addMany', async function addMany(resources) {
   let insertedDocs: IResource[] = [];
   let existingDocs: IResource[] = [];
-  await this.insertMany(
-    resources.map((r: IResource) => ({ ...r, processIds: pids })),
-    { ordered: false }
-  )
+  await this.insertMany(resources, { ordered: false })
     .then((docs) => (insertedDocs = docs.map((d) => d.toObject())))
     .catch((err) => {
       for (const e of err.writeErrors) {
@@ -130,18 +114,6 @@ schema.static('addMany', async function addMany(resources, pids) {
       insertedDocs = err.insertedDocs;
     });
 
-  if (existingDocs.length) {
-    await this.updateMany(
-      { url: { $in: existingDocs.map((d) => d.url) } },
-      { $addToSet: { processIds: { $each: pids } } }
-    );
-  }
-  if (insertedDocs.length) {
-    await Domain.upsertMany(
-      resources.map((r: IResource) => r.domain),
-      pids
-    );
-  }
   return insertedDocs;
 });
 
@@ -236,7 +208,6 @@ schema.static(
             url: u,
             domain: new URL(u).origin,
           },
-          $addToSet: { processIds: pid },
         },
         upsert: true,
         setDefaultsOnInsert: true,
@@ -244,10 +215,7 @@ schema.static(
     }));
 
     const res = await this.bulkWrite(upserts);
-    await Domain.upsertMany(
-      urls.map((u: string) => new URL(u).origin),
-      [pid]
-    );
+    await Domain.upsertMany(urls.map((u: string) => new URL(u).origin));
 
     const paths = urls.map((u: string) => ({
       processId: pid,
