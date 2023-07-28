@@ -24,17 +24,24 @@ be executed without using containers.
 
 ### Locally
 
-#### Dependencies
+#### Install dependencies
 
 - MongoDB
 - Redis
 - Node.js v20
 - Run `npm install` on the root folder
 
-#### Running
+#### Run in development mode
+
+- Open a terminal and run `npm run worker:dev`.
+- Open another terminal and run `npm run manager:dev`.
+- The web app will be accessible at http://localhost:5432/processes
+
+#### Build and run
 
 - Run `npm run build` on the root folder
 - Make sure you have Redis and MongoDB running.
 - Edit `dist/src/config/index.js` to modify the crawler parameters.
 - Open a terminal and run `node ./dist/src/manager/bin/manager.js`.
 - Open another terminal and run `./dist/src/worker/bin/worker-pool`.
+- The web app will be accessible at http://localhost:5432/processes
