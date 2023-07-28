@@ -508,25 +508,30 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       }
 
       for (const d in domainInfo) {
-        const dPathHeads = domainInfo[d].resources!.map((r) => r.url);
-
+        const dPathHeads = domainInfo[d].resources!;
         const additionalResources = await Resource.find({
           origin: d,
           status: 'unvisited',
-          url: { $nin: dPathHeads },
+          url: { $nin: dPathHeads.map((r) => r.url) },
         })
           .limit(resLimit - dPathHeads.length)
           .select('url')
           .lean();
+        const allResources = [...dPathHeads, ...additionalResources];
         console.log('XXXXXXXXxx 7', { additionalResources });
+
+        await Resource.updateMany(
+          { url: { $in: allResources.map((r) => r.url) } },
+          { status: 'crawling', jobId: domainInfo[d].domain.jobId }
+        ).lean();
+        await Domain.updateOne(
+          { origin: d, jobId: domainInfo[d].domain.jobId },
+          { 'crawl.ongoing': allResources.length }
+        );
+
         let res = {
           domain: domainInfo[d].domain,
-          resources: [
-            ...domainInfo[d].resources,
-            ...additionalResources.map((r) => ({
-              url: r.url,
-            })),
-          ],
+          resources: allResources,
         };
         console.log('XXXXXXXXxx 8', { res });
         yield res;
