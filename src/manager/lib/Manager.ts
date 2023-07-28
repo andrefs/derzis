@@ -371,7 +371,8 @@ export default class Manager {
       log.debug(
         `Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`
       );
-      for await (const crawl of this.domainsToCrawl(
+      //for await (const crawl of this.domainsToCrawl(
+      for await (const crawl of Domain.domainsToCrawl2(
         workerId,
         workerAvail.domainCrawl.capacity,
         workerAvail.domainCrawl.resourcesPerDomain

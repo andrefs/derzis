@@ -41,6 +41,11 @@ interface ResourceModel extends Model<IResource, {}> {
     paths: HydratedDocument<IPath, IPathMethods>[]
   ) => Promise<BulkWriteResult>;
   rmPath: (path: IPath) => Promise<void>;
+  getUnvisited: (
+    domain: string,
+    exclude: string[],
+    limit: number
+  ) => Promise<IResource[]>;
 }
 
 const schema = new Schema<IResource, ResourceModel>(
@@ -300,5 +305,19 @@ schema.static('rmPath', async function rmPath(path) {
     );
   }
 });
+
+schema.static(
+  'getUnvisited',
+  async function getUnvisited(domain: string, exclude: string[], limit) {
+    return await Resource.find({
+      origin: domain,
+      status: 'unvisited',
+      url: { $nin: exclude },
+    })
+      .limit(limit - exclude.length)
+      .select('url')
+      .lean();
+  }
+);
 
 export const Resource = model<IResource, ResourceModel>('Resource', schema);

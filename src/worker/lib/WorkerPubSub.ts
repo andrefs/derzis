@@ -24,11 +24,14 @@ export interface ResourceCrawlJobRequest extends BaseJobRequest {
   origin: string;
   url: string;
 }
-export interface DomainCrawlJobRequest extends BaseJobRequest {
-  type: 'domainCrawl';
+export interface DomainCrawlJobInfo {
   domain: IDomain;
   resources: { url: string }[];
 }
+export type DomainCrawlJobRequest = BaseJobRequest &
+  DomainCrawlJobInfo & {
+    type: 'domainCrawl';
+  };
 export type JobRequest =
   | RobotsCheckJobRequest
   | ResourceCrawlJobRequest
@@ -258,7 +261,8 @@ export class WorkerPubSub {
       let i = 0;
       for await (const x of this.w.crawlDomain(job)) {
         log.info(
-          `Finished resourceCrawl ${++i}/${total} of ${job.domain.origin
+          `Finished resourceCrawl ${++i}/${total} of ${
+            job.domain.origin
           } (job #${job.jobId})`
         );
         this.pub({ type: 'jobDone', payload: x });
