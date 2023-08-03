@@ -2,6 +2,7 @@ import { model, Model, Schema, Types } from 'mongoose';
 import { BulkWriteResult } from 'mongodb';
 import { urlType } from '@derzis/common';
 import { IResource } from './Resource';
+import { ObjectId } from 'bson';
 
 export interface ITriple {
   subject: string;
@@ -9,7 +10,6 @@ export interface ITriple {
   object: string;
   nodes: Types.Array<string>;
   sources: Types.Array<string>;
-  processIds: Types.Array<string>;
 }
 
 export interface SimpleTriple {
@@ -21,8 +21,7 @@ export interface SimpleTriple {
 interface TripleModel extends Model<ITriple> {
   upsertMany(
     source: IResource,
-    triples: SimpleTriple[],
-    pids: string[]
+    triples: SimpleTriple[]
   ): Promise<BulkWriteResult>;
 }
 
@@ -33,16 +32,14 @@ const schema = new Schema<ITriple, TripleModel>(
     object: { ...urlType, required: true }, // TODO allow literals
     nodes: [urlType],
     sources: [urlType],
-    processIds: [String],
   },
   { timestamps: true }
 );
 
 schema.index({ nodes: 1 });
 schema.index({ subject: 1, predicate: 1, object: 1 }, { unique: true });
-schema.index({ processIds: 1 });
 
-schema.static('upsertMany', async function upsertMany(source, triples, pids) {
+schema.static('upsertMany', async function upsertMany(source, triples) {
   const ops = triples.map((t: SimpleTriple) => ({
     updateOne: {
       filter: t,
@@ -52,7 +49,6 @@ schema.static('upsertMany', async function upsertMany(source, triples, pids) {
         },
         $addToSet: {
           sources: source.url,
-          processIds: { $each: pids },
         },
       },
       upsert: true,

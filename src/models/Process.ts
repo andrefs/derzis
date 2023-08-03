@@ -1,9 +1,17 @@
-import { Document, model, Model, Schema, Types } from 'mongoose';
+import {
+  Document,
+  HydratedDocument,
+  model,
+  Model,
+  Schema,
+  Types,
+} from 'mongoose';
 import { Resource } from './Resource';
-import { Triple, SimpleTriple } from './Triple';
+import { Triple, SimpleTriple, ITriple } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
-import { Path, PathDocument } from './Path';
+import { IPath, Path, PathDocument } from './Path';
+import { ProcessTriple } from './ProcessTriple';
 
 export interface IProcess {
   pid: string;
@@ -33,6 +41,10 @@ interface IProcessMethods {
   getTriplesJson(): AsyncIterable<string>;
   getInfo(): Promise<object>;
   getPaths(pathSkip: number, pathLimit: number): Promise<PathDocument[]>;
+  extendWithExistingTriples(paths: PathDocument[]): Promise<void>;
+  extendPaths(triplesByNode: {
+    [url: string]: HydratedDocument<ITriple>[];
+  }): Promise<void>;
 }
 
 interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
@@ -120,6 +132,80 @@ schema.method('getPaths', async function (skip = 0, limit = 20) {
     .lean();
   return paths;
 });
+
+schema.method(
+  'extendPathsWithExistingTriples',
+  async function (paths: PathDocument[]) {
+    for (const path of paths) {
+      const newPathObjs = [];
+      const toDelete = new Set();
+      const procTriples = new Set();
+
+      const { newPaths: nps, procTriples: pts } =
+        await path.extendWithExistingTriples();
+
+      if (nps.length) {
+        toDelete.add(path._id);
+        newPathObjs.push(...nps);
+        for (const pt of pts) {
+          procTriples.add(pt);
+        }
+      }
+
+      // create new paths
+      const newPaths = await Path.create(newPathObjs);
+
+      // delete old paths
+      await Path.deleteMany({ _id: { $in: Array.from(toDelete) } });
+
+      await this.extendPathsWithExistingTriples(newPaths);
+    }
+  }
+);
+
+schema.method(
+  'extendPaths',
+  async function (triplesByNode: {
+    [url: string]: HydratedDocument<ITriple>[];
+  }) {
+    const paths = await Path.find({
+      processId: this.pid,
+      head: { $in: new Set(Object.keys(triplesByNode)) },
+    });
+
+    const pathsToDelete = new Set();
+    const newPathObjs = [];
+    const toDelete = new Set();
+    const procTriples = new Set();
+
+    for (const path of paths) {
+      const { newPaths: nps, procTriples: pts } = await path.extend(
+        triplesByNode[path.head.url]
+      );
+      if (nps.length) {
+        toDelete.add(path._id);
+        newPathObjs.push(...nps);
+        for (const pt of pts) {
+          procTriples.add(pt);
+        }
+      }
+    }
+
+    // add proc-triple associations
+    await ProcessTriple.create(
+      [...procTriples].map((tId) => ({ processId: this.pid, tripleId: tId }))
+    );
+
+    // create new paths
+    const newPaths = await Path.create(newPathObjs);
+
+    // delete old paths
+    await Path.deleteMany({ _id: { $in: Array.from(toDelete) } });
+
+    // add existing heads
+    await this.extendPathsWithExistingTriples(newPaths);
+  }
+);
 
 schema.method('getInfo', async function () {
   const baseFilter = { processIds: this.pid };
