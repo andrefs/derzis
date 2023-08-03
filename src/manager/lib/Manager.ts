@@ -12,6 +12,7 @@ import {
   Process,
   PathSkeleton,
   IResource,
+  SimpleTriple,
 } from '@derzis/models';
 import { createLogger, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
@@ -25,6 +26,7 @@ import {
   ResourceCrawlJobRequest,
 } from '@derzis/worker';
 import { ObjectId } from 'bson';
+import { HydratedDocument } from 'mongoose';
 
 export { OngoingJobs } from './RunningJobs';
 
@@ -120,7 +122,6 @@ export default class Manager {
   }
 
   async saveCrawl2(jobResult: CrawlResourceResult) {
-    console.log('XXXXXXXXXXXX saveCrawl2', { jobResult });
     if (jobResult.status === 'not_ok') {
       return await Resource.markAsCrawled(
         jobResult.url,
@@ -128,7 +129,10 @@ export default class Manager {
         jobResult.err
       );
     }
+    // mark head as crawled
     await Resource.markAsCrawled(jobResult.url, jobResult.details);
+
+    // filter out triples which dont refer to head resource
     const triples = jobResult.details.triples
       .filter((t) => t.subject.termType === 'NamedNode')
       .filter((t) => t.object.termType === 'NamedNode')
@@ -141,71 +145,88 @@ export default class Manager {
         predicate: t.predicate.value,
         object: t.object.value,
       }));
-    console.log('XXXXXXXXXXXX 90', { triples });
-    if (triples.length) {
-      const source = (await Resource.findOne({
-        url: jobResult.url,
-      })) as IResource;
-      console.log('XXXXXXXXXXXX 91', { source });
 
-      await Resource.addFromTriples(triples);
-      const pids = await Path.distinct('processId', {
-        'head.url': jobResult.url,
-      });
-      console.log('XXXXXXXXXXXX 99', { pids });
-    }
-  }
-
-  async saveCrawl(jobResult: CrawlResourceResult) {
-    if (jobResult.status === 'not_ok') {
-      return await Resource.markAsCrawled(
-        jobResult.url,
-        jobResult.details,
-        jobResult.err
-      );
-    }
-    await Resource.markAsCrawled(jobResult.url, jobResult.details);
-    const triples = jobResult.details.triples
-      .filter((t) => t.subject.termType === 'NamedNode')
-      .filter((t) => t.object.termType === 'NamedNode')
-      .filter(
-        (t) =>
-          t.object.value === jobResult.url || t.subject.value === jobResult.url
-      )
-      .map((t) => ({
-        subject: t.subject.value,
-        predicate: t.predicate.value,
-        object: t.object.value,
-      }));
     if (triples.length) {
       const source = (await Resource.findOne({
         url: jobResult.url,
       })) as IResource;
 
+      // add new resources
       await Resource.addFromTriples(triples);
-      const res = await Triple.upsertMany(source, triples, []); // missing pids here
+
+      // add new triples
+      const res = await Triple.upsertMany(source, triples);
+
       if (res.upsertedCount) {
         const tids = Object.values(res.upsertedIds).map((i) => new ObjectId(i));
-        const newTriples = await Triple.find({ _id: { $in: tids } });
-        await this.updatePaths(jobResult.url, newTriples);
+        // filter out reflexive triples and triples not referring to head resource
+        const tObjs = (await Triple.find({ _id: { $in: tids } })).filter(
+          (t) =>
+            t.subject !== t.object &&
+            (t.subject == source.url || t.object == source.url)
+        );
+        const triplesByNode: { [url: string]: HydratedDocument<ITriple>[] } =
+          {};
+
+        for (const t of tObjs) {
+          const newHead = t.subject === source.url ? t.object : t.subject;
+          if (!triplesByNode[source.url]) {
+            triplesByNode[source.url] = [];
+          }
+          triplesByNode[source.url].push(t);
+        }
+        await this.updatePaths(source.url, triplesByNode);
       }
     }
-    return;
   }
 
-  async updatePaths(sourceUrl: string, triples: ITriple[]) {
-    const query = {
+  //async saveCrawl(jobResult: CrawlResourceResult) {
+  //  if (jobResult.status === 'not_ok') {
+  //    return await Resource.markAsCrawled(
+  //      jobResult.url,
+  //      jobResult.details,
+  //      jobResult.err
+  //    );
+  //  }
+  //  await Resource.markAsCrawled(jobResult.url, jobResult.details);
+  //  const triples = jobResult.details.triples
+  //    .filter((t) => t.subject.termType === 'NamedNode')
+  //    .filter((t) => t.object.termType === 'NamedNode')
+  //    .filter(
+  //      (t) =>
+  //        t.object.value === jobResult.url || t.subject.value === jobResult.url
+  //    )
+  //    .map((t) => ({
+  //      subject: t.subject.value,
+  //      predicate: t.predicate.value,
+  //      object: t.object.value,
+  //    }));
+  //  if (triples.length) {
+  //    const source = (await Resource.findOne({
+  //      url: jobResult.url,
+  //    })) as IResource;
+
+  //    await Resource.addFromTriples(triples);
+  //    const res = await Triple.upsertMany(source, triples);
+  //    if (res.upsertedCount) {
+  //      const tids = Object.values(res.upsertedIds).map((i) => new ObjectId(i));
+  //      const newTriples = await Triple.find({ _id: { $in: tids } });
+  //      await this.updatePaths(jobResult.url, pids, newTriples);
+  //    }
+  //  }
+  //  return;
+  //}
+
+  async updatePaths(
+    sourceUrl: string,
+    triplesByNode: { [url: string]: HydratedDocument<ITriple>[] }
+  ) {
+    const pids = await Path.distinct('processId', {
       'head.url': sourceUrl,
-      'nodes.count': {
-        $lt: config.graph.maxPathLength,
-      },
-    };
-    await Path.updateMany(
-      { ...query, status: 'active' },
-      { status: 'finished' }
-    );
-    for await (const path of Path.find(query)) {
-      await this.addHeads(path, triples);
+    });
+    for (const pid of pids) {
+      const proc = await Process.findOne({ pid });
+      await proc?.extendPaths(triplesByNode);
     }
   }
 
@@ -241,90 +262,90 @@ export default class Manager {
     return true;
   }
 
-  async addHeads(path: IPath, triples: ITriple[]) {
-    let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
+  // async addHeads(path: IPath, triples: ITriple[]) {
+  //   let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
 
-    for (const t of triples) {
-      if (!this.shouldCreateNewPath(t, path)) {
-        continue;
-      }
+  //   for (const t of triples) {
+  //     if (!this.shouldCreateNewPath(t, path)) {
+  //       continue;
+  //     }
 
-      const newHeadUrl: string =
-        t.subject === path.head.url ? t.object : t.subject;
-      const prop: string = t.predicate;
+  //     const newHeadUrl: string =
+  //       t.subject === path.head.url ? t.object : t.subject;
+  //     const prop: string = t.predicate;
 
-      newPaths[prop] = newPaths[prop] || {};
-      if (!newPaths[prop][newHeadUrl]) {
-        const nodes = [...path.nodes.elems, newHeadUrl];
-        const np: PathSkeleton = {
-          processId: path.processId,
-          seed: path.seed,
-          head: { url: newHeadUrl },
-          predicates: {
-            elems: Array.from(new Set([...path.predicates.elems, prop])),
-          },
-          nodes: { elems: nodes },
-          parentPath: path,
-        };
-        newPaths[prop][newHeadUrl] = np;
-      }
-    }
+  //     newPaths[prop] = newPaths[prop] || {};
+  //     if (!newPaths[prop][newHeadUrl]) {
+  //       const nodes = [...path.nodes.elems, newHeadUrl];
+  //       const np: PathSkeleton = {
+  //         processId: path.processId,
+  //         seed: path.seed,
+  //         head: { url: newHeadUrl },
+  //         predicates: {
+  //           elems: Array.from(new Set([...path.predicates.elems, prop])),
+  //         },
+  //         nodes: { elems: nodes },
+  //         //parentPath: path,
+  //       };
+  //       newPaths[prop][newHeadUrl] = np;
+  //     }
+  //   }
 
-    const nps: PathSkeleton[] = [];
-    Object.values(newPaths).forEach((x) =>
-      Object.values(x).forEach((y) => nps.push(y))
-    );
-    if (!nps.length) {
-      return;
-    }
+  //   const nps: PathSkeleton[] = [];
+  //   Object.values(newPaths).forEach((x) =>
+  //     Object.values(x).forEach((y) => nps.push(y))
+  //   );
+  //   if (!nps.length) {
+  //     return;
+  //   }
 
-    let paths = await Path.create(nps as PathSkeleton[]);
-    paths = paths.filter((p) => p.status === 'active');
+  //   let paths = await Path.create(nps as PathSkeleton[]);
+  //   paths = paths.filter((p) => p.status === 'active');
 
-    if (!paths.length) {
-      return [];
-    }
+  //   if (!paths.length) {
+  //     return [];
+  //   }
 
-    await Resource.addPaths(paths);
+  //   await Resource.addPaths(paths);
 
-    return this.addExistingHeads(paths);
-  }
+  //   return this.addExistingHeads(paths);
+  // }
 
-  async addExistingHeads(paths: PathDocument[]) {
-    for (const p of paths) {
-      if (!p.head.needsCrawling) {
-        await this.addExistingHead(p);
-      }
-    }
-    return paths;
-  }
+  // async addExistingHeads(paths: PathDocument[]) {
+  //   for (const p of paths) {
+  //     if (!p.head.needsCrawling) {
+  //       await this.addExistingHead(p);
+  //     }
+  //   }
+  //   return paths;
+  // }
 
-  async addExistingHead(path: PathDocument) {
-    const headResource = await Resource.findOne({ url: path.head.url }).lean();
-    // path gone back to seed or to repeated resource
-    if (
-      headResource &&
-      (headResource.isSeed || path.nodes.elems.includes(headResource.url))
-    ) {
-      await path.markDisabled();
-    }
-    const props = new Set(path.predicates.elems);
-    let betterPathCandidates = await Path.find({
-      'seed.url': path.seed.url,
-      'head.url': path.head.url,
-      'predicates.count': { $lt: path.predicates.count },
-    });
-    // there are already better ways of reaching this head
-    const foundBetter = betterPathCandidates?.some((pc) =>
-      pc.predicates.elems.every((pred) => props.has(pred))
-    );
-    if (foundBetter) {
-      await path.markDisabled();
-    }
-    const triples = await Triple.find({ nodes: headResource!.url });
-    await path.markFinished();
-    return this.addHeads(path, triples);
-  }
+  // async addExistingHead(path: PathDocument) {
+  //   const headResource = await Resource.findOne({ url: path.head.url }).lean();
+  //   // path gone back to seed or to repeated resource
+  //   if (
+  //     headResource &&
+  //     (headResource.isSeed || path.nodes.elems.includes(headResource.url))
+  //   ) {
+  //     await path.markDisabled();
+  //   }
+  //   const props = new Set(path.predicates.elems);
+  //   let betterPathCandidates = await Path.find({
+  //     'seed.url': path.seed.url,
+  //     'head.url': path.head.url,
+  //     'predicates.count': { $lt: path.predicates.count },
+  //   });
+  //   // there are already better ways of reaching this head
+  //   const foundBetter = betterPathCandidates?.some((pc) =>
+  //     pc.predicates.elems.every((pred) => props.has(pred))
+  //   );
+  //   if (foundBetter) {
+  //     await path.markDisabled();
+  //   }
+  //   const triples = await Triple.find({ nodes: headResource!.url });
+  //   await path.markFinished();
+  //   return this.addHeads(path, triples);
+  // }
 
   async saveRobots(jobResult: RobotsCheckResult) {
     let crawlDelay = config.http.crawlDelay || 1;

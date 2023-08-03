@@ -32,11 +32,11 @@ export default {
     maxPathLength:
       Number(getSecret('MAX_PATH_LENGTH')) ||
       Number(process.env.MAX_PATH_LENGTH) ||
-      3,
+      2,
     maxPathProps:
       Number(getSecret('MAX_PATH_PROPS')) ||
       Number(process.env.MAX_PATH_PROPS) ||
-      2,
+      1,
   },
   pubsub: {
     debug: false,
