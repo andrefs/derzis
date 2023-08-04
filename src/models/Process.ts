@@ -125,7 +125,8 @@ schema.method('getPaths', async function (skip = 0, limit = 20) {
     'nodes.count': { $lte: this.params.maxPathLength },
     'predicates.count': { $lte: this.params.maxPathProps },
   })
-    .sort({ 'nodes.count': -1 })
+    // shorter paths first
+    .sort({ 'nodes.count': 1 })
     .limit(limit)
     .skip(skip)
     .select('head.domain head.url')
@@ -168,9 +169,13 @@ schema.method(
   async function (triplesByNode: {
     [url: string]: HydratedDocument<ITriple>[];
   }) {
+    const newHeads = Object.keys(triplesByNode);
     const paths = await Path.find({
       processId: this.pid,
-      head: { $in: new Set(Object.keys(triplesByNode)) },
+      head:
+        newHeads.length === 1
+          ? newHeads[0]
+          : { $in: Object.keys(triplesByNode) },
     });
 
     const pathsToDelete = new Set();
