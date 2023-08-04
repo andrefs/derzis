@@ -1,4 +1,4 @@
-import { Process, ProcessDocument, Resource } from '@derzis/models';
+import { Process, IProcessDocument, Resource } from '@derzis/models';
 import express from 'express';
 import { create } from 'express-handlebars';
 import path from 'path';
@@ -70,7 +70,7 @@ app.use(
 );
 
 app.get('/processes', async (req, res) => {
-  const ps: ProcessDocument[] = await Process.find().lean();
+  const ps: IProcessDocument[] = await Process.find().lean();
   const _ps = ps.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }));
   res.render('process-list', { processes: _ps, page_name: 'processes' });
 });
@@ -80,7 +80,7 @@ app.get('/processes/new', (req, res) => {
 });
 
 app.get('/processes/:pid', async (req, res) => {
-  const _p: ProcessDocument | null = await Process.findOne({
+  const _p: IProcessDocument | null = await Process.findOne({
     pid: req.params.pid,
   }).lean();
   if (!_p) {
