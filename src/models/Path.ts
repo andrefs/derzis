@@ -218,6 +218,7 @@ schema.method('extend', async function (triples: HydratedDocument<ITriple>[]) {
     // avoid extending the same path twice with the same triple
     if (!newPaths[prop][newHeadUrl]) {
       const np = this.copy();
+      np.head.url = newHeadUrl;
       console.log('XXXXXXXXXXXX path.extend 3', { np });
 
       if (this.tripleIsOutOfBounds(t, process)) {
