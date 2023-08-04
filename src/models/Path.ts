@@ -7,6 +7,8 @@ import {
   SimpleTriple,
   ITriple,
   Triple,
+  Process,
+  ProcessDocument,
 } from '@derzis/models';
 
 export interface PathSkeleton {
@@ -66,7 +68,7 @@ export interface IPathMethods {
   markDisabled(): Promise<void>;
   markFinished(): Promise<void>;
   shouldCreateNewPath(triple: SimpleTriple): boolean;
-  tripleIsOutOfBounds(triple: SimpleTriple): boolean;
+  tripleIsOutOfBounds(triple: SimpleTriple, process: ProcessDocument): boolean;
   extendWithExistingTriples(): Promise<{
     newPaths: PathDocument[];
     procTriples: string[];
@@ -146,6 +148,7 @@ schema.index({
 });
 
 schema.pre('save', async function () {
+  this.outOfBounds.count = this.outOfBounds.links.length;
   this.nodes.count = this.nodes.elems.length;
   this.predicates.count = this.predicates.elems.length;
   if (this.predicates.count) {
@@ -185,6 +188,7 @@ schema.method('markFinished', async function () {
 });
 
 schema.method('shouldCreateNewPath', function (t: ITriple) {
+  console.log('XXXXXXXXXXXXXX shouldCreateNewPath', { t, _this: this });
   // triple is reflexive
   if (t.subject === t.object) {
     return false;
@@ -204,14 +208,17 @@ schema.method('shouldCreateNewPath', function (t: ITriple) {
   return true;
 });
 
-schema.method('tripleIsOutOfBounds', function (t: ITriple) {
-  const pathPreds: Set<string> = new Set(this.predicates.elems);
-  return (
-    this.nodes.count >= this.params.maxPathLength ||
-    (!pathPreds.has(t.predicate) &&
-      this.predicates.count >= this.params.maxPredicates)
-  );
-});
+schema.method(
+  'tripleIsOutOfBounds',
+  function (t: ITriple, process: ProcessDocument) {
+    const pathPreds: Set<string> = new Set(this.predicates.elems);
+    return (
+      this.nodes.count >= process.params.maxPathLength ||
+      (!pathPreds.has(t.predicate) &&
+        this.predicates.count >= process.params.maxPathProps)
+    );
+  }
+);
 
 schema.method('copy', function () {
   const copy: PathSkeleton = {
@@ -233,34 +240,46 @@ schema.method('extendWithExistingTriples', async function () {
 });
 
 schema.method('extend', async function (triples: HydratedDocument<ITriple>[]) {
+  console.log('XXXXXXXXXXXX path.extend 0', { head: this.head, triples });
   let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
   let procTriples: Types.ObjectId[] = [];
+  const process = await Process.findOne({ pid: this.processId });
+  console.log('XXXXXXXXXXXX path.extend 0.1', { process });
 
-  for (const t of triples.filter(this.shouldCreateNewPath)) {
+  for (const t of triples.filter((t) => this.shouldCreateNewPath(t))) {
+    console.log('XXXXXXXXXXXX path.extend 1', { t });
     const newHeadUrl: string =
       t.subject === this.head.url ? t.object : t.subject;
     const prop = t.predicate;
+    console.log('XXXXXXXXXXXX path.extend 2', { newHeadUrl, prop });
 
     newPaths[prop] = newPaths[prop] || {};
     // avoid extending the same path twice with the same triple
     if (!newPaths[prop][newHeadUrl]) {
       const np = this.copy();
+      console.log('XXXXXXXXXXXX path.extend 3', { np });
 
-      if (this.tripleIsOutOfBounds(t)) {
-        np.outOfBounds.push({ predicate: prop, node: newHeadUrl });
+      if (this.tripleIsOutOfBounds(t, process)) {
+        console.log('XXXXXXXXXXXX path.extend 4');
+        np.outOfBounds.links.push({ predicate: prop, node: newHeadUrl });
       } else {
+        console.log('XXXXXXXXXXXX path.extend 5');
         procTriples.push(t._id);
         np.predicates.elems = Array.from(
           new Set([...this.predicates.elems, prop])
         );
         np.nodes.elems.push(newHeadUrl);
       }
+      console.log('XXXXXXXXXXXX path.extend 6', { np });
+      newPaths[prop][newHeadUrl] = np;
     }
   }
+  console.log('XXXXXXXXXXXX path.extend 7', { newPaths, procTriples });
   const nps: PathSkeleton[] = [];
   Object.values(newPaths).forEach((x) =>
     Object.values(x).forEach((y) => nps.push(y))
   );
+  console.log('XXXXXXXXXXXX path.extend 8', { newPaths, nps, procTriples });
 
   return { newPaths: nps, procTriples };
 });

@@ -53,11 +53,11 @@ export default {
   periodicallyRepCurCap: 10 * 1000,
   jobs: {
     domainCrawl: {
-      capacity: 10,
-      resourcesPerDomain: 10,
+      capacity: 1,
+      resourcesPerDomain: 1,
     },
     robotsCheck: {
-      capacity: 10,
+      capacity: 1,
     },
   },
   http: {
