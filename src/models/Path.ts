@@ -51,16 +51,6 @@ export interface IPath {
   head: {
     url: string;
     domain: string;
-    needsCrawling: boolean;
-  };
-  status:
-    | 'active'
-    | 'disabled' // a better alternative path was found
-    | 'finished'; // path reached limits
-  status2: {
-    type: 'ready' | 'processing';
-    required: true;
-    default: 'ready';
   };
 }
 
@@ -114,21 +104,6 @@ const schema = new Schema<IPath, {}, IPathMethods>(
     head: {
       url: { ...urlType, required: true },
       domain: urlType,
-      needsCrawling: {
-        type: Boolean,
-        default: true,
-      },
-    },
-    status: {
-      type: String,
-      enum: ['active', 'disabled', 'finished'],
-      default: 'active',
-    },
-    status2: {
-      type: String,
-      enum: ['ready', 'processing'],
-      required: true,
-      default: 'ready',
     },
   },
   { timestamps: true }
@@ -154,23 +129,8 @@ schema.pre('save', async function () {
   if (this.predicates.count) {
     this.lastPredicate = this.predicates.elems[this.predicates.count - 1];
   }
-  const head = await Resource.findOne({ url: this.head.url });
   const origin = new URL(this.head.url).origin;
-  const domain = await Domain.findOne({ origin }).select('status').lean();
   this.head.domain = origin;
-  this.head.needsCrawling =
-    !domain || (head?.status === 'unvisited' && domain.status !== 'error');
-  if (head?.status === 'error' || domain?.status === 'error') {
-    this.status = 'disabled';
-    await Resource.rmPath(this);
-    return;
-  }
-  if (this.nodes.count >= config.graph.maxPathLength) {
-    this.status = 'finished';
-    await Resource.rmPath(this);
-    return;
-  }
-  this.status = 'active';
 });
 
 schema.method('markDisabled', async function () {
@@ -233,8 +193,9 @@ schema.method('copy', function () {
 });
 
 schema.method('extendWithExistingTriples', async function () {
+  // find triples which include the head but dont belong to the path yet
   let triples: HydratedDocument<ITriple>[] = await Triple.find({
-    nodes: this.head.url,
+    nodes: { $eq: this.head.url, $nin: this.nodes.elems },
   });
   return this.extend(triples);
 });
