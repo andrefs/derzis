@@ -11,12 +11,8 @@ import { CrawlResourceResultDetails } from '@derzis/worker';
 export interface IResource {
   url: string;
   domain: string;
-  isSeed: boolean;
   status: 'unvisited' | 'done' | 'crawling' | 'error';
   triples: Types.DocumentArray<ITriple>;
-  paths: Types.DocumentArray<IPath>;
-  minPathLength: number;
-  headCount: number;
   jobId: number;
   crawlId: {
     domainTs: Date;
@@ -34,7 +30,7 @@ interface ResourceModel extends Model<IResource, {}> {
     url: string,
     details: CrawlResourceResultDetails,
     error?: WorkerError
-  ) => Promise<{ path: IPath; domain: IDomain }>;
+  ) => Promise<{ domain: IDomain }>;
   insertSeeds: (urls: string[], pid: string) => Promise<IResource>;
   addPaths: (
     paths: HydratedDocument<IPath, IPathMethods>[]
@@ -51,11 +47,6 @@ const schema = new Schema<IResource, ResourceModel>(
   {
     url: { ...urlType, index: true, unique: true },
     domain: { ...urlType, required: true },
-    isSeed: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
     status: {
       type: String,
       enum: ['unvisited', 'done', 'crawling', 'error'],
@@ -67,17 +58,6 @@ const schema = new Schema<IResource, ResourceModel>(
         ref: 'Triple',
       },
     ],
-    paths: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'Path',
-      },
-    ],
-    minPathLength: Number,
-    headCount: {
-      type: Number,
-      default: 0,
-    },
     jobId: Number,
     crawlId: {
       domainTs: Schema.Types.Date,
@@ -95,8 +75,6 @@ schema.index({
 schema.index({
   domain: 1,
   status: 1,
-  minPathLength: 1,
-  headCount: 1,
 });
 
 schema.static('addMany', async function addMany(resources) {
@@ -147,21 +125,19 @@ schema.static(
       { url, status: 'crawling' },
       {
         status: error ? 'error' : 'done',
-        paths: [],
-        headCount: 0,
         crawlId: details.crawlId,
       },
       { returnDocument: 'before' }
     );
 
-    // Paths
-    const paths = await Path.updateMany(
-      { 'head.url': url },
-      {
-        status: 'disabled',
-        'head.needsCrawling': false,
-      }
-    );
+    //// Paths
+    //const paths = await Path.updateMany(
+    //  { 'head.url': url },
+    //  {
+    //    status: 'disabled',
+    //    'head.needsCrawling': false,
+    //  }
+    //);
 
     // Domain
     const baseFilter = { origin: new URL(url).origin };
@@ -173,7 +149,6 @@ schema.static(
           ...updateInc,
           'crawl.queued': -1,
           'crawl.ongoing': -1,
-          'crawl.pathHeads': -oldRes.headCount,
         },
       };
 
@@ -194,7 +169,6 @@ schema.static(
     });
 
     return {
-      paths,
       domain: d,
     };
   }
@@ -207,7 +181,6 @@ schema.static(
       updateOne: {
         filter: { url: u },
         update: {
-          $set: { isSeed: true },
           $setOnInsert: {
             url: u,
             domain: new URL(u).origin,
@@ -227,8 +200,7 @@ schema.static(
       head: { url: u },
       nodes: { elems: [u] },
       predicates: { elems: [] },
-      status: 'active',
-      status2: 'processing',
+      outOfBounds: { links: [] },
     }));
 
     const insPaths = await Path.create(paths);
@@ -260,22 +232,6 @@ schema.static('addPaths', async function addPaths(paths) {
     }))
   );
   return { res, dom };
-});
-
-schema.static('rmPath', async function rmPath(path) {
-  const res = await this.updateOne(
-    { url: path.head.url, paths: new Types.ObjectId(path._id) },
-    {
-      $pull: { paths: new Types.ObjectId(path._id) },
-      $inc: { headCount: -1 },
-    }
-  );
-  if (res.acknowledged && res.modifiedCount) {
-    await Domain.updateOne(
-      { origin: path.head.domain },
-      { $inc: { 'crawl.headCount': -1 } }
-    );
-  }
 });
 
 schema.static(

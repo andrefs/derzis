@@ -256,10 +256,10 @@ schema.method('getInfo', async function () {
         ...baseFilter,
         status: 'error',
       }).lean(), // TODO add index
-      seed: await Resource.countDocuments({
-        ...baseFilter,
-        isSeed: true,
-      }).lean(), // TODO add index
+      //seed: await Resource.countDocuments({
+      //  ...baseFilter,
+      //  isSeed: true,
+      //}).lean(), // TODO add index
     },
     triples: {
       total: await Triple.countDocuments(baseFilter).lean(),
