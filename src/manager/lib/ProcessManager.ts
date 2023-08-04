@@ -189,6 +189,7 @@ app.get('/processes/last/triples', async (req, res) => {
   gz.pipe(res);
 });
 
+// TODO /triples/json, /triples/n-triples, /triples/turtle, etc
 app.get('/processes/:pid/triples', async (req, res) => {
   const p = await Process.findOne({ pid: req.params.pid });
   if (!p) {
