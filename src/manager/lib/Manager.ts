@@ -6,13 +6,10 @@ import {
   ITriple,
   Triple,
   IPath,
-  PathDocument,
   Path,
   Resource,
   Process,
-  PathSkeleton,
   IResource,
-  SimpleTriple,
 } from '@derzis/models';
 import { createLogger, HttpError } from '@derzis/common';
 const log = createLogger('Manager');
