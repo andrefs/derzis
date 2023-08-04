@@ -419,6 +419,7 @@ schema.statics.lockForCrawl = async function (wId: string, origins: [string]) {
 };
 
 schema.statics.domainsToCheck = async function* (wId, limit) {
+  console.log('XXXXXXXXXXXXXX domainsToCheck 0', { wId, limit });
   let domainsFound = 0;
   let procSkip = 0;
   let pathLimit = 20;
@@ -449,6 +450,7 @@ schema.statics.domainsToCheck = async function* (wId, limit) {
       }
 
       for (const d of domains) {
+        domainsFound++;
         yield d;
       }
     }
@@ -492,6 +494,8 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       if (!domains.length) {
         continue PATHS_LOOP;
       }
+
+      domainsFound += domains.length;
 
       const domainInfo: {
         [origin: string]: DomainCrawlJobInfo;
@@ -546,7 +550,8 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
           domain: domainInfo[d].domain,
           resources: allResources,
         };
-        console.log('XXXXXXXXXX domainsToCrawl2 8', { res });
+        domainsFound++;
+        console.log('XXXXXXXXXX domainsToCrawl2 8', { res, domainsFound });
         yield res;
       }
     }

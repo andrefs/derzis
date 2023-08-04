@@ -138,7 +138,7 @@ schema.method('getTriplesJson', async function* (this) {
 schema.method('getPaths', async function (skip = 0, limit = 20) {
   const paths = await Path.find({
     processId: this.pid,
-    'nodes.count': { $lte: this.params.maxPathLength },
+    'nodes.count': { $lt: this.params.maxPathLength },
     'predicates.count': { $lte: this.params.maxPathProps },
   })
     // shorter paths first
