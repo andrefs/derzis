@@ -3,6 +3,7 @@ import {
   HydratedDocument,
   model,
   Model,
+  Query,
   Schema,
   Types,
 } from 'mongoose';
@@ -11,7 +12,11 @@ import { Triple, SimpleTriple, ITriple } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
 import { IPath, Path, PathDocument } from './Path';
-import { ProcessTriple } from './ProcessTriple';
+import {
+  IProcessTriple,
+  IProcessTripleDocument,
+  ProcessTriple,
+} from './ProcessTriple';
 
 export interface IProcess {
   pid: string;
@@ -33,12 +38,16 @@ export interface IProcess {
   status: 'queued' | 'running' | 'done' | 'error';
 }
 
-export type ProcessDocument = IProcess &
+export type IProcessDocument = IProcess &
   Document & { updatedAt: Date; createdAt: Date };
 
 interface IProcessMethods {
-  getTriples(): AsyncIterable<SimpleTriple>;
-  getTriplesJson(): AsyncIterable<string>;
+  getTriples(
+    this: HydratedDocument<IProcess, IProcessMethods>
+  ): AsyncIterable<SimpleTriple>;
+  getTriplesJson(
+    this: HydratedDocument<IProcess, IProcessMethods>
+  ): AsyncIterable<string>;
   getInfo(): Promise<object>;
   getPaths(pathSkip: number, pathLimit: number): Promise<PathDocument[]>;
   extendPathsWithExistingTriples(paths: PathDocument[]): Promise<void>;
@@ -106,14 +115,21 @@ schema.pre('save', async function () {
   this.notification.ssePath = `/processes/${this.pid}/events`;
 });
 
-schema.method('getTriples', async function* () {
-  const triples = Triple.find({ processIds: this.pid });
-  for await (const { subject, predicate, object } of triples) {
-    yield { subject, predicate, object };
+schema.method('getTriples', async function* (this) {
+  const procTriples = ProcessTriple.find({
+    processId: this.pid,
+  }).populate('triple');
+  for await (const procTriple of procTriples) {
+    const triple = procTriple.triple;
+    yield {
+      subject: triple.subject,
+      predicate: triple.predicate,
+      object: triple.predicate,
+    };
   }
 });
 
-schema.method('getTriplesJson', async function* () {
+schema.method('getTriplesJson', async function* (this) {
   for await (const t of this.getTriples()) {
     yield JSON.stringify(t);
   }

@@ -8,7 +8,7 @@ import {
   ITriple,
   Triple,
   Process,
-  ProcessDocument,
+  IProcessDocument,
 } from '@derzis/models';
 
 export interface PathSkeleton {
@@ -58,7 +58,7 @@ export interface IPathMethods {
   markDisabled(): Promise<void>;
   markFinished(): Promise<void>;
   shouldCreateNewPath(triple: SimpleTriple): boolean;
-  tripleIsOutOfBounds(triple: SimpleTriple, process: ProcessDocument): boolean;
+  tripleIsOutOfBounds(triple: SimpleTriple, process: IProcessDocument): boolean;
   extendWithExistingTriples(): Promise<{
     newPaths: PathDocument[];
     procTriples: string[];
@@ -122,7 +122,7 @@ schema.index({
   'nodes.count': 1,
 });
 
-schema.pre('save', async function () {
+schema.pre<IPath>('save', async function () {
   this.outOfBounds.count = this.outOfBounds.links.length;
   this.nodes.count = this.nodes.elems.length;
   this.predicates.count = this.predicates.elems.length;
@@ -170,7 +170,7 @@ schema.method('shouldCreateNewPath', function (t: ITriple) {
 
 schema.method(
   'tripleIsOutOfBounds',
-  function (t: ITriple, process: ProcessDocument) {
+  function (t: ITriple, process: IProcessDocument) {
     const pathPreds: Set<string> = new Set(this.predicates.elems);
     return (
       this.nodes.count >= process.params.maxPathLength ||

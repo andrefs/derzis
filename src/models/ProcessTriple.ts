@@ -8,7 +8,7 @@ export interface IProcessTriple {
   triple: SimpleTriple;
 }
 
-interface IProcessTripleDocument extends IProcessTriple, Document {}
+export interface IProcessTripleDocument extends IProcessTriple, Document {}
 
 interface IProcessTripleModel extends Model<IProcessTripleDocument> {}
 
