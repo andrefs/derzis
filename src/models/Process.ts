@@ -41,7 +41,7 @@ interface IProcessMethods {
   getTriplesJson(): AsyncIterable<string>;
   getInfo(): Promise<object>;
   getPaths(pathSkip: number, pathLimit: number): Promise<PathDocument[]>;
-  extendWithExistingTriples(paths: PathDocument[]): Promise<void>;
+  extendPathsWithExistingTriples(paths: PathDocument[]): Promise<void>;
   extendPaths(triplesByNode: {
     [url: string]: HydratedDocument<ITriple>[];
   }): Promise<void>;
@@ -137,13 +137,19 @@ schema.method('getPaths', async function (skip = 0, limit = 20) {
 schema.method(
   'extendPathsWithExistingTriples',
   async function (paths: PathDocument[]) {
+    console.log('XXXXXXXXXXXXXX extendPathsWithExistingTriples 0', { paths });
     for (const path of paths) {
+      console.log('XXXXXXXXXXXXXX extendPathsWithExistingTriples 1', { path });
       const newPathObjs = [];
       const toDelete = new Set();
       const procTriples = new Set();
 
       const { newPaths: nps, procTriples: pts } =
         await path.extendWithExistingTriples();
+      console.log('XXXXXXXXXXXXXX extendPathsWithExistingTriples 2', {
+        nps,
+        pts,
+      });
 
       if (nps.length) {
         toDelete.add(path._id);
@@ -152,9 +158,17 @@ schema.method(
           procTriples.add(pt);
         }
       }
+      console.log('XXXXXXXXXXXXXX extendPathsWithExistingTriples 3', {
+        toDelete,
+        newPathObjs,
+        procTriples,
+      });
 
       // create new paths
       const newPaths = await Path.create(newPathObjs);
+      console.log('XXXXXXXXXXXXXX extendPathsWithExistingTriples 4', {
+        newPaths,
+      });
 
       // delete old paths
       await Path.deleteMany({ _id: { $in: Array.from(toDelete) } });
@@ -169,14 +183,17 @@ schema.method(
   async function (triplesByNode: {
     [url: string]: HydratedDocument<ITriple>[];
   }) {
+    console.log('XXXXXXXXXXXXXX extendPaths 0', { triplesByNode });
     const newHeads = Object.keys(triplesByNode);
+    console.log('XXXXXXXXXXXXXX extendPaths 1', { newHeads });
     const paths = await Path.find({
       processId: this.pid,
-      head:
+      'head.url':
         newHeads.length === 1
           ? newHeads[0]
           : { $in: Object.keys(triplesByNode) },
     });
+    console.log('XXXXXXXXXXXXXX extendPaths 2', { paths });
 
     const pathsToDelete = new Set();
     const newPathObjs = [];
@@ -184,6 +201,7 @@ schema.method(
     const procTriples = new Set();
 
     for (const path of paths) {
+      console.log('XXXXXXXXXXXXXX extendPaths 3', { path });
       const { newPaths: nps, procTriples: pts } = await path.extend(
         triplesByNode[path.head.url]
       );
@@ -195,14 +213,20 @@ schema.method(
         }
       }
     }
+    console.log('XXXXXXXXXXXXXX extendPaths 4', {
+      newPathObjs,
+      toDelete,
+      procTriples,
+    });
 
     // add proc-triple associations
-    await ProcessTriple.create(
-      [...procTriples].map((tId) => ({ processId: this.pid, tripleId: tId }))
+    await ProcessTriple.insertMany(
+      [...procTriples].map((tId) => ({ processId: this.pid, triple: tId }))
     );
 
     // create new paths
     const newPaths = await Path.create(newPathObjs);
+    console.log('XXXXXXXXXXXXXX extendPaths 5', { newPaths });
 
     // delete old paths
     await Path.deleteMany({ _id: { $in: Array.from(toDelete) } });
