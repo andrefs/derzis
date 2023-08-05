@@ -54,7 +54,7 @@ interface IProcessMethods {
   extendPaths(triplesByNode: {
     [url: string]: HydratedDocument<ITriple>[];
   }): Promise<void>;
-  updateLimits(this: IProcessDocument): Promise<void>;
+  updateLimits(this: IProcess): Promise<void>;
 }
 
 interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
