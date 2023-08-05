@@ -9,6 +9,7 @@ import {
   Triple,
   Process,
   IProcessDocument,
+  ProcessTriple,
 } from '@derzis/models';
 
 export interface PathSkeleton {
@@ -16,10 +17,7 @@ export interface PathSkeleton {
   head: { url: string };
   predicates: { elems: string[] };
   nodes: { elems: string[] };
-  outOfBounds?: {
-    predicate: string;
-    node: string;
-  };
+  outOfBounds?: Schema.Types.ObjectId;
   processId: string;
 }
 
@@ -37,10 +35,7 @@ export interface IPath {
     elems: string[];
     count: number;
   };
-  outOfBounds: {
-    predicate: string;
-    node: string;
-  };
+  outOfBounds?: Schema.Types.ObjectId;
   head: {
     url: string;
     domain: string;
@@ -83,8 +78,8 @@ const schema = new Schema<IPath, {}, IPathMethods>(
       count: Number,
     },
     outOfBounds: {
-      predicate: String,
-      node: String,
+      type: Schema.Types.ObjectId,
+      ref: 'Triple',
     },
     head: {
       url: { ...urlType, required: true },
@@ -145,10 +140,16 @@ schema.method('shouldCreateNewPath', function (t: ITriple) {
 
   const newHeadUrl: string = t.subject === this.head.url ? t.object : t.subject;
 
+  // path already has outOfBounds triple
+  if (!!this.outOfBounds) {
+    return false;
+  }
+
   // new head already contained in path
   if (this.nodes.elems.includes(newHeadUrl)) {
     return false;
   }
+
   return true;
 });
 
@@ -176,8 +177,33 @@ schema.method('copy', function () {
 });
 
 schema.method('extendWithExistingTriples', async function () {
+  // if path has outOfBounds triple, try to extend with that
+  if (!!this.outOfBounds) {
+    const t = await Triple.findById(this.outOfBounds);
+    const process = await Process.findOne({ pid: this.processId });
+    if (!this.tripleIsOutOfBounds(t, process)) {
+      const newHeadUrl: string =
+        t!.subject === this.head.url ? t!.object : t!.subject;
+      const prop = t!.predicate;
+
+      const np = this.copy();
+      np.head.url = newHeadUrl;
+      np.predicates.elems = Array.from(
+        new Set([...this.predicates.elems, prop])
+      );
+      np.nodes.elems.push(newHeadUrl);
+
+      await ProcessTriple.create({
+        pid: this.processId,
+        triple: t,
+      });
+      await Path.create(np);
+      await Path.deleteOne({ _id: this._id });
+
+      return np.extendWithExistingTriples();
+    }
+  }
   // find triples which include the head but dont belong to the path yet
-  // FIXME this still lets through triples listed in outOfBounds
   let triples: HydratedDocument<ITriple>[] = await Triple.find({
     nodes: { $eq: this.head.url, $nin: this.nodes.elems },
   });
@@ -207,7 +233,7 @@ schema.method('extend', async function (triples: HydratedDocument<ITriple>[]) {
 
       if (this.tripleIsOutOfBounds(t, process)) {
         console.log('XXXXXXXXXXXX path.extend 4');
-        np.outOfBounds = { predicate: prop, node: newHeadUrl };
+        np.outOfBounds = t._id;
       } else {
         console.log('XXXXXXXXXXXX path.extend 5');
         procTriples.push(t._id);

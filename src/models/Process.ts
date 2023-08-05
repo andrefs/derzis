@@ -54,6 +54,7 @@ interface IProcessMethods {
   extendPaths(triplesByNode: {
     [url: string]: HydratedDocument<ITriple>[];
   }): Promise<void>;
+  updateLimits(this: IProcessDocument): Promise<void>;
 }
 
 interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
@@ -251,6 +252,21 @@ schema.method(
     await this.extendPathsWithExistingTriples(newPaths);
   }
 );
+
+schema.method('updateLimits', async function (this) {
+  const paths = Path.find({
+    processId: this.pid,
+    outOfBounds: { $exists: true },
+  });
+
+  for await (const path of paths) {
+    const { newPaths, procTriples } = await path.extendWithExistingTriples();
+    await ProcessTriple.insertMany(
+      [...procTriples].map((tId) => ({ processId: this.pid, triple: tId }))
+    );
+    await Path.create(newPaths);
+  }
+});
 
 schema.method('getInfo', async function () {
   const baseFilter = { processIds: this.pid };
