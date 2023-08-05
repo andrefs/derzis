@@ -16,11 +16,9 @@ export interface PathSkeleton {
   head: { url: string };
   predicates: { elems: string[] };
   nodes: { elems: string[] };
-  outOfBounds: {
-    links: {
-      predicate: string;
-      node: string;
-    }[];
+  outOfBounds?: {
+    predicate: string;
+    node: string;
   };
   processId: string;
 }
@@ -40,13 +38,8 @@ export interface IPath {
     count: number;
   };
   outOfBounds: {
-    count: number;
-    links: [
-      {
-        predicate: string;
-        node: string;
-      }
-    ];
+    predicate: string;
+    node: string;
   };
   head: {
     url: string;
@@ -90,16 +83,8 @@ const schema = new Schema<IPath, {}, IPathMethods>(
       count: Number,
     },
     outOfBounds: {
-      count: {
-        type: Number,
-        default: 0,
-      },
-      links: [
-        {
-          predicate: String,
-          node: String,
-        },
-      ],
+      predicate: String,
+      node: String,
     },
     head: {
       url: { ...urlType, required: true },
@@ -123,7 +108,6 @@ schema.index({
 });
 
 schema.pre<IPath>('save', async function () {
-  this.outOfBounds.count = this.outOfBounds.links.length;
   this.nodes.count = this.nodes.elems.length;
   this.predicates.count = this.predicates.elems.length;
   if (this.predicates.count) {
@@ -185,7 +169,6 @@ schema.method('copy', function () {
     processId: this.processId,
     seed: this.seed,
     head: this.head,
-    outOfBounds: this.outOfBounds,
     predicates: { elems: [...this.predicates.elems] },
     nodes: { elems: [...this.nodes.elems] },
   };
@@ -224,7 +207,7 @@ schema.method('extend', async function (triples: HydratedDocument<ITriple>[]) {
 
       if (this.tripleIsOutOfBounds(t, process)) {
         console.log('XXXXXXXXXXXX path.extend 4');
-        np.outOfBounds.links.push({ predicate: prop, node: newHeadUrl });
+        np.outOfBounds = { predicate: prop, node: newHeadUrl };
       } else {
         console.log('XXXXXXXXXXXX path.extend 5');
         procTriples.push(t._id);
