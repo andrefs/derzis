@@ -200,7 +200,6 @@ schema.static(
       head: { url: u },
       nodes: { elems: [u] },
       predicates: { elems: [] },
-      outOfBounds: { links: [] },
     }));
 
     const insPaths = await Path.create(paths);
