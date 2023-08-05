@@ -127,6 +127,32 @@ app.get('/processes/:pid/stats', async (req, res) => {
   res.json(stats);
 });
 
+app.post('/processes/:pid/change', async (req, res) => {
+  const p = await Process.findOne({ pid: req.params.pid });
+  if (!p) {
+    return res.status(404);
+  }
+  const { maxPathLength, maxPathProps, email, webhook } = req.body;
+  if (email) {
+    p.notification.email = email;
+  }
+  if (webhook) {
+    p.notification.webhook = webhook;
+  }
+  if (maxPathLength) {
+    p.params.maxPathLength = +maxPathLength;
+  }
+  if (maxPathProps) {
+    p.params.maxPathProps = +maxPathProps;
+  }
+  p.save();
+
+  if (maxPathLength || maxPathProps) {
+    await p.updateLimits();
+  }
+  res.redirect(`/processes/${p.pid}`);
+});
+
 app.post('/processes', async (req, res) => {
   const seeds: string[] = req.body.seeds
     .flatMap((s: string) => s.split(/\s*[\n,]\s*/))
