@@ -408,6 +408,7 @@ export default class Manager {
     workerId: string,
     workerAvail: JobCapacity
   ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>> {
+    console.log('XXXXXXXXXXXXXX assignJobs 0', { workerId, workerAvail });
     if (this.jobs.beingSaved.count() > 2) {
       log.warn(
         `Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
