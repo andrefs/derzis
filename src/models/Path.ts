@@ -194,6 +194,7 @@ schema.method('copy', function () {
 
 schema.method('extendWithExistingTriples', async function () {
   // find triples which include the head but dont belong to the path yet
+  // FIXME this still lets through triples listed in outOfBounds
   let triples: HydratedDocument<ITriple>[] = await Triple.find({
     nodes: { $eq: this.head.url, $nin: this.nodes.elems },
   });
