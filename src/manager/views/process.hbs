@@ -1,16 +1,17 @@
-<div class="container py-4">
+<div class='container py-4'>
   <header>
-    <h2>Process <span class="fst-italic">{{process.pid}}</span></h2>
+    <h2>Process <span class='fst-italic'>{{process.pid}}</span></h2>
   </header>
+  <a href='/processes/{{process.pid}}/edit'>Edit</a>
   <main>
-    <div class="row">
-      <div class="col">
+    <div class='row'>
+      <div class='col'>
         <h3>Details</h3>
-        <table class="table" id="details">
+        <table class='table' id='details'>
           <tbody>
             <tr>
               <th>Status</th>
-              <td><span class="badge bg-primary">{{process.status}}</span></td>
+              <td><span class='badge bg-primary'>{{process.status}}</span></td>
             </tr>
             <tr>
               <th>Submitted</th>
@@ -36,27 +37,27 @@
               <th>Seeds</th>
               <td>
                 {{#each process.seeds}}
-                <p class="seed"><a href="{{this}}">{{this}}</a></p>
+                  <p class='seed'><a href='{{this}}'>{{this}}</a></p>
                 {{/each}}
               </td>
             </tr>
             <tr>
               <th>Triples</th>
               <td>
-                <a href="/processes/{{process.pid}}/triples">Download</a>
+                <a href='/processes/{{process.pid}}/triples'>Download</a>
               </td>
             </tr>
             <tr>
               <th>Info</th>
               <td>
-                <a href="/processes/{{process.pid}}/stats">View</a>
+                <a href='/processes/{{process.pid}}/stats'>View</a>
               </td>
             </tr>
           </tbody>
         </table>
 
         <h3>Notifications</h3>
-        <table class="table" id="notification">
+        <table class='table' id='notification'>
           <tbody>
             <tr>
               <th>Email</th>
@@ -68,7 +69,9 @@
             </tr>
             <tr>
               <th>Server-sent events URL</th>
-              <td><a href="{{host}}/{{process.notification.ssePath}}">{{process.notification.ssePath}}</a></td>
+              <td><a
+                  href='{{host}}/{{process.notification.ssePath}}'
+                >{{process.notification.ssePath}}</a></td>
             </tr>
           </tbody>
         </table>
@@ -76,4 +79,3 @@
     </div>
   </main>
 </div>
-

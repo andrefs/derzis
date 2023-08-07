@@ -79,6 +79,45 @@ app.get('/processes/new', (req, res) => {
   res.render('process-form', { page_name: 'add_new' });
 });
 
+app.get('/processes/:pid/edit', async (req, res) => {
+  const p: IProcessDocument | null = await Process.findOne({
+    pid: req.params.pid,
+  }).lean();
+  if (!p) {
+    return res.status(404);
+  }
+
+  res.render('process-edit', { process: p });
+});
+
+app.get('/processes/:pid', async (req, res) => {
+  const _p: IProcessDocument | null = await Process.findOne({
+    pid: req.params.pid,
+  }).lean();
+  if (!_p) {
+    return res.status(404);
+  }
+
+  const lastResource = await Resource.findOne().sort({ updatedAt: -1 });
+  const timeRunning = lastResource
+    ? (lastResource!.updatedAt.getTime() - _p.createdAt.getTime()) / 1000
+    : null;
+  const p = {
+    ..._p,
+    createdAt: _p.createdAt?.toISOString(),
+    updatedAt: _p.updatedAt?.toISOString() || _p.createdAt,
+    timeRunning: timeRunning ? secondsToString(timeRunning) : '',
+    notification: {
+      ..._p.notification,
+      email: _p.notification.email
+        .replace(/(?<=.).*?(?=.@)/, (x) => '*'.repeat(x.length))
+        .replace(/^..(?=@)/, '**'),
+    },
+  };
+  const host = req.protocol + '://' + req.get('host');
+  res.render('process', { process: p, host });
+});
+
 app.get('/processes/:pid', async (req, res) => {
   const _p: IProcessDocument | null = await Process.findOne({
     pid: req.params.pid,
@@ -127,7 +166,8 @@ app.get('/processes/:pid/stats', async (req, res) => {
   res.json(stats);
 });
 
-app.post('/processes/:pid/change', async (req, res) => {
+// TODO add white and black lists
+app.post('/processes/:pid/edit', async (req, res) => {
   const p = await Process.findOne({ pid: req.params.pid });
   if (!p) {
     return res.status(404);
@@ -154,13 +194,15 @@ app.post('/processes/:pid/change', async (req, res) => {
 });
 
 app.post('/processes', async (req, res) => {
+  console.log('XXXXXXXXXXXXXXXXx /processes', { body: req.body });
   const seeds: string[] = req.body.seeds
-    .flatMap((s: string) => s.split(/\s*[\n,]\s*/))
+    .split(/\s*[\n,]\s*/)
     .filter((s: string) => !s.match(/^\s*$/));
   const uniqueSeeds = [...new Set(seeds)];
 
   const pathHeads: Map<string, number> = new Map();
   for (const s of seeds) {
+    console.log('XXXXXXXXXXXXXXXXx /processes', { s });
     const domain = new URL(s).origin;
     if (!pathHeads.get(domain)) {
       pathHeads.set(domain, 0);
