@@ -181,7 +181,10 @@ schema.method('extendWithExistingTriples', async function () {
   if (!!this.outOfBounds) {
     const t = await Triple.findById(this.outOfBounds);
     const process = await Process.findOne({ pid: this.processId });
-    if (!this.tripleIsOutOfBounds(t, process)) {
+    if (
+      !this.tripleIsOutOfBounds(t, process) &&
+      process?.whiteBlackListsAllow(t!)
+    ) {
       const newHeadUrl: string =
         t!.subject === this.head.url ? t!.object : t!.subject;
       const prop = t!.predicate;
@@ -217,7 +220,9 @@ schema.method('extend', async function (triples: HydratedDocument<ITriple>[]) {
   const process = await Process.findOne({ pid: this.processId });
   console.log('XXXXXXXXXXXX path.extend 0.1', { process });
 
-  for (const t of triples.filter((t) => this.shouldCreateNewPath(t))) {
+  for (const t of triples.filter(
+    (t) => this.shouldCreateNewPath(t) && process?.whiteBlackListsAllow(t)
+  )) {
     console.log('XXXXXXXXXXXX path.extend 1', { t });
     const newHeadUrl: string =
       t.subject === this.head.url ? t.object : t.subject;
