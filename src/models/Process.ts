@@ -30,6 +30,8 @@ export interface IProcess {
   params: {
     maxPathLength: number;
     maxPathProps: number;
+    whiteList: string[];
+    blackList: string[];
   };
   pathHeads: {
     required: true;
@@ -50,6 +52,7 @@ interface IProcessMethods {
   ): AsyncIterable<string>;
   getInfo(): Promise<object>;
   getPaths(pathSkip: number, pathLimit: number): Promise<PathDocument[]>;
+  whiteBlackListsAllow(triple: SimpleTriple): boolean;
   extendPathsWithExistingTriples(paths: PathDocument[]): Promise<void>;
   extendPaths(triplesByNode: {
     [url: string]: HydratedDocument<ITriple>[];
@@ -89,6 +92,8 @@ const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
         type: Number,
         default: 1,
       },
+      whiteList: [String],
+      blackList: [String],
     },
     pathHeads: {
       type: Object,
@@ -116,6 +121,50 @@ schema.pre('save', async function () {
     this.pid = `${word}-${date}`;
   }
   this.notification.ssePath = `/processes/${this.pid}/events`;
+});
+
+const matchesOne = (str: string, patterns: string[]) => {
+  let matched = false;
+  for (const p of patterns) {
+    // pattern is a regex
+    if (/^\/(.*)\/$/.test(p)) {
+      const re = new RegExp(p);
+      if (re.test(str)) {
+        matched = true;
+        break;
+      }
+      continue;
+    }
+    // pattern is a URL prefix
+    try {
+      const url = new URL(p);
+      if (str.startsWith(p)) {
+        matched = true;
+        break;
+      }
+    } catch (e) {
+      continue;
+    }
+    // pattern is a string
+    if (str.includes(p)) {
+      matched = true;
+      break;
+    }
+  }
+  return matched;
+};
+
+schema.method('whiteBlackListsAllow', function (t: ITriple) {
+  // triple predicate allowed by white/blacklist
+  if (
+    this.params.whiteList &&
+    !matchesOne(t.predicate, this.params.whiteList)
+  ) {
+    return false;
+  }
+  if (this.params.blackList && matchesOne(t.predicate, this.params.blackList)) {
+    return false;
+  }
 });
 
 schema.method('getTriples', async function* (this) {

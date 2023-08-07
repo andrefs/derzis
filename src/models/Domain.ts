@@ -483,7 +483,22 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       }
       pathSkip += pathLimit;
 
-      const origins = new Set<string>(paths.map((p) => p.head.domain));
+      // filter out head resources that don't match the white/black lists
+      const heads = [];
+      for (const p of paths) {
+        if (
+          proc.params.whiteList &&
+          matchesOne(p.head.url, proc.params.whiteList)
+        ) {
+          heads.push(p.head);
+        } else if (
+          proc.params.blackList &&
+          !matchesOne(p.head.url, proc.params.blackList)
+        ) {
+          heads.push(p.head);
+        }
+      }
+      const origins = new Set<string>(heads.map((h) => h.domain));
       const domains = await Domain.lockForCrawl(
         wId,
         Array.from(origins).slice(0, 20)
