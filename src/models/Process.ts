@@ -157,14 +157,18 @@ const matchesOne = (str: string, patterns: string[]) => {
 schema.method('whiteBlackListsAllow', function (t: ITriple) {
   // triple predicate allowed by white/blacklist
   if (
-    this.params.whiteList &&
+    this.params.whiteList?.length &&
     !matchesOne(t.predicate, this.params.whiteList)
   ) {
     return false;
   }
-  if (this.params.blackList && matchesOne(t.predicate, this.params.blackList)) {
+  if (
+    this.params.blackList?.length &&
+    matchesOne(t.predicate, this.params.blackList)
+  ) {
     return false;
   }
+  return true;
 });
 
 schema.method('getTriples', async function* (this) {

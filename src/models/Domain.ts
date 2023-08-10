@@ -484,11 +484,17 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       pathSkip += pathLimit;
 
       // get only unvisited path heads
-      const heads = await Resource.find({
-        url: { $in: paths.map((p) => p.head.url) },
+      const heads = [...new Set(paths.map((p) => p.head.url))];
+      const unvisHeads = await Resource.find({
+        url: { $in: heads },
         status: 'unvisited',
-      }).lean();
-      const origins = new Set<string>(heads.map((h) => h.domain));
+      });
+
+      if (!unvisHeads.length) {
+        continue PATHS_LOOP;
+      }
+
+      const origins = new Set<string>(unvisHeads.map((h) => h.domain));
       const domains = await Domain.lockForCrawl(
         wId,
         Array.from(origins).slice(0, 20)
@@ -509,7 +515,7 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
         domainInfo[d.origin] = { domain: d, resources: [] };
       }
       console.log('XXXXXXXXXX domainsToCrawl2 4', { domainInfo });
-      for (const h of heads) {
+      for (const h of unvisHeads) {
         if (h.domain in domainInfo) {
           domainInfo[h.domain].resources!.push({ url: h.url });
         }

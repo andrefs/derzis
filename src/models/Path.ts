@@ -127,7 +127,7 @@ schema.method('markFinished', async function () {
 });
 
 schema.method('shouldCreateNewPath', function (t: ITriple) {
-  console.log('XXXXXXXXXXXXXX shouldCreateNewPath', { t, _this: this });
+  //console.log('XXXXXXXXXXXXXX shouldCreateNewPath', { t, _this: this });
   // triple is reflexive
   if (t.subject === t.object) {
     return false;
@@ -149,6 +149,7 @@ schema.method('shouldCreateNewPath', function (t: ITriple) {
   if (this.nodes.elems.includes(newHeadUrl)) {
     return false;
   }
+  //console.log('XXXXXXXXXXXXXX shouldCreateNewPath TRUE');
 
   return true;
 });
@@ -177,10 +178,13 @@ schema.method('copy', function () {
 });
 
 schema.method('extendWithExistingTriples', async function () {
+  console.log('XXXXXXXXXXXXXX extendWithExistingTriples 0', { _this: this });
   // if path has outOfBounds triple, try to extend with that
   if (!!this.outOfBounds) {
+    console.log('XXXXXXXXXXXXXX extendWithExistingTriples 1');
     const t = await Triple.findById(this.outOfBounds);
     const process = await Process.findOne({ pid: this.processId });
+    console.log('XXXXXXXXXXXXXX extendWithExistingTriples 2', { t, process });
     if (
       !this.tripleIsOutOfBounds(t, process) &&
       process?.whiteBlackListsAllow(t!)
@@ -188,6 +192,10 @@ schema.method('extendWithExistingTriples', async function () {
       const newHeadUrl: string =
         t!.subject === this.head.url ? t!.object : t!.subject;
       const prop = t!.predicate;
+      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 3', {
+        newHeadUrl,
+        prop,
+      });
 
       const np = this.copy();
       np.head.url = newHeadUrl;
@@ -195,21 +203,28 @@ schema.method('extendWithExistingTriples', async function () {
         new Set([...this.predicates.elems, prop])
       );
       np.nodes.elems.push(newHeadUrl);
+      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 4', { np });
 
       await ProcessTriple.create({
-        pid: this.processId,
+        processId: this.processId,
         triple: t,
       });
+      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 5');
       await Path.create(np);
+      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 6');
       await Path.deleteOne({ _id: this._id });
+      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 7');
 
       return np.extendWithExistingTriples();
     }
+    console.log('XXXXXXXXXXXXXX extendWithExistingTriples 8');
   }
+  console.log('XXXXXXXXXXXXXX extendWithExistingTriples 9');
   // find triples which include the head but dont belong to the path yet
   let triples: HydratedDocument<ITriple>[] = await Triple.find({
     nodes: { $eq: this.head.url, $nin: this.nodes.elems },
   });
+  console.log('XXXXXXXXXXXXXX extendWithExistingTriples 10', { triples });
   return this.extend(triples);
 });
 
