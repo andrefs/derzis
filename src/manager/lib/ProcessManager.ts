@@ -185,12 +185,12 @@ app.post('/processes/:pid/edit', async (req, res) => {
   if (maxPathProps) {
     p.params.maxPathProps = +maxPathProps;
   }
-  if (req.body.whiteList) {
+  if (req.body.whiteList?.length) {
     p.params.whiteList = req.body.whiteList
       .split(/\s*[\n]\s*/)
       .filter((s: string) => !s.match(/^\s*$/));
   }
-  if (req.body.blackList) {
+  if (req.body.blackList?.length) {
     p.params.blackList = req.body.blackList
       .split(/\s*[\n]\s*/)
       .filter((s: string) => !s.match(/^\s*$/));
@@ -225,8 +225,12 @@ app.post('/processes', async (req, res) => {
     params: {
       maxPathLength: req.body.maxPathLength,
       maxPathProps: req.body.maxPathProps,
-      whiteList: req.body.whiteList.split(/\s*[\n]\s*/),
-      blackList: req.body.whiteList.split(/\s*[\n]\s*/),
+      whiteList: req.body['white-list']
+        .split(/\s*[\n]\s*/)
+        .filter((s: string) => !s.match(/^\s*$/)),
+      blackList: req.body['black-list']
+        .split(/\s*[\n]\s*/)
+        .filter((s: string) => !s.match(/^\s*$/)),
     },
     notification: {
       email: req.body.email,
