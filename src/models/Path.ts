@@ -205,17 +205,18 @@ schema.method('extendWithExistingTriples', async function () {
       np.nodes.elems.push(newHeadUrl);
       console.log('XXXXXXXXXXXXXX extendWithExistingTriples 4', { np });
 
-      await ProcessTriple.create({
-        processId: this.processId,
-        triple: t,
-      });
+      await ProcessTriple.findOneAndUpdate(
+        { processId: this.processId, triple: t },
+        {},
+        { upsert: true }
+      );
       console.log('XXXXXXXXXXXXXX extendWithExistingTriples 5');
-      await Path.create(np);
+      const path = await Path.create(np);
       console.log('XXXXXXXXXXXXXX extendWithExistingTriples 6');
       await Path.deleteOne({ _id: this._id });
       console.log('XXXXXXXXXXXXXX extendWithExistingTriples 7');
 
-      return np.extendWithExistingTriples();
+      return path.extendWithExistingTriples();
     }
     console.log('XXXXXXXXXXXXXX extendWithExistingTriples 8');
   }
