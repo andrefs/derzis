@@ -419,7 +419,6 @@ schema.statics.lockForCrawl = async function (wId: string, origins: [string]) {
 };
 
 schema.statics.domainsToCheck = async function* (wId, limit) {
-  console.log('XXXXXXXXXXXXXX domainsToCheck 0', { wId, limit });
   let domainsFound = 0;
   let procSkip = 0;
   let pathLimit = 20;
@@ -459,14 +458,12 @@ schema.statics.domainsToCheck = async function* (wId, limit) {
 };
 
 schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
-  console.log('XXXXXXXXXX domainsToCrawl2 0', { wId, domLimit, resLimit });
   let domainsFound = 0;
   let procSkip = 0;
   let pathLimit = 20; // TODO get from config
 
   PROCESS_LOOP: while (domainsFound < domLimit) {
     const proc = await Process.getOneRunning(procSkip);
-    console.log('XXXXXXXXXX domainsToCrawl2 1', { proc });
     if (!proc) {
       return;
     }
@@ -475,7 +472,6 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
     let pathSkip = 0;
     PATHS_LOOP: while (domainsFound < domLimit) {
       const paths = await proc.getPaths(pathSkip, pathLimit);
-      console.log('XXXXXXXXXX domainsToCrawl2 2', { paths });
 
       // if this process has no more available paths, skip it
       if (!paths.length) {
@@ -499,7 +495,6 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
         wId,
         Array.from(origins).slice(0, 20)
       );
-      console.log('XXXXXXXXXX domainsToCrawl2 3', { domains });
 
       // these paths returned no available domains, skip them
       if (!domains.length) {
@@ -514,24 +509,16 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
       for (const d of domains) {
         domainInfo[d.origin] = { domain: d, resources: [] };
       }
-      console.log('XXXXXXXXXX domainsToCrawl2 4', { domainInfo });
       for (const h of unvisHeads) {
         if (h.domain in domainInfo) {
           domainInfo[h.domain].resources!.push({ url: h.url });
         }
       }
-      console.log('XXXXXXXXXX domainsToCrawl2 5', { domainInfo });
 
       for (const d in domainInfo) {
         const dPathHeads = domainInfo[d].resources!;
         const limit = Math.max(resLimit - dPathHeads.length, 0);
 
-        console.log('XXXXXXXXXX domainsToCrawl2 6', {
-          d,
-          resLimit,
-          dPathHeads,
-          limit,
-        });
         const additionalResources = limit
           ? await Resource.find({
               origin: d,
@@ -546,7 +533,6 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
           0,
           resLimit
         );
-        console.log('XXXXXXXXXX domainsToCrawl2 7', { allResources });
 
         await Resource.updateMany(
           { url: { $in: allResources.map((r) => r.url) } },
@@ -562,7 +548,6 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
           resources: allResources,
         };
         domainsFound++;
-        console.log('XXXXXXXXXX domainsToCrawl2 8', { res, domainsFound });
         yield res;
       }
     }

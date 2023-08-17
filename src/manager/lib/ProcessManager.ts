@@ -205,7 +205,6 @@ app.post('/processes/:pid/edit', async (req, res) => {
 });
 
 app.post('/processes', async (req, res) => {
-  console.log('XXXXXXXXXXXXXXXXx /processes', { body: req.body });
   const seeds: string[] = req.body.seeds
     .split(/\s*[\n,]\s*/)
     .filter((s: string) => !s.match(/^\s*$/));
@@ -213,7 +212,6 @@ app.post('/processes', async (req, res) => {
 
   const pathHeads: Map<string, number> = new Map();
   for (const s of seeds) {
-    console.log('XXXXXXXXXXXXXXXXx /processes', { s });
     const domain = new URL(s).origin;
     if (!pathHeads.get(domain)) {
       pathHeads.set(domain, 0);

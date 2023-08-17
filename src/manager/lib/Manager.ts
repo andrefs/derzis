@@ -119,7 +119,6 @@ export default class Manager {
   }
 
   async saveCrawl2(jobResult: CrawlResourceResult) {
-    console.log('XXXXXXXXXXXXXXXX saveCrawl2 0', { jobResult });
     if (jobResult.status === 'not_ok') {
       return await Resource.markAsCrawled(
         jobResult.url,
@@ -143,31 +142,26 @@ export default class Manager {
         predicate: t.predicate.value,
         object: t.object.value,
       }));
-    console.log('XXXXXXXXXXXXXXXX saveCrawl2 1', { triples });
 
     if (triples.length) {
       const source = (await Resource.findOne({
         url: jobResult.url,
       })) as IResource;
-      console.log('XXXXXXXXXXXXXXXX saveCrawl2 2', { source });
 
       // add new resources
       await Resource.addFromTriples(triples);
 
       // add new triples
       const res = await Triple.upsertMany(source, triples);
-      console.log('XXXXXXXXXXXXXXXX saveCrawl2 3', { res });
 
       if (res.upsertedCount) {
         const tids = Object.values(res.upsertedIds).map((i) => new ObjectId(i));
-        console.log('XXXXXXXXXXXXXXXX saveCrawl2 4', { tids });
         // filter out reflexive triples and triples not referring to head resource
         const tObjs = (await Triple.find({ _id: { $in: tids } })).filter(
           (t) =>
             t.subject !== t.object &&
             (t.subject == source.url || t.object == source.url)
         );
-        console.log('XXXXXXXXXXXXXXXX saveCrawl2 5', { tObjs });
 
         // TODO convert to TripleDocument
         const triplesByNode: { [url: string]: HydratedDocument<ITriple>[] } =
@@ -179,7 +173,6 @@ export default class Manager {
           }
           triplesByNode[source.url].push(t);
         }
-        console.log('XXXXXXXXXXXXXXXX saveCrawl2 6', { triplesByNode });
         await this.updatePaths(source.url, triplesByNode);
       }
     }
@@ -226,14 +219,11 @@ export default class Manager {
     sourceUrl: string,
     triplesByNode: { [url: string]: HydratedDocument<ITriple>[] }
   ) {
-    console.log('XXXXXXXXXXXXXXXX updatePaths 0', { sourceUrl, triplesByNode });
     const pids = await Path.distinct('processId', {
       'head.url': sourceUrl,
     });
-    console.log('XXXXXXXXXXXXXXXX updatePaths 1', { pids });
     for (const pid of pids) {
       const proc = await Process.findOne({ pid });
-      console.log('XXXXXXXXXXXXXXXX updatePaths 2', { pid, proc });
       await proc?.extendPaths(triplesByNode);
     }
   }
@@ -408,7 +398,6 @@ export default class Manager {
     workerId: string,
     workerAvail: JobCapacity
   ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>> {
-    console.log('XXXXXXXXXXXXXX assignJobs 0', { workerId, workerAvail });
     if (this.jobs.beingSaved.count() > 2) {
       log.warn(
         `Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
