@@ -178,13 +178,10 @@ schema.method('copy', function () {
 });
 
 schema.method('extendWithExistingTriples', async function () {
-  console.log('XXXXXXXXXXXXXX extendWithExistingTriples 0', { _this: this });
   // if path has outOfBounds triple, try to extend with that
   if (!!this.outOfBounds) {
-    console.log('XXXXXXXXXXXXXX extendWithExistingTriples 1');
     const t = await Triple.findById(this.outOfBounds);
     const process = await Process.findOne({ pid: this.processId });
-    console.log('XXXXXXXXXXXXXX extendWithExistingTriples 2', { t, process });
     if (
       !this.tripleIsOutOfBounds(t, process) &&
       process?.whiteBlackListsAllow(t!)
@@ -192,10 +189,6 @@ schema.method('extendWithExistingTriples', async function () {
       const newHeadUrl: string =
         t!.subject === this.head.url ? t!.object : t!.subject;
       const prop = t!.predicate;
-      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 3', {
-        newHeadUrl,
-        prop,
-      });
 
       const np = this.copy();
       np.head.url = newHeadUrl;
@@ -203,76 +196,59 @@ schema.method('extendWithExistingTriples', async function () {
         new Set([...this.predicates.elems, prop])
       );
       np.nodes.elems.push(newHeadUrl);
-      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 4', { np });
 
       await ProcessTriple.findOneAndUpdate(
         { processId: this.processId, triple: t },
         {},
         { upsert: true }
       );
-      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 5');
       const path = await Path.create(np);
-      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 6');
       await Path.deleteOne({ _id: this._id });
-      console.log('XXXXXXXXXXXXXX extendWithExistingTriples 7');
 
       return path.extendWithExistingTriples();
     }
-    console.log('XXXXXXXXXXXXXX extendWithExistingTriples 8');
   }
-  console.log('XXXXXXXXXXXXXX extendWithExistingTriples 9');
   // find triples which include the head but dont belong to the path yet
   let triples: HydratedDocument<ITriple>[] = await Triple.find({
     nodes: { $eq: this.head.url, $nin: this.nodes.elems },
   });
-  console.log('XXXXXXXXXXXXXX extendWithExistingTriples 10', { triples });
   return this.extend(triples);
 });
 
 schema.method('extend', async function (triples: HydratedDocument<ITriple>[]) {
-  console.log('XXXXXXXXXXXX path.extend 0', { head: this.head, triples });
   let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
   let procTriples: Types.ObjectId[] = [];
   const process = await Process.findOne({ pid: this.processId });
-  console.log('XXXXXXXXXXXX path.extend 0.1', { process });
 
   for (const t of triples.filter(
     (t) => this.shouldCreateNewPath(t) && process?.whiteBlackListsAllow(t)
   )) {
-    console.log('XXXXXXXXXXXX path.extend 1', { t });
     const newHeadUrl: string =
       t.subject === this.head.url ? t.object : t.subject;
     const prop = t.predicate;
-    console.log('XXXXXXXXXXXX path.extend 2', { newHeadUrl, prop });
 
     newPaths[prop] = newPaths[prop] || {};
     // avoid extending the same path twice with the same triple
     if (!newPaths[prop][newHeadUrl]) {
       const np = this.copy();
       np.head.url = newHeadUrl;
-      console.log('XXXXXXXXXXXX path.extend 3', { np });
 
       if (this.tripleIsOutOfBounds(t, process)) {
-        console.log('XXXXXXXXXXXX path.extend 4');
         np.outOfBounds = t._id;
       } else {
-        console.log('XXXXXXXXXXXX path.extend 5');
         procTriples.push(t._id);
         np.predicates.elems = Array.from(
           new Set([...this.predicates.elems, prop])
         );
         np.nodes.elems.push(newHeadUrl);
       }
-      console.log('XXXXXXXXXXXX path.extend 6', { np });
       newPaths[prop][newHeadUrl] = np;
     }
   }
-  console.log('XXXXXXXXXXXX path.extend 7', { newPaths, procTriples });
   const nps: PathSkeleton[] = [];
   Object.values(newPaths).forEach((x) =>
     Object.values(x).forEach((y) => nps.push(y))
   );
-  console.log('XXXXXXXXXXXX path.extend 8', { newPaths, nps, procTriples });
 
   return { newPaths: nps, procTriples };
 });
