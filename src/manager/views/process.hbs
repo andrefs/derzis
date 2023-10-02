@@ -1,8 +1,12 @@
 <div class='container py-4'>
   <header>
-    <h2>Process <span class='fst-italic'>{{process.pid}}</span></h2>
+    <h2>Process
+      <span class='fst-italic'>{{process.pid}}</span>
+      <a href='/processes/{{process.pid}}/edit'>
+        <i class='bi bi-pencil-square'></i>
+      </a>
+    </h2>
   </header>
-  <a href='/processes/{{process.pid}}/edit'>Edit</a>
   <main>
     <div class='row'>
       <div class='col'>
@@ -70,7 +74,7 @@
             <tr>
               <th>Server-sent events URL</th>
               <td><a
-                  href='{{host}}/{{process.notification.ssePath}}'
+                  href='{{host}}{{process.notification.ssePath}}'
                 >{{process.notification.ssePath}}</a></td>
             </tr>
           </tbody>
