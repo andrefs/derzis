@@ -146,6 +146,26 @@ app.get('/processes/:pid', async (req, res) => {
   res.render('process', { process: p, host });
 });
 
+app.get('/processes/:pid/events', async (req, res) => {
+  console.log('Got /events');
+  res.set({
+    'Cache-Control': 'no-cache',
+    'Content-Type': 'text/event-stream',
+    Connection: 'keep-alive',
+  });
+  res.flushHeaders();
+
+  const p = await Process.findOne({ pid: req.params.pid });
+  if (!p) {
+    res.write(JSON.stringify({ error: 'Process not found' }));
+  }
+  res.write(JSON.stringify({ p }) + '\n');
+
+  setTimeout(() => {
+    res.write(JSON.stringify({ msg: 'Hello' }) + '\n');
+  }, 10 * 1000);
+});
+
 app.get('/processes/last/stats', async (req, res) => {
   const p = await Process.findOne().sort({ createdAt: -1 });
   if (!p) {
