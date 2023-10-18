@@ -360,39 +360,39 @@ export default class Manager {
     }
   }
 
-  async *domainsToCrawl(
-    workerId: string,
-    limit: number,
-    resourcesPerDomain: number
-  ) {
-    let noDomainsFound = true;
-    for await (const domain of Domain.domainsToCrawl(workerId, limit)) {
-      noDomainsFound = false;
-      const filter = {
-        domain: domain.origin,
-        status: 'unvisited',
-        minPathLength: { $lt: config.graph.maxPathLength },
-        headCount: { $gt: 0 },
-      };
-      const heads = await Resource.find(filter)
-        .sort('-headCount')
-        .select('url')
-        .limit(resourcesPerDomain || 10)
-        .lean();
-      await Resource.updateMany(
-        { url: { $in: heads.map((h) => h.url) } },
-        { status: 'crawling', jobId: domain.jobId }
-      ).lean();
-      await Domain.updateOne(
-        { origin: domain.origin, jobId: domain.jobId },
-        { 'crawl.ongoing': heads.length }
-      );
-      yield { domain, resources: heads };
-    }
-    if (noDomainsFound) {
-      //log.warn('No domains left to crawl!');
-    }
-  }
+  //async *domainsToCrawl(
+  //  workerId: string,
+  //  limit: number,
+  //  resourcesPerDomain: number
+  //) {
+  //  let noDomainsFound = true;
+  //  for await (const domain of Domain.domainsToCrawl(workerId, limit)) {
+  //    noDomainsFound = false;
+  //    const filter = {
+  //      domain: domain.origin,
+  //      status: 'unvisited',
+  //      minPathLength: { $lt: config.graph.maxPathLength },
+  //      headCount: { $gt: 0 },
+  //    };
+  //    const heads = await Resource.find(filter)
+  //      .sort('-headCount')
+  //      .select('url')
+  //      .limit(resourcesPerDomain || 10)
+  //      .lean();
+  //    await Resource.updateMany(
+  //      { url: { $in: heads.map((h) => h.url) } },
+  //      { status: 'crawling', jobId: domain.jobId }
+  //    ).lean();
+  //    await Domain.updateOne(
+  //      { origin: domain.origin, jobId: domain.jobId },
+  //      { 'crawl.ongoing': heads.length }
+  //    );
+  //    yield { domain, resources: heads };
+  //  }
+  //  if (noDomainsFound) {
+  //    //log.warn('No domains left to crawl!');
+  //  }
+  //}
 
   async *assignJobs(
     workerId: string,
