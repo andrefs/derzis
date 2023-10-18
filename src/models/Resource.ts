@@ -13,8 +13,6 @@ import {
   Severity,
 } from '@typegoose/typegoose';
 
-@index({ url: 1, status: 1 })
-@index({ domain: 1, status: 1 })
 class CrawlId {
   @prop()
   public domainTs!: Date;
@@ -23,6 +21,8 @@ class CrawlId {
   public counter!: number;
 }
 
+@index({ url: 1, status: 1 })
+@index({ domain: 1, status: 1 })
 class ResourceClass {
   createdAt!: Date;
   updatedAt!: Date;

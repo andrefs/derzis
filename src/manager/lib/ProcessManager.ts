@@ -1,4 +1,9 @@
-import { Process, ProcessClass, Resource } from '@derzis/models';
+import {
+  Process,
+  ProcessClass,
+  ProcessDocument,
+  Resource,
+} from '@derzis/models';
 import express from 'express';
 import { create } from 'express-handlebars';
 import path from 'path';
@@ -239,7 +244,7 @@ app.post('/processes', async (req, res) => {
     pathHeads.set(domain, pathHeads.get(domain)! + 1);
   }
 
-  const p = await Process.create({
+  const p = {
     params: {
       maxPathLength: req.body.maxPathLength,
       maxPathProps: req.body.maxPathProps,
@@ -256,9 +261,10 @@ app.post('/processes', async (req, res) => {
     },
     seeds: uniqueSeeds,
     pathHeads,
-  });
+  };
+  const process = await Process.create(p);
   await Process.startNext();
-  res.redirect(303, '/processes/' + p.pid);
+  res.redirect(303, '/processes/' + process.pid);
 });
 
 app.get('/processes/last/triples', async (req, res) => {

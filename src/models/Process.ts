@@ -15,24 +15,6 @@ import {
   Severity,
 } from '@typegoose/typegoose';
 
-@index({ status: 1 })
-@index({ createdAt: 1 })
-@pre<ProcessClass>('save', async function () {
-  const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
-
-  const count = await Process.countDocuments({
-    createdAt: { $gt: today },
-  });
-  if (!this.pid) {
-    const date = today.toISOString().split('T')[0] + '-' + count;
-    const word = humanize(date);
-    this.pid = `${word}-${date}`;
-  }
-  if (!this.notification) {
-    this.notification = {};
-  }
-  this.notification.ssePath = `/processes/${this.pid}/events`;
-})
 class NotificationClass {
   @prop()
   public email?: string;
@@ -57,7 +39,26 @@ class ParamsClass {
   public blackList?: string[];
 }
 
+@index({ status: 1 })
+@index({ createdAt: 1 })
+@pre<ProcessClass>('save', async function () {
+  const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
+  const count = await Process.countDocuments({
+    createdAt: { $gt: today },
+  });
+  if (!this.pid) {
+    const date = today.toISOString().split('T')[0] + '-' + count;
+    const word = humanize(date);
+    this.pid = `${word}-${date}`;
+  }
+  if (!this.notification) {
+    this.notification = {};
+  }
+  const ssePath = `/processes/${this.pid}/events`;
+  this.notification.ssePath = ssePath;
+})
 class ProcessClass {
+  _id!: Types.ObjectId;
   createdAt!: Date;
   updatedAt!: Date;
 
@@ -312,6 +313,7 @@ class ProcessClass {
   // TODO configurable number of simultaneous processes
   public static async startNext(this: ReturnModelType<typeof ProcessClass>) {
     const runningProcs = await this.countDocuments({ status: 'running' });
+
     if (!runningProcs) {
       const process = await this.findOneAndUpdate(
         { status: 'queued' },

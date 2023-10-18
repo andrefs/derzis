@@ -19,20 +19,6 @@ import {
 } from '@typegoose/typegoose';
 const log = createLogger('Domain');
 
-@index({
-  status: 1,
-  'crawl.pathHeads': 1,
-  'crawl.nextAllowed': -1,
-})
-@index({
-  'crawl.nextAllowed': -1,
-})
-@index({
-  'robots.status': 1,
-})
-@index({
-  jobId: 1,
-})
 class LastWarningClass {
   @prop()
   public errType!:
@@ -92,6 +78,21 @@ class CrawlClass {
   @prop()
   public nextAllowed?: Date;
 }
+
+@index({
+  status: 1,
+  'crawl.pathHeads': 1,
+  'crawl.nextAllowed': -1,
+})
+@index({
+  'crawl.nextAllowed': -1,
+})
+@index({
+  'robots.status': 1,
+})
+@index({
+  jobId: 1,
+})
 class DomainClass {
   @prop({ required: true, index: true, unique: true })
   public origin!: string;
