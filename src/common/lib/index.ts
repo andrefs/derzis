@@ -1,4 +1,4 @@
-export * from './mongoose-types';
+export * from './mongoose-validators';
 export * from './logger';
 export * from './secrets';
 export * from './url';

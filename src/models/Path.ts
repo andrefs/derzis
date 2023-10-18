@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Types, Document } from 'mongoose';
 import { UrlType } from '@derzis/common';
 import { prop, index, pre, getModelForClass } from '@typegoose/typegoose';
 import {
@@ -212,4 +212,6 @@ const Path = getModelForClass(PathClass, {
   schemaOptions: { timestamps: true },
 });
 
-export { Path, PathClass };
+type PathDocument = PathClass & Document;
+
+export { Path, PathClass, PathDocument };

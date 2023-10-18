@@ -1,7 +1,7 @@
-import { HydratedDocument, Types } from 'mongoose';
-import { UrlType, WorkerError } from '@derzis/common';
+import { Types } from 'mongoose';
+import { urlValidator, WorkerError } from '@derzis/common';
 import { Domain } from '@derzis/models';
-import { Path, PathClass } from './Path';
+import { Path, PathDocument } from './Path';
 import { TripleClass } from './Triple';
 import { CrawlResourceResultDetails } from '@derzis/worker';
 import {
@@ -22,11 +22,11 @@ class CrawlId {
 }
 
 class ResourceClass {
-  @prop({ required: true })
-  public url!: UrlType;
+  @prop({ required: true, validate: urlValidator })
+  public url!: string;
 
-  @prop({ required: true })
-  public domain!: UrlType;
+  @prop({ required: true, validate: urlValidator })
+  public domain!: string;
 
   @prop({
     enum: ['unvisited', 'done', 'crawling', 'error'],
@@ -63,9 +63,7 @@ class ResourceClass {
       });
 
     if (insertedDocs.length) {
-      await Domain.upsertMany(
-        resources.map((r: Partial<ResourceClass>) => r.domain)
-      );
+      await Domain.upsertMany(resources.map((r) => r.domain));
     }
 
     return insertedDocs;
@@ -175,10 +173,10 @@ class ResourceClass {
 
   public static async addPaths(
     this: ReturnModelType<typeof ResourceClass>,
-    paths: PathClass[]
+    paths: PathDocument[]
   ) {
     const res = await this.bulkWrite(
-      paths.map((p: PathClass) => ({
+      paths.map((p: PathDocument) => ({
         updateOne: {
           filter: { url: p.head.url },
           update: {
@@ -192,7 +190,7 @@ class ResourceClass {
       }))
     );
     const dom = await Domain.bulkWrite(
-      paths.map((p: HydratedDocument<IPath>) => ({
+      paths.map((p: PathDocument) => ({
         updateOne: {
           filter: { origin: p.head.domain },
           update: { $inc: { 'crawl.pathHeads': 1 } },

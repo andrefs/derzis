@@ -118,8 +118,8 @@ class DomainClass {
   @prop()
   public jobId?: number;
 
-  @prop()
-  public crawl?: CrawlClass;
+  @prop({ required: true })
+  public crawl!: CrawlClass;
 
   @prop()
   public lastAccessed?: Date;
@@ -193,7 +193,7 @@ class DomainClass {
 
   public static async upsertMany(
     this: ReturnModelType<typeof DomainClass>,
-    urls: string
+    urls: string[]
   ) {
     let domains: { [url: string]: UpdateOneModel<DomainClass> } = {};
 
