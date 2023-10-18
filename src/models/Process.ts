@@ -162,7 +162,7 @@ class ProcessClass {
     }
   }
 
-  public async extendPaths(triplesByNode: { [url: string]: TripleDocument[] }) {
+  public async extendPaths(triplesByNode: { [url: string]: TripleClass[] }) {
     const newHeads = Object.keys(triplesByNode);
     const paths = await Path.find({
       processId: this.pid,

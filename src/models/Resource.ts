@@ -2,7 +2,7 @@ import { Types, Document } from 'mongoose';
 import { urlValidator, WorkerError } from '@derzis/common';
 import { Domain } from '@derzis/models';
 import { Path, PathDocument } from './Path';
-import { TripleClass } from './Triple';
+import { TripleClass, TripleSkeleton } from './Triple';
 import { CrawlResourceResultDetails } from '@derzis/worker';
 import {
   prop,
@@ -74,7 +74,7 @@ class ResourceClass {
 
   public static async addFromTriples(
     this: ReturnModelType<typeof ResourceClass>,
-    triples: TripleClass[]
+    triples: TripleSkeleton[]
   ) {
     const resources: { [pos: string]: boolean } = {};
     for (const t of triples) {

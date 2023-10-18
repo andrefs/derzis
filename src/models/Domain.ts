@@ -115,8 +115,8 @@ class DomainClass {
   @prop()
   public workerId?: string;
 
-  @prop()
-  public jobId?: number;
+  @prop({ required: true })
+  public jobId!: number;
 
   @prop({ required: true })
   public crawl!: CrawlClass;

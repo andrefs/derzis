@@ -23,6 +23,9 @@ import { Document } from 'cheerio';
 })
 @index({ nodes: 1 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
+
+  type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
+
 class TripleClass {
   _id!: mongoose.Types.ObjectId;
 
@@ -47,9 +50,9 @@ class TripleClass {
   public static async upsertMany(
     this: ReturnModelType<typeof TripleClass>,
     source: ResourceClass,
-    triples: TripleClass[]
+    triples: TripleSkeleton[]
   ): Promise<BulkWriteResult> {
-    const ops = triples.map((t: TripleClass) => ({
+    const ops = triples.map((t: TripleSkeleton) => ({
       updateOne: {
         filter: t,
         update: {
@@ -71,4 +74,4 @@ const Triple = getModelForClass(TripleClass, {
   schemaOptions: { timestamps: true },
 });
 type TripleDocument = TripleClass & Document;
-export { Triple, TripleClass, TripleDocument };
+export { Triple, TripleClass, TripleDocument, TripleSkeleton };

@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import { Domain, IDomainDocument, Resource } from '@derzis/models';
+import { Domain, DomainClass, Resource } from '@derzis/models';
 import config from '@derzis/config';
 import { createLogger } from '@derzis/common';
 import { JobType } from '@derzis/worker';
@@ -102,38 +102,38 @@ export default class RunningJobs extends EventEmitter {
   }
 
   async cleanTimedOutJob(origin: string, jobType: JobType) {
-    const customUpdate: UpdateQuery<IDomainDocument> =
+    const customUpdate: UpdateQuery<DomainClass> =
       jobType === 'robotsCheck'
         ? {
-          $set: {
-            'robots.status': 'error',
-          },
-          $push: {
-            lastWarnings: {
-              $each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
-              $slice: -10,
+            $set: {
+              'robots.status': 'error',
             },
-          },
-          $inc: {
-            'warnings.E_ROBOTS_TIMEOUT': 1,
-          },
-        }
+            $push: {
+              lastWarnings: {
+                $each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
+                $slice: -10,
+              },
+            },
+            $inc: {
+              'warnings.E_ROBOTS_TIMEOUT': 1,
+            },
+          }
         : {
-          $push: {
-            lastWarnings: {
-              $each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
-              $slice: -10,
+            $push: {
+              lastWarnings: {
+                $each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
+                $slice: -10,
+              },
             },
-          },
-          $inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 },
-        };
+            $inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 },
+          };
     return this.cleanJob(origin, jobType, customUpdate);
   }
 
   async cleanJob(
     origin: string,
     jobType: JobType,
-    customUpdate?: UpdateQuery<IDomainDocument>
+    customUpdate?: UpdateQuery<DomainClass>
   ) {
     log.info(`Cleaning job ${jobType} from domain ${origin}`);
     if (jobType === 'robotsCheck') {
@@ -204,7 +204,8 @@ export default class RunningJobs extends EventEmitter {
     if (this._running[origin]) {
       const jobId = this._running[origin].jobId;
       log.warn(
-        `Job #${jobId} ${jobType} for domain ${origin} timed out (${timeout / 1000
+        `Job #${jobId} ${jobType} for domain ${origin} timed out (${
+          timeout / 1000
         }s started at ${ts.toISOString()})`
       );
     }

@@ -3,15 +3,16 @@ import config from '@derzis/config';
 import * as db from './db';
 import {
   Domain,
-  ITriple,
   Triple,
-  IPath,
   Path,
   Resource,
   Process,
-  IResource,
+  ResourceClass,
+  TripleDocument,
+  TripleClass,
+  PathClass,
 } from '@derzis/models';
-import { createLogger, HttpError } from '@derzis/common';
+import { createLogger } from '@derzis/common';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
 import {
@@ -146,7 +147,7 @@ export default class Manager {
     if (triples.length) {
       const source = (await Resource.findOne({
         url: jobResult.url,
-      })) as IResource;
+      })) as ResourceClass;
 
       // add new resources
       await Resource.addFromTriples(triples);
@@ -157,15 +158,16 @@ export default class Manager {
       if (res.upsertedCount) {
         const tids = Object.values(res.upsertedIds).map((i) => new ObjectId(i));
         // filter out reflexive triples and triples not referring to head resource
-        const tObjs = (await Triple.find({ _id: { $in: tids } })).filter(
+        const tObjs: TripleClass[] = (
+          await Triple.find({ _id: { $in: tids } })
+        ).filter(
           (t) =>
             t.subject !== t.object &&
             (t.subject == source.url || t.object == source.url)
         );
 
         // TODO convert to TripleDocument
-        const triplesByNode: { [url: string]: HydratedDocument<ITriple>[] } =
-          {};
+        const triplesByNode: { [url: string]: TripleClass[] } = {};
         for (const t of tObjs) {
           const newHead = t.subject === source.url ? t.object : t.subject;
           if (!triplesByNode[source.url]) {
@@ -217,7 +219,7 @@ export default class Manager {
 
   async updatePaths(
     sourceUrl: string,
-    triplesByNode: { [url: string]: HydratedDocument<ITriple>[] }
+    triplesByNode: { [url: string]: TripleClass[] }
   ) {
     const pids = await Path.distinct('processId', {
       'head.url': sourceUrl,
@@ -228,7 +230,7 @@ export default class Manager {
     }
   }
 
-  shouldCreateNewPath(t: ITriple, path: IPath) {
+  shouldCreateNewPath(t: TripleClass, path: PathClass) {
     // triple is reflexive
     if (t.subject === t.object) {
       return false;

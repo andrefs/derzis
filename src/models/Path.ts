@@ -176,7 +176,7 @@ class PathClass {
   }
 
   public async extend(
-    triples: TripleDocument[]
+    triples: TripleClass[]
   ): Promise<{ newPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
     let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
     let procTriples: Types.ObjectId[] = [];
