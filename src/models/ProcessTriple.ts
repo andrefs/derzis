@@ -1,41 +1,20 @@
 import { Schema, model, Model, Document } from 'mongoose';
 import { createLogger } from '@derzis/common';
-import { SimpleTriple } from './Triple';
+import { TripleClass } from './Triple';
 const log = createLogger('Counter');
+import { prop, index, getModelForClass } from '@typegoose/typegoose';
 
-export interface IProcessTriple {
-  processId: String;
-  triple: SimpleTriple;
+@index({ processId: 1, triple: 1 }, { unique: true })
+class ProcessTripleClass {
+  @prop({ required: true })
+  public processId!: string;
+
+  @prop({ required: true, ref: 'Triple' })
+  public triple!: TripleClass;
 }
 
-export interface IProcessTripleDocument extends IProcessTriple, Document {}
+const ProcessTriple = getModelForClass(ProcessTripleClass, {
+  schemaOptions: { timestamps: true },
+});
 
-interface IProcessTripleModel extends Model<IProcessTripleDocument> {}
-
-const ProcessTripleSchema: Schema<IProcessTripleDocument> = new Schema(
-  {
-    processId: {
-      type: String,
-      required: true,
-    },
-    triple: {
-      type: Schema.Types.ObjectId,
-      ref: 'Triple',
-      required: true,
-    },
-  },
-  { timestamps: true }
-);
-
-ProcessTripleSchema.index(
-  {
-    processId: 1,
-    triple: 1,
-  },
-  { unique: true }
-);
-
-export const ProcessTriple = model<IProcessTripleDocument, IProcessTripleModel>(
-  'ProcessTriple',
-  ProcessTripleSchema
-);
+export { ProcessTriple, ProcessTripleClass };
