@@ -1,6 +1,6 @@
 import { Types, Document } from 'mongoose';
 import { Resource } from './Resource';
-import { Triple, TripleClass, TripleDocument } from './Triple';
+import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
 import { Path, PathDocument } from './Path';
@@ -17,13 +17,17 @@ import {
 @index({ createdAt: 1 })
 @pre<ProcessClass>('save', async function () {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
-  const count = await this.collection.countDocuments({
+
+  const count = await Process.countDocuments({
     createdAt: { $gt: today },
   });
   if (!this.pid) {
     const date = today.toISOString().split('T')[0] + '-' + count;
     const word = humanize(date);
     this.pid = `${word}-${date}`;
+  }
+  if (!this.notification) {
+    this.notification = {};
   }
   this.notification.ssePath = `/processes/${this.pid}/events`;
 })
@@ -55,7 +59,7 @@ class ProcessClass {
   createdAt!: Date;
   updatedAt!: Date;
 
-  @prop({ required: true, index: true, unique: true })
+  @prop({ index: true, unique: true })
   public pid!: string;
 
   @prop({ required: true })
