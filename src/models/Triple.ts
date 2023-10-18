@@ -1,5 +1,5 @@
 import { BulkWriteResult } from 'mongodb';
-import { UrlType } from '@derzis/common';
+import { urlValidator } from '@derzis/common';
 import { ResourceClass } from './Resource';
 import {
   prop,
@@ -23,20 +23,20 @@ import { Document } from 'cheerio';
 @index({ nodes: 1 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
 class TripleClass {
-  @prop({ required: true })
-  public subject!: UrlType;
+  @prop({ required: true, validate: urlValidator })
+  public subject!: string;
 
-  @prop({ required: true })
-  public predicate!: UrlType;
+  @prop({ required: true, validate: urlValidator })
+  public predicate!: string;
 
-  @prop({ required: true })
-  public object!: UrlType;
+  @prop({ required: true, validate: urlValidator })
+  public object!: string;
 
-  @prop({ default: [] })
-  public nodes?: UrlType[];
+  @prop({ default: [], validate: urlValidator })
+  public nodes?: string[];
 
-  @prop({ default: [] })
-  public sources?: UrlType[];
+  @prop({ default: [], validate: urlValidator })
+  public sources?: string[];
 
   public static async upsertMany(
     this: ReturnModelType<typeof TripleClass>,
