@@ -1,4 +1,3 @@
-import { Model, Schema, Types } from 'mongoose';
 import { BulkWriteResult } from 'mongodb';
 import { UrlType } from '@derzis/common';
 import { ResourceClass } from './Resource';

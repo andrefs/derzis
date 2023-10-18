@@ -1,11 +1,8 @@
-import { HydratedDocument, Model, model, Schema, Types } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 import { UrlType, WorkerError } from '@derzis/common';
 import { Domain } from '@derzis/models';
-import { Path } from '@derzis/models';
-import { BulkWriteResult } from 'mongodb';
-import { IPath, IPathMethods } from './Path';
-import { TripleClass, Triple } from './Triple';
-import { IDomain } from './Domain';
+import { Path, PathClass } from './Path';
+import { TripleClass } from './Triple';
 import { CrawlResourceResultDetails } from '@derzis/worker';
 import {
   prop,
@@ -178,10 +175,10 @@ class ResourceClass {
 
   public static async addPaths(
     this: ReturnModelType<typeof ResourceClass>,
-    paths
+    paths: PathClass[]
   ) {
     const res = await this.bulkWrite(
-      paths.map((p: HydratedDocument<IPath>) => ({
+      paths.map((p: PathClass) => ({
         updateOne: {
           filter: { url: p.head.url },
           update: {

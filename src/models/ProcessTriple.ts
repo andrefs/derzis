@@ -1,7 +1,4 @@
-import { Schema, model, Model, Document } from 'mongoose';
-import { createLogger } from '@derzis/common';
 import { TripleClass } from './Triple';
-const log = createLogger('Counter');
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
 
 @index({ processId: 1, triple: 1 }, { unique: true })

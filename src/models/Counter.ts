@@ -1,4 +1,3 @@
-import { Schema, model, Model, Document } from 'mongoose';
 import { createLogger } from '@derzis/common';
 const log = createLogger('Counter');
 import {
@@ -21,7 +20,7 @@ class CounterClass {
     name: string
   ) {
     const c = await this.findOneAndUpdate(
-      { name: 'jobs' },
+      { name },
       { $inc: { value: 1 } },
       {
         upsert: true,

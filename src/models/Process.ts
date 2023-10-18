@@ -1,116 +1,21 @@
-import {
-  Document,
-  HydratedDocument,
-  model,
-  Model,
-  Query,
-  Schema,
-  Types,
-} from 'mongoose';
+import { Types } from 'mongoose';
 import { Resource } from './Resource';
-import { Triple, SimpleTriple, ITriple } from './Triple';
+import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
-import { IPath, Path, PathDocument } from './Path';
+import { PathClass, Path } from './Path';
+import { ProcessTriple } from './ProcessTriple';
 import {
-  IProcessTriple,
-  IProcessTripleDocument,
-  ProcessTriple,
-} from './ProcessTriple';
+  prop,
+  index,
+  getModelForClass,
+  pre,
+  ReturnModelType,
+} from '@typegoose/typegoose';
 
-export interface IProcess {
-  pid: string;
-  notification: {
-    email: string;
-    webhook: string;
-    ssePath: string;
-  };
-  description: string;
-  seeds: Types.Array<string>;
-  params: {
-    maxPathLength: number;
-    maxPathProps: number;
-    whiteList: string[];
-    blackList: string[];
-  };
-  pathHeads: {
-    required: true;
-    type: { [key: string]: number };
-  };
-  status: 'queued' | 'running' | 'done' | 'error';
-}
-
-export type IProcessDocument = IProcess &
-  Document & { updatedAt: Date; createdAt: Date };
-
-interface IProcessMethods {
-  getTriples(
-    this: HydratedDocument<IProcess, IProcessMethods>
-  ): AsyncIterable<SimpleTriple>;
-  getTriplesJson(
-    this: HydratedDocument<IProcess, IProcessMethods>
-  ): AsyncIterable<string>;
-  getInfo(): Promise<object>;
-  getPaths(pathSkip: number, pathLimit: number): Promise<PathDocument[]>;
-  whiteBlackListsAllow(triple: SimpleTriple): boolean;
-  extendPathsWithExistingTriples(paths: PathDocument[]): Promise<void>;
-  extendPaths(triplesByNode: {
-    [url: string]: HydratedDocument<ITriple>[];
-  }): Promise<void>;
-  updateLimits(this: IProcess): Promise<void>;
-}
-
-interface ProcessModel extends Model<IProcess, {}, IProcessMethods> {
-  startNext(): Promise<boolean>;
-  getOneRunning(skip: number): Promise<IProcess & IProcessMethods>;
-}
-
-const schema = new Schema<IProcess, ProcessModel, IProcessMethods>(
-  {
-    pid: {
-      type: String,
-      index: true,
-      unique: true,
-    },
-    notification: {
-      email: String,
-      webhook: String,
-      ssePath: String,
-    },
-    description: String,
-    seeds: [
-      {
-        type: String,
-      },
-    ],
-    params: {
-      maxPathLength: {
-        type: Number,
-        default: 2,
-      },
-      maxPathProps: {
-        type: Number,
-        default: 1,
-      },
-      whiteList: [String],
-      blackList: [String],
-    },
-    pathHeads: {
-      type: Object,
-    },
-    status: {
-      type: String,
-      enum: ['queued', 'running', 'done', 'error'],
-      default: 'queued',
-    },
-  },
-  { timestamps: true }
-);
-
-schema.index({ status: 1 });
-schema.index({ createdAt: 1 });
-
-schema.pre('save', async function () {
+@index({ status: 1 })
+@index({ createdAt: 1 })
+@pre<ProcessClass>('save', async function () {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await this.collection.countDocuments({
     createdAt: { $gt: today },
@@ -121,94 +26,112 @@ schema.pre('save', async function () {
     this.pid = `${word}-${date}`;
   }
   this.notification.ssePath = `/processes/${this.pid}/events`;
-});
+})
+class NotificationClass {
+  @prop()
+  public email?: string;
 
-const matchesOne = (str: string, patterns: string[]) => {
-  let matched = false;
-  for (const p of patterns) {
-    // pattern is a regex
-    if (/^\/(.*)\/$/.test(p)) {
-      const re = new RegExp(p);
-      if (re.test(str)) {
-        matched = true;
-        break;
-      }
-      continue;
-    }
-    // pattern is a URL prefix
-    try {
-      const url = new URL(p);
-      if (str.startsWith(p)) {
-        matched = true;
-        break;
-      }
-    } catch (e) {
-      continue;
-    }
-    // pattern is a string
-    if (str.includes(p)) {
-      matched = true;
-      break;
-    }
-  }
-  return matched;
-};
+  @prop()
+  public webhook?: string;
 
-schema.method('whiteBlackListsAllow', function (t: ITriple) {
-  // triple predicate allowed by white/blacklist
-  if (
-    this.params.whiteList?.length &&
-    !matchesOne(t.predicate, this.params.whiteList)
-  ) {
-    return false;
-  }
-  if (
-    this.params.blackList?.length &&
-    matchesOne(t.predicate, this.params.blackList)
-  ) {
-    return false;
-  }
-  return true;
-});
+  @prop()
+  public ssePath?: string;
+}
+class ParamsClass {
+  @prop({ default: 2 })
+  public maxPathLength?: number;
 
-schema.method('getTriples', async function* (this) {
-  const procTriples = ProcessTriple.find({
-    processId: this.pid,
-  }).populate('triple');
-  for await (const procTriple of procTriples) {
-    const triple = procTriple.triple;
-    yield {
-      subject: triple.subject,
-      predicate: triple.predicate,
-      object: triple.predicate,
-    };
-  }
-});
+  @prop({ default: 1 })
+  public maxPathProps?: number;
 
-schema.method('getTriplesJson', async function* (this) {
-  for await (const t of this.getTriples()) {
-    yield JSON.stringify(t);
-  }
-});
+  @prop({ default: [] })
+  public whiteList?: string[];
 
-schema.method('getPaths', async function (skip = 0, limit = 20) {
-  const paths = await Path.find({
-    processId: this.pid,
-    'nodes.count': { $lt: this.params.maxPathLength },
-    'predicates.count': { $lte: this.params.maxPathProps },
+  @prop({ default: [] })
+  public blackList?: string[];
+}
+
+class ProcessClass {
+  @prop({ required: true, index: true, unique: true })
+  public pid!: string;
+
+  @prop({ required: true })
+  public notification!: NotificationClass;
+
+  @prop()
+  public description?: string;
+
+  @prop({ required: true })
+  public seeds!: Types.Array<string>;
+
+  @prop({ required: true })
+  public params!: ParamsClass;
+
+  @prop({ required: true })
+  public pathHeads!: {
+    required: true;
+    type: { [key: string]: number };
+  };
+
+  @prop({
+    enum: ['queued', 'running', 'done', 'error'],
+    default: 'queued',
   })
-    // shorter paths first
-    .sort({ 'nodes.count': 1 })
-    .limit(limit)
-    .skip(skip)
-    .select('head.domain head.url')
-    .lean();
-  return paths;
-});
+  public status!: 'queued' | 'running' | 'done' | 'error';
 
-schema.method(
-  'extendPathsWithExistingTriples',
-  async function (paths: PathDocument[]) {
+  public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
+    // triple predicate allowed by white/blacklist
+    if (
+      this.params.whiteList?.length &&
+      !matchesOne(t.predicate, this.params.whiteList)
+    ) {
+      return false;
+    }
+    if (
+      this.params.blackList?.length &&
+      matchesOne(t.predicate, this.params.blackList)
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  public async *getTriples(this: ProcessClass) {
+    const procTriples = ProcessTriple.find({
+      processId: this.pid,
+    }).populate('triple');
+    for await (const procTriple of procTriples) {
+      const triple = procTriple.triple;
+      yield {
+        subject: triple.subject,
+        predicate: triple.predicate,
+        object: triple.predicate,
+      };
+    }
+  }
+
+  public async *getTriplesJson(this: ProcessClass) {
+    for await (const t of this.getTriples()) {
+      yield JSON.stringify(t);
+    }
+  }
+
+  public async getPaths(skip = 0, limit = 20) {
+    const paths = await Path.find({
+      processId: this.pid,
+      'nodes.count': { $lt: this.params.maxPathLength },
+      'predicates.count': { $lte: this.params.maxPathProps },
+    })
+      // shorter paths first
+      .sort({ 'nodes.count': 1 })
+      .limit(limit)
+      .skip(skip)
+      .select('head.domain head.url')
+      .lean();
+    return paths;
+  }
+
+  public async extendPathsWithExistingTriples(paths: PathClass[]) {
     for (const path of paths) {
       const newPathObjs = [];
       const toDelete = new Set();
@@ -235,13 +158,8 @@ schema.method(
       }
     }
   }
-);
 
-schema.method(
-  'extendPaths',
-  async function (triplesByNode: {
-    [url: string]: HydratedDocument<ITriple>[];
-  }) {
+  public async extendPaths(triplesByNode: { [url: string]: TripleClass[] }) {
     const newHeads = Object.keys(triplesByNode);
     const paths = await Path.find({
       processId: this.pid,
@@ -283,128 +201,166 @@ schema.method(
     // add existing heads
     await this.extendPathsWithExistingTriples(newPaths);
   }
-);
 
-schema.method('updateLimits', async function (this) {
-  const paths = Path.find({
-    processId: this.pid,
-    outOfBounds: { $exists: true },
-  });
+  public async updateLimits(this: ProcessClass) {
+    const paths = Path.find({
+      processId: this.pid,
+      outOfBounds: { $exists: true },
+    });
 
-  for await (const path of paths) {
-    const { newPaths, procTriples } = await path.extendWithExistingTriples();
-    await ProcessTriple.insertMany(
-      [...procTriples].map((tId) => ({ processId: this.pid, triple: tId }))
-    );
-    await Path.create(newPaths);
-  }
-});
-
-schema.method('getInfo', async function () {
-  const baseFilter = { processIds: this.pid };
-  const lastResource = await Resource.findOne(baseFilter).sort({
-    updatedAt: -1,
-  });
-  return {
-    resources: {
-      total: await Resource.countDocuments(baseFilter).lean(),
-      done: await Resource.countDocuments({
-        ...baseFilter,
-        status: 'done',
-      }).lean(), // TODO add index
-      crawling: await Resource.countDocuments({
-        ...baseFilter,
-        status: 'crawling',
-      }).lean(), // TODO add index
-      error: await Resource.countDocuments({
-        ...baseFilter,
-        status: 'error',
-      }).lean(), // TODO add index
-      //seed: await Resource.countDocuments({
-      //  ...baseFilter,
-      //  isSeed: true,
-      //}).lean(), // TODO add index
-    },
-    triples: {
-      total: await Triple.countDocuments(baseFilter).lean(),
-    },
-    domains: {
-      total: await Domain.countDocuments(baseFilter).lean(),
-      beingCrawled: (
-        await Domain.find({ ...baseFilter, status: 'crawling' })
-          .select('origin')
-          .lean()
-      ).map((d) => d.origin),
-      ready: await Domain.countDocuments({
-        ...baseFilter,
-        status: 'ready',
-      }).lean(), // TODO add index
-      crawling: await Domain.countDocuments({
-        ...baseFilter,
-        status: 'crawling',
-      }).lean(), // TODO add index
-      error: await Domain.countDocuments({
-        ...baseFilter,
-        status: 'error',
-      }).lean(), // TODO add index
-    },
-    paths: {
-      total: await Path.countDocuments({
-        'seed.url': { $in: this.seeds },
-      }).lean(),
-      finished: await Path.countDocuments({
-        'seed.url': { $in: this.seeds },
-        status: 'finished',
-      }).lean(), // TODO add index
-      disabled: await Path.countDocuments({
-        'seed.url': { $in: this.seeds },
-        status: 'disabled',
-      }).lean(), // TODO add index
-      active: await Path.countDocuments({
-        'seed.url': { $in: this.seeds },
-        status: 'active',
-      }).lean(), // TODO add index
-    },
-    // TODO remove allPaths
-    allPaths: {
-      total: await Path.countDocuments().lean(),
-      finished: await Path.countDocuments({ status: 'finished' }).lean(), // TODO add index
-      disabled: await Path.countDocuments({ status: 'disabled' }).lean(), // TODO add index
-      active: await Path.countDocuments({ status: 'active' }).lean(), // TODO add index
-    },
-    createdAt: this.createdAt,
-    timeRunning: lastResource
-      ? (lastResource!.updatedAt.getTime() - this.createdAt.getTime()) / 1000
-      : null,
-    params: this.params,
-    notification: this.notification,
-    status: this.status,
-    seeds: this.seeds,
-  };
-});
-
-// TODO configurable number of simultaneous processes
-schema.static('startNext', async function () {
-  const runningProcs = await this.countDocuments({ status: 'running' });
-  if (!runningProcs) {
-    const process = await this.findOneAndUpdate(
-      { status: 'queued' },
-      { $set: { status: 'running' } },
-      { new: true }
-    );
-    if (process) {
-      await Resource.insertSeeds(process.seeds, process.pid);
-      return true;
+    for await (const path of paths) {
+      const { newPaths, procTriples } = await path.extendWithExistingTriples();
+      await ProcessTriple.insertMany(
+        [...procTriples].map((tId) => ({ processId: this.pid, triple: tId }))
+      );
+      await Path.create(newPaths);
     }
   }
-  return false;
+
+  public async getInfo() {
+    const baseFilter = { processIds: this.pid };
+    const lastResource = await Resource.findOne(baseFilter).sort({
+      updatedAt: -1,
+    });
+    return {
+      resources: {
+        total: await Resource.countDocuments(baseFilter).lean(),
+        done: await Resource.countDocuments({
+          ...baseFilter,
+          status: 'done',
+        }).lean(), // TODO add index
+        crawling: await Resource.countDocuments({
+          ...baseFilter,
+          status: 'crawling',
+        }).lean(), // TODO add index
+        error: await Resource.countDocuments({
+          ...baseFilter,
+          status: 'error',
+        }).lean(), // TODO add index
+        //seed: await Resource.countDocuments({
+        //  ...baseFilter,
+        //  isSeed: true,
+        //}).lean(), // TODO add index
+      },
+      triples: {
+        total: await Triple.countDocuments(baseFilter).lean(),
+      },
+      domains: {
+        total: await Domain.countDocuments(baseFilter).lean(),
+        beingCrawled: (
+          await Domain.find({ ...baseFilter, status: 'crawling' })
+            .select('origin')
+            .lean()
+        ).map((d) => d.origin),
+        ready: await Domain.countDocuments({
+          ...baseFilter,
+          status: 'ready',
+        }).lean(), // TODO add index
+        crawling: await Domain.countDocuments({
+          ...baseFilter,
+          status: 'crawling',
+        }).lean(), // TODO add index
+        error: await Domain.countDocuments({
+          ...baseFilter,
+          status: 'error',
+        }).lean(), // TODO add index
+      },
+      paths: {
+        total: await Path.countDocuments({
+          'seed.url': { $in: this.seeds },
+        }).lean(),
+        finished: await Path.countDocuments({
+          'seed.url': { $in: this.seeds },
+          status: 'finished',
+        }).lean(), // TODO add index
+        disabled: await Path.countDocuments({
+          'seed.url': { $in: this.seeds },
+          status: 'disabled',
+        }).lean(), // TODO add index
+        active: await Path.countDocuments({
+          'seed.url': { $in: this.seeds },
+          status: 'active',
+        }).lean(), // TODO add index
+      },
+      // TODO remove allPaths
+      allPaths: {
+        total: await Path.countDocuments().lean(),
+        finished: await Path.countDocuments({ status: 'finished' }).lean(), // TODO add index
+        disabled: await Path.countDocuments({ status: 'disabled' }).lean(), // TODO add index
+        active: await Path.countDocuments({ status: 'active' }).lean(), // TODO add index
+      },
+      createdAt: this.createdAt,
+      timeRunning: lastResource
+        ? (lastResource!.updatedAt.getTime() - this.createdAt.getTime()) / 1000
+        : null,
+      params: this.params,
+      notification: this.notification,
+      status: this.status,
+      seeds: this.seeds,
+    };
+  }
+
+  // TODO configurable number of simultaneous processes
+  public static async startNext(this: ReturnModelType<typeof ProcessClass>) {
+    const runningProcs = await this.countDocuments({ status: 'running' });
+    if (!runningProcs) {
+      const process = await this.findOneAndUpdate(
+        { status: 'queued' },
+        { $set: { status: 'running' } },
+        { new: true }
+      );
+      if (process) {
+        await Resource.insertSeeds(process.seeds, process.pid);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static async getOneRunning(
+    this: ReturnModelType<typeof ProcessClass>,
+    skip = 0
+  ) {
+    const x = await this.findOne({ status: 'running' })
+      .sort({ createdAt: -1 })
+      .skip(skip);
+    return x;
+  }
+}
+
+const matchesOne = (str: string, patterns: string[]) => {
+  let matched = false;
+  for (const p of patterns) {
+    // pattern is a regex
+    if (/^\/(.*)\/$/.test(p)) {
+      const re = new RegExp(p);
+      if (re.test(str)) {
+        matched = true;
+        break;
+      }
+      continue;
+    }
+    // pattern is a URL prefix
+    try {
+      const url = new URL(p);
+      if (str.startsWith(p)) {
+        matched = true;
+        break;
+      }
+    } catch (e) {
+      continue;
+    }
+    // pattern is a string
+    if (str.includes(p)) {
+      matched = true;
+      break;
+    }
+  }
+  return matched;
+};
+
+const Process = getModelForClass(ProcessClass, {
+  schemaOptions: { timestamps: true },
 });
 
-schema.static('getOneRunning', async function (skip = 0) {
-  const x = await this.findOne({ status: 'running' })
-    .sort({ createdAt: -1 })
-    .skip(skip);
-  return x;
-});
-
-export const Process = model<IProcess, ProcessModel>('Process', schema);
+export { Process, ProcessClass };
