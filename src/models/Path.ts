@@ -1,6 +1,13 @@
 import { Types, Document } from 'mongoose';
 import { urlValidator } from '@derzis/common';
-import { prop, index, pre, getModelForClass } from '@typegoose/typegoose';
+import {
+  prop,
+  index,
+  pre,
+  getModelForClass,
+  ModelOptions,
+  Severity,
+} from '@typegoose/typegoose';
 import {
   TripleClass,
   Triple,
@@ -217,7 +224,7 @@ class PathClass {
 }
 
 const Path = getModelForClass(PathClass, {
-  schemaOptions: { timestamps: true },
+  schemaOptions: { timestamps: true, collection: 'paths' },
 });
 
 type PathDocument = PathClass & Document;

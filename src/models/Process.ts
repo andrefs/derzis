@@ -11,6 +11,8 @@ import {
   getModelForClass,
   pre,
   ReturnModelType,
+  ModelOptions,
+  Severity,
 } from '@typegoose/typegoose';
 
 @index({ status: 1 })
@@ -367,7 +369,7 @@ const matchesOne = (str: string, patterns: string[]) => {
 };
 
 const Process = getModelForClass(ProcessClass, {
-  schemaOptions: { timestamps: true },
+  schemaOptions: { timestamps: true, collection: 'processes' },
 });
 
 type ProcessDocument = ProcessClass & Document;

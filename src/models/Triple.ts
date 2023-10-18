@@ -14,19 +14,8 @@ import { Document } from 'cheerio';
 
 type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
 
-@ModelOptions({
-  schemaOptions: {
-    timestamps: true,
-    collection: 'triples',
-  },
-  options: {
-    allowMixed: Severity.ALLOW,
-  },
-})
 @index({ nodes: 1 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
-
-
 class TripleClass {
   _id!: mongoose.Types.ObjectId;
 
@@ -72,7 +61,7 @@ class TripleClass {
   }
 }
 const Triple = getModelForClass(TripleClass, {
-  schemaOptions: { timestamps: true },
+  schemaOptions: { timestamps: true, collection: 'triples' },
 });
 type TripleDocument = TripleClass & Document;
 export { Triple, TripleClass, TripleDocument, TripleSkeleton };

@@ -1,5 +1,11 @@
 import { TripleClass } from './Triple';
-import { prop, index, getModelForClass } from '@typegoose/typegoose';
+import {
+  prop,
+  index,
+  getModelForClass,
+  ModelOptions,
+  Severity,
+} from '@typegoose/typegoose';
 
 @index({ processId: 1, triple: 1 }, { unique: true })
 class ProcessTripleClass {
@@ -11,7 +17,7 @@ class ProcessTripleClass {
 }
 
 const ProcessTriple = getModelForClass(ProcessTripleClass, {
-  schemaOptions: { timestamps: true },
+  schemaOptions: { timestamps: true, collection: 'processTriples' },
 });
 
 export { ProcessTriple, ProcessTripleClass };

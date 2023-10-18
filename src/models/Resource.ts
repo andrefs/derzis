@@ -9,6 +9,8 @@ import {
   index,
   ReturnModelType,
   getModelForClass,
+  ModelOptions,
+  Severity,
 } from '@typegoose/typegoose';
 
 @index({ url: 1, status: 1 })
@@ -221,7 +223,7 @@ class ResourceClass {
 }
 
 const Resource = getModelForClass(ResourceClass, {
-  schemaOptions: { timestamps: true },
+  schemaOptions: { timestamps: true, collection: 'resources' },
 });
 type ResourceDocument = ResourceClass & Document;
 

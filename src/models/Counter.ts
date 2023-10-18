@@ -1,7 +1,9 @@
 import { createLogger } from '@derzis/common';
 const log = createLogger('Counter');
 import {
+  ModelOptions,
   ReturnModelType,
+  Severity,
   getModelForClass,
   index,
   prop,
@@ -35,7 +37,7 @@ class CounterClass {
 }
 
 const Counter = getModelForClass(CounterClass, {
-  schemaOptions: { timestamps: true },
+  schemaOptions: { timestamps: true, collection: 'counters' },
 });
 
 export { Counter, CounterClass };

@@ -14,6 +14,8 @@ import {
   index,
   getModelForClass,
   ReturnModelType,
+  ModelOptions,
+  Severity,
 } from '@typegoose/typegoose';
 const log = createLogger('Domain');
 
@@ -529,6 +531,6 @@ const robotsHostNotFoundError = () => {
 };
 
 const Domain = getModelForClass(DomainClass, {
-  schemaOptions: { timestamps: true },
+  schemaOptions: { timestamps: true, collection: 'domains' },
 });
 export { Domain, DomainClass };
