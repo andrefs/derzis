@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Types, Document } from 'mongoose';
 import { urlValidator, WorkerError } from '@derzis/common';
 import { Domain } from '@derzis/models';
 import { Path, PathDocument } from './Path';
@@ -22,6 +22,9 @@ class CrawlId {
 }
 
 class ResourceClass {
+  createdAt!: Date;
+  updatedAt!: Date;
+
   @prop({ required: true, validate: urlValidator })
   public url!: string;
 
@@ -220,5 +223,6 @@ class ResourceClass {
 const Resource = getModelForClass(ResourceClass, {
   schemaOptions: { timestamps: true },
 });
+type ResourceDocument = ResourceClass & Document;
 
-export { Resource, ResourceClass };
+export { Resource, ResourceClass, ResourceDocument };

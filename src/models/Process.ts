@@ -1,9 +1,9 @@
-import { Types } from 'mongoose';
+import { Types, Document } from 'mongoose';
 import { Resource } from './Resource';
 import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
-import { PathClass, Path, PathDocument } from './Path';
+import { Path, PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
 import {
   prop,
@@ -52,6 +52,9 @@ class ParamsClass {
 }
 
 class ProcessClass {
+  createdAt!: Date;
+  updatedAt!: Date;
+
   @prop({ required: true, index: true, unique: true })
   public pid!: string;
 
@@ -131,7 +134,7 @@ class ProcessClass {
     return paths;
   }
 
-  public async extendPathsWithExistingTriples(paths: PathClass[]) {
+  public async extendPathsWithExistingTriples(paths: PathDocument[]) {
     for (const path of paths) {
       const newPathObjs = [];
       const toDelete = new Set();
@@ -363,4 +366,6 @@ const Process = getModelForClass(ProcessClass, {
   schemaOptions: { timestamps: true },
 });
 
-export { Process, ProcessClass };
+type ProcessDocument = ProcessClass & Document;
+
+export { Process, ProcessClass, ProcessDocument };
