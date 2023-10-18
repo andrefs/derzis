@@ -1,6 +1,6 @@
 import { Types, Document } from 'mongoose';
 import { Resource } from './Resource';
-import { Triple, TripleClass } from './Triple';
+import { Triple, TripleClass, TripleDocument } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
 import { Path, PathDocument } from './Path';
@@ -38,11 +38,11 @@ class NotificationClass {
   public ssePath?: string;
 }
 class ParamsClass {
-  @prop({ default: 2 })
-  public maxPathLength?: number;
+  @prop({ default: 2, required: true })
+  public maxPathLength!: number;
 
-  @prop({ default: 1 })
-  public maxPathProps?: number;
+  @prop({ default: 1, required: true })
+  public maxPathProps!: number;
 
   @prop({ default: [] })
   public whiteList?: string[];
@@ -162,7 +162,7 @@ class ProcessClass {
     }
   }
 
-  public async extendPaths(triplesByNode: { [url: string]: TripleClass[] }) {
+  public async extendPaths(triplesByNode: { [url: string]: TripleDocument[] }) {
     const newHeads = Object.keys(triplesByNode);
     const paths = await Path.find({
       processId: this.pid,

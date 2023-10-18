@@ -8,6 +8,7 @@ import {
   index,
   getModelForClass,
   ReturnModelType,
+  mongoose,
 } from '@typegoose/typegoose';
 import { Document } from 'cheerio';
 
@@ -23,6 +24,11 @@ import { Document } from 'cheerio';
 @index({ nodes: 1 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
 class TripleClass {
+  _id!: mongoose.Types.ObjectId;
+
+  createdAt!: Date;
+  updatedAt!: Date;
+
   @prop({ required: true, validate: urlValidator })
   public subject!: string;
 

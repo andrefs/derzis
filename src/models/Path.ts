@@ -1,12 +1,13 @@
 import { Types, Document } from 'mongoose';
-import { UrlType } from '@derzis/common';
+import { urlValidator } from '@derzis/common';
 import { prop, index, pre, getModelForClass } from '@typegoose/typegoose';
 import {
   TripleClass,
-  ProcessClass,
   Triple,
   Process,
   ProcessTriple,
+  ProcessClass,
+  TripleDocument,
 } from '@derzis/models';
 
 @pre<PathClass>('save', function () {
@@ -32,12 +33,12 @@ class ResourceCount {
   @prop({ default: 0 })
   public count!: number;
 
-  @prop({ default: [] })
-  public elems!: UrlType[];
+  @prop({ default: [], validate: urlValidator })
+  public elems!: string[];
 }
 class HeadClass {
-  @prop({ required: true })
-  public url!: UrlType;
+  @prop({ required: true, validate: urlValidator })
+  public url!: string;
 
   @prop({ required: true })
   public domain!: string;
@@ -51,12 +52,22 @@ type RecursivePartial<T> = {
     : T[P];
 };
 
+type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
+  RecursivePartial<PathClass> & {
+    predicates: Pick<ResourceCount, 'elems'>;
+    nodes: Pick<ResourceCount, 'elems'>;
+  };
+
 class PathClass {
+  _id!: Types.ObjectId;
+  createdAt!: Date;
+  updatedAt!: Date;
+
   @prop({ required: true })
   public processId!: string;
 
-  @prop({ required: true })
-  public seed!: UrlType;
+  @prop({ required: true, validate: urlValidator })
+  public seed!: string;
 
   @prop({ required: true })
   public head!: HeadClass;
@@ -64,8 +75,8 @@ class PathClass {
   @prop({ default: [] })
   public predicates!: ResourceCount;
 
-  @prop()
-  public lastPredicate?: UrlType;
+  @prop({ validate: urlValidator })
+  public lastPredicate?: string;
 
   @prop({ default: [] })
   public nodes!: ResourceCount;
@@ -102,11 +113,8 @@ class PathClass {
     return true;
   }
 
-  public tripleIsOutOfBounds(
-    t: TripleClass,
-    process: ProcessDocumentClass
-  ): boolean {
-    const pathPreds: Set<UrlType> = new Set(this.predicates.elems);
+  public tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean {
+    const pathPreds: Set<string> = new Set(this.predicates.elems);
     return (
       this.nodes.count >= process.params.maxPathLength ||
       (!pathPreds.has(t.predicate) &&
@@ -114,9 +122,9 @@ class PathClass {
     );
   }
 
-  public extendWithExistingTriples(): Promise<{
-    newPaths: PathClass[];
-    procTriples: string[];
+  public async extendWithExistingTriples(): Promise<{
+    newPaths: PathSkeleton[];
+    procTriples: Types.ObjectId[];
   }> {
     // if path has outOfBounds triple, try to extend with that
     if (!!this.outOfBounds) {
@@ -124,7 +132,7 @@ class PathClass {
       const process = await Process.findOne({ pid: this.processId });
       if (
         t &&
-        !this.tripleIsOutOfBounds(t, process) &&
+        !this.tripleIsOutOfBounds(t, process!) &&
         process?.whiteBlackListsAllow(t!)
       ) {
         const newHeadUrl: string =
@@ -150,13 +158,13 @@ class PathClass {
       }
     }
     // find triples which include the head but dont belong to the path yet
-    let triples: TripleClass[] = await Triple.find({
+    let triples: TripleDocument[] = await Triple.find({
       nodes: { $eq: this.head.url, $nin: this.nodes.elems },
     });
     return this.extend(triples);
   }
 
-  public copy(): RecursivePartial<PathClass> {
+  public copy(): PathSkeleton {
     const copy = {
       processId: this.processId,
       seed: this.seed,
@@ -167,10 +175,10 @@ class PathClass {
     return copy;
   }
 
-  public extend(
-    triples: TripleClass[]
-  ): Promise<{ newPaths: PathClass[]; procTriples: string[] }> {
-    let newPaths: { [prop: string]: { [newHead: string]: PathClass } } = {};
+  public async extend(
+    triples: TripleDocument[]
+  ): Promise<{ newPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
+    let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
     let procTriples: Types.ObjectId[] = [];
     const process = await Process.findOne({ pid: this.processId });
 
@@ -187,7 +195,7 @@ class PathClass {
         const np = this.copy();
         np.head.url = newHeadUrl;
 
-        if (this.tripleIsOutOfBounds(t, process)) {
+        if (this.tripleIsOutOfBounds(t, process!)) {
           np.outOfBounds = t._id;
         } else {
           procTriples.push(t._id);
@@ -199,7 +207,7 @@ class PathClass {
         newPaths[prop][newHeadUrl] = np;
       }
     }
-    const nps: RecursivePartial<PathClass>[] = [];
+    const nps: PathSkeleton[] = [];
     Object.values(newPaths).forEach((x) =>
       Object.values(x).forEach((y) => nps.push(y))
     );
