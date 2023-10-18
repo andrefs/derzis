@@ -462,6 +462,7 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
   let procSkip = 0;
   let pathLimit = 20; // TODO get from config
 
+  // iterate over processes
   PROCESS_LOOP: while (domainsFound < domLimit) {
     const proc = await Process.getOneRunning(procSkip);
     if (!proc) {
@@ -470,6 +471,7 @@ schema.statics.domainsToCrawl2 = async function* (wId, domLimit, resLimit) {
     procSkip++;
 
     let pathSkip = 0;
+    // iterate over process' paths
     PATHS_LOOP: while (domainsFound < domLimit) {
       const paths = await proc.getPaths(pathSkip, pathLimit);
 
