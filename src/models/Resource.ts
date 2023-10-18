@@ -1,107 +1,83 @@
 import { HydratedDocument, Model, model, Schema, Types } from 'mongoose';
-import { urlType, WorkerError } from '@derzis/common';
+import { UrlType, WorkerError } from '@derzis/common';
 import { Domain } from '@derzis/models';
 import { Path } from '@derzis/models';
 import { BulkWriteResult } from 'mongodb';
 import { IPath, IPathMethods } from './Path';
-import { ITriple, SimpleTriple } from './Triple';
+import { TripleClass, Triple } from './Triple';
 import { IDomain } from './Domain';
 import { CrawlResourceResultDetails } from '@derzis/worker';
+import {
+  prop,
+  index,
+  ReturnModelType,
+  getModelForClass,
+} from '@typegoose/typegoose';
 
-export interface IResource {
-  url: string;
-  domain: string;
-  status: 'unvisited' | 'done' | 'crawling' | 'error';
-  triples: Types.DocumentArray<ITriple>;
-  jobId: number;
-  crawlId: {
-    domainTs: Date;
-    counter: number;
-  };
-  updatedAt: Date;
+@index({ url: 1, status: 1 })
+@index({ domain: 1, status: 1 })
+class CrawlId {
+  @prop()
+  public domainTs!: Date;
+
+  @prop()
+  public counter!: number;
 }
 
-interface ResourceModel extends Model<IResource, {}> {
-  addMany: (
+class ResourceClass {
+  @prop({ required: true })
+  public url!: UrlType;
+
+  @prop({ required: true })
+  public domain!: UrlType;
+
+  @prop({
+    enum: ['unvisited', 'done', 'crawling', 'error'],
+    default: 'unvisited',
+  })
+  public status!: 'unvisited' | 'done' | 'crawling' | 'error';
+
+  @prop({ ref: 'Triple' })
+  public triples?: Types.DocumentArray<TripleClass>;
+
+  @prop()
+  public jobId?: number;
+
+  @prop()
+  public crawlId?: CrawlId;
+
+  public static async addMany(
+    this: ReturnModelType<typeof ResourceClass>,
     resources: { url: string; domain: string }[]
-  ) => Promise<IResource[]>;
-  addFromTriples: (triples: SimpleTriple[]) => Promise<IResource[]>;
-  markAsCrawled: (
-    url: string,
-    details: CrawlResourceResultDetails,
-    error?: WorkerError
-  ) => Promise<{ domain: IDomain }>;
-  insertSeeds: (urls: string[], pid: string) => Promise<IResource>;
-  addPaths: (
-    paths: HydratedDocument<IPath, IPathMethods>[]
-  ) => Promise<BulkWriteResult>;
-  rmPath: (path: IPath) => Promise<void>;
-  getUnvisited: (
-    domain: string,
-    exclude: string[],
-    limit: number
-  ) => Promise<IResource[]>;
-}
+  ) {
+    let insertedDocs: ResourceClass[] = [];
+    let existingDocs: Partial<ResourceClass>[] = [];
 
-const schema = new Schema<IResource, ResourceModel>(
-  {
-    url: { ...urlType, index: true, unique: true },
-    domain: { ...urlType, required: true },
-    status: {
-      type: String,
-      enum: ['unvisited', 'done', 'crawling', 'error'],
-      default: 'unvisited',
-    },
-    triples: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'Triple',
-      },
-    ],
-    jobId: Number,
-    crawlId: {
-      domainTs: Schema.Types.Date,
-      counter: Number,
-    },
-  },
-  { timestamps: true }
-);
-
-schema.index({
-  url: 1,
-  status: 1,
-});
-
-schema.index({
-  domain: 1,
-  status: 1,
-});
-
-schema.static('addMany', async function addMany(resources) {
-  let insertedDocs: IResource[] = [];
-  let existingDocs: IResource[] = [];
-  await this.insertMany(resources, { ordered: false })
-    .then((docs) => (insertedDocs = docs.map((d) => d.toObject())))
-    .catch((err) => {
-      for (const e of err.writeErrors) {
-        if (e.err.code && e.err.code === 11000) {
-          existingDocs.push(resources[e.err.index]);
+    await this.insertMany(resources, { ordered: false })
+      .then((docs) => (insertedDocs = docs.map((d) => d.toObject())))
+      .catch((err) => {
+        for (const e of err.writeErrors) {
+          if (e.err.code && e.err.code === 11000) {
+            existingDocs.push(resources[e.err.index]);
+          }
+          // TO DO handle other errors
         }
-        // TO DO handle other errors
-      }
-      insertedDocs = err.insertedDocs;
-    });
+        insertedDocs = err.insertedDocs;
+      });
 
-  if (insertedDocs.length) {
-    await Domain.upsertMany(resources.map((r: IResource) => r.domain));
+    if (insertedDocs.length) {
+      await Domain.upsertMany(
+        resources.map((r: Partial<ResourceClass>) => r.domain)
+      );
+    }
+
+    return insertedDocs;
   }
 
-  return insertedDocs;
-});
-
-schema.static(
-  'addFromTriples',
-  async function addFromTriples(triples: SimpleTriple[]) {
+  public static async addFromTriples(
+    this: ReturnModelType<typeof ResourceClass>,
+    triples: TripleClass[]
+  ) {
     const resources: { [pos: string]: boolean } = {};
     for (const t of triples) {
       resources[t.subject] = true;
@@ -115,11 +91,13 @@ schema.static(
       }))
     );
   }
-);
 
-schema.static(
-  'markAsCrawled',
-  async function markAsCrawled(url, details, error) {
+  public static async markAsCrawled(
+    this: ReturnModelType<typeof ResourceClass>,
+    url: string,
+    details: CrawlResourceResultDetails,
+    error?: WorkerError
+  ) {
     // Resource
     const oldRes = await this.findOneAndUpdate(
       { url, status: 'crawling' },
@@ -129,15 +107,6 @@ schema.static(
       },
       { returnDocument: 'before' }
     );
-
-    //// Paths
-    //const paths = await Path.updateMany(
-    //  { 'head.url': url },
-    //  {
-    //    status: 'disabled',
-    //    'head.needsCrawling': false,
-    //  }
-    //);
 
     // Domain
     const baseFilter = { origin: new URL(url).origin };
@@ -172,11 +141,12 @@ schema.static(
       domain: d,
     };
   }
-);
 
-schema.static(
-  'insertSeeds',
-  async function insertSeeds(urls: string[], pid: string) {
+  public static async insertSeeds(
+    this: ReturnModelType<typeof ResourceClass>,
+    urls: string[],
+    pid: string
+  ) {
     const upserts = urls.map((u: string) => ({
       updateOne: {
         filter: { url: u },
@@ -205,37 +175,42 @@ schema.static(
     const insPaths = await Path.create(paths);
     return this.addPaths(insPaths);
   }
-);
 
-schema.static('addPaths', async function addPaths(paths) {
-  const res = await this.bulkWrite(
-    paths.map((p: HydratedDocument<IPath>) => ({
-      updateOne: {
-        filter: { url: p.head.url },
-        update: {
-          $addToSet: { paths: p._id },
-          $inc: { headCount: 1 },
-          $min: {
-            minPathLength: p.nodes.count,
+  public static async addPaths(
+    this: ReturnModelType<typeof ResourceClass>,
+    paths
+  ) {
+    const res = await this.bulkWrite(
+      paths.map((p: HydratedDocument<IPath>) => ({
+        updateOne: {
+          filter: { url: p.head.url },
+          update: {
+            $addToSet: { paths: p._id },
+            $inc: { headCount: 1 },
+            $min: {
+              minPathLength: p.nodes.count,
+            },
           },
         },
-      },
-    }))
-  );
-  const dom = await Domain.bulkWrite(
-    paths.map((p: HydratedDocument<IPath>) => ({
-      updateOne: {
-        filter: { origin: p.head.domain },
-        update: { $inc: { 'crawl.pathHeads': 1 } },
-      },
-    }))
-  );
-  return { res, dom };
-});
+      }))
+    );
+    const dom = await Domain.bulkWrite(
+      paths.map((p: HydratedDocument<IPath>) => ({
+        updateOne: {
+          filter: { origin: p.head.domain },
+          update: { $inc: { 'crawl.pathHeads': 1 } },
+        },
+      }))
+    );
+    return { res, dom };
+  }
 
-schema.static(
-  'getUnvisited',
-  async function getUnvisited(domain: string, exclude: string[], limit) {
+  public static async getUnvisited(
+    this: ReturnModelType<typeof ResourceClass>,
+    domain: string,
+    exclude: string[],
+    limit: number
+  ) {
     return await Resource.find({
       origin: domain,
       status: 'unvisited',
@@ -245,6 +220,10 @@ schema.static(
       .select('url')
       .lean();
   }
-);
+}
 
-export const Resource = model<IResource, ResourceModel>('Resource', schema);
+const Resource = getModelForClass(ResourceClass, {
+  schemaOptions: { timestamps: true },
+});
+
+export { Resource, ResourceClass };

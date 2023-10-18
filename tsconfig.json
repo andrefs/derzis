@@ -4,45 +4,29 @@
     "sourceMap": true,
     "strict": true,
     "target": "esnext",
-    "lib": [
-      "esnext"
-    ],
+    "lib": ["esnext"],
     "module": "nodenext",
     "moduleResolution": "node",
     "outDir": "dist",
     "resolveJsonModule": true,
     "esModuleInterop": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "baseUrl": "./",
     "rootDir": "./",
     "paths": {
-      "@derzis/models": [
-        "./src/models/"
-      ],
-      "@derzis/common": [
-        "./src/common/lib/"
-      ],
-      "@derzis/config": [
-        "./src/config/"
-      ],
-      "@derzis/worker": [
-        "./src/worker/"
-      ],
-      "@derzis/manager": [
-        "./src/manager/"
-      ]
+      "@derzis/models": ["./src/models/"],
+      "@derzis/common": ["./src/common/lib/"],
+      "@derzis/config": ["./src/config/"],
+      "@derzis/worker": ["./src/worker/"],
+      "@derzis/manager": ["./src/manager/"]
     }
   },
-  "include": [
-    "./src/**/*"
-  ],
-  "exclude": [
-    "node_modules"
-  ],
+  "include": ["./src/**/*"],
+  "exclude": ["node_modules"],
   "ts-node": {
-    "require": [
-      "tsconfig-paths/register"
-    ]
+    "require": ["tsconfig-paths/register"]
   }
 }

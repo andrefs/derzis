@@ -1,60 +1,68 @@
-import { model, Model, Schema, Types } from 'mongoose';
+import { Model, Schema, Types } from 'mongoose';
 import { BulkWriteResult } from 'mongodb';
-import { urlType } from '@derzis/common';
-import { IResource } from './Resource';
-import { ObjectId } from 'bson';
+import { UrlType } from '@derzis/common';
+import { ResourceClass } from './Resource';
+import {
+  prop,
+  Severity,
+  ModelOptions,
+  index,
+  getModelForClass,
+  ReturnModelType,
+} from '@typegoose/typegoose';
 
-export interface ITriple {
-  subject: string;
-  predicate: string;
-  object: string;
-  nodes: Types.Array<string>;
-  sources: Types.Array<string>;
-}
-
-export interface SimpleTriple {
-  subject: string;
-  predicate: string;
-  object: string;
-}
-
-interface TripleModel extends Model<ITriple> {
-  upsertMany(
-    source: IResource,
-    triples: SimpleTriple[]
-  ): Promise<BulkWriteResult>;
-}
-
-const schema = new Schema<ITriple, TripleModel>(
-  {
-    subject: { ...urlType, required: true },
-    predicate: { ...urlType, required: true },
-    object: { ...urlType, required: true }, // TODO allow literals
-    nodes: [urlType],
-    sources: [urlType],
+@ModelOptions({
+  schemaOptions: {
+    timestamps: true,
+    collection: 'triples',
   },
-  { timestamps: true }
-);
+  options: {
+    allowMixed: Severity.ALLOW,
+  },
+})
+@index({ nodes: 1 })
+@index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
+class TripleClass {
+  @prop({ required: true })
+  public subject!: UrlType;
 
-schema.index({ nodes: 1 });
-schema.index({ subject: 1, predicate: 1, object: 1 }, { unique: true });
+  @prop({ required: true })
+  public predicate!: UrlType;
 
-schema.static('upsertMany', async function upsertMany(source, triples) {
-  const ops = triples.map((t: SimpleTriple) => ({
-    updateOne: {
-      filter: t,
-      update: {
-        $setOnInsert: {
-          nodes: [t.subject, t.object],
+  @prop({ required: true })
+  public object!: UrlType;
+
+  @prop({ default: [] })
+  public nodes?: UrlType[];
+
+  @prop({ default: [] })
+  public sources?: UrlType[];
+
+  public static async upsertMany(
+    this: ReturnModelType<typeof TripleClass>,
+    source: ResourceClass,
+    triples: TripleClass[]
+  ): Promise<BulkWriteResult> {
+    const ops = triples.map((t: TripleClass) => ({
+      updateOne: {
+        filter: t,
+        update: {
+          $setOnInsert: {
+            nodes: [t.subject, t.object],
+          },
+          $addToSet: {
+            sources: source.url,
+          },
         },
-        $addToSet: {
-          sources: source.url,
-        },
+        upsert: true,
       },
-      upsert: true,
-    },
-  }));
-  return this.bulkWrite(ops, { ordered: false });
+    }));
+
+    return this.bulkWrite(ops, { ordered: false });
+  }
+}
+const Triple = getModelForClass(TripleClass, {
+  schemaOptions: { timestamps: true },
 });
 
-export const Triple = model<ITriple, TripleModel>('Triple', schema);
+export { Triple, TripleClass };
