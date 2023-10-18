@@ -10,6 +10,7 @@ import {
   getModelForClass,
   ReturnModelType,
 } from '@typegoose/typegoose';
+import { Document } from 'cheerio';
 
 @ModelOptions({
   schemaOptions: {
@@ -64,5 +65,5 @@ class TripleClass {
 const Triple = getModelForClass(TripleClass, {
   schemaOptions: { timestamps: true },
 });
-
-export { Triple, TripleClass };
+type TripleDocument = TripleClass & Document;
+export { Triple, TripleClass, TripleDocument };

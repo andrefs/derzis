@@ -12,6 +12,10 @@ class UrlType extends mongoose.SchemaType {
     }
     return url;
   }
+
+  public get(fn: Function) {
+    return fn(this);
+  }
 }
 
 // @ts-ignore
