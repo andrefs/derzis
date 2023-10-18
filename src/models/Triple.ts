@@ -12,6 +12,8 @@ import {
 } from '@typegoose/typegoose';
 import { Document } from 'cheerio';
 
+type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
+
 @ModelOptions({
   schemaOptions: {
     timestamps: true,
@@ -24,7 +26,6 @@ import { Document } from 'cheerio';
 @index({ nodes: 1 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
 
-  type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
 
 class TripleClass {
   _id!: mongoose.Types.ObjectId;

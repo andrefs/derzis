@@ -8,8 +8,8 @@ import { JobCapacity, JobResult, JobType, Worker } from './Worker';
 import { createLogger } from '@derzis/common';
 import { MonkeyPatchedLogger } from '@derzis/common';
 let log: MonkeyPatchedLogger;
-import { IDomain } from '@derzis/models';
 import { OngoingJobs } from '@derzis/manager';
+import { DomainClass } from 'src/models';
 
 export interface BaseJobRequest {
   type: JobType;
@@ -25,7 +25,7 @@ export interface ResourceCrawlJobRequest extends BaseJobRequest {
   url: string;
 }
 export interface DomainCrawlJobInfo {
-  domain: IDomain;
+  domain: DomainClass;
   resources: { url: string }[];
 }
 export type DomainCrawlJobRequest = BaseJobRequest &

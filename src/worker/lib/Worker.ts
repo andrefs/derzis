@@ -4,7 +4,7 @@ import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { Robot } from 'robots-parser';
 import * as db from './db';
-import { IResource, Resource } from '@derzis/models';
+import { Resource } from '@derzis/models';
 
 import Axios from './axios';
 

@@ -37,8 +37,8 @@ class ResourceClass {
   })
   public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
-  @prop({ ref: 'Triple' })
-  public triples?: Types.DocumentArray<TripleClass>;
+  @prop({ ref: 'Triple', default: [] })
+  public triples!: Types.DocumentArray<TripleClass>;
 
   @prop()
   public jobId?: number;
