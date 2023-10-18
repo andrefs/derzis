@@ -1,54 +1,42 @@
 import { Schema, model, Model, Document } from 'mongoose';
 import { createLogger } from '@derzis/common';
 const log = createLogger('Counter');
+import {
+  ReturnModelType,
+  getModelForClass,
+  index,
+  prop,
+} from '@typegoose/typegoose';
 
-export interface ICounter {
-  name: String;
-  value: number;
+@index({ name: 1 })
+class CounterClass {
+  @prop({ required: true })
+  name!: string;
+
+  @prop({ required: true, default: 0 })
+  value!: number;
+
+  public static async genId(
+    this: ReturnModelType<typeof CounterClass>,
+    name: string
+  ) {
+    const c = await this.findOneAndUpdate(
+      { name: 'jobs' },
+      { $inc: { value: 1 } },
+      {
+        upsert: true,
+        returnDocument: 'after',
+        lean: true,
+        projection: 'value',
+      }
+    );
+    log.debug(`Generated job id ${c!.value}`);
+    return c!.value;
+  }
 }
 
-interface ICounterDocument extends ICounter, Document { }
-interface ICounterModel extends Model<ICounterDocument> {
-  genId: (name: String) => Promise<number>;
-}
-
-interface ICounterDocument extends ICounter, Document { }
-
-const CounterSchema: Schema<ICounterDocument> = new Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-    },
-    value: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-  },
-  { timestamps: true }
-);
-
-CounterSchema.index({
-  name: 1,
+const Counter = getModelForClass(CounterClass, {
+  schemaOptions: { timestamps: true },
 });
 
-CounterSchema.statics.genId = async function(name: string) {
-  const c = await this.findOneAndUpdate(
-    { name: 'jobs' },
-    { $inc: { value: 1 } },
-    {
-      upsert: true,
-      returnDocument: 'after',
-      lean: true,
-      projection: 'value',
-    }
-  );
-  log.debug(`Generated job id ${c.value}`);
-  return c.value;
-};
-
-export const Counter = model<ICounterDocument, ICounterModel>(
-  'Counter',
-  CounterSchema
-);
+export { Counter, CounterClass };
