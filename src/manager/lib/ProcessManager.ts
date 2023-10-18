@@ -1,4 +1,4 @@
-import { Process, IProcessDocument, Resource } from '@derzis/models';
+import { Process, ProcessClass, Resource } from '@derzis/models';
 import express from 'express';
 import { create } from 'express-handlebars';
 import path from 'path';
@@ -70,7 +70,7 @@ app.use(
 );
 
 app.get('/processes', async (req, res) => {
-  const ps: IProcessDocument[] = await Process.find().lean();
+  const ps: ProcessClass[] = await Process.find().lean();
   const _ps = ps.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }));
   res.render('process-list', { processes: _ps, page_name: 'processes' });
 });
@@ -80,7 +80,7 @@ app.get('/processes/new', (req, res) => {
 });
 
 app.get('/processes/:pid/edit', async (req, res) => {
-  const p: IProcessDocument | null = await Process.findOne({
+  const p: ProcessClass | null = await Process.findOne({
     pid: req.params.pid,
   }).lean();
   if (!p) {
@@ -91,7 +91,7 @@ app.get('/processes/:pid/edit', async (req, res) => {
 });
 
 app.get('/processes/:pid', async (req, res) => {
-  const _p: IProcessDocument | null = await Process.findOne({
+  const _p: ProcessClass | null = await Process.findOne({
     pid: req.params.pid,
   }).lean();
   if (!_p) {
@@ -109,9 +109,9 @@ app.get('/processes/:pid', async (req, res) => {
     timeRunning: timeRunning ? secondsToString(timeRunning) : '',
     notification: {
       ..._p.notification,
-      email: _p.notification.email
-        .replace(/(?<=.).*?(?=.@)/, (x) => '*'.repeat(x.length))
-        .replace(/^..(?=@)/, '**'),
+      email: _p?.notification?.email
+        ?.replace(/(?<=.).*?(?=.@)/, (x) => '*'.repeat(x.length))
+        ?.replace(/^..(?=@)/, '**'),
     },
   };
   const host = req.protocol + '://' + req.get('host');
@@ -119,7 +119,7 @@ app.get('/processes/:pid', async (req, res) => {
 });
 
 app.get('/processes/:pid', async (req, res) => {
-  const _p: IProcessDocument | null = await Process.findOne({
+  const _p: ProcessClass | null = await Process.findOne({
     pid: req.params.pid,
   }).lean();
   if (!_p) {
@@ -137,9 +137,9 @@ app.get('/processes/:pid', async (req, res) => {
     timeRunning: timeRunning ? secondsToString(timeRunning) : '',
     notification: {
       ..._p.notification,
-      email: _p.notification.email
-        .replace(/(?<=.).*?(?=.@)/, (x) => '*'.repeat(x.length))
-        .replace(/^..(?=@)/, '**'),
+      email: _p?.notification?.email
+        ?.replace(/(?<=.).*?(?=.@)/, (x) => '*'.repeat(x.length))
+        ?.replace(/^..(?=@)/, '**'),
     },
   };
   const host = req.protocol + '://' + req.get('host');
