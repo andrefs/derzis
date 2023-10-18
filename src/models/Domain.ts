@@ -1,12 +1,12 @@
 import { UpdateOneModel } from 'mongodb';
-import { HttpError, UrlType, createLogger } from '@derzis/common';
+import { HttpError, createLogger } from '@derzis/common';
 import {
   DomainCrawlJobInfo,
   RobotsCheckResultError,
   RobotsCheckResultOk,
 } from '@derzis/worker';
 import { Counter } from './Counter';
-import { Path } from './Path';
+import { Path, PathDocument } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import {
@@ -147,7 +147,7 @@ class DomainClass {
 
     if (jobResult.err.errorType === 'host_not_found') {
       for await (const path of Path.find({ 'head.domain': jobResult.origin })) {
-        await path.markDisabled();
+        // await path.markDisabled(); // TODO make sure this was not needed
         d = await this.findOneAndUpdate(
           { origin: jobResult.origin },
           { $inc: { 'crawl.pathHeads': -1 } },
@@ -329,7 +329,7 @@ class DomainClass {
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
-        const paths = await proc.getPaths(pathSkip, pathLimit);
+        const paths: PathDocument[] = await proc.getPaths(pathSkip, pathLimit);
 
         // if this process has no more available paths, skip it
         if (!paths.length) {

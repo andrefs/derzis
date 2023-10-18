@@ -3,7 +3,7 @@ import { Resource } from './Resource';
 import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
-import { PathClass, Path } from './Path';
+import { PathClass, Path, PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
 import {
   prop,
@@ -117,7 +117,7 @@ class ProcessClass {
   }
 
   public async getPaths(skip = 0, limit = 20) {
-    const paths = await Path.find({
+    const paths: PathDocument[] = await Path.find({
       processId: this.pid,
       'nodes.count': { $lt: this.params.maxPathLength },
       'predicates.count': { $lte: this.params.maxPathProps },
