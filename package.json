@@ -13,8 +13,10 @@
     "typecheck": "tsc -b tsconfig.json",
     "typecheck:watch": "tsc -b tsconfig.json --watch",
     "//watch-crawl-delays": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/common/bin/watch-crawl-delays.ts",
-    "worker:dev": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/worker/bin/worker.ts",
-    "manager:dev": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/manager/bin/manager.ts",
+    "//worker:dev": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/worker/bin/worker.ts",
+    "//manager:dev": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/manager/bin/manager.ts",
+    "manager:dev": "ts-node ./src/manager/bin/manager.ts",
+    "worker:dev": "ts-node ./src/worker/bin/worker.ts",
     "worker": "node dist/src/worker/bin/worker",
     "manager": "node dist/src/manager/bin/manager"
   },
