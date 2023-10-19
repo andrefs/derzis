@@ -20,10 +20,10 @@ import {
 	RobotsForbiddenError,
 	TooManyRedirectsError,
 	AxiosError,
-	JobType,
-	RobotsCheckResult,
-	CrawlResourceResult,
-	CrawlResourceResultOk
+	type JobType,
+	type RobotsCheckResult,
+	type CrawlResourceResult,
+	type CrawlResourceResultOk
 } from '@derzis/common';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';

@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
 		"rootDir": "./",
+		"outDir": "./dist",
 		"allowJs": true,
 		"checkJs": true,
 		"emitDecoratorMetadata": true,
@@ -10,7 +11,12 @@
 		"incremental": true,
 		"isolatedModules": true,
 		"jsx": "preserve",
-		"lib": ["DOM", "DOM.Iterable", "ESNext", "ESNext.AsyncIterable"],
+		"lib": [
+			"DOM",
+			"DOM.Iterable",
+			"ESNext",
+			"ESNext.AsyncIterable"
+		],
 		"module": "nodenext",
 		"moduleResolution": "nodenext",
 		"noEmit": true,
@@ -21,17 +27,33 @@
 		"strictPropertyInitialization": false,
 		"target": "ES2020",
 		"paths": {
-			"$lib": ["./manager/src/lib"],
-			"$lib/*": ["./manager/src/lib/*"],
-			"@derzis/models": ["../models/src"],
-			"@derzis/common": ["../common/src"],
-			"@derzis/config": ["../config/src"],
-			"@derzis/worker": ["./worker/"],
-			"@derzis/manager": ["../manager/lib"]
+			"$lib": [
+				"./manager/src/lib"
+			],
+			"$lib/*": [
+				"./manager/src/lib/*"
+			],
+			"@derzis/models": [
+				"../models/src"
+			],
+			"@derzis/common": [
+				"../common/src"
+			],
+			"@derzis/config": [
+				"../config/src"
+			],
+			"@derzis/worker": [
+				"./worker/"
+			],
+			"@derzis/manager": [
+				"../manager/lib"
+			]
 		}
 	},
 	"ts-node": {
-		"require": ["tsconfig-paths/register"]
+		"require": [
+			"tsconfig-paths/register"
+		]
 	},
 	"references": [
 		{

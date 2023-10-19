@@ -1,6 +1,6 @@
 import robotsParser from 'robots-parser';
 import config from '@derzis/config';
-import { connectDB } from '@derzis/common';
+import { connectDB } from './connect-db';
 import {
 	Domain,
 	Triple,
@@ -11,20 +11,16 @@ import {
 	TripleClass,
 	PathClass
 } from '@derzis/models';
-import { createLogger } from '@derzis/common';
+import {
+	createLogger,
+	type JobResult,
+	type RobotsCheckResult,
+	type CrawlResourceResult
+} from '@derzis/common';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
-import type {
-	JobCapacity,
-	JobRequest,
-	JobResult,
-	RobotsCheckResult,
-	CrawlResourceResult,
-	ResourceCrawlJobRequest
-} from '@derzis/worker';
+import type { JobCapacity, JobRequest, ResourceCrawlJobRequest } from '@derzis/worker';
 import { ObjectId } from 'bson';
-
-export { type OngoingJobs } from './RunningJobs';
 
 export default class Manager {
 	jobs: RunningJobs;

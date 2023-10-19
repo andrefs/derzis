@@ -9,7 +9,7 @@ export default defineConfig({
     alias: [
       ...aliases.map((alias) => ({
         find: `@derzis/${alias}`,
-        replacement: path.resolve(__dirname, `../${alias}/index.ts`)
+        replacement: path.resolve(__dirname, `../${alias}/src/index.ts`)
       })),
       {
         find: `@derzis/manager`,

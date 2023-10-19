@@ -1,7 +1,7 @@
-import axios, { InternalAxiosRequestConfig } from 'axios';
+import axios, { type InternalAxiosRequestConfig } from 'axios';
 import http from 'http';
 import https from 'https';
-import { MonkeyPatchedLogger } from '@derzis/common';
+import type { MonkeyPatchedLogger } from '@derzis/common';
 
 type MonkeyPatchedAxiosRequestConfig = InternalAxiosRequestConfig & {
   tsStart: number;
@@ -20,7 +20,7 @@ export default function(logger: MonkeyPatchedLogger) {
     maxRedirects: 10,
 
     // cap the maximum content length we'll accept to 50MBs, just in case
-    maxContentLength: 50 * 1000 * 1000,
+    maxContentLength: 50 * 1000 * 1000
   });
 
   instance.interceptors.request.use(
@@ -54,16 +54,12 @@ export default function(logger: MonkeyPatchedLogger) {
     (error) => {
       const now = Date.now();
       if (error.response) {
-        error.response.headers['request-startTime'] =
-          error.response.config.tsStart;
+        error.response.headers['request-startTime'] = error.response.config.tsStart;
         error.response.headers['request-endTime'] = now;
-        error.response.headers['request-duration'] =
-          now - error.response.config.tsStart;
+        error.response.headers['request-duration'] = now - error.response.config.tsStart;
         if (logger) {
           logger.http(
-            error.response.config.method.toUpperCase() +
-            ' ' +
-            error.response.config.url,
+            error.response.config.method.toUpperCase() + ' ' + error.response.config.url,
             error.response.status + ' - ' + error.response.statusText
           );
         }

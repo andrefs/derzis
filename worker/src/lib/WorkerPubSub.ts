@@ -5,9 +5,9 @@ const redisOpts = {
 	url: `redis://${config.pubsub.host}:${config.pubsub.port}`
 };
 import { type JobCapacity, Worker } from './Worker';
-import { createLogger, OngoingJobs } from '@derzis/common';
+import { createLogger, type OngoingJobs } from '@derzis/common';
 import type { JobResult, JobType, MonkeyPatchedLogger } from '@derzis/common';
-import { DomainCrawlJobInfo } from '@derzis/models';
+import type { DomainCrawlJobInfo } from '@derzis/models';
 let log: MonkeyPatchedLogger;
 
 export interface BaseJobRequest {
