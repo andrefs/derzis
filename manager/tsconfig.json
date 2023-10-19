@@ -2,7 +2,6 @@
 	"extends": "./.svelte-kit/tsconfig.json",
 	"compilerOptions": {
 		"allowJs": true,
-		"rootDir": "./src",
 		"outDir": "./dist",
 		"checkJs": true,
 		"emitDecoratorMetadata": true,
