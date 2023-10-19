@@ -3,7 +3,8 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"dev": "vite dev",
+		"manager:dev": "vite dev",
+		"worker:dev": "ts-node worker/bin/worker.ts",
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "npm run test:integration && npm run test:unit",
@@ -24,6 +25,7 @@
 		"svelte-check": "^3.4.3",
 		"tslib": "^2.4.1",
 		"typescript": "^5.0.0",
+		"ts-node": "10.9.1",
 		"vite": "^4.4.2",
 		"vitest": "^0.32.2"
 	},
@@ -50,6 +52,7 @@
 		"redis": "4.6.10",
 		"robots-parser": "3.0.1",
 		"streamify-string": "1.0.1",
+		"tsconfig-paths": "4.2.0",
 		"uuid": "9.0.1",
 		"winston": "3.11.0"
 	}
