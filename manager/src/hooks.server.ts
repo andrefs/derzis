@@ -1,7 +1,13 @@
 import { building } from '$app/environment';
+import { connectDB } from '$lib/connect-db';
 import ManagerPubSub from './lib/ManagerPubSub';
 import type { Handle } from '@sveltejs/kit';
 const mps = new ManagerPubSub();
+
+await connectDB();
+import { Counter } from '@derzis/models';
+
+console.log('XXXXXXXXXXX', { Counter });
 
 const initManager = async () => {
 	console.log('Manager init');
