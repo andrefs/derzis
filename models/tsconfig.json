@@ -12,12 +12,18 @@
 		"paths": {
 			"@derzis/common": [
 				"../common/src"
+			],
+			"@derzis/config": [
+				"../config/src"
 			]
 		}
 	},
 	"references": [
 		{
 			"path": "../common"
+		},
+		{
+			"path": "../config"
 		}
 	]
 }
