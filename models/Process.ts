@@ -69,7 +69,7 @@ class ProcessClass {
 	@prop({ required: true, type: ParamsClass })
 	public params!: ParamsClass;
 
-	@prop({ required: true, type: Object })
+	@prop({ required: true, type: Types.Map })
 	public pathHeads!: {
 		required: true;
 		type: { [key: string]: number };
