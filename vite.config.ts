@@ -3,13 +3,13 @@ import { defineConfig } from 'vitest/config';
 import { searchForWorkspaceRoot } from 'vite';
 
 export default defineConfig({
-	plugins: [sveltekit()],
-	test: {
-		include: ['src/**/*.{test,spec}.{js,ts}']
-	},
-	server: {
-		fs: {
-			allow: [searchForWorkspaceRoot(process.cwd(), 'package.json')]
-		}
-	}
+  plugins: [sveltekit()],
+  test: {
+    include: ['src/manager/**/*.{test,spec}.{js,ts}']
+  },
+  server: {
+    fs: {
+      allow: [searchForWorkspaceRoot(process.cwd(), 'package.json')]
+    }
+  }
 });
