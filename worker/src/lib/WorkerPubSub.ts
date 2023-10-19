@@ -4,12 +4,11 @@ import { createClient } from 'redis';
 const redisOpts = {
 	url: `redis://${config.pubsub.host}:${config.pubsub.port}`
 };
-import { type JobCapacity, type JobResult, type JobType, Worker } from './Worker';
-import { createLogger } from '@derzis/common';
-import type { MonkeyPatchedLogger } from '@derzis/common';
+import { type JobCapacity, Worker } from './Worker';
+import { createLogger, OngoingJobs } from '@derzis/common';
+import type { JobResult, JobType, MonkeyPatchedLogger } from '@derzis/common';
+import { DomainCrawlJobInfo } from '@derzis/models';
 let log: MonkeyPatchedLogger;
-import { OngoingJobs } from '@derzis/common';
-import type { DomainClass } from '@derzis/models';
 
 export interface BaseJobRequest {
 	type: JobType;
@@ -239,7 +238,7 @@ export class WorkerPubSub {
 			return;
 		}
 		if (job.type === 'domainCrawl') {
-			let total = job.resources.length;
+			const total = job.resources.length;
 			let i = 0;
 			for await (const x of this.w.crawlDomain(job)) {
 				log.info(
