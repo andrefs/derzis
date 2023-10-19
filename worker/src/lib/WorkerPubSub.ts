@@ -8,7 +8,7 @@ import { type JobCapacity, type JobResult, type JobType, Worker } from './Worker
 import { createLogger } from '@derzis/common';
 import type { MonkeyPatchedLogger } from '@derzis/common';
 let log: MonkeyPatchedLogger;
-import { OngoingJobs } from '@derzis/manager';
+import { OngoingJobs } from '@derzis/common';
 import type { DomainClass } from '@derzis/models';
 
 export interface BaseJobRequest {

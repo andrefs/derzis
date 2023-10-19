@@ -4,16 +4,8 @@ import config from '@derzis/config';
 import { createLogger } from '@derzis/common';
 import type { JobType } from '@derzis/worker';
 import type { UpdateQuery } from 'mongoose';
+import { OngoingJobs } from '@derzis/common';
 const log = createLogger('Manager');
-
-export interface OngoingJobs {
-	domainCrawl: {
-		[domain: string]: boolean;
-	};
-	robotsCheck: {
-		[domain: string]: boolean;
-	};
-}
 
 interface JobsBeingSaved {
 	domainCrawl: number;
@@ -105,28 +97,28 @@ export default class RunningJobs extends EventEmitter {
 		const customUpdate: UpdateQuery<DomainClass> =
 			jobType === 'robotsCheck'
 				? {
-						$set: {
-							'robots.status': 'error'
-						},
-						$push: {
-							lastWarnings: {
-								$each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
-								$slice: -10
-							}
-						},
-						$inc: {
-							'warnings.E_ROBOTS_TIMEOUT': 1
+					$set: {
+						'robots.status': 'error'
+					},
+					$push: {
+						lastWarnings: {
+							$each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
+							$slice: -10
 						}
-				  }
+					},
+					$inc: {
+						'warnings.E_ROBOTS_TIMEOUT': 1
+					}
+				}
 				: {
-						$push: {
-							lastWarnings: {
-								$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
-								$slice: -10
-							}
-						},
-						$inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
-				  };
+					$push: {
+						lastWarnings: {
+							$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
+							$slice: -10
+						}
+					},
+					$inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
+				};
 		return this.cleanJob(origin, jobType, customUpdate);
 	}
 
@@ -192,8 +184,7 @@ export default class RunningJobs extends EventEmitter {
 		if (this._running[origin]) {
 			const jobId = this._running[origin].jobId;
 			log.warn(
-				`Job #${jobId} ${jobType} for domain ${origin} timed out (${
-					timeout / 1000
+				`Job #${jobId} ${jobType} for domain ${origin} timed out (${timeout / 1000
 				}s started at ${ts.toISOString()})`
 			);
 		}

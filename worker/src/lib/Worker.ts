@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import * as db from './db';
+import { connectDB } from './connect-db';
 import { Resource } from '@derzis/models';
 
 import Axios from './axios';
@@ -136,7 +136,7 @@ export class Worker extends EventEmitter {
 
 	async connect() {
 		log.info('Connecting to MongoDB');
-		const conn = await db.connect();
+		const conn = await connectDB();
 		log.info(`MongoDB connection ready state: ${conn.connection.readyState}`);
 	}
 

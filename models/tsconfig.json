@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"rootDir": "./src",
+		"esModuleInterop": true,
+		"composite": true,
+		"emitDecoratorMetadata": true,
+		"experimentalDecorators": true
+	},
+	"references": [
+		{
+			"path": "../common"
+		}
+	]
+}

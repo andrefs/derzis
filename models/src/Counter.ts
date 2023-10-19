@@ -4,10 +4,10 @@ import { type ReturnModelType, getModelForClass, index, prop } from '@typegoose/
 
 @index({ name: 1 })
 class CounterClass {
-	@prop({ type: () => String, required: true })
+	@prop({ type: String, required: true })
 	name!: string;
 
-	@prop({ type: () => Number, required: true, default: 0 })
+	@prop({ type: Number, required: true, default: 0 })
 	value!: number;
 
 	public static async genId(this: ReturnModelType<typeof CounterClass>, name: string) {

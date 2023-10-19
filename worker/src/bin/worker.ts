@@ -1,6 +1,4 @@
-import {WorkerPubSub} from '@derzis/worker';
+import { WorkerPubSub } from '../lib/WorkerPubSub';
 const wps = new WorkerPubSub();
 
 wps.start();
-
-

@@ -32,6 +32,7 @@ declare module '$env/static/private' {
 	export const MONGO_URI: string;
 	export const SHELL: string;
 	export const npm_command: string;
+	export const WINDOWID: string;
 	export const EC2_HOME: string;
 	export const npm_config_userconfig: string;
 	export const PYENV_SHELL: string;
@@ -48,6 +49,7 @@ declare module '$env/static/private' {
 	export const AWS_SECRET_KEY: string;
 	export const OPENER: string;
 	export const LC_NAME: string;
+	export const SSH_AUTH_SOCK: string;
 	export const npm_config_email: string;
 	export const PLENV_SHELL: string;
 	export const HISTTIMEFORMAT: string;
@@ -57,6 +59,7 @@ declare module '$env/static/private' {
 	export const COLOR: string;
 	export const npm_config_local_prefix: string;
 	export const LC_MONETARY: string;
+	export const SSH_AGENT_PID: string;
 	export const npm_config_globalconfig: string;
 	export const EDITOR: string;
 	export const PWD: string;
@@ -69,6 +72,7 @@ declare module '$env/static/private' {
 	export const SYSTEMD_EXEC_PID: string;
 	export const NODE_ENV: string;
 	export const _: string;
+	export const XAUTHORITY: string;
 	export const HOME: string;
 	export const LANG: string;
 	export const LC_PAPER: string;
@@ -162,6 +166,7 @@ declare module '$env/dynamic/private' {
 		MONGO_URI: string;
 		SHELL: string;
 		npm_command: string;
+		WINDOWID: string;
 		EC2_HOME: string;
 		npm_config_userconfig: string;
 		PYENV_SHELL: string;
@@ -178,6 +183,7 @@ declare module '$env/dynamic/private' {
 		AWS_SECRET_KEY: string;
 		OPENER: string;
 		LC_NAME: string;
+		SSH_AUTH_SOCK: string;
 		npm_config_email: string;
 		PLENV_SHELL: string;
 		HISTTIMEFORMAT: string;
@@ -187,6 +193,7 @@ declare module '$env/dynamic/private' {
 		COLOR: string;
 		npm_config_local_prefix: string;
 		LC_MONETARY: string;
+		SSH_AGENT_PID: string;
 		npm_config_globalconfig: string;
 		EDITOR: string;
 		PWD: string;
@@ -199,6 +206,7 @@ declare module '$env/dynamic/private' {
 		SYSTEMD_EXEC_PID: string;
 		NODE_ENV: string;
 		_: string;
+		XAUTHORITY: string;
 		HOME: string;
 		LANG: string;
 		LC_PAPER: string;

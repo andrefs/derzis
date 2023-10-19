@@ -1,6 +1,6 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
 	"compilerOptions": {
+		"rootDir": "./",
 		"allowJs": true,
 		"checkJs": true,
 		"emitDecoratorMetadata": true,
@@ -10,9 +10,14 @@
 		"incremental": true,
 		"isolatedModules": true,
 		"jsx": "preserve",
-		"lib": ["DOM", "DOM.Iterable", "ESNext", "ESNext.AsyncIterable"],
+		"lib": [
+			"DOM",
+			"DOM.Iterable",
+			"ESNext",
+			"ESNext.AsyncIterable"
+		],
 		"module": "nodenext",
-		"moduleResolution": "node",
+		"moduleResolution": "nodenext",
 		"noEmit": true,
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
@@ -21,20 +26,43 @@
 		"strictPropertyInitialization": false,
 		"target": "ES2020",
 		"paths": {
-			"$lib": ["./manager/src/lib"],
-			"$lib/*": ["./manager/src/lib/*"],
-			"@derzis/models": ["./models/"],
-			"@derzis/common": ["./common/"],
-			"@derzis/config": ["./config/"],
-			"@derzis/worker": ["./worker/"],
-			"@derzis/manager": ["./manager/lib"]
-		},
-	},
-	// Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
-	//
-	// If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
-	// from the referenced tsconfig.json - TypeScript does not merge them in
-		"ts-node": {
-			"require": ["tsconfig-paths/register"]
+			"$lib": [
+				"./manager/src/lib"
+			],
+			"$lib/*": [
+				"./manager/src/lib/*"
+			],
+			"@derzis/models": [
+				"../models/"
+			],
+			"@derzis/common": [
+				"../common/src"
+			],
+			"@derzis/config": [
+				"../config"
+			],
+			"@derzis/worker": [
+				"./worker/"
+			],
+			"@derzis/manager": [
+				"../manager/lib"
+			]
 		}
+	},
+	"ts-node": {
+		"require": [
+			"tsconfig-paths/register"
+		]
+	},
+	"references": [
+		{
+			"path": "../config"
+		},
+		{
+			"path": "../models"
+		},
+		{
+			"path": "../common"
+		}
+	]
 }
