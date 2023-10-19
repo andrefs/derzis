@@ -21,13 +21,13 @@
 		"strictPropertyInitialization": false,
 		"target": "ES2020",
 		"paths": {
-			"$lib": ["./manager/src/lib"],
-			"$lib/*": ["./manager/src/lib/*"],
-			"@derzis/models": ["./models/"],
-			"@derzis/common": ["./common/"],
-			"@derzis/config": ["./config/"],
-			"@derzis/worker": ["./worker/"],
-			"@derzis/manager": ["./manager/lib"]
+			"$lib": ["./src/lib"],
+			"$lib/*": ["./src/lib/*"],
+			"@derzis/models": ["../models/"],
+			"@derzis/common": ["../common/"],
+			"@derzis/config": ["../config/"],
+			"@derzis/worker": ["../worker/"],
+			"@derzis/manager": ["./lib"]
 		},
 	},
 	// Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias

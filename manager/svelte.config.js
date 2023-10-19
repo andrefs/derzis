@@ -12,16 +12,8 @@ const config = {
 		// If your environment is not supported or you settled on a specific environment, switch out the adapter.
 		// See https://kit.svelte.dev/docs/adapters for more information about adapters.
 		adapter: adapter(),
-		files: {
-			assets: 'manager/static',
-			hooks: {
-				client: 'manager/src/hooks.client',
-				server: 'manager/src/hooks.server'
-			},
-			lib: 'manager/src/lib',
-			routes: 'manager/src/routes',
-			appTemplate: 'manager/src/app.html',
-			errorTemplate: 'manager/src/error.html'
+		env: {
+			dir: '..'
 		}
 	}
 };
