@@ -38,10 +38,10 @@ class HeadClass {
 
 type RecursivePartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
-    ? RecursivePartial<U>[]
-    : T[P] extends object | undefined
-    ? RecursivePartial<T[P]>
-    : T[P];
+  ? RecursivePartial<U>[]
+  : T[P] extends object | undefined
+  ? RecursivePartial<T[P]>
+  : T[P];
 };
 
 type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
@@ -50,7 +50,7 @@ type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
     nodes: Pick<ResourceCount, 'elems'>;
   };
 
-@pre<PathClass>('save', function () {
+@pre<PathClass>('save', function() {
   this.nodes.count = this.nodes.elems.length;
   this.predicates.count = this.predicates.elems.length;
   if (this.predicates.count) {
@@ -234,4 +234,4 @@ const Path = getModelForClass(PathClass, {
 
 type PathDocument = PathClass & Document;
 
-export { Path, PathClass, PathDocument };
+export { Path, PathClass, type PathDocument };

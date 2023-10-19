@@ -8,7 +8,6 @@ import {
   Resource,
   Process,
   ResourceClass,
-  TripleDocument,
   TripleClass,
   PathClass,
 } from '@derzis/models';
@@ -24,9 +23,8 @@ import {
   ResourceCrawlJobRequest,
 } from '@derzis/worker';
 import { ObjectId } from 'bson';
-import { HydratedDocument } from 'mongoose';
 
-export { OngoingJobs } from './RunningJobs';
+export { type OngoingJobs } from './RunningJobs';
 
 export default class Manager {
   jobs: RunningJobs;

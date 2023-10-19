@@ -64,4 +64,4 @@ const Triple = getModelForClass(TripleClass, {
   schemaOptions: { timestamps: true, collection: 'triples' },
 });
 type TripleDocument = TripleClass & Document;
-export { Triple, TripleClass, TripleDocument, TripleSkeleton };
+export { Triple, TripleClass, type TripleDocument, type TripleSkeleton };

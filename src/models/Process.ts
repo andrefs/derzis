@@ -41,7 +41,7 @@ class ParamsClass {
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
-@pre<ProcessClass>('save', async function () {
+@pre<ProcessClass>('save', async function() {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await Process.countDocuments({
     createdAt: { $gt: today },
@@ -376,4 +376,4 @@ const Process = getModelForClass(ProcessClass, {
 
 type ProcessDocument = ProcessClass & Document;
 
-export { Process, ProcessClass, ProcessDocument };
+export { Process, ProcessClass, type ProcessDocument };

@@ -227,4 +227,4 @@ const Resource = getModelForClass(ResourceClass, {
 });
 type ResourceDocument = ResourceClass & Document;
 
-export { Resource, ResourceClass, ResourceDocument };
+export { Resource, ResourceClass, type ResourceDocument };
