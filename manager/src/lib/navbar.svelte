@@ -1,5 +1,5 @@
-<script>
-	export let version;
+<script lang="ts">
+	export let version: string;
 
 	import { Navbar, Nav, NavbarBrand, NavbarToggler, Collapse, NavItem, NavLink } from 'sveltestrap';
 	import Icon from 'svelte-icons-pack/Icon.svelte';

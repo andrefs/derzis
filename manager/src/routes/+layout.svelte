@@ -2,7 +2,7 @@
 	import NavigationBar from '$lib/navbar.svelte';
 	import { Container, Styles } from 'sveltestrap';
 
-	let version = process.env.npm_package_version;
+	let version = process.env.npm_package_version || '0.0.0';
 </script>
 
 <Styles />
