@@ -39,7 +39,7 @@
 				"../common/src"
 			],
 			"@derzis/config": [
-				"../config"
+				"../config/src"
 			],
 			"@derzis/worker": [
 				"./worker/"
@@ -62,7 +62,7 @@
 			"path": "../models"
 		},
 		{
-			"path": "../common"
+			"path": "../common/"
 		}
 	]
 }
