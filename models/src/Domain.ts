@@ -1,16 +1,17 @@
-import type { UpdateOneModel } from 'mongodb';
+import type { Filter, UpdateFilter, UpdateOneModel } from 'mongodb';
 import { HttpError, createLogger } from '@derzis/common';
-import type {
-	DomainCrawlJobInfo,
-	RobotsCheckResultError,
-	RobotsCheckResultOk
-} from '@derzis/worker';
+import type { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
 import { Path, type PathDocument } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { prop, index, getModelForClass, type ReturnModelType } from '@typegoose/typegoose';
 const log = createLogger('Domain');
+
+export interface DomainCrawlJobInfo {
+	domain: DomainClass;
+	resources: { url: string }[];
+}
 
 class LastWarningClass {
 	@prop({ type: String })
@@ -186,19 +187,23 @@ class DomainClass {
 	}
 
 	public static async upsertMany(this: ReturnModelType<typeof DomainClass>, urls: string[]) {
-		let domains: { [url: string]: UpdateOneModel<DomainClass> } = {};
+		const domains: { [url: string]: UpdateOneModel<DomainClass> } = {};
 
 		for (const u of urls) {
 			if (!domains[u]) {
+				const filter = { origin: u } as Filter<DomainClass>;
+				const update = {
+					$inc: { 'crawl.queued': 0 }
+				} as UpdateFilter<DomainClass>;
+
 				domains[u] = {
-					filter: { origin: u },
-					update: {
-						$inc: { 'crawl.queued': 0 }
-					},
+					filter,
+					update,
 					upsert: true
 				};
 			}
-			(domains[u]['update'] as any).$inc['crawl.queued']++;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			((domains[u].update as UpdateFilter<DomainClass>).$inc as any)['crawl.queued']++;
 		}
 		return this.bulkWrite(Object.values(domains).map((d) => ({ updateOne: d })));
 	}

@@ -1,14 +1,9 @@
 import { Types, Document } from 'mongoose';
 import { urlListValidator, urlValidator } from '@derzis/common';
 import { prop, index, pre, getModelForClass } from '@typegoose/typegoose';
-import {
-	TripleClass,
-	Triple,
-	Process,
-	ProcessTriple,
-	ProcessClass,
-	type TripleDocument
-} from '@derzis/models';
+import { TripleClass, Triple, type TripleDocument } from './Triple';
+import { Process, ProcessClass } from './Process';
+import { ProcessTriple } from './ProcessTriple';
 
 class ResourceCount {
 	@prop({ default: 0, type: Number })

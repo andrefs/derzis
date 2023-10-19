@@ -1,9 +1,10 @@
 import type { Types, Document } from 'mongoose';
 import { urlValidator, WorkerError } from '@derzis/common';
-import { Domain } from '@derzis/models';
+import { Domain } from './Domain';
 import { Path, type PathDocument } from './Path';
 import type { TripleClass, TripleSkeleton } from './Triple';
-import type { CrawlResourceResultDetails } from '@derzis/worker';
+import type { CrawlResourceResultDetails } from '@derzis/common';
+
 import { prop, index, type ReturnModelType, getModelForClass } from '@typegoose/typegoose';
 
 class CrawlId {

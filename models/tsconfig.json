@@ -1,10 +1,18 @@
 {
 	"compilerOptions": {
+		"target": "ES2020",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
 		"rootDir": "./src",
 		"esModuleInterop": true,
 		"composite": true,
 		"emitDecoratorMetadata": true,
-		"experimentalDecorators": true
+		"experimentalDecorators": true,
+		"paths": {
+			"@derzis/common": [
+				"../common/src"
+			]
+		}
 	},
 	"references": [
 		{
