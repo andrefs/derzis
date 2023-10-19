@@ -24,10 +24,6 @@ export interface ResourceCrawlJobRequest extends BaseJobRequest {
 	origin: string;
 	url: string;
 }
-export interface DomainCrawlJobInfo {
-	domain: DomainClass;
-	resources: { url: string }[];
-}
 export type DomainCrawlJobRequest = BaseJobRequest &
 	DomainCrawlJobInfo & {
 		type: 'domainCrawl';

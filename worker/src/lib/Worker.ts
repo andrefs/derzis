@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { connectDB } from './connect-db';
+import * as db from './connect-db';
 import { Resource } from '@derzis/models';
 
 import Axios from './axios';
@@ -16,19 +16,21 @@ import {
 	createLogger,
 	JobTimeoutError,
 	type MonkeyPatchedLogger,
-	WorkerError,
 	MimeTypeError,
 	RobotsForbiddenError,
 	TooManyRedirectsError,
-	AxiosError
+	AxiosError,
+	JobType,
+	RobotsCheckResult,
+	CrawlResourceResult,
+	CrawlResourceResultOk
 } from '@derzis/common';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import { v4 as uuidv4 } from 'uuid';
-import type * as RDF from '@rdfjs/types';
 import type { DomainCrawlJobRequest } from './WorkerPubSub';
-import type { OngoingJobs } from '@derzis/manager';
+import type { OngoingJobs } from '@derzis/common';
 import {
 	type AxiosResponseHeaders,
 	fetchRobots,
@@ -36,81 +38,6 @@ import {
 	handleHttpError,
 	type HttpRequestResult
 } from './worker-utils';
-
-export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
-
-export interface BaseJobResult {
-	status: 'ok' | 'not_ok';
-	jobType: JobType;
-	origin: string;
-	jobId: number;
-}
-export interface JobResultOk extends BaseJobResult {
-	status: 'ok';
-	details: object;
-}
-export interface JobResultError extends BaseJobResult {
-	status: 'not_ok';
-	err: object;
-	details?: object;
-}
-
-export type CrawlResourceResultDetails = {
-	crawlId: { domainTs: Date; counter: number };
-	ts: number;
-};
-export type BaseCrawlResourceResult = {
-	jobType: 'resourceCrawl';
-	url: string;
-	details: CrawlResourceResultDetails;
-} & BaseJobResult;
-
-export type CrawlResourceResultOk = {
-	details: { triples: RDF.Quad[] };
-} & BaseCrawlResourceResult &
-	JobResultOk;
-
-export type CrawlResourceResultError = {
-	err: WorkerError;
-} & BaseCrawlResourceResult &
-	JobResultError;
-
-export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
-
-export type BaseRobotsCheckResult = {
-	jobType: 'robotsCheck';
-	url: string;
-} & BaseJobResult;
-export type RobotsCheckResultOk = {
-	details: {
-		endTime: number;
-		elapsedTime: number;
-		robotsText: string;
-		status: number;
-	};
-} & BaseRobotsCheckResult &
-	JobResultOk;
-export type RobotsCheckResultError = {
-	err: WorkerError;
-	details?: {
-		endTime?: number;
-		elapsedTime?: number;
-		message?: string;
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		stack?: any;
-	};
-} & BaseRobotsCheckResult &
-	JobResultError;
-export type RobotsCheckResult = RobotsCheckResultOk | RobotsCheckResultError;
-
-export type BaseCrawlDomainResult = {
-	jobType: 'domainCrawl';
-} & BaseJobResult;
-export type BaseCrawlDomainResultOk = BaseCrawlDomainResult & JobResultOk;
-export type BaseCrawlDomainResultError = BaseCrawlDomainResult & JobResultError;
-export type CrawlDomainResult = BaseCrawlDomainResultOk | BaseCrawlDomainResultError;
-
-export type JobResult = CrawlResourceResult | RobotsCheckResult | CrawlDomainResult;
 
 export interface Availability {
 	currentCapacity: JobCapacity;
@@ -136,7 +63,7 @@ export class Worker extends EventEmitter {
 
 	async connect() {
 		log.info('Connecting to MongoDB');
-		const conn = await connectDB();
+		const conn = await db.connect();
 		log.info(`MongoDB connection ready state: ${conn.connection.readyState}`);
 	}
 
