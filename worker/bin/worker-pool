@@ -1,0 +1,19 @@
+#!/bin/bash
+
+
+SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+
+trap 'kill 0' EXIT
+
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts &
+node -r ts-node/register -r tsconfig-paths/register  "$SCRIPTPATH"/worker.ts
+
+#bash
