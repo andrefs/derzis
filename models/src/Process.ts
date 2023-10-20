@@ -52,7 +52,7 @@ class ParamsClass {
 	});
 	if (!this.pid) {
 		const date = today.toISOString().split('T')[0] + '-' + count;
-		const word = humanize(date);
+		const word = humanize('process' + date);
 		this.pid = `${word}-${date}`;
 	}
 	if (!this.notification) {

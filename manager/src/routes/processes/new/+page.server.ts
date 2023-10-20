@@ -39,8 +39,8 @@ export const actions: { [name: string]: Action } = {
 			pathHeads
 		};
 
-		const process = await Process.create(p);
-		await Process.startNext();
-		throw redirect(303, `/processes/${process.pid}`);
+		const proc = await newProcess(p);
+
+		throw redirect(303, `/processes/${proc.pid}`);
 	}
 };
