@@ -1,6 +1,6 @@
 <script lang="ts">
 	export let data;
-	import { Row, Col, Table } from 'sveltestrap';
+	import { Row, Col, Table, Badge } from 'sveltestrap';
 </script>
 
 <header style="padding-bottom: 1rem">
@@ -31,10 +31,10 @@
 					{#each data.processes as proc}
 						<tr>
 							<th><a href="/processes/{proc.pid}">{proc.pid}</a></th>
-							<td>{proc.maxPathLength}</td>
-							<td>{proc.max_path_props}</td>
-							<td>{proc.status}</td>
-							<td>{proc.submitted}</td>
+							<td class="text-center">{proc.params.maxPathLength}</td>
+							<td class="text-center">{proc.params.maxPathProps}</td>
+							<td><Badge color="primary">{proc.status}</Badge></td>
+							<td>{proc.createdAt}</td>
 						</tr>
 					{/each}
 				</tbody>

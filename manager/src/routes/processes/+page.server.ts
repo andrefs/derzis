@@ -1,6 +1,10 @@
-import { Process, type ProcessDocument } from '@derzis/models';
+import { Process, type ProcessClass } from '@derzis/models';
 
 export async function load() {
-	const processes: ProcessDocument[] = await Process.find().select('maxPathLength').lean();
-	return { processes };
+	const ps: ProcessClass[] = await Process.find().lean();
+	const _ps = ps.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }));
+
+	return {
+		processes: _ps
+	};
 }
