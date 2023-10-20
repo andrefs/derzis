@@ -57,7 +57,14 @@
 										</Col>
 										<Col sm={2}>
 											<InputGroup>
-												<Input type="number" name="maxPathLength" />
+												<Input
+													min="1"
+													max="20"
+													step="1"
+													value="3"
+													type="number"
+													name="maxPathLength"
+												/>
 											</InputGroup>
 										</Col>
 									</Row>
@@ -70,7 +77,14 @@
 										</Col>
 										<Col sm={2}>
 											<InputGroup>
-												<Input type="number" name="maxPathProps" />
+												<Input
+													min="1"
+													max="5"
+													step="1"
+													value="2"
+													type="number"
+													name="maxPathProps"
+												/>
 											</InputGroup>
 										</Col>
 									</Row>
@@ -86,7 +100,8 @@
 											<InputGroup>
 												<Input name="email" />
 												<Tooltip target="email-tt"
-													>We'll only send you 3 emails: confirming your process has been added; when your process starts; and when your process finishes. No SPAM</Tooltip
+													>We'll only send you 3 emails: confirming your process has been added;
+													when your process starts; and when your process finishes. No SPAM</Tooltip
 												>
 												<InputGroupText id="email-tt">?</InputGroupText>
 											</InputGroup>
@@ -102,7 +117,8 @@
 											<InputGroup>
 												<Input name="webhook" />
 												<Tooltip target="webhook-tt"
-													>An HTTP callback which can be used to send notifications when the status of this process changes.</Tooltip
+													>An HTTP callback which can be used to send notifications when the status
+													of this process changes.</Tooltip
 												>
 												<InputGroupText id="webhook-tt">?</InputGroupText>
 											</InputGroup>
@@ -118,7 +134,13 @@
 										</Col>
 										<Col sm={10}>
 											<InputGroup>
-												<Input id="whiteList" name="whiteList" type="textarea" rows="3" form="new-proc" />
+												<Input
+													id="whiteList"
+													name="whiteList"
+													type="textarea"
+													rows="3"
+													form="new-proc"
+												/>
 												<Tooltip target="white-list-tt">One resource URL per line</Tooltip>
 												<InputGroupText id="white-list-tt">?</InputGroupText>
 											</InputGroup>
@@ -133,14 +155,19 @@
 										</Col>
 										<Col sm={10}>
 											<InputGroup>
-												<Input id="blackList" name="blackList" type="textarea" rows="3" form="new-proc" />
+												<Input
+													id="blackList"
+													name="blackList"
+													type="textarea"
+													rows="3"
+													form="new-proc"
+												/>
 												<Tooltip target="black-list-tt">One resource URL per line</Tooltip>
 												<InputGroupText id="black-list-tt">?</InputGroupText>
 											</InputGroup>
 										</Col>
 									</Row>
 								</FormGroup>
-
 							</AccordionItem>
 						</Accordion>
 					</FormGroup>
