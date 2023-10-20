@@ -6,7 +6,7 @@
 	import BsCardList from 'svelte-icons-pack/bs/BsCardList';
 	import BsPlusSquare from 'svelte-icons-pack/bs/BsPlusSquare';
 	import BsBookHalf from 'svelte-icons-pack/bs/BsBookHalf';
-	import FaSolidDoorOpen from 'svelte-icons-pack/fa/FaSolidDoorOpen';
+	import FiCloudLightning from 'svelte-icons-pack/fi/FiCloudLightning';
 
 	let isOpen = false;
 	const toggle = () => (isOpen = !isOpen);
@@ -14,7 +14,7 @@
 
 <Navbar color="light" light expand="md">
 	<NavbarBrand href="/processes">
-		<Icon src={FaSolidDoorOpen} size="1.5em" /> <span style="font-weight: bold">Derzis</span>
+		<Icon src={FiCloudLightning} size="1.5em" /> <span style="font-weight: bold">Derzis</span>
 		<small class="text-muted"> v{version}</small>
 	</NavbarBrand>
 	<NavbarToggler on:click={toggle} />

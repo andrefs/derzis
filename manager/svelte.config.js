@@ -14,6 +14,9 @@ const config = {
 		adapter: adapter(),
 		env: {
 			dir: '..'
+		},
+		version: {
+			name: process.env.npm_package_version
 		}
 	}
 };
