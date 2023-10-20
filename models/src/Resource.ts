@@ -2,10 +2,16 @@ import type { Types, Document } from 'mongoose';
 import { urlValidator, WorkerError } from '@derzis/common';
 import { Domain } from './Domain';
 import { Path, type PathDocument } from './Path';
-import type { TripleClass, TripleSkeleton } from './Triple';
+import { Triple, type TripleClass, type TripleSkeleton } from './Triple';
 import type { CrawlResourceResultDetails } from '@derzis/common';
 
-import { prop, index, type ReturnModelType, getModelForClass } from '@typegoose/typegoose';
+import {
+	prop,
+	index,
+	type ReturnModelType,
+	getModelForClass,
+	PropType
+} from '@typegoose/typegoose';
 
 class CrawlId {
 	@prop({ type: Date })
@@ -34,7 +40,7 @@ class ResourceClass {
 	})
 	public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
-	@prop({ ref: 'Triple', default: [] })
+	@prop({ ref: 'Triple', default: [], Type: [Triple] }, PropType.ARRAY)
 	public triples!: Types.DocumentArray<TripleClass>;
 
 	@prop({ type: Number })

@@ -1,5 +1,6 @@
 import config from '@derzis/config';
-import mongoose from 'mongoose';
+import { ObjectId } from 'bson';
+import mongoose, { Types } from 'mongoose';
 if (config.worker.db.debug) {
 	console.log('Enabling mongo debug');
 	mongoose.set('debug', true);

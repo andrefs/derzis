@@ -26,6 +26,7 @@ export async function load({ params }) {
 				?.replace(/^..(?=@)/, '**')
 		}
 	};
+	console.log('XXXXXXXXXX', { p });
 	//const host = req.protocol + '://' + req.get('host');
 	return { proc: p };
 }

@@ -5,9 +5,19 @@ import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
 import { Path, type PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
-import { prop, index, getModelForClass, pre, type ReturnModelType } from '@typegoose/typegoose';
+import {
+	prop,
+	index,
+	getModelForClass,
+	pre,
+	type ReturnModelType,
+	PropType,
+	post
+} from '@typegoose/typegoose';
 
 class NotificationClass {
+	_id?: Types.ObjectId | string;
+
 	@prop({ type: String })
 	public email?: string;
 
@@ -18,6 +28,8 @@ class NotificationClass {
 	public ssePath?: string;
 }
 class ParamsClass {
+	_id?: Types.ObjectId | string;
+
 	@prop({ default: 2, required: true, type: Number })
 	public maxPathLength!: number;
 
@@ -33,7 +45,7 @@ class ParamsClass {
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
-@pre<ProcessClass>('save', async function () {
+@pre<ProcessClass>('save', async function() {
 	const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
 	const count = await Process.countDocuments({
 		createdAt: { $gt: today }
@@ -49,8 +61,43 @@ class ParamsClass {
 	const ssePath = `/processes/${this.pid}/events`;
 	this.notification.ssePath = ssePath;
 })
+//@post<ProcessClass>('save', function(doc) {
+//	if (doc) {
+//		doc._id = doc._id.toString();
+//		if (doc.notification) {
+//			doc.notification._id = doc.notification._id.toString();
+//		}
+//		if (doc.params) {
+//			doc.params._id = doc.params._id.toString();
+//		}
+//	}
+//})
+@post<ProcessClass>(/^findOne/, function(doc) {
+	doc._id = doc._id.toString();
+	if (doc.notification) {
+		doc.notification._id = doc.notification._id.toString();
+	}
+	if (doc.params) {
+		doc.params._id = doc.params._id.toString();
+	}
+})
+@post<ProcessClass[]>(/^find/, function(docs) {
+	// @ts-ignore
+	if (this.op === 'find') {
+		docs.forEach((doc) => {
+			doc._id = doc._id.toString();
+
+			if (doc.notification) {
+				doc.notification._id = doc.notification._id.toString();
+			}
+			if (doc.params) {
+				doc.params._id = doc.params._id.toString();
+			}
+		});
+	}
+})
 class ProcessClass {
-	_id!: Types.ObjectId;
+	_id?: Types.ObjectId | string;
 	createdAt!: Date;
 	updatedAt!: Date;
 
@@ -63,13 +110,13 @@ class ProcessClass {
 	@prop({ type: String })
 	public description?: string;
 
-	@prop({ required: true, type: [String] })
+	@prop({ required: true, type: String }, PropType.ARRAY)
 	public seeds!: string[];
 
 	@prop({ required: true, type: ParamsClass })
 	public params!: ParamsClass;
 
-	@prop({ required: true, type: Types.Map })
+	@prop({ required: true, type: Object })
 	public pathHeads!: {
 		required: true;
 		type: { [key: string]: number };

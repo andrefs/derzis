@@ -1,6 +1,6 @@
 import { Types, Document } from 'mongoose';
 import { urlListValidator, urlValidator } from '@derzis/common';
-import { prop, index, pre, getModelForClass } from '@typegoose/typegoose';
+import { prop, index, pre, getModelForClass, PropType } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from './Triple';
 import { Process, ProcessClass } from './Process';
 import { ProcessTriple } from './ProcessTriple';
@@ -9,7 +9,7 @@ class ResourceCount {
 	@prop({ default: 0, type: Number })
 	public count!: number;
 
-	@prop({ default: [], validate: urlListValidator, type: [String] })
+	@prop({ default: [], validate: urlListValidator, type: [String] }, PropType.ARRAY)
 	public elems!: string[];
 }
 class SeedClass {
@@ -26,10 +26,10 @@ class HeadClass {
 
 type RecursivePartial<T> = {
 	[P in keyof T]?: T[P] extends (infer U)[]
-		? RecursivePartial<U>[]
-		: T[P] extends object | undefined
-		? RecursivePartial<T[P]>
-		: T[P];
+	? RecursivePartial<U>[]
+	: T[P] extends object | undefined
+	? RecursivePartial<T[P]>
+	: T[P];
 };
 
 type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
@@ -38,7 +38,7 @@ type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 		nodes: Pick<ResourceCount, 'elems'>;
 	};
 
-@pre<PathClass>('save', function () {
+@pre<PathClass>('save', function() {
 	this.nodes.count = this.nodes.elems.length;
 	this.predicates.count = this.predicates.elems.length;
 	if (this.predicates.count) {
@@ -72,13 +72,13 @@ class PathClass {
 	@prop({ required: true, type: HeadClass })
 	public head!: HeadClass;
 
-	@prop({ default: [], type: ResourceCount })
+	@prop({ type: ResourceCount })
 	public predicates!: ResourceCount;
 
 	@prop({ validate: urlValidator, type: String })
 	public lastPredicate?: string;
 
-	@prop({ default: [], type: ResourceCount })
+	@prop({ type: ResourceCount })
 	public nodes!: ResourceCount;
 
 	@prop({ ref: 'Triple' })

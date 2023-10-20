@@ -5,7 +5,13 @@ import { Counter } from './Counter';
 import { Path, type PathDocument } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
-import { prop, index, getModelForClass, type ReturnModelType } from '@typegoose/typegoose';
+import {
+	prop,
+	index,
+	getModelForClass,
+	type ReturnModelType,
+	PropType
+} from '@typegoose/typegoose';
 const log = createLogger('Domain');
 
 export interface DomainCrawlJobInfo {
@@ -98,7 +104,7 @@ class DomainClass {
 	@prop({ type: Boolean })
 	public error?: boolean;
 
-	@prop({ default: [], type: LastWarningClass })
+	@prop({ default: [], type: [LastWarningClass] }, PropType.ARRAY)
 	public lastWarnings!: LastWarningClass[];
 
 	@prop({ default: {}, type: WarningsClass })
@@ -128,8 +134,8 @@ class DomainClass {
 			jobResult.err.errorType === 'http'
 				? robotsNotFound(jobResult, crawlDelay)
 				: jobResult.err.errorType === 'host_not_found'
-				? robotsHostNotFoundError()
-				: robotsUnknownError(jobResult);
+					? robotsHostNotFoundError()
+					: robotsUnknownError(jobResult);
 
 		let d = await this.findOneAndUpdate(
 			{
@@ -370,13 +376,13 @@ class DomainClass {
 
 					const additionalResources = limit
 						? await Resource.find({
-								origin: d,
-								status: 'unvisited',
-								url: { $nin: dPathHeads.map((r) => r.url) }
-						  })
-								.limit(limit)
-								.select('url')
-								.lean()
+							origin: d,
+							status: 'unvisited',
+							url: { $nin: dPathHeads.map((r) => r.url) }
+						})
+							.limit(limit)
+							.select('url')
+							.lean()
 						: [];
 					const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
 
