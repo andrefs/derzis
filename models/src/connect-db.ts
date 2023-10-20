@@ -17,7 +17,6 @@ if (config.worker.db.pass) {
 export const uri = `mongodb://${auth}${config.worker.db.host}:${config.worker.db.port}/${config.worker.db.name}`;
 
 export const connect = () => {
-	console.log('XXXXXXXXXXx 3', { uri });
 	const conn = mongoose.connect(uri || 'mongodb://localhost/derzis-wrk');
 	return conn;
 };
