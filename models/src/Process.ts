@@ -98,11 +98,11 @@ class ParamsClass {
 })
 class ProcessClass {
 	_id?: Types.ObjectId | string;
-	createdAt!: Date;
-	updatedAt!: Date;
+	createdAt?: Date;
+	updatedAt?: Date;
 
 	@prop({ index: true, unique: true, type: String })
-	public pid!: string;
+	public pid?: string;
 
 	@prop({ required: true, type: NotificationClass })
 	public notification!: NotificationClass;

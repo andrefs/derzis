@@ -1,5 +1,5 @@
 import { Types, Document } from 'mongoose';
-import { urlListValidator, urlValidator } from '@derzis/common';
+import { urlListValidator, urlValidator, RecursivePartial } from '@derzis/common';
 import { prop, index, pre, getModelForClass, PropType } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from './Triple';
 import { Process, ProcessClass } from './Process';
@@ -23,15 +23,6 @@ class HeadClass {
 	@prop({ type: String })
 	public domain!: string;
 }
-
-type RecursivePartial<T> = {
-	[P in keyof T]?: T[P] extends (infer U)[]
-	? RecursivePartial<U>[]
-	: T[P] extends object | undefined
-	? RecursivePartial<T[P]>
-	: T[P];
-};
-
 type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 	RecursivePartial<PathClass> & {
 		predicates: Pick<ResourceCount, 'elems'>;

@@ -1,4 +1,4 @@
-import { Process } from '@derzis/models';
+import { newProcess } from '$lib/process-helper';
 import { redirect, type Action } from '@sveltejs/kit';
 
 /** @type {import('./$types').Actions} */
@@ -22,8 +22,8 @@ export const actions: { [name: string]: Action } = {
 
 		const p = {
 			params: {
-				maxPathLength: data.get('maxPathLength') as string,
-				maxPathProps: data.get('maxPathProps') as string,
+				maxPathLength: Number(data.get('maxPathLength')),
+				maxPathProps: Number(data.get('maxPathProps')),
 				whiteList: (data.get('white-list') as string)
 					?.split(/\s*[\n]\s*/)
 					.filter((s: string) => !s.match(/^\s*$/)),
@@ -36,7 +36,7 @@ export const actions: { [name: string]: Action } = {
 				webhook: data.get('webhook') as string
 			},
 			seeds: uniqueSeeds,
-			pathHeads
+			pathHeads: Object.fromEntries(pathHeads.entries())
 		};
 
 		const proc = await newProcess(p);
