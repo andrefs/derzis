@@ -2,7 +2,13 @@ import type { BulkWriteResult } from 'mongodb';
 import { urlValidator } from '@derzis/common';
 import type { ResourceClass } from './Resource';
 import type { Types } from 'mongoose';
-import { prop, index, getModelForClass, type ReturnModelType } from '@typegoose/typegoose';
+import {
+	prop,
+	index,
+	getModelForClass,
+	type ReturnModelType,
+	PropType
+} from '@typegoose/typegoose';
 import type { Document } from 'cheerio';
 
 type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
@@ -24,10 +30,10 @@ class TripleClass {
 	@prop({ required: true, validate: urlValidator, type: String })
 	public object!: string;
 
-	@prop({ default: [], validate: urlValidator, type: [String] })
+	@prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)
 	public nodes?: string[];
 
-	@prop({ default: [], validate: urlValidator, type: [String] })
+	@prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)
 	public sources?: string[];
 
 	public static async upsertMany(
