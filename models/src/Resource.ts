@@ -54,7 +54,7 @@ class ResourceClass {
 		resources: { url: string; domain: string }[]
 	) {
 		let insertedDocs: ResourceClass[] = [];
-		let existingDocs: Partial<ResourceClass>[] = [];
+		const existingDocs: Partial<ResourceClass>[] = [];
 
 		await this.insertMany(resources, { ordered: false })
 			.then((docs) => (insertedDocs = docs.map((d) => d.toObject())))
