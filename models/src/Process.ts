@@ -12,7 +12,8 @@ import {
 	pre,
 	type ReturnModelType,
 	PropType,
-	post
+	post,
+	DocumentType
 } from '@typegoose/typegoose';
 
 class NotificationClass {
@@ -45,7 +46,7 @@ class ParamsClass {
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
-@pre<ProcessClass>('save', async function () {
+@pre<ProcessClass>('save', async function() {
 	const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
 	const count = await Process.countDocuments({
 		createdAt: { $gt: today }
@@ -72,7 +73,7 @@ class ParamsClass {
 //		}
 //	}
 //})
-@post<ProcessClass>(/^findOne/, function (doc) {
+@post<ProcessClass>(/^findOne/, function(doc) {
 	if (!doc) return;
 	doc._id = doc._id.toString();
 	if (doc.notification?._id) {
@@ -82,7 +83,7 @@ class ParamsClass {
 		doc.params._id = doc.params._id.toString();
 	}
 })
-@post<ProcessClass[]>(/^find/, function (docs) {
+@post<ProcessClass[]>(/^find/, function(docs) {
 	// @ts-ignore
 	if (this.op === 'find') {
 		docs.forEach((doc) => {
@@ -256,7 +257,7 @@ class ProcessClass {
 		}
 	}
 
-	public async getInfo() {
+	public async getInfo(this: DocumentType<ProcessClass>) {
 		const baseFilter = { processIds: this.pid };
 		const lastResource = await Resource.findOne(baseFilter).sort({
 			updatedAt: -1
