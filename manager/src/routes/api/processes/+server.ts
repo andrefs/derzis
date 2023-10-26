@@ -13,6 +13,7 @@ export async function GET() {
 
 export async function POST({ request }: RequestEvent) {
 	const { process }: { process: RecursivePartial<ProcessClass> } = await request.json();
+
 	const proc = await newProcess(process);
 
 	return json(proc);

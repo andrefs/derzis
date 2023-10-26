@@ -11,15 +11,6 @@ export const actions: { [name: string]: Action } = {
 			.filter((s: string) => !s.match(/^\s*$/));
 		const uniqueSeeds = [...new Set(seeds)];
 
-		const pathHeads: Map<string, number> = new Map();
-		for (const s of seeds) {
-			const domain = new URL(s).origin;
-			if (!pathHeads.get(domain)) {
-				pathHeads.set(domain, 0);
-			}
-			pathHeads.set(domain, pathHeads.get(domain)! + 1);
-		}
-
 		const p = {
 			params: {
 				maxPathLength: Number(data.get('maxPathLength')),
@@ -35,8 +26,7 @@ export const actions: { [name: string]: Action } = {
 				email: data.get('email') as string,
 				webhook: data.get('webhook') as string
 			},
-			seeds: uniqueSeeds,
-			pathHeads: Object.fromEntries(pathHeads.entries())
+			seeds: uniqueSeeds
 		};
 
 		const proc = await newProcess(p);
