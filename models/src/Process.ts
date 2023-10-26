@@ -143,15 +143,11 @@ class ProcessClass {
 	}
 
 	public async *getTriples(this: ProcessClass) {
-		console.log('XXXXXXXXXXXX getTriples 1');
 		const procTriples = ProcessTriple.find({
 			processId: this.pid
 		}).populate('triple');
-		console.log('XXXXXXXXXXXX getTriples 2');
 		for await (const procTriple of procTriples) {
-			console.log('XXXXXXXXXXXX getTriples 3');
 			const triple = procTriple.triple;
-			console.log('XXXXXXXXXXXX getTriples 4');
 			yield {
 				subject: triple.subject,
 				predicate: triple.predicate,
@@ -161,9 +157,7 @@ class ProcessClass {
 	}
 
 	public async *getTriplesJson(this: ProcessClass) {
-		console.log('XXXXXXXXXXXX getTriplesJson 1');
 		for await (const t of this.getTriples()) {
-			console.log('XXXXXXXXXXXX getTriplesJson 2');
 			yield JSON.stringify(t);
 		}
 	}
