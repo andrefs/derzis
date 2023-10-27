@@ -26,6 +26,7 @@
 			<Col>
 				<form
 					id="new-proc"
+					action="/processes?/newProc"
 					method="POST"
 					use:enhance={() => {
 						return ({ update }) => update({ reset: false });
