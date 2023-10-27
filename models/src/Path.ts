@@ -106,8 +106,8 @@ class PathClass {
 	public tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean {
 		const pathPreds: Set<string> = new Set(this.predicates.elems);
 		return (
-			this.nodes.count >= process.params.maxPathLength ||
-			(!pathPreds.has(t.predicate) && this.predicates.count >= process.params.maxPathProps)
+			this.nodes.count >= process.currentStep.maxPathLength ||
+			(!pathPreds.has(t.predicate) && this.predicates.count >= process.currentStep.maxPathProps)
 		);
 	}
 

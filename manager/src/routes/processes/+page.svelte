@@ -31,8 +31,8 @@
 					{#each data.processes as proc}
 						<tr>
 							<th><a href="/processes/{proc.pid}">{proc.pid}</a></th>
-							<td class="text-center">{proc.params.maxPathLength}</td>
-							<td class="text-center">{proc.params.maxPathProps}</td>
+							<td class="text-center">{proc.currentStep.maxPathLength}</td>
+							<td class="text-center">{proc.currentStep.maxPathProps}</td>
 							<td><Badge color="primary">{proc.status}</Badge></td>
 							<td>{proc.createdAt}</td>
 						</tr>

@@ -28,8 +28,11 @@ class NotificationClass {
 	@prop({ type: String })
 	public ssePath?: string;
 }
-class ParamsClass {
+export class StepClass {
 	_id?: Types.ObjectId | string;
+
+	@prop({ required: true, type: String }, PropType.ARRAY)
+	public seeds!: string[];
 
 	@prop({ default: 2, required: true, type: Number })
 	public maxPathLength!: number;
@@ -79,8 +82,8 @@ class ParamsClass {
 	if (doc.notification?._id) {
 		doc.notification._id = doc.notification._id.toString();
 	}
-	if (doc.params?._id) {
-		doc.params._id = doc.params._id.toString();
+	if (doc.currentStep?._id) {
+		doc.currentStep._id = doc.currentStep._id.toString();
 	}
 })
 @post<ProcessClass[]>(/^find/, function(docs) {
@@ -92,8 +95,8 @@ class ParamsClass {
 			if (doc.notification?._id) {
 				doc.notification._id = doc.notification._id.toString();
 			}
-			if (doc.params?._id) {
-				doc.params._id = doc.params._id.toString();
+			if (doc.currentStep?._id) {
+				doc.currentStep._id = doc.currentStep._id.toString();
 			}
 		});
 	}
@@ -112,11 +115,13 @@ class ProcessClass {
 	@prop({ type: String })
 	public description?: string;
 
-	@prop({ required: true, type: String }, PropType.ARRAY)
-	public seeds!: string[];
 
-	@prop({ required: true, type: ParamsClass })
-	public params!: ParamsClass;
+	@prop({ required: true, type: StepClass })
+	public currentStep!: StepClass;
+
+	@prop({ required: true, default: [], type: [StepClass] }, PropType.ARRAY)
+	public previousSteps!: StepClass[];
+
 
 	@prop({ required: true, type: Object })
 	public pathHeads!: {
@@ -133,10 +138,10 @@ class ProcessClass {
 
 	public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
 		// triple predicate allowed by white/blacklist
-		if (this.params.whiteList?.length && !matchesOne(t.predicate, this.params.whiteList)) {
+		if (this.currentStep.whiteList?.length && !matchesOne(t.predicate, this.currentStep.whiteList)) {
 			return false;
 		}
-		if (this.params.blackList?.length && matchesOne(t.predicate, this.params.blackList)) {
+		if (this.currentStep.blackList?.length && matchesOne(t.predicate, this.currentStep.blackList)) {
 			return false;
 		}
 		return true;
@@ -165,8 +170,8 @@ class ProcessClass {
 	public async getPaths(skip = 0, limit = 20) {
 		const paths: PathDocument[] = await Path.find({
 			processId: this.pid,
-			'nodes.count': { $lt: this.params.maxPathLength },
-			'predicates.count': { $lte: this.params.maxPathProps }
+			'nodes.count': { $lt: this.currentStep.maxPathLength },
+			'predicates.count': { $lte: this.currentStep.maxPathProps }
 		})
 			// shorter paths first
 			.sort({ 'nodes.count': 1 })
@@ -307,18 +312,18 @@ class ProcessClass {
 			},
 			paths: {
 				total: await Path.countDocuments({
-					'seed.url': { $in: this.seeds }
+					'seed.url': { $in: this.currentStep.seeds }
 				}).lean(),
 				finished: await Path.countDocuments({
-					'seed.url': { $in: this.seeds },
+					'seed.url': { $in: this.currentStep.seeds },
 					status: 'finished'
 				}).lean(), // TODO add index
 				disabled: await Path.countDocuments({
-					'seed.url': { $in: this.seeds },
+					'seed.url': { $in: this.currentStep.seeds },
 					status: 'disabled'
 				}).lean(), // TODO add index
 				active: await Path.countDocuments({
-					'seed.url': { $in: this.seeds },
+					'seed.url': { $in: this.currentStep.seeds },
 					status: 'active'
 				}).lean() // TODO add index
 			},
@@ -333,10 +338,10 @@ class ProcessClass {
 			timeRunning: lastResource
 				? (lastResource!.updatedAt.getTime() - this.createdAt!.getTime()) / 1000
 				: null,
-			params: this.params,
+			currentStep: this.currentStep,
+			previousSteps: this.previousSteps,
 			notification: this.notification,
 			status: this.status,
-			seeds: this.seeds
 		};
 	}
 
@@ -351,7 +356,7 @@ class ProcessClass {
 				{ new: true }
 			);
 			if (process) {
-				await Resource.insertSeeds(process.seeds, process.pid);
+				await Resource.insertSeeds(process.currentStep.seeds, process.pid);
 				return true;
 			}
 		}

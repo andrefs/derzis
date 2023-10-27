@@ -25,12 +25,13 @@
 					<tr><th scope="row">Submitted</th><td>{data.proc.createdAt}</td></tr>
 					<tr><th scope="row">Last updated</th><td>{data.proc.updatedAt}</td></tr>
 					<tr><th scope="row">Time running</th><td>{data.proc.timeRunning}</td></tr>
-					<tr><th scope="row">Max path length</th><td>{data.proc.params.maxPathLength}</td></tr>
-					<tr><th scope="row">Max path props</th><td>{data.proc.params.maxPathProps}</td></tr>
+					<tr><th scope="row">Max path length</th><td>{data.proc.currentStep.maxPathLength}</td></tr
+					>
+					<tr><th scope="row">Max path props</th><td>{data.proc.currentStep.maxPathProps}</td></tr>
 					<tr>
 						<th scope="row">Seeds</th>
 						<td
-							>{#each data.proc.seeds as r}
+							>{#each data.proc.currentStep.seeds as r}
 								<p style="margin-bottom: 0">
 									<a href={r}>{r}</a>
 								</p>

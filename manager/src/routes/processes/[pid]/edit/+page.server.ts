@@ -29,8 +29,3 @@ export async function load({ params }) {
 
 	return p;
 }
-
-//export const actions = {
-//	async addStep({ params, body }) { },
-//	async update({ params, body }) { }
-//};

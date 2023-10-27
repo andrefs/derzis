@@ -22,7 +22,7 @@ export const actions: { [name: string]: Action } = {
 		const uniqueSeeds = [...new Set(seeds)];
 
 		const p = {
-			params: {
+			currentStep: {
 				maxPathLength: Number(data.get('maxPathLength')),
 				maxPathProps: Number(data.get('maxPathProps')),
 				whiteList: (data.get('white-list') as string)
@@ -30,17 +30,19 @@ export const actions: { [name: string]: Action } = {
 					.filter((s: string) => !s.match(/^\s*$/)),
 				blackList: (data.get('black-list') as string)
 					?.split(/\s*[\n]\s*/)
-					.filter((s: string) => !s.match(/^\s*$/))
+					.filter((s: string) => !s.match(/^\s*$/)),
+				seeds: uniqueSeeds
 			},
 			notification: {
 				email: data.get('email') as string,
 				webhook: data.get('webhook') as string
-			},
-			seeds: uniqueSeeds
+			}
 		};
 
 		const proc = await newProcess(p);
 
 		throw redirect(303, `/processes/${proc.pid}`);
-	}
+	},
+	addStep: async ({ params, body }) => { },
+	update: async ({ params, body }) => { }
 };

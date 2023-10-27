@@ -42,7 +42,7 @@
 										</Col>
 										<Col sm={10}>
 											<InputGroup>
-												<Input id="seeds" name="seeds" type="textarea" rows="3" form="new-proc" />
+												<Input id="seeds" name="seeds" type="textarea" rows={3} form="new-proc" />
 												<Tooltip target="resources-tt">One resource URL per line</Tooltip>
 												<InputGroupText id="resources-tt">?</InputGroupText>
 											</InputGroup>
@@ -138,7 +138,7 @@
 													id="whiteList"
 													name="whiteList"
 													type="textarea"
-													rows="3"
+													rows={3}
 													form="new-proc"
 												/>
 												<Tooltip target="white-list-tt">One resource URL per line</Tooltip>
@@ -159,7 +159,7 @@
 													id="blackList"
 													name="blackList"
 													type="textarea"
-													rows="3"
+													rows={3}
 													form="new-proc"
 												/>
 												<Tooltip target="black-list-tt">One resource URL per line</Tooltip>
