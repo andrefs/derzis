@@ -1,4 +1,4 @@
-import { ParamsClass, Process, ProcessClass } from '@derzis/models';
+import { StepClass, Process, ProcessClass, Resource } from '@derzis/models';
 import type { RecursivePartial } from '@derzis/common';
 
 export async function newProcess(p: RecursivePartial<ProcessClass>) {
@@ -19,7 +19,7 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	return proc;
 }
 
-export async function addStep(pid: string, additionalSeeds: string[], params: ParamsClass) {
+export async function addStep(pid: string, params: StepClass) {
 	const p = await Process.findOne({ pid, status: 'done' });
 
 	if (!p) {
@@ -27,7 +27,7 @@ export async function addStep(pid: string, additionalSeeds: string[], params: Pa
 	}
 
 	const oldSeeds = new Set(p.currentStep.seeds);
-	const newSeeds = additionalSeeds.filter((s) => !oldSeeds.has(s));
+	const newSeeds = params.seeds.filter((s) => !oldSeeds.has(s));
 
 	const newMPL = Math.max(p.currentStep.maxPathLength, params.maxPathLength);
 	const newMPP = Math.max(p.currentStep.maxPathProps, params.maxPathProps);
@@ -40,8 +40,14 @@ export async function addStep(pid: string, additionalSeeds: string[], params: Pa
 		blackList: params.blackList
 	};
 
-	//return Process.updateOne({ pid, status: 'done' }, {
-	//	$addToSet
-	//	$push: { steps: newStep }
-	//});
+	await Process.updateOne(
+		{ pid, status: 'done' },
+		{
+			$push: { steps: newStep },
+			$set: { currentStep: newStep },
+			status: 'queued'
+		}
+	);
+
+	await Resource.insertSeeds(newSeeds, pid);
 }

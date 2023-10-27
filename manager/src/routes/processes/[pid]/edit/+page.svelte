@@ -29,6 +29,7 @@
 					<AccordionItem active header="Add new crawling step">
 						<form
 							id="new-crawl-step"
+							action="/processes/{data.pid}?/addStep"
 							method="POST"
 							use:enhance={() => {
 								return ({ update }) => update({ reset: false });

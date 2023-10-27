@@ -1,4 +1,4 @@
-import { newProcess } from '$lib/process-helper';
+import { addStep, newProcess } from '$lib/process-helper';
 import { Process, type ProcessClass } from '@derzis/models';
 import { redirect, type Action } from '@sveltejs/kit';
 
@@ -21,18 +21,21 @@ export const actions: { [name: string]: Action } = {
 			.filter((s: string) => !s.match(/^\s*$/));
 		const uniqueSeeds = [...new Set(seeds)];
 
+		const firstStep = {
+			maxPathLength: Number(data.get('maxPathLength')),
+			maxPathProps: Number(data.get('maxPathProps')),
+			whiteList: (data.get('white-list') as string)
+				?.split(/\s*[\n]\s*/)
+				.filter((s: string) => !s.match(/^\s*$/)),
+			blackList: (data.get('black-list') as string)
+				?.split(/\s*[\n]\s*/)
+				.filter((s: string) => !s.match(/^\s*$/)),
+			seeds: uniqueSeeds
+		};
+
 		const p = {
-			currentStep: {
-				maxPathLength: Number(data.get('maxPathLength')),
-				maxPathProps: Number(data.get('maxPathProps')),
-				whiteList: (data.get('white-list') as string)
-					?.split(/\s*[\n]\s*/)
-					.filter((s: string) => !s.match(/^\s*$/)),
-				blackList: (data.get('black-list') as string)
-					?.split(/\s*[\n]\s*/)
-					.filter((s: string) => !s.match(/^\s*$/)),
-				seeds: uniqueSeeds
-			},
+			steps: [firstStep],
+			currentStep: firstStep,
 			notification: {
 				email: data.get('email') as string,
 				webhook: data.get('webhook') as string
@@ -42,7 +45,5 @@ export const actions: { [name: string]: Action } = {
 		const proc = await newProcess(p);
 
 		throw redirect(303, `/processes/${proc.pid}`);
-	},
-	addStep: async ({ params, body }) => { },
-	update: async ({ params, body }) => { }
+	}
 };

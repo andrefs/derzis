@@ -120,7 +120,7 @@ class ProcessClass {
 	public currentStep!: StepClass;
 
 	@prop({ required: true, default: [], type: [StepClass] }, PropType.ARRAY)
-	public previousSteps!: StepClass[];
+	public steps!: StepClass[];
 
 
 	@prop({ required: true, type: Object })
