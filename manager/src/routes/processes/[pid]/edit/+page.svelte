@@ -67,7 +67,7 @@
 												min="1"
 												max="20"
 												step="1"
-												value="3"
+												value={data.currentStep.maxPathLength}
 												type="number"
 												name="maxPathLength"
 											/>
@@ -83,7 +83,14 @@
 									</Col>
 									<Col sm={2}>
 										<InputGroup>
-											<Input min="1" max="5" step="1" value="2" type="number" name="maxPathProps" />
+											<Input
+												min="1"
+												max="5"
+												step="1"
+												value={data.currentStep.maxPathProps}
+												type="number"
+												name="maxPathProps"
+											/>
 										</InputGroup>
 									</Col>
 								</Row>

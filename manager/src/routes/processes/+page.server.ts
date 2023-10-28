@@ -41,7 +41,6 @@ export const actions: { [name: string]: Action } = {
 				webhook: data.get('webhook') as string
 			}
 		};
-
 		const proc = await newProcess(p);
 
 		throw redirect(303, `/processes/${proc.pid}`);

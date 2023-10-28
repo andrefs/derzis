@@ -304,7 +304,7 @@ class ProcessClass {
 				? (lastResource!.updatedAt.getTime() - this.createdAt!.getTime()) / 1000
 				: null,
 			currentStep: this.currentStep,
-			previousSteps: this.previousSteps,
+			steps: this.steps,
 			notification: this.notification,
 			status: this.status,
 		};
