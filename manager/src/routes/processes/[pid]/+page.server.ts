@@ -29,7 +29,7 @@ export async function load({ params }) {
 		}
 	};
 
-	return { proc: p };
+	return { proc: structuredClone(p) };
 }
 
 /** @type {import('./$types').Actions} */

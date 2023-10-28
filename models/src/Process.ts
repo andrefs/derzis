@@ -65,42 +65,7 @@ export class StepClass {
 	const ssePath = `/processes/${this.pid}/events`;
 	this.notification.ssePath = ssePath;
 })
-//@post<ProcessClass>('save', function(doc) {
-//	if (doc) {
-//		doc._id = doc._id.toString();
-//		if (doc.notification) {
-//			doc.notification._id = doc.notification._id.toString();
-//		}
-//		if (doc.params) {
-//			doc.params._id = doc.params._id.toString();
-//		}
-//	}
-//})
-@post<ProcessClass>(/^findOne/, function(doc) {
-	if (!doc) return;
-	doc._id = doc._id.toString();
-	if (doc.notification?._id) {
-		doc.notification._id = doc.notification._id.toString();
-	}
-	if (doc.currentStep?._id) {
-		doc.currentStep._id = doc.currentStep._id.toString();
-	}
-})
-@post<ProcessClass[]>(/^find/, function(docs) {
-	// @ts-ignore
-	if (this.op === 'find') {
-		docs.forEach((doc) => {
-			doc._id = doc._id.toString();
 
-			if (doc.notification?._id) {
-				doc.notification._id = doc.notification._id.toString();
-			}
-			if (doc.currentStep?._id) {
-				doc.currentStep._id = doc.currentStep._id.toString();
-			}
-		});
-	}
-})
 class ProcessClass {
 	_id!: Types.ObjectId | string;
 	createdAt?: Date;

@@ -27,5 +27,5 @@ export async function load({ params }) {
 		}
 	};
 
-	return p;
+	return structuredClone(p);
 }

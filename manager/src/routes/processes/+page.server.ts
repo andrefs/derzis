@@ -7,7 +7,7 @@ export async function load() {
 	const _ps = ps.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }));
 
 	return {
-		processes: _ps
+		processes: structuredClone(_ps)
 	};
 }
 
