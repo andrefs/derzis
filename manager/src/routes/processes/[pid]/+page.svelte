@@ -25,6 +25,19 @@
 					<tr><th scope="row">Submitted</th><td>{data.proc.createdAt}</td></tr>
 					<tr><th scope="row">Last updated</th><td>{data.proc.updatedAt}</td></tr>
 					<tr><th scope="row">Time running</th><td>{data.proc.timeRunning}</td></tr>
+					<tr>
+						<th scope="row">Triples</th><td><a href="{data.proc.pid}/triples">Download</a></td>
+					</tr>
+					<tr>
+						<th scope="row">Info</th><td><a href="{data.proc.pid}/stats">View</a></td>
+					</tr>
+				</tbody>
+			</Table>
+
+			<h3>Steps</h3>
+			<h4>Current step</h4>
+			<Table>
+				<tbody>
 					<tr><th scope="row">Max path length</th><td>{data.proc.currentStep.maxPathLength}</td></tr
 					>
 					<tr><th scope="row">Max path props</th><td>{data.proc.currentStep.maxPathProps}</td></tr>
@@ -38,13 +51,28 @@
 							{/each}</td
 						>
 					</tr>
-					<tr>
-						<th scope="row">Triples</th><td><a href="{data.proc.pid}/triples">Download</a></td>
-					</tr>
-					<tr>
-						<th scope="row">Info</th><td><a href="{data.proc.pid}/stats">View</a></td>
-					</tr>
-					<tr></tr>
+				</tbody>
+			</Table>
+
+			<h4>Previous steps</h4>
+			<Table>
+				<tbody>
+					{#each data.proc.steps as step, i}
+						{#if i !== data.proc.steps.length - 1}
+							<tr><th scope="row">Max path length</th><td>{step.maxPathLength}</td></tr>
+							<tr><th scope="row">Max path props</th><td>{step.maxPathProps}</td></tr>
+							<tr>
+								<th scope="row">Seeds</th>
+								<td
+									>{#each step.seeds as r}
+										<p style="margin-bottom: 0">
+											<a href={r}>{r}</a>
+										</p>
+									{/each}</td
+								>
+							</tr>
+						{/if}
+					{/each}
 				</tbody>
 			</Table>
 
