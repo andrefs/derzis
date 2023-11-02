@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+config({ path: '../.env' });
 const version = process.env.npm_package_version || '0.0.1';
 
 export default {
@@ -9,7 +10,7 @@ export default {
     db: {
       host: process.env.MONGODB_HOST || 'localhost',
       port: process.env.MONGODB_PORT || '27017',
-      name: process.env.MONGODB_NAME || 'drzs-mng',
+      name: process.env.MANAGER_DATABASE || 'drzs-mng-default',
       user: process.env.MONGODB_USER || undefined,
       pass: process.env.MONGODB_PASS || undefined,
       debug: true
@@ -19,7 +20,7 @@ export default {
     db: {
       host: process.env.MONGODB_HOST || 'localhost',
       port: process.env.MONGODB_PORT || '27017',
-      name: process.env.MONGODB_NAME || 'drzs-wrk',
+      name: process.env.WORKER_DATABASE || 'drzs-wrk-default',
       user: process.env.MONGODB_USER || undefined,
       pass: process.env.MONGODB_PASS || undefined,
       debug: true
