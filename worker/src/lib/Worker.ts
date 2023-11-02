@@ -6,7 +6,6 @@ import robotsParser, { type Robot } from 'robots-parser';
 import { db } from '@derzis/models';
 import { Resource } from '@derzis/models';
 const { WORKER_DATABASE } = process.env;
-console.log('XXXXXXXXXXXx', { process, db: config.worker.db });
 
 import Axios from './axios';
 
