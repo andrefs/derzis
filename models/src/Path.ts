@@ -121,22 +121,24 @@ class PathClass {
 			const process = await Process.findOne({ pid: this.processId });
 			if (t && !this.tripleIsOutOfBounds(t, process!) && process?.whiteBlackListsAllow(t!)) {
 				const newHeadUrl: string = t!.subject === this.head.url ? t!.object : t!.subject;
-				const prop = t!.predicate;
+				if (!this.nodes.elems.includes(newHeadUrl)) {
+					const prop = t!.predicate;
 
-				const np = this.copy();
-				np.head.url = newHeadUrl;
-				np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
-				np.nodes.elems.push(newHeadUrl);
+					const np = this.copy();
+					np.head.url = newHeadUrl;
+					np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
+					np.nodes.elems.push(newHeadUrl);
 
-				await ProcessTriple.findOneAndUpdate(
-					{ processId: this.processId, triple: t },
-					{},
-					{ upsert: true }
-				);
-				const path = await Path.create(np);
-				await Path.deleteOne({ _id: this._id });
+					await ProcessTriple.findOneAndUpdate(
+						{ processId: this.processId, triple: t },
+						{},
+						{ upsert: true }
+					);
+					const path = await Path.create(np);
+					await Path.deleteOne({ _id: this._id });
 
-				return path.extendWithExistingTriples();
+					return path.extendWithExistingTriples();
+				}
 			}
 		}
 		// find triples which include the head but dont belong to the path yet

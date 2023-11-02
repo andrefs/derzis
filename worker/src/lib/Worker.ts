@@ -227,7 +227,11 @@ export class Worker extends EventEmitter {
 			const { triples, errors } = await parseRdf(res.rdf, res.mime);
 			const resCache = await ResourceCache.create({
 				url,
-				triples
+				triples: triples.map((t) => ({
+					subject: t.subject.value,
+					predicate: t.predicate.value,
+					object: t.object.value
+				}))
 			});
 			// TODO do something with errors
 			return { ...res, triples };

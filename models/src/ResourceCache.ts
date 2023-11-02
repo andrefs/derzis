@@ -8,7 +8,7 @@ import {
 	PropType
 } from '@typegoose/typegoose';
 
-class _TripleClass {
+class TripClass {
 	@prop({ required: true, type: String })
 	public subject!: string;
 
@@ -27,8 +27,8 @@ class ResourceCacheClass {
 	@prop({ required: true, validate: urlValidator, type: String })
 	public url!: string;
 
-	@prop({ ref: 'TripleClass', default: [], Type: [_TripleClass] }, PropType.ARRAY)
-	public triples?: Types.DocumentArray<_TripleClass>;
+	@prop({ default: [], type: [TripClass] }, PropType.ARRAY)
+	public triples?: Types.DocumentArray<TripClass>;
 
 
 
@@ -36,7 +36,7 @@ class ResourceCacheClass {
 }
 
 const ResourceCache = getModelForClass(ResourceCacheClass, {
-	schemaOptions: { timestamps: true, collection: 'resources' }
+	schemaOptions: { timestamps: true, collection: 'resourceCaches' }
 });
 type ResourceCacheDocument = ResourceCacheClass & Document;
 
