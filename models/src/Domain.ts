@@ -406,43 +406,43 @@ class DomainClass {
 		}
 	}
 
-	public static async *domainsToCrawl(
-		this: ReturnModelType<typeof DomainClass>,
-		wId: string,
-		limit: number
-	) {
-		const query = {
-			status: 'ready',
-			'crawl.pathHeads': { $gt: 0 },
-			'crawl.nextAllowed': { $lte: Date.now() }
-		};
-		const options = {
-			returnDocument: 'before' as const,
-			sort: { 'crawl.pathHeads': -1 },
-			fields: 'origin crawl robots.text jobId status'
-		};
-		for (let i = 0; i < limit; i++) {
-			const jobId = await Counter.genId('jobs');
-			const update = {
-				$set: {
-					status: 'crawling',
-					workerId: wId,
-					jobId
-				}
-			};
-			const oldDoc = await this.findOneAndUpdate(query, update, options).lean();
-			if (oldDoc) {
-				const d = await this.findOne({ origin: oldDoc.origin }).lean();
-				if (d && d.robots && !Object.keys(d.robots).length) {
-					delete d.robots;
-				}
-				yield d;
-			} else {
-				return;
-			}
-		}
-		return;
-	}
+	//public static async *domainsToCrawl(
+	//	this: ReturnModelType<typeof DomainClass>,
+	//	wId: string,
+	//	limit: number
+	//) {
+	//	const query = {
+	//		status: 'ready',
+	//		'crawl.pathHeads': { $gt: 0 },
+	//		'crawl.nextAllowed': { $lte: Date.now() }
+	//	};
+	//	const options = {
+	//		returnDocument: 'before' as const,
+	//		sort: { 'crawl.pathHeads': -1 },
+	//		fields: 'origin crawl robots.text jobId status'
+	//	};
+	//	for (let i = 0; i < limit; i++) {
+	//		const jobId = await Counter.genId('jobs');
+	//		const update = {
+	//			$set: {
+	//				status: 'crawling',
+	//				workerId: wId,
+	//				jobId
+	//			}
+	//		};
+	//		const oldDoc = await this.findOneAndUpdate(query, update, options).lean();
+	//		if (oldDoc) {
+	//			const d = await this.findOne({ origin: oldDoc.origin }).lean();
+	//			if (d && d.robots && !Object.keys(d.robots).length) {
+	//				delete d.robots;
+	//			}
+	//			yield d;
+	//		} else {
+	//			return;
+	//		}
+	//	}
+	//	return;
+	//}
 }
 
 const robotsNotFound = (jobResult: RobotsCheckResultError, crawlDelay: number) => {

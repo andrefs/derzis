@@ -1,6 +1,7 @@
 import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import { db } from '@derzis/models';
+import { MANAGER_DATABASE } from '$env/static/private';
 import {
 	Domain,
 	Triple,
@@ -33,7 +34,7 @@ export default class Manager {
 
 	async connect() {
 		log.info('Connecting to MongoDB');
-		await db.connect();
+		await db.connect(MANAGER_DATABASE || 'derzis-mng-default');
 	}
 
 	async updateJobResults(jobResult: JobResult) {

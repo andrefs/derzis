@@ -40,6 +40,9 @@ class ResourceClass {
 	})
 	public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
+	@prop({ ref: 'TripleClass', default: [], Type: [Triple] }, PropType.ARRAY)
+	public triples?: Types.DocumentArray<TripleClass>;
+
 	@prop({ type: Number })
 	public jobId?: number;
 

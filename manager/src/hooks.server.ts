@@ -4,10 +4,11 @@ import ManagerPubSub from './lib/ManagerPubSub';
 import type { Handle } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common';
 const mps = new ManagerPubSub();
+import { MANAGER_DATABASE } from '$env/static/private';
 
 const log = createLogger('Manager');
 log.info('Connecting to MongoDB');
-await db.connect();
+await db.connect(MANAGER_DATABASE || 'derzis-mng-default');
 
 const initManager = async () => {
 	console.log('Manager init');
