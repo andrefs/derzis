@@ -25,5 +25,8 @@ export default defineConfig({
   plugins: [sveltekit()],
   test: {
     include: ['manager/**/*.{test,spec}.{js,ts}']
+  },
+  server: {
+    port: 59982
   }
 });

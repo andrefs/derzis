@@ -7,3 +7,4 @@ export * from './Counter';
 export * as db from './connect-db';
 export * from './ProcessTriple';
 export * from './ProcessResource';
+export * from './ResourceCache';

@@ -16,7 +16,7 @@ import {
   DocumentType
 } from '@typegoose/typegoose';
 
-class NotificationClass {
+export class NotificationClass {
   _id?: Types.ObjectId | string;
 
   @prop({ type: String })

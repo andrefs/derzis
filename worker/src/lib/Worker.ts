@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { db } from '@derzis/models';
+import { ResourceCache, db } from '@derzis/models';
 import { Resource } from '@derzis/models';
 const { WORKER_DATABASE } = process.env;
 
@@ -148,7 +148,7 @@ export class Worker extends EventEmitter {
 	}
 
 	async getResourceFromCache(url: string) {
-		return Resource.findOne({ url, status: 'done' });
+		return ResourceCache.findOne({ url });
 	}
 
 	async crawlResource(
@@ -225,6 +225,10 @@ export class Worker extends EventEmitter {
 		const res = await this.getHttpContent(url);
 		if (res.status === 'ok') {
 			const { triples, errors } = await parseRdf(res.rdf, res.mime);
+			const resCache = await ResourceCache.create({
+				url,
+				triples
+			});
 			// TODO do something with errors
 			return { ...res, triples };
 		}

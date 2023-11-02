@@ -49,10 +49,10 @@ export const actions: { [name: string]: Action } = {
 			maxPathLength: Number(data.get('maxPathLength')),
 			maxPathProps: Number(data.get('maxPathProps')),
 			whiteList: (data.get('white-list') as string)
-				?.split(/\s*[\n]\s*/)
+				?.split(/\s*[\n,]\s*/)
 				.filter((s: string) => !s.match(/^\s*$/)),
 			blackList: (data.get('black-list') as string)
-				?.split(/\s*[\n]\s*/)
+				?.split(/\s*[\n,]\s*/)
 				.filter((s: string) => !s.match(/^\s*$/))
 		};
 
