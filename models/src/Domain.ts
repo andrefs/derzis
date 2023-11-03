@@ -333,6 +333,7 @@ class DomainClass {
 
 				// if this process has no more available paths, skip it
 				if (!paths.length) {
+					log.warn(`Process ${proc.pid} has no more available paths`);
 					continue PROCESS_LOOP;
 				}
 				pathSkip += pathLimit;

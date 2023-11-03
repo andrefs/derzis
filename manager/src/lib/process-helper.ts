@@ -1,5 +1,6 @@
 import { StepClass, Process, ProcessClass, Resource } from '@derzis/models';
 import type { RecursivePartial } from '@derzis/common';
+import { sendEmail, sendInitEmail } from './mail';
 
 export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	const pathHeads: Map<string, number> = new Map();
@@ -16,6 +17,11 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	const proc = await Process.create(p);
 
 	await Process.startNext();
+
+	if (proc.notification?.email) {
+		await sendInitEmail(proc.notification.email, proc.pid);
+	}
+
 	return proc;
 }
 
