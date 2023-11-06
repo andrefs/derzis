@@ -29,10 +29,6 @@ class ResourceCacheClass {
 
 	@prop({ default: [], type: [TripClass] }, PropType.ARRAY)
 	public triples?: Types.DocumentArray<TripClass>;
-
-
-
-
 }
 
 const ResourceCache = getModelForClass(ResourceCacheClass, {

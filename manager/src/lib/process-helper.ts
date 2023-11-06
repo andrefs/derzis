@@ -1,6 +1,5 @@
 import { StepClass, Process, ProcessClass, Resource } from '@derzis/models';
-import type { RecursivePartial } from '@derzis/common';
-import { sendEmail, sendInitEmail } from './mail';
+import { type RecursivePartial, sendInitEmail } from '@derzis/common';
 
 export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	const pathHeads: Map<string, number> = new Map();

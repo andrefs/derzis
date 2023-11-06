@@ -15,6 +15,7 @@ import {
   post,
   DocumentType
 } from '@typegoose/typegoose';
+import { sendEmail } from '@derzis/common';
 
 export class NotificationClass {
   _id?: Types.ObjectId | string;
@@ -370,7 +371,75 @@ class ProcessClass {
     const x = await this.findOne({ status: 'running' }).sort({ createdAt: -1 }).skip(skip);
     return x;
   }
+
+  public async done() {
+    await Process.updateOne({ pid: this.pid }, { $set: { status: 'done' } });
+    await this.notifyStep();
+  }
+
+  public async notifyStep() {
+    const notif: StepNotification = {
+      ok: true,
+      messageType: 'OK_STEP_FINISHED',
+      message: `Process ${this.pid} just finished step #${this.steps.length}.`,
+      details: this.steps[this.steps.length - 1]
+    };
+
+    if (this.notification.email) {
+      await notifyEmail(this.notification.email, notif);
+    }
+    if (this.notification.webhook) {
+      await notifyWebhook(this.notification.webhook, notif);
+    }
+  }
 }
+
+const notifyEmail = async (email: string, notif: ProcessNotification) => {
+  const res = await sendEmail({
+    to: email,
+    from: 'derzis@andrefs.com',
+    text: notif.message,
+    html: `<p>${notif.message}</p>`,
+    subject: 'Derzis - Event'
+  });
+  return res;
+}
+const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
+  let retries = 0;
+  while (retries < 3) {
+    try {
+      const res = await fetch(webhook, {
+        method: 'POST',
+        body: JSON.stringify(notif),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return res;
+    } catch (e) {
+      retries++;
+    }
+  }
+}
+
+interface BaseProcNotification {
+  ok: boolean;
+  messageType: string;
+  message: string;
+  details: any;
+}
+
+type ProcStartNotification = BaseProcNotification & {
+  ok: true,
+  messageType: 'OK_PROCESS_STARTED';
+  message: string;
+}
+
+type StepNotification = BaseProcNotification & {
+  details: StepClass;
+  ok: true,
+  messageType: 'OK_STEP_FINISHED';
+}
+
+type ProcessNotification = StepNotification | ProcStartNotification;
 
 const matchesOne = (str: string, patterns: string[]) => {
   let matched = false;

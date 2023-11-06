@@ -3,6 +3,16 @@
 		"rootDir": "./src",
 		"outDir": "./dist",
 		"esModuleInterop": true,
-		"composite": true
-	}
+		"composite": true,
+		"paths": {
+			"@derzis/config": [
+				"../config/src"
+			]
+		}
+	},
+	"references": [
+		{
+			"path": "../config"
+		},
+	]
 }
