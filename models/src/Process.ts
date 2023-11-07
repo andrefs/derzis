@@ -133,9 +133,25 @@ class ProcessClass {
     }
   }
 
-  public async getPaths(skip = 0, limit = 20) {
+  public async getPathsForRobotsChecking(skip = 0, limit = 20) {
     const paths: PathDocument[] = await Path.find({
       processId: this.pid,
+      'head.domain.status': 'unvisited',
+      'nodes.count': { $lt: this.currentStep.maxPathLength },
+      'predicates.count': { $lte: this.currentStep.maxPathProps }
+    })
+      // shorter paths first
+      .sort({ 'nodes.count': 1 })
+      .limit(limit)
+      .skip(skip)
+      .select('head.domain head.url')
+      .lean();
+    return paths;
+  }
+  public async getPathsForDomainCrawl(skip = 0, limit = 20) {
+    const paths: PathDocument[] = await Path.find({
+      processId: this.pid,
+      'head.domain.status': 'ready',
       'nodes.count': { $lt: this.currentStep.maxPathLength },
       'predicates.count': { $lte: this.currentStep.maxPathProps }
     })

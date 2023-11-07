@@ -77,14 +77,33 @@ class CrawlClass {
 	public nextAllowed?: Date;
 }
 
+
 @post<DomainClass>(/update/i, async function(docs) {
-	console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX /update/', { docs })
+	console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX /update/i', { docs })
 	//if (docs) {
 	//	await Path.updateMany(
 	//		{ 'head.domain.origin': doc.origin },
 	//		{ 'head.domain.status': doc.status }
 	//	);
 	//}
+})
+@post<DomainClass>('updateMany', async function(docs) {
+	console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX updateMany', { docs })
+	//if (docs) {
+	//	await Path.updateMany(
+	//		{ 'head.domain.origin': doc.origin },
+	//		{ 'head.domain.status': doc.status }
+	//	);
+	//}
+})
+@post<DomainClass>('findOneAndUpdate', async function(doc) {
+	console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX findOneAndUpdate', { doc })
+	if (doc) {
+		await Path.updateMany(
+			{ 'head.domain.origin': doc.origin },
+			{ 'head.domain.status': doc.status }
+		);
+	}
 })
 @index({
 	status: 1,
@@ -301,7 +320,7 @@ class DomainClass {
 			console.log('XXXXXXXXXXXXXX domainsToCheck 6')
 			PATHS_LOOP: while (domainsFound < limit) {
 				console.log('XXXXXXXXXXXXXX domainsToCheck 7', { pathSkip, pathLimit })
-				const paths = await proc.getPaths(pathSkip, pathLimit);
+				const paths = await proc.getPathsForRobotsChecking(pathSkip, pathLimit);
 
 				// if this process has no more available paths, skip it
 				console.log('XXXXXXXXXXXXXX domainsToCheck 8')
@@ -364,19 +383,24 @@ class DomainClass {
 			console.log('XXXXXXXXXXXXXX domainsToCrawl2 5')
 			PATHS_LOOP: while (domainsFound < domLimit) {
 				console.log('XXXXXXXXXXXXXX domainsToCrawl2 6')
-				const paths: PathDocument[] = await proc.getPaths(pathSkip, pathLimit);
+				const paths: PathDocument[] = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
 				console.log('XXXXXXXXXXXXXX domainsToCrawl2 7')
 
 				// if this process has no more available paths, skip it
 				if (!paths.length) {
-					console.log('XXXXXXXXXXXXXX domainsToCrawl2 8')
-					log.warn(`Process ${proc.pid} has no more available paths`);
 					if (proc.status === 'running') {
-						console.log('XXXXXXXXXXXXXX domainsToCrawl2 9')
-						await proc.done();
+						const checking = await proc.getPathsForRobotsChecking(0, 1);
+						const crawling = await proc.getPathsForDomainCrawl(0, 1);
+
+						if (!checking.length && !crawling.length) {
+							console.log('XXXXXXXXXXXXXX domainsToCrawl2 8')
+							log.warn(`Process ${proc.pid} has no more paths available for crawling, and there seem to be no paths whose robots are being checked or that are being crawled. Marking process as done.`);
+							console.log('XXXXXXXXXXXXXX domainsToCrawl2 9')
+							await proc.done();
+						}
+						console.log('XXXXXXXXXXXXXX domainsToCrawl2 10')
+						continue PROCESS_LOOP;
 					}
-					console.log('XXXXXXXXXXXXXX domainsToCrawl2 10')
-					continue PROCESS_LOOP;
 				}
 				console.log('XXXXXXXXXXXXXX domainsToCrawl2 11')
 				pathSkip += pathLimit;

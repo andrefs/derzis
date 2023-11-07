@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import { Domain, DomainClass, Resource } from '@derzis/models';
+import { Domain, DomainClass, Resource, Path } from '@derzis/models';
 import config from '@derzis/config';
 import { createLogger, type JobType, type OngoingJobs } from '@derzis/common';
 import type { UpdateQuery } from 'mongoose';
@@ -131,6 +131,7 @@ export default class RunningJobs extends EventEmitter {
       update['$unset']['jobId'] = '';
 
       await Domain.updateMany({ origin }, update);
+      await Path.updateMany({ 'head.domain.origin': origin }, { status: 'unvisited' });
     }
     if (jobType === 'domainCrawl') {
       await Resource.updateMany({ origin, status: 'crawling' }, { status: 'unvisited' });
@@ -142,6 +143,7 @@ export default class RunningJobs extends EventEmitter {
       update['$unset']['jobId'] = '';
 
       const res = await Domain.updateMany({ origin }, update);
+      await Path.updateMany({ 'head.domain.origin': origin }, { status: 'ready' });
     }
   }
 
@@ -165,6 +167,8 @@ export default class RunningJobs extends EventEmitter {
         }
       }
     );
+    await Path.updateMany({ 'head.domain.status': 'checking' }, { status: 'unvisited' });
+
     await Domain.updateMany(
       { status: 'crawling' },
       {
@@ -175,6 +179,7 @@ export default class RunningJobs extends EventEmitter {
         }
       }
     );
+    await Path.updateMany({ 'head.domain.status': 'crawling' }, { status: 'unvisited' });
     return;
   }
 
@@ -252,9 +257,10 @@ export default class RunningJobs extends EventEmitter {
         filter.workerId = workerId;
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
+      await Path.updateMany({ 'head.domain.origin': { $in: domains } }, { status: 'unvisited' });
     }
 
-    log.info(`Canceling worker ${workerId} robotsCheck jobs on ${domains.join(', ')}`);
+    log.info(`Canceling worker ${workerId} domainCrawl jobs on ${domains.join(', ')}`);
     domains = Object.keys(ongoingJobs.domainCrawl);
     if (domains.length) {
       for (const d in domains) {
@@ -272,6 +278,7 @@ export default class RunningJobs extends EventEmitter {
         filter.workerId = workerId;
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
+      await Path.updateMany({ 'head.domain.origin': { $in: domains } }, { status: 'ready' });
     }
   }
 

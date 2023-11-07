@@ -14,7 +14,7 @@ class _Domain {
 	})
 	public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling';
 
-	@prop({ required: true, type: String })
+	@prop({ required: true, validate: urlValidator, type: String })
 	public origin!: string;
 }
 
@@ -43,7 +43,7 @@ type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 		nodes: Pick<ResourceCount, 'elems'>;
 	};
 
-@pre<PathClass>('save', function() {
+@pre<PathClass>('save', async function() {
 	this.nodes.count = this.nodes.elems.length;
 	this.predicates.count = this.predicates.elems.length;
 	if (this.predicates.count) {
@@ -51,7 +51,7 @@ type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 	}
 
 	const origin = new URL(this.head.url).origin;
-	const d = Domain.findOne({ origin });
+	const d = await Domain.findOne({ origin });
 	if (d) {
 		this.head.domain = {
 			origin: d.origin,
