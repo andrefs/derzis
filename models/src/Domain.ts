@@ -10,7 +10,8 @@ import {
 	index,
 	getModelForClass,
 	type ReturnModelType,
-	PropType
+	PropType,
+	post
 } from '@typegoose/typegoose';
 const log = createLogger('Domain');
 
@@ -76,6 +77,15 @@ class CrawlClass {
 	public nextAllowed?: Date;
 }
 
+@post<DomainClass>(/update/i, async function(docs) {
+	console.log('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX /update/', { docs })
+	//if (docs) {
+	//	await Path.updateMany(
+	//		{ 'head.domain.origin': doc.origin },
+	//		{ 'head.domain.status': doc.status }
+	//	);
+	//}
+})
 @index({
 	status: 1,
 	'crawl.pathHeads': 1,
@@ -270,75 +280,105 @@ class DomainClass {
 		wId: string,
 		limit: number
 	) {
+		console.log('XXXXXXXXXXXXXX domainsToCheck 0')
 		let domainsFound = 0;
 		let procSkip = 0;
 		let pathLimit = 20;
 
+		console.log('XXXXXXXXXXXXXX domainsToCheck 1')
 		PROCESS_LOOP: while (domainsFound < limit) {
+			console.log('XXXXXXXXXXXXXX domainsToCheck 2')
 			const proc = await Process.getOneRunning(procSkip);
+			console.log('XXXXXXXXXXXXXX domainsToCheck 3')
 			if (!proc) {
+				console.log('XXXXXXXXXXXXXX domainsToCheck 4')
 				return;
 			}
+			console.log('XXXXXXXXXXXXXX domainsToCheck 5')
 			procSkip++;
 
 			let pathSkip = 0;
+			console.log('XXXXXXXXXXXXXX domainsToCheck 6')
 			PATHS_LOOP: while (domainsFound < limit) {
+				console.log('XXXXXXXXXXXXXX domainsToCheck 7', { pathSkip, pathLimit })
 				const paths = await proc.getPaths(pathSkip, pathLimit);
 
 				// if this process has no more available paths, skip it
+				console.log('XXXXXXXXXXXXXX domainsToCheck 8')
 				if (!paths.length) {
+					console.log('XXXXXXXXXXXXXX domainsToCheck 9')
 					continue PROCESS_LOOP;
 				}
+				console.log('XXXXXXXXXXXXXX domainsToCheck 10')
 				pathSkip += pathLimit;
 
-				const origins = new Set<string>(paths.map((p) => p.head.domain));
+				const origins = new Set<string>(paths.map((p) => p.head.domain.origin));
 				const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
+				console.log('XXXXXXXXXXXXXX domainsToCheck 11', { origins, domains })
 
 				// these paths returned no available domains, skip them
 				if (!domains.length) {
+					console.log('XXXXXXXXXXXXXX domainsToCheck 12')
 					continue PATHS_LOOP;
 				}
 
+				console.log('XXXXXXXXXXXXXX domainsToCheck 13')
 				for (const d of domains) {
+					console.log('XXXXXXXXXXXXXX domainsToCheck 14')
 					domainsFound++;
 					yield d;
 				}
+				console.log('XXXXXXXXXXXXXX domainsToCheck 15')
 			}
+			console.log('XXXXXXXXXXXXXX domainsToCheck 16')
 		}
+		console.log('XXXXXXXXXXXXXX domainsToCheck 17')
 		return;
 	}
 
-	public static async *domainsToCrawl2(
+	public static async * domainsToCrawl2(
 		this: ReturnModelType<typeof DomainClass>,
 		wId: string,
 		domLimit: number,
 		resLimit: number
 	) {
+		console.log('XXXXXXXXXXXXXX domainsToCrawl2 0')
 		let domainsFound = 0;
 		let procSkip = 0;
 		let pathLimit = 20; // TODO get from config
 
+		console.log('XXXXXXXXXXXXXX domainsToCrawl2 1')
 		// iterate over processes
 		PROCESS_LOOP: while (domainsFound < domLimit) {
+			console.log('XXXXXXXXXXXXXX domainsToCrawl2 2')
 			const proc = await Process.getOneRunning(procSkip);
+			console.log('XXXXXXXXXXXXXX domainsToCrawl2 3')
 			if (!proc) {
+				console.log('XXXXXXXXXXXXXX domainsToCrawl2 4')
 				return;
 			}
 			procSkip++;
 
 			let pathSkip = 0;
 			// iterate over process' paths
+			console.log('XXXXXXXXXXXXXX domainsToCrawl2 5')
 			PATHS_LOOP: while (domainsFound < domLimit) {
+				console.log('XXXXXXXXXXXXXX domainsToCrawl2 6')
 				const paths: PathDocument[] = await proc.getPaths(pathSkip, pathLimit);
+				console.log('XXXXXXXXXXXXXX domainsToCrawl2 7')
 
 				// if this process has no more available paths, skip it
 				if (!paths.length) {
+					console.log('XXXXXXXXXXXXXX domainsToCrawl2 8')
 					log.warn(`Process ${proc.pid} has no more available paths`);
 					if (proc.status === 'running') {
+						console.log('XXXXXXXXXXXXXX domainsToCrawl2 9')
 						await proc.done();
 					}
+					console.log('XXXXXXXXXXXXXX domainsToCrawl2 10')
 					continue PROCESS_LOOP;
 				}
+				console.log('XXXXXXXXXXXXXX domainsToCrawl2 11')
 				pathSkip += pathLimit;
 
 				// get only unvisited path heads

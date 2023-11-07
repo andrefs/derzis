@@ -4,6 +4,20 @@ import { prop, index, pre, getModelForClass, PropType } from '@typegoose/typegoo
 import { TripleClass, Triple, type TripleDocument } from './Triple';
 import { Process, ProcessClass } from './Process';
 import { ProcessTriple } from './ProcessTriple';
+import { Domain } from './Domain';
+
+class _Domain {
+	@prop({
+		enum: ['unvisited', 'checking', 'error', 'ready', 'crawling'],
+		default: 'unvisited',
+		type: String
+	})
+	public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling';
+
+	@prop({ required: true, type: String })
+	public origin!: string;
+}
+
 
 class ResourceCount {
 	@prop({ default: 0, type: Number })
@@ -20,8 +34,8 @@ class HeadClass {
 	@prop({ required: true, validate: urlValidator, type: String })
 	public url!: string;
 
-	@prop({ type: String })
-	public domain!: string;
+	@prop({ type: _Domain })
+	public domain!: _Domain;
 }
 type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 	RecursivePartial<PathClass> & {
@@ -37,7 +51,13 @@ type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 	}
 
 	const origin = new URL(this.head.url).origin;
-	this.head.domain = origin;
+	const d = Domain.findOne({ origin });
+	if (d) {
+		this.head.domain = {
+			origin: d.origin,
+			status: d.status
+		}
+	}
 })
 @index({ processId: 1 })
 @index({

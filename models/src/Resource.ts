@@ -195,7 +195,7 @@ class ResourceClass {
 		const dom = await Domain.bulkWrite(
 			paths.map((p: PathDocument) => ({
 				updateOne: {
-					filter: { origin: p.head.domain },
+					filter: { origin: p.head.domain.origin },
 					update: { $inc: { 'crawl.pathHeads': 1 } }
 				}
 			}))
