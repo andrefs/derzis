@@ -97,6 +97,13 @@ export default class Manager {
 							}
 						}
 					);
+					await Path.updateMany(
+						{ 'head.domain.origin': jobResult.origin },
+						{
+							$set: { 'head.domain.status': 'ready' }
+						}
+					);
+
 					if (res.acknowledged && res.modifiedCount) {
 						this.jobs.deregisterJob(jobResult.origin);
 						log.debug(`Done saving domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}`);
