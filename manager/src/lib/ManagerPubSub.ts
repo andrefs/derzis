@@ -32,7 +32,6 @@ class ManagerPubSub {
 
 	async start() {
 		log.info('Started');
-		await this._m.connect();
 		await this._m.jobs.cancelAllJobs();
 		await this.connect();
 		//await this._m.startNewProcess();
@@ -79,7 +78,7 @@ class ManagerPubSub {
 						: `it is already being done by worker ${workerId}`;
 				log.info(
 					`Job #${message.payload.jobId} ${message.payload.jobType}` +
-						` on ${message.payload.origin} was refused because ${reason}`
+					` on ${message.payload.origin} was refused because ${reason}`
 				);
 				await this._m.jobs.cancelJob(message.payload.origin, message.payload.jobType);
 			}

@@ -11,3 +11,6 @@ vite.config.ts.timestamp-*
 dist
 tsconfig.tsbuildinfo
 .svelte-kit
+*.log.gz
+data/db
+coverage

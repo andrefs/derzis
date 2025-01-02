@@ -2,11 +2,9 @@
 	export let version: string;
 
 	import { Navbar, Nav, NavbarBrand, NavbarToggler, Collapse, NavItem, NavLink } from 'sveltestrap';
-	import Icon from 'svelte-icons-pack/Icon.svelte';
-	import BsCardList from 'svelte-icons-pack/bs/BsCardList';
-	import BsPlusSquare from 'svelte-icons-pack/bs/BsPlusSquare';
-	import BsBookHalf from 'svelte-icons-pack/bs/BsBookHalf';
-	import FiCloudLightning from 'svelte-icons-pack/fi/FiCloudLightning';
+	import { Icon } from 'svelte-icons-pack';
+	import { BsCardList, BsPlusSquare, BsBookHalf } from 'svelte-icons-pack/bs';
+	import { FiCloudLightning } from 'svelte-icons-pack/fi';
 
 	let isOpen = false;
 	const toggle = () => (isOpen = !isOpen);

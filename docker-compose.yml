@@ -1,0 +1,33 @@
+services:
+  pubsub:
+    image: redis
+    networks:
+      - ps
+    restart: unless-stopped
+    ports:
+      - '6378:6379'
+  database:
+    image: mongo
+    restart:
+      unless-stopped
+      #environment:
+      #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
+      #  MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGODB_PASS
+    volumes:
+      - type: bind
+        source: ./data/db
+        target: /data/db
+    ports:
+      - '27018:27017'
+    networks:
+      - db
+        #secrets:
+        #  MONGODB_PORT:
+        #    external: true
+        #  MONGODB_USER:
+        #    external: true
+        #  MONGODB_PASS:
+        #    external: true
+networks:
+  db:
+  ps:

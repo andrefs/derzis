@@ -5,9 +5,7 @@ if (config.worker.db.debug) {
   mongoose.set('debug', true);
 }
 
-
-export const connect = (DATABASE_URI: string) => {
-  const conn = mongoose.connect(`mongodb://localhost/${DATABASE_URI || 'derzis-default'}`);
+export const connect = (connStr: string) => {
+  const conn = mongoose.connect(connStr);
   return conn;
 };
-
