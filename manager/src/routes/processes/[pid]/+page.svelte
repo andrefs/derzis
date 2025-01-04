@@ -1,8 +1,8 @@
 <script>
 	export let data;
 	import { Col, Row, Table, Badge } from 'sveltestrap';
-	import Icon from 'svelte-icons-pack/Icon.svelte';
-	import BsPencilSquare from 'svelte-icons-pack/bs/BsPencilSquare';
+	import { Icon } from 'svelte-icons-pack';
+	import { BsPencilSquare } from 'svelte-icons-pack/bs';
 </script>
 
 <header style="padding-bottom: 1rem">

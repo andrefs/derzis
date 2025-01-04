@@ -9,6 +9,7 @@ const redisOpts = {
 	url: `redis://${config.pubsub.host}:${config.pubsub.port}`
 };
 
+/** PubSub wrapper for Manager */
 class ManagerPubSub {
 	_m: Manager;
 	_redisClient: ReturnType<typeof createClient>;
