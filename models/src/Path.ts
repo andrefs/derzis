@@ -18,7 +18,6 @@ class _Domain {
 	public origin!: string;
 }
 
-
 class ResourceCount {
 	@prop({ default: 0, type: Number })
 	public count!: number;
@@ -33,6 +32,13 @@ class SeedClass {
 class HeadClass {
 	@prop({ required: true, validate: urlValidator, type: String })
 	public url!: string;
+
+	@prop({
+		enum: ['unvisited', 'done', 'crawling', 'error'],
+		default: 'unvisited',
+		type: String
+	})
+	public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
 	@prop({ type: _Domain })
 	public domain!: _Domain;
@@ -56,7 +62,7 @@ type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 		this.head.domain = {
 			origin: d.origin,
 			status: d.status
-		}
+		};
 	}
 })
 @index({ processId: 1 })

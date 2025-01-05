@@ -5,7 +5,7 @@ import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
 import { ResourceCache, db } from '@derzis/models';
 import { Resource } from '@derzis/models';
-const { WORKER_DATABASE } = process.env;
+const { WORKER_DATABASE, MONGODB_HOST, MONGODB_PORT } = process.env;
 
 import Axios from './axios';
 
@@ -63,8 +63,10 @@ export class Worker extends EventEmitter {
 	crawlCounter!: number;
 
 	async connect() {
-		log.info('Connecting to MongoDB');
-		const conn = await db.connect(WORKER_DATABASE || 'derzis-wrk-default');
+		const dbName = WORKER_DATABASE || 'derzis-wrk-default';
+		const connStr = `mongodb://${MONGODB_HOST}:${MONGODB_PORT}/${dbName}`;
+		log.info('Connecting to MongoDB', connStr);
+		const conn = await db.connect(connStr);
 		log.info(`MongoDB connection ready state: ${conn.connection.readyState}`);
 	}
 

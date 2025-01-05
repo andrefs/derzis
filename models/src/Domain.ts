@@ -1,4 +1,4 @@
-import type { Filter, UpdateFilter, UpdateOneModel } from 'mongodb';
+import { Filter, ObjectId, UpdateFilter, UpdateOneModel } from 'mongodb';
 import { HttpError, createLogger } from '@derzis/common';
 import type { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
@@ -317,7 +317,7 @@ class DomainClass {
     return;
   }
 
-  public static async * domainsToCrawl2(
+  public static async *domainsToCrawl2(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     domLimit: number,
@@ -334,40 +334,38 @@ class DomainClass {
         return;
       }
       procSkip++;
+      if (await proc.isDone()) {
+        continue PROCESS_LOOP;
+      }
 
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
         const paths: PathDocument[] = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
-
-        // if this process has no more available paths, skip it
-        if (!paths.length) {
-          if (proc.status === 'running') {
-            const checking = await proc.getPathsForRobotsChecking(0, 1);
-            const crawling = await proc.getPathsForDomainCrawl(0, 1);
-
-            if (!checking.length && !crawling.length) {
-              log.warn(`Process ${proc.pid} has no more paths available for crawling, and there seem to be no paths whose robots are being checked or that are being crawled. Marking process as done.`);
-              await proc.done();
-            }
-            continue PROCESS_LOOP;
-          }
-        }
         pathSkip += pathLimit;
+        console.log(
+          'XXXXXXXXXXX 1',
+          paths.length,
+          paths.map((p) => p.head)
+        );
+        if (!paths.length) {
+          continue PROCESS_LOOP;
+        }
 
         // get only unvisited path heads
-        const heads = [...new Set(paths.map((p) => p.head.url))];
-        const unvisHeads = await Resource.find({
-          url: { $in: heads },
-          status: 'unvisited'
-        }).lean();
-
+        const unvisHeads = paths.filter((p) => p.head.status === 'unvisited').map((p) => p.head);
+        console.log(
+          'XXXXXXXXXXX 2',
+          unvisHeads.map((h) => h.url)
+        );
         if (!unvisHeads.length) {
           continue PATHS_LOOP;
         }
 
-        const origins = new Set<string>(unvisHeads.map((h) => h.domain));
+        const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
+        console.log('XXXXXXXXXXX 3', origins);
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
+        console.log('XXXXXXXXXXX 4', domains);
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
@@ -383,10 +381,11 @@ class DomainClass {
           domainInfo[d.origin] = { domain: d, resources: [] };
         }
         for (const h of unvisHeads) {
-          if (h.domain in domainInfo) {
-            domainInfo[h.domain].resources!.push({ url: h.url });
+          if (h.domain.origin in domainInfo) {
+            domainInfo[h.domain.origin].resources!.push({ url: h.url });
           }
         }
+        console.log('XXXXXXXXXXX 5', domainInfo);
 
         for (const d in domainInfo) {
           const dPathHeads = domainInfo[d].resources!;
@@ -408,6 +407,10 @@ class DomainClass {
             { url: { $in: allResources.map((r) => r.url) } },
             { status: 'crawling', jobId: domainInfo[d].domain.jobId }
           ).lean();
+          await Path.updateMany(
+            { 'head.url': { $in: allResources.map((r) => r.url) } },
+            { $set: { 'head.status': 'crawling' } }
+          ).lean();
           await this.updateOne(
             { origin: d, jobId: domainInfo[d].domain.jobId },
             { 'crawl.ongoing': allResources.length }
@@ -417,6 +420,7 @@ class DomainClass {
             domain: domainInfo[d].domain,
             resources: allResources
           };
+          console.log('XXXXXXXXXXX 10', res);
           domainsFound++;
           yield res;
         }

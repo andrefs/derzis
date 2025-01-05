@@ -109,6 +109,16 @@ class ResourceClass {
 			{ returnDocument: 'before' }
 		);
 
+		// Path
+		await Path.updateMany(
+			{ 'head.url': url },
+			{
+				$set: {
+					'head.status': error ? 'error' : 'done'
+				}
+			}
+		);
+
 		// Domain
 		const baseFilter = { origin: new URL(url).origin };
 
@@ -164,12 +174,15 @@ class ResourceClass {
 
 		const res = await this.bulkWrite(upserts);
 		await Domain.upsertMany(urls.map((u: string) => new URL(u).origin));
+		const seedResources = await this.find({ url: { $in: urls } })
+			.select('url domain status')
+			.lean();
 
-		const paths = urls.map((u: string) => ({
+		const paths = seedResources.map((s: ResourceClass) => ({
 			processId: pid,
-			seed: { url: u },
-			head: { url: u },
-			nodes: { elems: [u] },
+			seed: { url: s.url },
+			head: { url: s.url, status: s.status },
+			nodes: { elems: [s.url] },
 			predicates: { elems: [] }
 		}));
 

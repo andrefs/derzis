@@ -217,6 +217,7 @@ export default class Manager {
 			log.warn(
 				`Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
 			);
+			return; // TODO check if this is correct
 		}
 		let assignedCheck = 0;
 		let assignedCrawl = 0;

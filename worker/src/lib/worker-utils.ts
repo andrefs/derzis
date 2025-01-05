@@ -93,7 +93,10 @@ export const fetchRobots = async (url: string, axios: AxiosGet) => {
 			},
 			status: 'ok' as const
 		}))
-		.catch((err) => ({ ...handleHttpError(url, err), status: 'not_ok' as const }));
+		.catch((err) => {
+			console.log('XXXXXXXXXXXXXXX worker fetchRobots err', err);
+			return { ...handleHttpError(url, err), status: 'not_ok' as const };
+		});
 	return res;
 };
 

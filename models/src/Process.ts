@@ -5,6 +5,8 @@ import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
 import { Path, type PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
+import { HttpError, createLogger } from '@derzis/common';
+const log = createLogger('Process');
 import {
   prop,
   index,
@@ -66,7 +68,6 @@ export class StepClass {
   const ssePath = `/processes/${this.pid}/events`;
   this.notification.ssePath = ssePath;
 })
-
 class ProcessClass {
   _id!: Types.ObjectId | string;
   createdAt?: Date;
@@ -81,13 +82,11 @@ class ProcessClass {
   @prop({ type: String })
   public description?: string;
 
-
   @prop({ required: true, type: StepClass })
   public currentStep!: StepClass;
 
   @prop({ required: true, default: [], type: [StepClass] }, PropType.ARRAY)
   public steps!: StepClass[];
-
 
   @prop({ required: true, type: Object })
   public pathHeads!: {
@@ -104,13 +103,47 @@ class ProcessClass {
 
   public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
     // triple predicate allowed by white/blacklist
-    if (this.currentStep.whiteList?.length && !matchesOne(t.predicate, this.currentStep.whiteList)) {
+    if (
+      this.currentStep.whiteList?.length &&
+      !matchesOne(t.predicate, this.currentStep.whiteList)
+    ) {
       return false;
     }
     if (this.currentStep.blackList?.length && matchesOne(t.predicate, this.currentStep.blackList)) {
       return false;
     }
     return true;
+  }
+
+  public async isDone(this: ProcessClass) {
+    // process is done
+    if (['done', 'error'].includes(this.status)) {
+      return true;
+    }
+
+    const pathsToCrawl = await this.getPathsForDomainCrawl(0, 1);
+    const pathsToCheck = await this.getPathsForRobotsChecking(0, 1);
+    const hasPathsChecking = await this.hasPathsDomainRobotsChecking();
+    const hasPathsCrawling = await this.hasPathsHeadBeingCrawled();
+
+    // no more paths to crawl and no paths checking or crawling
+    if (!pathsToCrawl.length && !pathsToCheck.length && !hasPathsChecking && !hasPathsCrawling) {
+      log.warn(
+        `Process ${this.pid} has no more paths available for crawling, and there seem to be no paths whose robots are being checked or that are being crawled. Marking process as done.`
+      );
+      // mark as done and notify
+      await this.done();
+      return true;
+    }
+
+    // process is not done
+    log.info(`Process ${this.pid} is not done yet:`, {
+      pathsToCrawl,
+      pathsToCheck,
+      hasPathsChecking,
+      hasPathsCrawling
+    });
+    return false;
   }
 
   public async *getTriples(this: ProcessClass) {
@@ -148,7 +181,15 @@ class ProcessClass {
       .lean();
     return paths;
   }
-  public async getPathsForDomainCrawl(skip = 0, limit = 20) {
+
+  /**
+   * Get paths that are ready to be crawled
+   * @param skip - number of paths to skip
+   * @param limit - number of paths to return
+   * @returns {Promise<PathDocument[]>} - paths
+   * @memberof ProcessClass
+   */
+  public async getPathsForDomainCrawl(skip = 0, limit = 20): Promise<PathDocument[]> {
     const paths: PathDocument[] = await Path.find({
       processId: this.pid,
       'head.domain.status': 'ready',
@@ -159,9 +200,35 @@ class ProcessClass {
       .sort({ 'nodes.count': 1 })
       .limit(limit)
       .skip(skip)
-      .select('head.domain head.url')
+      .select('head.domain head.url head.status')
       .lean();
     return paths;
+  }
+
+  /**
+   * Check if process has paths whose head's domain is currently being robots-checked
+   * @returns {Promise<boolean>} - true if there are paths
+   * @memberof ProcessClass
+   */
+  public async hasPathsDomainRobotsChecking(): Promise<boolean> {
+    const paths = await Path.find({
+      processId: this.pid,
+      'head.domain.status': 'checking'
+    });
+    return !!paths.length;
+  }
+
+  /**
+   * Check if process has paths whose head's url is currently being crawled
+   * @returns {Promise<boolean>} - true if there are paths
+   * @memberof ProcessClass
+   */
+  public async hasPathsHeadBeingCrawled(): Promise<boolean> {
+    const paths = await Path.find({
+      processId: this.pid,
+      'head.status': 'crawling'
+    });
+    return !!paths.length;
   }
 
   public async extendPathsWithExistingTriples(paths: PathDocument[]) {
@@ -243,6 +310,7 @@ class ProcessClass {
       await Path.create(newPaths);
     }
   }
+
   public async getResourceCount(this: ProcessClass) {
     const res = await ProcessTriple.aggregate(
       [
@@ -280,7 +348,6 @@ class ProcessClass {
     );
     return res[0].count;
   }
-
 
   public async getInfo(this: DocumentType<ProcessClass>) {
     const baseFilter = { processId: this.pid };
@@ -361,7 +428,7 @@ class ProcessClass {
       currentStep: this.currentStep,
       steps: this.steps,
       notification: this.notification,
-      status: this.status,
+      status: this.status
     };
   }
 
@@ -383,9 +450,13 @@ class ProcessClass {
     return false;
   }
 
+  /**
+   * Get a running process, most recent first
+   * @param skip - number of processes to skip
+   * @memberof ProcessClass
+   */
   public static async getOneRunning(this: ReturnModelType<typeof ProcessClass>, skip = 0) {
-    const x = await this.findOne({ status: 'running' }).sort({ createdAt: -1 }).skip(skip);
-    return x;
+    return this.findOne({ status: 'running' }).sort({ createdAt: -1 }).skip(skip);
   }
 
   public async done() {
@@ -419,7 +490,7 @@ const notifyEmail = async (email: string, notif: ProcessNotification) => {
     subject: 'Derzis - Event'
   });
   return res;
-}
+};
 const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
   let retries = 0;
   while (retries < 3) {
@@ -434,7 +505,7 @@ const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
       retries++;
     }
   }
-}
+};
 
 interface BaseProcNotification {
   ok: boolean;
@@ -444,16 +515,16 @@ interface BaseProcNotification {
 }
 
 type ProcStartNotification = BaseProcNotification & {
-  ok: true,
+  ok: true;
   messageType: 'OK_PROCESS_STARTED';
   message: string;
-}
+};
 
 type StepNotification = BaseProcNotification & {
   details: StepClass;
-  ok: true,
+  ok: true;
   messageType: 'OK_STEP_FINISHED';
-}
+};
 
 type ProcessNotification = StepNotification | ProcStartNotification;
 

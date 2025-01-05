@@ -6,8 +6,8 @@ import { createLogger } from '@derzis/common';
 const mps = new ManagerPubSub();
 import { MANAGER_DATABASE, MONGODB_HOST, MONGODB_PORT } from '$env/static/private';
 
-const connStr = `mongodb://${MONGODB_HOST}:${MONGODB_PORT}/${MANAGER_DATABASE || 'derzis-mng-default'
-	}`;
+const dbName = MANAGER_DATABASE || 'derzis-mng-default';
+const connStr = `mongodb://${MONGODB_HOST}:${MONGODB_PORT}/${dbName}`;
 
 const log = createLogger('Manager');
 log.info('Connecting to MongoDB', connStr);

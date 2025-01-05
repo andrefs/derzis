@@ -6,6 +6,8 @@ if (config.worker.db.debug) {
 }
 
 export const connect = (connStr: string) => {
-  const conn = mongoose.connect(connStr);
+  const conn = mongoose.connect(connStr, {
+    //enableUtf8Validation: false
+  });
   return conn;
 };

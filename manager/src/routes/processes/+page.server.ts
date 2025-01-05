@@ -4,7 +4,7 @@ import { redirect, type Action } from '@sveltejs/kit';
 
 export async function load() {
 	const ps: ProcessClass[] = await Process.find().lean();
-	const _ps = ps.map((p) => ({ ...p, createdAt: p.createdAt.toISOString() }));
+	const _ps = ps.map((p) => ({ ...p, createdAt: p.createdAt?.toISOString() }));
 
 	return {
 		processes: structuredClone(_ps)
