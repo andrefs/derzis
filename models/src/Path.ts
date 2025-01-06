@@ -1,10 +1,11 @@
 import { Types, Document } from 'mongoose';
-import { urlListValidator, urlValidator, RecursivePartial } from '@derzis/common';
+import { urlListValidator, urlValidator, RecursivePartial, createLogger } from '@derzis/common';
 import { prop, index, pre, getModelForClass, PropType } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from './Triple';
 import { Process, ProcessClass } from './Process';
 import { ProcessTriple } from './ProcessTriple';
 import { Domain } from './Domain';
+const log = createLogger('Path');
 
 class _Domain {
 	@prop({
@@ -174,11 +175,17 @@ class PathClass {
 		return this.extend(triples);
 	}
 
-	public copy(): PathSkeleton {
+	public copy(this: PathClass): PathSkeleton {
 		const copy = {
 			processId: this.processId,
-			seed: this.seed,
-			head: this.head,
+			seed: {
+				url: this.seed.url
+			},
+			head: {
+				url: this.head.url,
+				status: this.head.status,
+				domain: { origin: this.head.domain.origin, status: this.head.domain.status }
+			},
 			predicates: { elems: [...this.predicates.elems] },
 			nodes: { elems: [...this.nodes.elems] }
 		};
@@ -195,6 +202,7 @@ class PathClass {
 		for (const t of triples.filter(
 			(t) => this.shouldCreateNewPath(t) && process?.whiteBlackListsAllow(t)
 		)) {
+			log.silly('Extending path with triple', t);
 			const newHeadUrl: string = t.subject === this.head.url ? t.object : t.subject;
 			const prop = t.predicate;
 
@@ -211,12 +219,14 @@ class PathClass {
 					np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
 					np.nodes.elems.push(newHeadUrl);
 				}
+				log.silly('New path', np);
 				newPaths[prop][newHeadUrl] = np;
 			}
 		}
 		const nps: PathSkeleton[] = [];
 		Object.values(newPaths).forEach((x) => Object.values(x).forEach((y) => nps.push(y)));
 
+		log.silly('New paths', nps);
 		return { newPaths: nps, procTriples };
 	}
 }

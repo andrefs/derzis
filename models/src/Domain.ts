@@ -343,29 +343,18 @@ class DomainClass {
       PATHS_LOOP: while (domainsFound < domLimit) {
         const paths: PathDocument[] = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
         pathSkip += pathLimit;
-        console.log(
-          'XXXXXXXXXXX 1',
-          paths.length,
-          paths.map((p) => p.head)
-        );
         if (!paths.length) {
           continue PROCESS_LOOP;
         }
 
         // get only unvisited path heads
         const unvisHeads = paths.filter((p) => p.head.status === 'unvisited').map((p) => p.head);
-        console.log(
-          'XXXXXXXXXXX 2',
-          unvisHeads.map((h) => h.url)
-        );
         if (!unvisHeads.length) {
           continue PATHS_LOOP;
         }
 
         const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
-        console.log('XXXXXXXXXXX 3', origins);
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
-        console.log('XXXXXXXXXXX 4', domains);
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
@@ -385,7 +374,6 @@ class DomainClass {
             domainInfo[h.domain.origin].resources!.push({ url: h.url });
           }
         }
-        console.log('XXXXXXXXXXX 5', domainInfo);
 
         for (const d in domainInfo) {
           const dPathHeads = domainInfo[d].resources!;
@@ -420,7 +408,6 @@ class DomainClass {
             domain: domainInfo[d].domain,
             resources: allResources
           };
-          console.log('XXXXXXXXXXX 10', res);
           domainsFound++;
           yield res;
         }

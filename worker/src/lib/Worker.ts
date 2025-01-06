@@ -31,7 +31,7 @@ import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import { v4 as uuidv4 } from 'uuid';
 import type { DomainCrawlJobRequest } from './WorkerPubSub';
-import type { OngoingJobs } from '@derzis/common';
+import type { OngoingJobs, SimpleTriple } from '@derzis/common';
 import {
 	type AxiosResponseHeaders,
 	fetchRobots,
@@ -210,7 +210,11 @@ export class Worker extends EventEmitter {
 			jobResult = {
 				...jobInfo,
 				status: 'ok',
-				details: { crawlId, triples: res.triples, ts: res.ts }
+				details: {
+					crawlId,
+					triples: res.triples,
+					ts: res.ts
+				}
 			};
 		} else {
 			jobResult = {
@@ -227,23 +231,27 @@ export class Worker extends EventEmitter {
 		const res = await this.getHttpContent(url);
 		if (res.status === 'ok') {
 			const { triples, errors } = await parseRdf(res.rdf, res.mime);
+			const simpleTriples = triples
+				.filter(
+					(t) =>
+						t.subject.termType === 'NamedNode' &&
+						t.predicate.termType === 'NamedNode' &&
+						t.object.termType === 'NamedNode'
+				)
+				.map(
+					(t) =>
+						({
+							subject: t.subject.value,
+							predicate: t.predicate.value,
+							object: t.object.value
+						}) as SimpleTriple
+				);
 			const resCache = await ResourceCache.create({
 				url,
-				triples: triples
-					.filter(
-						(t) =>
-							t.subject.termType === 'NamedNode' &&
-							t.predicate.termType === 'NamedNode' &&
-							t.object.termType === 'NamedNode'
-					)
-					.map((t) => ({
-						subject: t.subject.value,
-						predicate: t.predicate.value,
-						object: t.object.value
-					}))
+				triples: simpleTriples
 			});
 			// TODO do something with errors
-			return { ...res, triples };
+			return { ...res, triples: simpleTriples };
 		}
 		return res;
 	}

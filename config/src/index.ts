@@ -79,5 +79,6 @@ export default {
       pubsubChannel: 'derzis:http'
     },
     serverPort: 5432
-  }
+  },
+  logLevel: process.env.LOG_LEVEL || 'debug'
 };

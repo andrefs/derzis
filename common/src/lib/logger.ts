@@ -1,8 +1,8 @@
-import winston, {format, LeveledLogMethod, Logger, transports} from 'winston';
-const {combine, timestamp, printf, colorize} = format;
+import winston, { format, LeveledLogMethod, Logger, transports } from 'winston';
+const { combine, timestamp, printf, colorize } = format;
 const color = colorize().colorize;
 import util from 'util';
-
+import config from '@derzis/config';
 
 const myCustomLevels = {
   levels: {
@@ -25,12 +25,12 @@ const myCustomLevels = {
     debug: 'grey',
     silly: 'grey'
   }
-}
+};
 
 winston.addColors(myCustomLevels.colors);
 
-const formatMeta = (meta: {[x: string]: string}) => {
-  const sbl:any = Symbol.for('splat');
+const formatMeta = (meta: { [x: string]: string }) => {
+  const sbl: any = Symbol.for('splat');
   // You can format the splat yourself
   const splat = meta[sbl];
   if (splat && splat.length) {
@@ -39,38 +39,35 @@ const formatMeta = (meta: {[x: string]: string}) => {
   return '';
 };
 
-const customFormat = printf(({
-  timestamp,
-  level,
-  message,
-  moduleName,
-  ...meta
-}) => color('debug', timestamp) +
-      ` [${moduleName}] ` +
-      color(level, `${level}: ${message} ${formatMeta(meta)}`));
+const customFormat = printf(
+  ({ timestamp, level, message, moduleName, ...meta }) =>
+    color('debug', timestamp) +
+    ` [${moduleName}] ` +
+    color(level, `${level}: ${message} ${formatMeta(meta)}`)
+);
 
 //}) => colorize().colorize(level, `${timestamp} [${moduleName}] ${level}: ${message} ${formatMeta(meta)}`));
 
 enum LogLevels {
-  ERROR =   'error',
-  WARN =    'warn',
-  INFO =    'info',
-  HTTP =    'http',
-  PUBSUB =  'pubsub',
+  ERROR = 'error',
+  WARN = 'warn',
+  INFO = 'info',
+  HTTP = 'http',
+  PUBSUB = 'pubsub',
   VERBOSE = 'verbose',
-  DEBUG =   'debug',
-  SILLY =   'silly',
-};
+  DEBUG = 'debug',
+  SILLY = 'silly'
+}
 
 export type MonkeyPatchedLogger = {
-  [level in LogLevels]: LeveledLogMethod
+  [level in LogLevels]: LeveledLogMethod;
 } & Logger;
 
 const logger = winston.createLogger({
   levels: myCustomLevels.levels,
   transports: [
     new transports.Console({
-      level: 'debug',
+      level: config.logLevel || 'debug',
       format: combine(
         //colorize({all: true}),
         timestamp(),
@@ -82,5 +79,5 @@ const logger = winston.createLogger({
 
 export const createLogger = (name: string): MonkeyPatchedLogger => {
   // set the default moduleName of the child
-  return logger.child({moduleName: name}) as MonkeyPatchedLogger;
+  return logger.child({ moduleName: name }) as MonkeyPatchedLogger;
 };

@@ -77,8 +77,14 @@ export type BaseCrawlResourceResult = {
   details: CrawlResourceResultDetails;
 } & BaseJobResult;
 
+export type SimpleTriple = {
+  subject: string;
+  predicate: string;
+  object: string;
+};
+
 export type CrawlResourceResultOk = {
-  details: { triples: RDF.Quad[] };
+  details: { triples: SimpleTriple[] };
 } & BaseCrawlResourceResult &
   JobResultOk;
 

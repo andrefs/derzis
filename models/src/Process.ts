@@ -129,7 +129,15 @@ class ProcessClass {
     // no more paths to crawl and no paths checking or crawling
     if (!pathsToCrawl.length && !pathsToCheck.length && !hasPathsChecking && !hasPathsCrawling) {
       log.warn(
-        `Process ${this.pid} has no more paths available for crawling, and there seem to be no paths whose robots are being checked or that are being crawled. Marking process as done.`
+        `Process ${this.pid} has no more paths for checking or crawling, and there there are no paths currently being checked or crawled. Marking process as done.`
+      );
+      log.silly(
+        JSON.stringify({
+          pathsToCrawl: pathsToCrawl.length,
+          pathsToCheck: pathsToCheck.length,
+          hasPathsChecking,
+          hasPathsCrawling
+        })
       );
       // mark as done and notify
       await this.done();
@@ -193,6 +201,7 @@ class ProcessClass {
     const paths: PathDocument[] = await Path.find({
       processId: this.pid,
       'head.domain.status': 'ready',
+      'head.status': 'unvisited',
       'nodes.count': { $lt: this.currentStep.maxPathLength },
       'predicates.count': { $lte: this.currentStep.maxPathProps }
     })
@@ -258,12 +267,14 @@ class ProcessClass {
     }
   }
 
-  public async extendPaths(triplesByNode: { [url: string]: TripleClass[] }) {
+  public async extendPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
     const newHeads = Object.keys(triplesByNode);
+    log.silly('New heads:', newHeads);
     const paths = await Path.find({
       processId: this.pid,
       'head.url': newHeads.length === 1 ? newHeads[0] : { $in: Object.keys(triplesByNode) }
     });
+    log.silly('Paths:', paths);
 
     const pathsToDelete = new Set();
     const newPathObjs = [];
@@ -272,6 +283,7 @@ class ProcessClass {
 
     for (const path of paths) {
       const { newPaths: nps, procTriples: pts } = await path.extend(triplesByNode[path.head.url]);
+      log.silly('New paths:', nps);
       if (nps.length) {
         toDelete.add(path._id);
         newPathObjs.push(...nps);

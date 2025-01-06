@@ -113,17 +113,15 @@ export default class Manager {
 		// mark head as crawled
 		await Resource.markAsCrawled(jobResult.url, jobResult.details);
 
-		// filter out triples which dont refer to head resource
-		const triples = jobResult.details.triples
-			.filter((t) => t.subject.termType === 'NamedNode')
-			.filter((t) => t.object.termType === 'NamedNode')
-			.filter((t) => t.object.value === jobResult.url || t.subject.value === jobResult.url)
-			.map((t) => ({
-				subject: t.subject.value,
-				predicate: t.predicate.value,
-				object: t.object.value
-			}));
+		log.silly('jobResult.url', jobResult.url);
+		log.silly('jobResult.details.triples', JSON.stringify(jobResult.details.triples, null, 2));
 
+		// filter out triples which dont refer to head resource
+		const triples = jobResult.details.triples.filter(
+			(t) => t.object === jobResult.url || t.subject === jobResult.url
+		);
+
+		log.silly('Triples:', triples);
 		if (triples.length) {
 			const source = (await Resource.findOne({
 				url: jobResult.url
@@ -151,8 +149,11 @@ export default class Manager {
 					}
 					triplesByNode[source.url].push(t);
 				}
+				log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
 				await this.updatePaths(source.url, triplesByNode);
 			}
+		} else {
+			log.warn('No triples found when dereferencing', jobResult.url);
 		}
 	}
 
