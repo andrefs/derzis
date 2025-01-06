@@ -5,6 +5,7 @@ import { TripleClass, Triple, type TripleDocument } from './Triple';
 import { Process, ProcessClass } from './Process';
 import { ProcessTriple } from './ProcessTriple';
 import { Domain } from './Domain';
+import { Resource } from './Resource';
 const log = createLogger('Path');
 
 class _Domain {
@@ -44,13 +45,13 @@ class HeadClass {
 	@prop({ type: _Domain })
 	public domain!: _Domain;
 }
-type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
+export type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 	RecursivePartial<PathClass> & {
 		predicates: Pick<ResourceCount, 'elems'>;
 		nodes: Pick<ResourceCount, 'elems'>;
 	};
 
-@pre<PathClass>('save', async function() {
+@pre<PathClass>('save', async function () {
 	this.nodes.count = this.nodes.elems.length;
 	this.predicates.count = this.predicates.elems.length;
 	if (this.predicates.count) {
@@ -148,11 +149,13 @@ class PathClass {
 			const process = await Process.findOne({ pid: this.processId });
 			if (t && !this.tripleIsOutOfBounds(t, process!) && process?.whiteBlackListsAllow(t!)) {
 				const newHeadUrl: string = t!.subject === this.head.url ? t!.object : t!.subject;
+				const newHead = await Resource.findOne({ url: newHeadUrl }).select('url status').lean();
 				if (!this.nodes.elems.includes(newHeadUrl)) {
 					const prop = t!.predicate;
 
 					const np = this.copy();
 					np.head.url = newHeadUrl;
+					np.head.status = newHead?.status || 'unvisited';
 					np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
 					np.nodes.elems.push(newHeadUrl);
 
@@ -211,6 +214,7 @@ class PathClass {
 			if (!newPaths[prop][newHeadUrl]) {
 				const np = this.copy();
 				np.head.url = newHeadUrl;
+				np.head.status = 'unvisited'; // to be redefined later
 
 				if (this.tripleIsOutOfBounds(t, process!)) {
 					np.outOfBounds = t._id;

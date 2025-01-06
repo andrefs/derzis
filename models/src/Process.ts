@@ -3,7 +3,7 @@ import { Resource } from './Resource';
 import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
-import { Path, type PathDocument } from './Path';
+import { Path, PathSkeleton, type PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
 import { HttpError, createLogger } from '@derzis/common';
 const log = createLogger('Process');
@@ -52,7 +52,7 @@ export class StepClass {
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
-@pre<ProcessClass>('save', async function() {
+@pre<ProcessClass>('save', async function () {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await Process.countDocuments({
     createdAt: { $gt: today }
@@ -292,6 +292,8 @@ class ProcessClass {
         }
       }
     }
+
+    await updateNewPathHeadStatus(newPathObjs);
 
     // add proc-triple associations
     await ProcessTriple.insertMany(
@@ -570,6 +572,16 @@ const matchesOne = (str: string, patterns: string[]) => {
   }
   return matched;
 };
+
+async function updateNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
+  const headUrls = newPaths.map((p) => p.head.url);
+  const resources = await Resource.find({ url: { $in: headUrls } })
+    .select('url status')
+    .lean();
+  const resourceMap: { [url: string]: 'unvisited' | 'done' | 'crawling' | 'error' } = {};
+  resources.forEach((r) => (resourceMap[r.url] = r.status));
+  newPaths.forEach((p) => (p.head.status = resourceMap[p.head.url] || 'unvisited'));
+}
 
 const Process = getModelForClass(ProcessClass, {
   schemaOptions: { timestamps: true, collection: 'processes' }
