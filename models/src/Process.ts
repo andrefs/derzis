@@ -330,7 +330,7 @@ class ProcessClass {
       [
         {
           $match: {
-            processId: 'abrasive-current-2023-10-28-0'
+            processId: this.pid
           }
         },
         { $group: { _id: '$triple' } },
@@ -365,9 +365,20 @@ class ProcessClass {
 
   public async getInfo(this: DocumentType<ProcessClass>) {
     const baseFilter = { processId: this.pid };
-    const lastResource = await Resource.findOne(baseFilter).sort({
-      updatedAt: -1
-    });
+    const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
+    const lastTriple = await Triple.findOne().sort({ updatedAt: -1 });
+    const lastPath = await Path.findOne().sort({ updatedAt: -1 });
+    const last = Math.max(
+      lastResource?.updatedAt.getTime() || 0,
+      lastTriple?.updatedAt.getTime() || 0,
+      lastPath?.updatedAt.getTime() || 0
+    );
+
+    const timeToLastResource = lastResource
+      ? (lastResource!.updatedAt.getTime() - this.createdAt!.getTime()) / 1000
+      : null;
+    const timeRunning = last ? (last - this.createdAt!.getTime()) / 1000 : null;
+
     return {
       resources: {
         total: await this.getResourceCount(),
@@ -436,9 +447,9 @@ class ProcessClass {
         active: await Path.countDocuments({ status: 'active' }).lean() // TODO add index
       },
       createdAt: this.createdAt,
-      timeRunning: lastResource
-        ? (lastResource!.updatedAt.getTime() - this.createdAt!.getTime()) / 1000
-        : null,
+
+      timeToLastResource: timeToLastResource || '',
+      timeRunning: timeRunning || '',
       currentStep: this.currentStep,
       steps: this.steps,
       notification: this.notification,

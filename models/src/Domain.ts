@@ -77,7 +77,7 @@ class CrawlClass {
   public nextAllowed?: Date;
 }
 
-@post<DomainClass>('findOneAndUpdate', async function(doc) {
+@post<DomainClass>('findOneAndUpdate', async function (doc) {
   if (doc) {
     await Path.updateMany(
       { 'head.domain.origin': doc.origin },
@@ -317,6 +317,57 @@ class DomainClass {
     return;
   }
 
+  /**
+   * Gets additional resources for a domain crawl
+   * @param domain - The domain to get resources for
+   * @param dPathHeads - The domain's path heads
+   * @param resLimit - The maximum number of resources to get
+   * @returns {Promise<{url: string}[]>}
+   */
+  static async getAdditionalResources(
+    domain: string,
+    dPathHeads: { url: string }[],
+    resLimit: number
+  ): Promise<{ url: string }[]> {
+    const limit = Math.max(resLimit - dPathHeads.length, 0);
+    const additionalResources = limit
+      ? await Resource.find({
+        origin: domain,
+        status: 'unvisited',
+        url: { $nin: dPathHeads.map((r) => r.url) }
+      })
+        .limit(limit)
+        .select('url')
+        .lean()
+      : [];
+    const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
+    return allResources;
+  }
+
+  /**
+   * Marks resources and paths as crawling and updates the domain's ongoing count
+   * @param domain - The domain to mark as crawling
+   * @param resources - The resources to mark as crawling
+   * @param jobId - The job ID to mark the resources with
+   * @returns {Promise<void>}
+   */
+  static async markRPDCrawling(
+    this: ReturnModelType<typeof DomainClass>,
+    domain: string,
+    resources: { url: string }[],
+    jobId: number
+  ): Promise<void> {
+    await Resource.updateMany(
+      { url: { $in: resources.map((r) => r.url) } },
+      { status: 'crawling', jobId }
+    ).lean();
+    await Path.updateMany(
+      { 'head.url': { $in: resources.map((r) => r.url) } },
+      { $set: { 'head.status': 'crawling' } }
+    ).lean();
+    await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
+  }
+
   public static async *domainsToCrawl2(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
@@ -330,7 +381,6 @@ class DomainClass {
     // iterate over processes
     PROCESS_LOOP: while (domainsFound < domLimit) {
       const proc = await Process.getOneRunning(procSkip);
-      log.silly('XXXXXXXXx 1', proc);
       if (!proc) {
         return;
       }
@@ -338,41 +388,33 @@ class DomainClass {
       if (await proc.isDone()) {
         continue PROCESS_LOOP;
       }
-      log.silly('XXXXXXXXx 2');
 
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
         const paths: PathDocument[] = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
-        log.silly('XXXXXXXXx 3', paths);
         pathSkip += pathLimit;
         if (!paths.length) {
           continue PROCESS_LOOP;
         }
 
-        log.silly('XXXXXXXXx 4');
         // get only unvisited path heads
         const unvisHeads = paths.filter((p) => p.head.status === 'unvisited').map((p) => p.head);
         if (!unvisHeads.length) {
           continue PATHS_LOOP;
         }
-        log.silly('XXXXXXXXx 5', unvisHeads);
 
         const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
 
-        log.silly('XXXXXXXXx 6', { origins, domains });
         // these paths returned no available domains, skip them
         if (!domains.length) {
           continue PATHS_LOOP;
         }
-        log.silly('XXXXXXXXx 7');
 
         domainsFound += domains.length;
 
-        const domainInfo: {
-          [origin: string]: DomainCrawlJobInfo;
-        } = {};
+        const domainInfo: { [origin: string]: DomainCrawlJobInfo } = {};
         for (const d of domains) {
           domainInfo[d.origin] = { domain: d, resources: [] };
         }
@@ -381,48 +423,18 @@ class DomainClass {
             domainInfo[h.domain.origin].resources!.push({ url: h.url });
           }
         }
-        log.silly('XXXXXXXXx 8', domainInfo);
 
         for (const d in domainInfo) {
           const dPathHeads = domainInfo[d].resources!;
-          log.silly('XXXXXXXXx 9', dPathHeads);
-          const limit = Math.max(resLimit - dPathHeads.length, 0);
-          log.silly('XXXXXXXXx 10', limit);
+          const allResources = await this.getAdditionalResources(d, dPathHeads, resLimit);
 
-          const additionalResources = limit
-            ? await Resource.find({
-              origin: d,
-              status: 'unvisited',
-              url: { $nin: dPathHeads.map((r) => r.url) }
-            })
-              .limit(limit)
-              .select('url')
-              .lean()
-            : [];
-          log.silly('XXXXXXXXx 11', additionalResources);
-          const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
-          log.silly('XXXXXXXXx 12', allResources);
-
-          await Resource.updateMany(
-            { url: { $in: allResources.map((r) => r.url) } },
-            { status: 'crawling', jobId: domainInfo[d].domain.jobId }
-          ).lean();
-          await Path.updateMany(
-            { 'head.url': { $in: allResources.map((r) => r.url) } },
-            { $set: { 'head.status': 'crawling' } }
-          ).lean();
-          await this.updateOne(
-            { origin: d, jobId: domainInfo[d].domain.jobId },
-            { 'crawl.ongoing': allResources.length }
-          );
+          await this.markRPDCrawling(d, allResources, domainInfo[d].domain.jobId);
 
           let res = {
             domain: domainInfo[d].domain,
             resources: allResources
           };
-          log.silly('XXXXXXXXx 13', res);
           domainsFound++;
-          log.silly('XXXXXXXXx 14', domainsFound);
           yield res;
         }
       }

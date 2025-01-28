@@ -147,18 +147,24 @@ class PathClass {
 		if (!!this.outOfBounds) {
 			const t: TripleClass | null = await Triple.findById(this.outOfBounds);
 			const process = await Process.findOne({ pid: this.processId });
+
+			// triple is not out of bounds and is allowed by white/black lists
 			if (t && !this.tripleIsOutOfBounds(t, process!) && process?.whiteBlackListsAllow(t!)) {
 				const newHeadUrl: string = t!.subject === this.head.url ? t!.object : t!.subject;
 				const newHead = await Resource.findOne({ url: newHeadUrl }).select('url status').lean();
+
+				// new head not already contained in path
 				if (!this.nodes.elems.includes(newHeadUrl)) {
 					const prop = t!.predicate;
 
+					// create new path from current path, set new head, add predicate and node
 					const np = this.copy();
 					np.head.url = newHeadUrl;
 					np.head.status = newHead?.status || 'unvisited';
 					np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
 					np.nodes.elems.push(newHeadUrl);
 
+					// insert ProcessTriple, create new path, delete old one
 					await ProcessTriple.findOneAndUpdate(
 						{ processId: this.processId, triple: t },
 						{},
@@ -167,6 +173,7 @@ class PathClass {
 					const path = await Path.create(np);
 					await Path.deleteOne({ _id: this._id });
 
+					// existing triples might be able to further extend the new path
 					return path.extendWithExistingTriples();
 				}
 			}
