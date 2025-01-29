@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTS='--max-old-space-size=55296' vite dev",
+    "serve": "NODE_OPTS='--max-old-space-size=55296' vite dev --host",
     "build": "vite build",
     "preview": "vite preview",
     "test": "npm run test:integration && npm run test:unit",
@@ -24,6 +25,7 @@
     "@playwright/test": "1.50.0",
     "@sendgrid/mail": "8.1.4",
     "@sveltejs/adapter-auto": "4.0.0",
+    "@sveltejs/adapter-node": "5.2.12",
     "@sveltejs/kit": "2.16.1",
     "@sveltestrap/sveltestrap": "7.0.3",
     "@typegoose/typegoose": "12.10.1",

@@ -5,7 +5,15 @@ import {
 	type RecursivePartial,
 	createLogger
 } from '@derzis/common';
-import { prop, index, pre, getModelForClass, PropType } from '@typegoose/typegoose';
+import {
+	prop,
+	index,
+	pre,
+	getModelForClass,
+	PropType,
+	Severity,
+	modelOptions
+} from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from './Triple';
 import { Process, ProcessClass } from './Process';
 import { ProcessTriple } from './ProcessTriple';
@@ -25,6 +33,7 @@ class _Domain {
 	public origin!: string;
 }
 
+@modelOptions({ options: { allowMixed: Severity.ERROR } })
 class ResourceCount {
 	@prop({ default: 0, type: Number })
 	public count!: number;

@@ -4,7 +4,7 @@ import { Counter } from './Counter';
 import { Path, type PathDocument } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
-import { UpdateOneModel } from 'mongoose';
+import { type UpdateOneModel } from 'mongoose';
 import {
   prop,
   index,
@@ -77,7 +77,7 @@ class CrawlClass {
   public nextAllowed?: Date;
 }
 
-@post<DomainClass>('findOneAndUpdate', async function(doc) {
+@post<DomainClass>('findOneAndUpdate', async function (doc) {
   if (doc) {
     await Path.updateMany(
       { 'head.domain.origin': doc.origin },

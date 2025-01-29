@@ -1,4 +1,31 @@
 services:
+  manager:
+    develop:
+      watch:
+        - action: rebuild
+          path: .
+    build:
+      context: ./
+      dockerfile: ./manager/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - pubsub
+      - database
+    networks:
+      - ps
+      - db
+    environment:
+      MONGODB_HOST: database
+      REDIS_HOST: pubsub
+      MANAGER_DATABASE: drz-mng-dc
+      MONGODB_PORT: 27017
+    volumes:
+      - type: bind
+        source: ./data/export
+        target: /data/export
+    ports:
+      - '3000:3000'
+      - '59982:59982'
   pubsub:
     image: redis
     networks:
@@ -18,7 +45,7 @@ services:
         source: ./data/db
         target: /data/db
     ports:
-      - '27018:27017'
+      - 27018:27017
     networks:
       - db
         #secrets:
@@ -30,4 +57,6 @@ services:
         #    external: true
 networks:
   db:
+    name: db
   ps:
+    name: ps

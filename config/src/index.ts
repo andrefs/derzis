@@ -8,7 +8,7 @@ export default {
   },
   manager: {
     db: {
-      host: process.env.MONGODB_HOST || 'localhost',
+      host: process.env.MONGODB_HOST || 'localhost1',
       port: process.env.MONGODB_PORT || '27017',
       name: process.env.MANAGER_DATABASE || 'drzs-mng-default',
       user: process.env.MONGODB_USER || undefined,
