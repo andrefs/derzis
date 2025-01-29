@@ -1,8 +1,8 @@
 {
   "dependencies": {
-    "@rdfjs/types": "1.1.0",
-    "@typegoose/typegoose": "11.6.0",
-    "cheerio": "1.0.0-rc.12",
+    "@rdfjs/types": "2.0.1",
+    "@typegoose/typegoose": "12.10.1",
+    "cheerio": "1.0.0",
     "humanize-digest": "1.0.0"
   }
 }
