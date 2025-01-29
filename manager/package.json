@@ -7,7 +7,7 @@
   "types": "index.d.ts",
   "type": "module",
   "scripts": {
-    "dev": "NODE_OPTS='--max-old-space-size=24576' vite dev",
+    "dev": "NODE_OPTS='--max-old-space-size=55296' vite dev",
     "build": "vite build",
     "preview": "vite preview",
     "test": "npm run test:integration && npm run test:unit",
