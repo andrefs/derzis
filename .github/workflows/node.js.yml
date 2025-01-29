@@ -18,12 +18,16 @@ jobs:
       - name: Setup manager Node
         uses: actions/setup-node@v4
         with:
+          #package_json_file: manager/package.json
           cache-dependency-path: manager/package-lock.json
           node-version: ${{ matrix.node }}
           cache: 'npm'
       - name: Install manager dependencies
+        working-directory: './manager'
         run: npm install
       - name: Building manager
+        working-directory: './manager'
         run: npm run build
       - name: Testing manager
+        working-directory: './manager'
         run: npm test
