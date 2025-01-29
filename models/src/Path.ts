@@ -1,5 +1,10 @@
 import { Types, Document } from 'mongoose';
-import { urlListValidator, urlValidator, RecursivePartial, createLogger } from '@derzis/common';
+import {
+	urlListValidator,
+	urlValidator,
+	type RecursivePartial,
+	createLogger
+} from '@derzis/common';
 import { prop, index, pre, getModelForClass, PropType } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from './Triple';
 import { Process, ProcessClass } from './Process';
@@ -51,7 +56,7 @@ export type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 		nodes: Pick<ResourceCount, 'elems'>;
 	};
 
-@pre<PathClass>('save', async function () {
+@pre<PathClass>('save', async function() {
 	this.nodes.count = this.nodes.elems.length;
 	this.predicates.count = this.predicates.elems.length;
 	if (this.predicates.count) {

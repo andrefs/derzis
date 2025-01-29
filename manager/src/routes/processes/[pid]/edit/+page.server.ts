@@ -12,7 +12,7 @@ export async function load({ params }) {
 
 	const lastResource = await Resource.findOne().sort({ updatedAt: -1 });
 	const timeRunning = lastResource
-		? (lastResource!.updatedAt.getTime() - _p.createdAt.getTime()) / 1000
+		? (lastResource!.updatedAt.getTime() - _p.createdAt!.getTime()) / 1000
 		: null;
 	const p = {
 		..._p,

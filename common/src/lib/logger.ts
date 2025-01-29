@@ -1,4 +1,5 @@
-import winston, { format, LeveledLogMethod, Logger, transports } from 'winston';
+import winston, { format, Logger, transports } from 'winston';
+import type { LeveledLogMethod } from 'winston';
 const { combine, timestamp, printf, colorize } = format;
 const color = colorize().colorize;
 import util from 'util';

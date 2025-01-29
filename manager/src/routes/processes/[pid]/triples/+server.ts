@@ -1,6 +1,5 @@
 import { Process } from '@derzis/models';
 import { error } from '@sveltejs/kit';
-import { ReadableStream } from 'node:stream/web';
 
 export async function GET({ params }) {
 	const p = await Process.findOne({ pid: params.pid });
@@ -12,7 +11,15 @@ export async function GET({ params }) {
 
 	const iter = p?.getTriplesJson();
 
-	const readable = ReadableStream.from(iter, { encoding: 'utf8' });
+	//const readable = (ReadableStream as ReadableStreamExt).from(iter);
+	const readable = new ReadableStream({
+		async start(controller) {
+			for await (const triple of iter) {
+				controller.enqueue(triple);
+			}
+			controller.close();
+		}
+	});
 
 	let i = 0;
 	const transform = new TransformStream({

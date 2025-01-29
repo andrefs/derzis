@@ -4,7 +4,7 @@ import { createLogger } from '@derzis/common';
 const log = createLogger('Manager');
 import Manager from './Manager';
 import process from 'process';
-import type { JobCapacity, Message } from '@derzis/worker';
+import type { JobCapacity, Message } from '@derzis/common';
 const redisOpts = {
 	url: `redis://${config.pubsub.host}:${config.pubsub.port}`
 };

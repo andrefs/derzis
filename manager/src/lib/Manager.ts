@@ -18,7 +18,7 @@ import {
 } from '@derzis/common';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
-import type { JobCapacity, JobRequest, ResourceCrawlJobRequest } from '@derzis/worker';
+import type { JobCapacity, JobRequest, ResourceCrawlJobRequest } from '@derzis/common';
 import { ObjectId } from 'bson';
 
 export default class Manager {

@@ -1,14 +1,6 @@
-import { WorkerError } from './errors';
+import { WorkerError } from '../errors';
+export * from './worker';
 import type * as RDF from '@rdfjs/types';
-
-export interface OngoingJobs {
-  domainCrawl: {
-    [domain: string]: boolean;
-  };
-  robotsCheck: {
-    [domain: string]: boolean;
-  };
-}
 
 export type CrawlResourceResultDetails = {
   crawlId: { domainTs: Date; counter: number };

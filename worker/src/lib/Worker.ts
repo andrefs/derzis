@@ -30,8 +30,8 @@ const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import { v4 as uuidv4 } from 'uuid';
-import type { DomainCrawlJobRequest } from './WorkerPubSub';
-import type { OngoingJobs, SimpleTriple } from '@derzis/common';
+import type { DomainCrawlJobRequest } from '@derzis/common';
+import type { JobCapacity, OngoingJobs, SimpleTriple } from '@derzis/common';
 import {
 	type AxiosResponseHeaders,
 	fetchRobots,
@@ -43,10 +43,6 @@ import {
 export interface Availability {
 	currentCapacity: JobCapacity;
 	currentJobs: OngoingJobs;
-}
-export interface JobCapacity {
-	domainCrawl: { capacity: number; resourcesPerDomain: number };
-	robotsCheck: { capacity: number };
 }
 interface JobsTimedOut {
 	[domain: string]: boolean;

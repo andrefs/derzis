@@ -1,4 +1,4 @@
-import { Filter, ObjectId, UpdateFilter, UpdateOneModel } from 'mongodb';
+import { type Filter, ObjectId, type UpdateFilter, type UpdateOneModel } from 'mongodb';
 import { HttpError, createLogger } from '@derzis/common';
 import type { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
@@ -77,7 +77,7 @@ class CrawlClass {
   public nextAllowed?: Date;
 }
 
-@post<DomainClass>('findOneAndUpdate', async function (doc) {
+@post<DomainClass>('findOneAndUpdate', async function(doc) {
   if (doc) {
     await Path.updateMany(
       { 'head.domain.origin': doc.origin },
