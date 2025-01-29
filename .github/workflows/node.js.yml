@@ -11,15 +11,14 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [22.x, 23.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        node: [22.x, 23.x]
 
     steps:
       - uses: actions/checkout@v4
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: ${{ matrix.node }}
           cache: 'npm'
       - run: npm install
       - run: npm run build
