@@ -11,49 +11,6 @@
 		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"sourceMap": true,
-		"strict": true,
-		"paths": {
-			"$lib": [
-				"./src/lib"
-			],
-			"$lib/*": [
-				"./src/lib/*"
-			],
-			"@derzis/models": [
-				"../models/src"
-			],
-			"@derzis/common": [
-				"../common/src"
-			],
-			"@derzis/config": [
-				"../config/src"
-			],
-			"@derzis/worker": [
-				"../worker/src"
-			],
-			"@derzis/manager": [
-				"./src/lib"
-			]
-		}
-	},
-	// Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
-	//
-	// If you want to overwrite includes/excludes, make sure to copy over the relevant includes/excludes
-	// from the referenced tsconfig.json - TypeScript does not merge them in
-	"ts-node": {
-		"require": [
-			"tsconfig-paths/register"
-		]
-	},
-	"references": [
-		{
-			"path": "../config"
-		},
-		{
-			"path": "../models"
-		},
-		{
-			"path": "../common/"
-		}
-	]
+		"strict": true
+	}
 }

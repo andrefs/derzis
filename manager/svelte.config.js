@@ -17,6 +17,14 @@ const config = {
 		},
 		version: {
 			name: process.env.npm_package_version
+		},
+		alias: {
+			$lib: './src//lib',
+			'$lib/*': './src/lib/*',
+			'@derzis/models': '../models/src',
+			'@derzis/common': '../common/src',
+			'@derzis/config': '../config/src',
+			'@derzis/manager': './src/lib'
 		}
 	}
 };
