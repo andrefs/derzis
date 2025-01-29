@@ -178,7 +178,7 @@ class ResourceClass {
 			.select('url domain status')
 			.lean();
 
-		const paths = seedResources.map((s: ResourceClass) => ({
+		const paths = seedResources.map((s) => ({
 			processId: pid,
 			seed: { url: s.url },
 			head: { url: s.url, status: s.status },

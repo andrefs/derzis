@@ -175,7 +175,7 @@ class ProcessClass {
   }
 
   public async getPathsForRobotsChecking(skip = 0, limit = 20) {
-    const paths: PathDocument[] = await Path.find({
+    const paths = await Path.find({
       processId: this.pid,
       'head.domain.status': 'unvisited',
       'nodes.count': { $lt: this.currentStep.maxPathLength },
@@ -197,8 +197,8 @@ class ProcessClass {
    * @returns {Promise<PathDocument[]>} - paths
    * @memberof ProcessClass
    */
-  public async getPathsForDomainCrawl(skip = 0, limit = 20): Promise<PathDocument[]> {
-    const paths: PathDocument[] = await Path.find({
+  public async getPathsForDomainCrawl(skip = 0, limit = 20) {
+    const paths = await Path.find({
       processId: this.pid,
       'head.domain.status': 'ready',
       'head.status': 'unvisited',

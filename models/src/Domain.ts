@@ -1,10 +1,10 @@
-import { type Filter, ObjectId, type UpdateFilter, type UpdateOneModel } from 'mongodb';
 import { HttpError, createLogger } from '@derzis/common';
 import type { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
 import { Path, type PathDocument } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
+import { UpdateOneModel } from 'mongoose';
 import {
   prop,
   index,
@@ -206,10 +206,12 @@ class DomainClass {
 
     for (const u of urls) {
       if (!domains[u]) {
-        const filter = { origin: u } as Filter<DomainClass>;
-        const update = {
+        const filter = { origin: u };
+        const update: {
+          $inc: { 'crawl.queued': number };
+        } = {
           $inc: { 'crawl.queued': 0 }
-        } as UpdateFilter<DomainClass>;
+        };
 
         domains[u] = {
           filter,
@@ -217,8 +219,7 @@ class DomainClass {
           upsert: true
         };
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ((domains[u].update as UpdateFilter<DomainClass>).$inc as any)['crawl.queued']++;
+      domains[u].update.$inc!['crawl.queued']++;
     }
     return this.bulkWrite(Object.values(domains).map((d) => ({ updateOne: d })));
   }
@@ -392,7 +393,7 @@ class DomainClass {
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
-        const paths: PathDocument[] = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
+        const paths = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
         pathSkip += pathLimit;
         if (!paths.length) {
           continue PROCESS_LOOP;

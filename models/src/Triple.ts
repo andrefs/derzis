@@ -9,7 +9,7 @@ import {
 	type ReturnModelType,
 	PropType
 } from '@typegoose/typegoose';
-import type { Document } from 'cheerio';
+import type { Document } from 'mongoose';
 
 type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
 

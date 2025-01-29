@@ -42,9 +42,9 @@ const formatMeta = (meta: { [x: string]: string }) => {
 
 const customFormat = printf(
   ({ timestamp, level, message, moduleName, ...meta }) =>
-    color('debug', timestamp) +
+    color('debug', timestamp as string) +
     ` [${moduleName}] ` +
-    color(level, `${level}: ${message} ${formatMeta(meta)}`)
+    color(level, `${level}: ${message} ${formatMeta(meta as { [x: string]: string })}`)
 );
 
 //}) => colorize().colorize(level, `${timestamp} [${moduleName}] ${level}: ${message} ${formatMeta(meta)}`));
