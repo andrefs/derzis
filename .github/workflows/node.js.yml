@@ -5,9 +5,6 @@ on:
     branches: ['**'] # Runs on every branch push
   pull_request:
 
-defaults:
-  run:
-    working-directory: './manager'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,9 +15,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node
+      - name: Setup manager Node
         uses: actions/setup-node@v4
         with:
+          cache-dependency-path: manager/package-lock.json
           node-version: ${{ matrix.node }}
           cache: 'npm'
       - name: Install manager dependencies
