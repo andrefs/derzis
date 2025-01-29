@@ -5,6 +5,9 @@ on:
     branches: ['**'] # Runs on every branch push
   pull_request:
 
+defaults:
+  run:
+    working-directory: './manager'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,11 +24,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: 'npm'
       - name: Install manager dependencies
-        working-directory: ./manager
         run: npm install
       - name: Building manager
-        working-directory: ./manager
         run: npm run build
       - name: Testing manager
-        working-directory: ./manager
         run: npm test
