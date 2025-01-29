@@ -1,7 +1,15 @@
 <script lang="ts">
 	export let version: string;
 
-	import { Navbar, Nav, NavbarBrand, NavbarToggler, Collapse, NavItem, NavLink } from 'sveltestrap';
+	import {
+		Navbar,
+		Nav,
+		NavbarBrand,
+		NavbarToggler,
+		Collapse,
+		NavItem,
+		NavLink
+	} from '@sveltestrap/sveltestrap';
 	import { Icon } from 'svelte-icons-pack';
 	import { BsCardList, BsPlusSquare, BsBookHalf } from 'svelte-icons-pack/bs';
 	import { FiCloudLightning } from 'svelte-icons-pack/fi';

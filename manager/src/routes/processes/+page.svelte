@@ -1,6 +1,6 @@
 <script lang="ts">
 	export let data;
-	import { Row, Col, Table, Badge } from 'sveltestrap';
+	import { Row, Col, Table, Badge } from '@sveltestrap/sveltestrap';
 </script>
 
 <header style="padding-bottom: 1rem">

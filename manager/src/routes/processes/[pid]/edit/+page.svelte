@@ -14,7 +14,7 @@
 		Label,
 		Input,
 		InputGroupText
-	} from 'sveltestrap';
+	} from '@sveltestrap/sveltestrap';
 	const showNewStep = data.status === 'done';
 </script>
 

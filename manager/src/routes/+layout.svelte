@@ -1,7 +1,7 @@
 <script>
 	import { version } from '$app/environment';
 	import NavigationBar from '$lib/navbar.svelte';
-	import { Container, Styles } from 'sveltestrap';
+	import { Container, Styles } from '@sveltestrap/sveltestrap';
 </script>
 
 <Styles />

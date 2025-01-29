@@ -13,7 +13,7 @@
 		Label,
 		Input,
 		InputGroupText
-	} from 'sveltestrap';
+	} from '@sveltestrap/sveltestrap';
 </script>
 
 <Container>

@@ -1,6 +1,6 @@
 <script>
 	export let data;
-	import { Col, Row, Table, Badge } from 'sveltestrap';
+	import { Col, Row, Table, Badge } from '@sveltestrap/sveltestrap';
 	import { Icon } from 'svelte-icons-pack';
 	import { BsPencilSquare } from 'svelte-icons-pack/bs';
 </script>
