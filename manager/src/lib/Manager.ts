@@ -263,6 +263,7 @@ export default class Manager {
 				'Could not find any domains to check or crawl and there are no outstanding jobs',
 				this.jobs
 			);
+
 			this.finished++;
 		}
 		//FIXME

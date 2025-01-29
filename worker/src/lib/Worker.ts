@@ -4,7 +4,6 @@ import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
 import { ResourceCache, db } from '@derzis/models';
-import { Resource } from '@derzis/models';
 const { WORKER_DATABASE, MONGODB_HOST, MONGODB_PORT } = process.env;
 
 import Axios from './axios';

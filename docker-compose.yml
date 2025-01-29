@@ -3,10 +3,11 @@ services:
     develop:
       watch:
         - action: rebuild
-          path: .
+          path: ./manager/src/
     build:
       context: ./
       dockerfile: ./manager/Dockerfile
+      # scale: 3
     restart: unless-stopped
     depends_on:
       - pubsub
@@ -26,6 +27,26 @@ services:
     ports:
       - '3000:3000'
       - '59982:59982'
+  worker:
+    develop:
+      watch:
+        - action: rebuild
+          path: ./worker/src/
+    build:
+      context: ./
+      dockerfile: ./worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - pubsub
+      - database
+    networks:
+      - ps
+      - db
+    environment:
+      MONGODB_HOST: database
+      REDIS_HOST: pubsub
+      WORKER_DATABASE: drz-wrk-dc
+      MONGODB_PORT: 27017
   pubsub:
     image: redis
     networks:
