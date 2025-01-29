@@ -1,6 +1,6 @@
 import Bluebird from 'bluebird';
 import streamify from 'streamify-string';
-import rdfParser from 'rdf-parse';
+import { rdfParser } from 'rdf-parse';
 import type * as RDF from '@rdfjs/types';
 
 interface parsedRdf {
