@@ -4,10 +4,10 @@ import ManagerPubSub from './lib/ManagerPubSub';
 import type { Handle } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common';
 const mps = new ManagerPubSub();
-import { MANAGER_DATABASE, MONGODB_HOST, MONGODB_PORT } from '$env/static/private';
+import { DERZIS_MNG_DB_NAME, MONGO_HOST, MONGO_PORT } from '$env/static/private';
 
-const dbName = MANAGER_DATABASE || 'derzis-mng-default';
-const connStr = `mongodb://${MONGODB_HOST}:${MONGODB_PORT}/${dbName}`;
+const dbName = DERZIS_MNG_DB_NAME || 'derzis-mng-default';
+const connStr = `mongodb://${MONGO_HOST}:${MONGO_PORT}/${dbName}`;
 
 const log = createLogger('Manager');
 log.info('Connecting to MongoDB', connStr);

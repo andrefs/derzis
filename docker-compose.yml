@@ -4,6 +4,7 @@ services:
       watch:
         - action: rebuild
           path: ./manager/src/
+    command: npm run dev -- --port ${DERZIS_MNG_PORT}
     build:
       context: ./
       dockerfile: ./manager/Dockerfile
@@ -16,17 +17,19 @@ services:
       - ps
       - db
     environment:
-      MONGODB_HOST: database
+      MONGO_HOST: database
+      MONGO_PORT: ${MONGO_PORT}
       REDIS_HOST: pubsub
-      MANAGER_DATABASE: drz-mng-dc
-      MONGODB_PORT: 27017
+      REDIS_PORT: ${REDIS_PORT}
+      DERZIS_MNG_DB_NAME: ${DERZIS_MNG_DB_NAME}
+      PORT: ${DERZIS_MNG_PORT}
     volumes:
       - type: bind
         source: ./data/export
         target: /data/export
     ports:
       - '3000:3000'
-      - '59982:59982'
+      - '${DERZIS_MNG_PORT}:${DERZIS_MNG_PORT}'
   worker:
     develop:
       watch:
@@ -43,39 +46,31 @@ services:
       - ps
       - db
     environment:
-      MONGODB_HOST: database
+      MONGO_HOST: database
+      MONGO_PORT: ${MONGO_PORT}
       REDIS_HOST: pubsub
-      WORKER_DATABASE: drz-wrk-dc
-      MONGODB_PORT: 27017
+      REDIS_PORT: ${REDIS_PORT}
+      DERZIS_WRK_DB_NAME: ${DERZIS_WRK_DB_NAME}
   pubsub:
     image: redis
     networks:
       - ps
     restart: unless-stopped
+    command: redis-server --port ${REDIS_PORT}
     ports:
-      - '6378:6379'
+      - '${REDIS_PORT}:${REDIS_PORT}'
   database:
     image: mongo
-    restart:
-      unless-stopped
-      #environment:
-      #  MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGODB_USER
-      #  MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGODB_PASS
+    command: mongod --port ${MONGO_PORT}
+    restart: unless-stopped
     volumes:
       - type: bind
         source: ./data/db
         target: /data/db
     ports:
-      - 27018:27017
+      - '${MONGO_PORT}:${MONGO_PORT}'
     networks:
       - db
-        #secrets:
-        #  MONGODB_PORT:
-        #    external: true
-        #  MONGODB_USER:
-        #    external: true
-        #  MONGODB_PASS:
-        #    external: true
 networks:
   db:
     name: db

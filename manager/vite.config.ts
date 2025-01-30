@@ -27,7 +27,7 @@ export default defineConfig({
     include: ['manager/**/*.{test,spec}.{js,ts}']
   },
   server: {
-    allowedHosts: true,
-    port: 59982
+    allowedHosts: true
+    //port: 59982
   }
 });
