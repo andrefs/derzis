@@ -4,7 +4,7 @@ services:
       watch:
         - action: rebuild
           path: ./manager/src/
-    command: npm run dev -- --port ${DERZIS_MNG_PORT}
+    command: npm run dev -- --port ${DERZIS_MNG_PORT} --host
     build:
       context: ./
       dockerfile: ./manager/Dockerfile
@@ -22,13 +22,11 @@ services:
       REDIS_HOST: pubsub
       REDIS_PORT: ${REDIS_PORT}
       DERZIS_MNG_DB_NAME: ${DERZIS_MNG_DB_NAME}
-      PORT: ${DERZIS_MNG_PORT}
     volumes:
       - type: bind
         source: ./data/export
         target: /data/export
     ports:
-      - '3000:3000'
       - '${DERZIS_MNG_PORT}:${DERZIS_MNG_PORT}'
   worker:
     develop:

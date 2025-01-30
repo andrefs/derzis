@@ -5,9 +5,20 @@ import type { Handle } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common';
 const mps = new ManagerPubSub();
 import { DERZIS_MNG_DB_NAME, MONGO_HOST, MONGO_PORT } from '$env/static/private';
+import muri from 'mongodb-uri';
 
 const dbName = DERZIS_MNG_DB_NAME || 'derzis-mng-default';
-const connStr = `mongodb://${MONGO_HOST}:${MONGO_PORT}/${dbName}`;
+const dbPort = MONGO_PORT ? parseInt(MONGO_PORT) : 27017;
+const connStr = muri.format({
+	scheme: 'mongodb',
+	hosts: [
+		{
+			host: MONGO_HOST || 'localhost',
+			port: dbPort
+		}
+	],
+	database: dbName
+});
 
 const log = createLogger('Manager');
 log.info('Connecting to MongoDB', connStr);
