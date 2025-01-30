@@ -4,7 +4,7 @@ import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
 import { ResourceCache, db } from '@derzis/models';
-const { WORKER_DATABASE, MONGODB_HOST, MONGODB_PORT } = process.env;
+const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
 import Axios from './axios';
 
@@ -38,6 +38,7 @@ import {
 	handleHttpError,
 	type HttpRequestResult
 } from './worker-utils';
+import muri from 'mongodb-uri';
 
 export interface Availability {
 	currentCapacity: JobCapacity;
@@ -58,8 +59,19 @@ export class Worker extends EventEmitter {
 	crawlCounter!: number;
 
 	async connect() {
-		const dbName = WORKER_DATABASE || 'derzis-wrk-default';
-		const connStr = `mongodb://${MONGODB_HOST}:${MONGODB_PORT}/${dbName}`;
+		const dbName = DERZIS_WRK_DB_NAME || 'derzis-wrk-default';
+		const dbPort = MONGO_PORT ? parseInt(MONGO_PORT) : 27017;
+		const connStr = muri.format({
+			scheme: 'mongodb',
+			hosts: [
+				{
+					host: MONGO_HOST || 'localhost',
+					port: dbPort
+				}
+			],
+			database: dbName
+		});
+
 		log.info('Connecting to MongoDB', connStr);
 		const conn = await db.connect(connStr);
 		log.info(`MongoDB connection ready state: ${conn.connection.readyState}`);
