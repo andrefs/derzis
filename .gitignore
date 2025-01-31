@@ -14,3 +14,4 @@ tsconfig.tsbuildinfo
 *.log.gz
 data/db
 coverage
+manager/build

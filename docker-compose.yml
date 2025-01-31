@@ -9,6 +9,13 @@ services:
       context: ./
       dockerfile: ./manager/Dockerfile
       # scale: 3
+      args:
+        MONGO_HOST: database
+        MONGO_PORT: ${MONGO_PORT}
+        REDIS_HOST: pubsub
+        REDIS_PORT: ${REDIS_PORT}
+        DERZIS_MNG_DB_NAME: ${DERZIS_MNG_DB_NAME}
+        PORT: ${DERZIS_MNG_PORT}
     restart: unless-stopped
     depends_on:
       - pubsub
@@ -22,6 +29,7 @@ services:
       REDIS_HOST: pubsub
       REDIS_PORT: ${REDIS_PORT}
       DERZIS_MNG_DB_NAME: ${DERZIS_MNG_DB_NAME}
+      PORT: ${DERZIS_MNG_PORT}
     volumes:
       - type: bind
         source: ./data/export

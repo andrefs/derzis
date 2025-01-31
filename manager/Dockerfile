@@ -43,7 +43,8 @@ WORKDIR /home/node/derzis/models
 RUN npm install --include=dev
 
 WORKDIR /home/node/derzis/manager
-RUN npm install --include=dev    
+RUN npm install --include=dev && \
+  npm run build
 
 #npm ci --only=production
 
@@ -68,8 +69,9 @@ COPY --from=build --chown=node:node /home/node/derzis/manager/vite.config.ts ./
 COPY --from=build --chown=node:node /home/node/derzis/manager/.svelte-kit/ ./.svelte-kit/
 COPY --from=build --chown=node:node /home/node/derzis/manager/package.json ./
 COPY --from=build --chown=node:node /home/node/derzis/manager/src ./src/
+COPY --from=build --chown=node:node /home/node/derzis/manager/build ./build
 
 WORKDIR /usr/src/derzis/manager
 
 USER 1000
-CMD ["npm", "run", "serve"]
+CMD ["npm", "run", "dev", "--", "--host"]
