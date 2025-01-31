@@ -29,7 +29,7 @@ COPY --chown=node:node ["models/src", "./models/src"]
 COPY --chown=node:node ["models/package.json", "models/package-lock.json", "./models/package-lock.json", "models/tsconfig.json", "./models/"]
 
 COPY --chown=node:node ["manager/src", "./manager/src"]
-COPY --chown=node:node ["manager/.svelte-kit/",  "./manager/.svelte-kit/"]
+#COPY --chown=node:node ["manager/.svelte-kit/",  "./manager/.svelte-kit/"]
 COPY --chown=node:node ["manager/package.json", "manager/package-lock.json", "manager/tsconfig.json", "manager/vite.config.ts","manager/svelte.config.js", "./manager/"]
 
 
