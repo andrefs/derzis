@@ -467,8 +467,10 @@ class ProcessClass {
         { $set: { status: 'running' } },
         { new: true }
       );
+
       if (process) {
         await Resource.insertSeeds(process.currentStep.seeds, process.pid);
+        await process.notifyStart();
         return true;
       }
     }
@@ -495,6 +497,22 @@ class ProcessClass {
       messageType: 'OK_STEP_FINISHED',
       message: `Process ${this.pid} just finished step #${this.steps.length}.`,
       details: this.steps[this.steps.length - 1]
+    };
+
+    if (this.notification.email) {
+      await notifyEmail(this.notification.email, notif);
+    }
+    if (this.notification.webhook) {
+      await notifyWebhook(this.notification.webhook, notif);
+    }
+  }
+
+  public async notifyStart() {
+    const notif: ProcStartNotification = {
+      ok: true,
+      messageType: 'OK_PROCESS_STARTED',
+      message: `Process ${this.pid} has started.`,
+      details: this.currentStep
     };
 
     if (this.notification.email) {
