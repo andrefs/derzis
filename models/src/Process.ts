@@ -52,7 +52,7 @@ export class StepClass {
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
-@pre<ProcessClass>('save', async function() {
+@pre<ProcessClass>('save', async function () {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await Process.countDocuments({
     createdAt: { $gt: today }
@@ -499,6 +499,12 @@ class ProcessClass {
       details: this.steps[this.steps.length - 1]
     };
 
+    log.info(
+      `Notifying starting next step on project ${this.pid}`,
+      this.notification.email ?? '',
+      this.notification.webhook ?? ''
+    );
+
     if (this.notification.email) {
       await notifyEmail(this.notification.email, notif);
     }
@@ -514,6 +520,12 @@ class ProcessClass {
       message: `Process ${this.pid} has started.`,
       details: this.currentStep
     };
+
+    log.info(
+      `Notifying starting project ${this.pid}`,
+      this.notification.email ?? '',
+      this.notification.webhook ?? ''
+    );
 
     if (this.notification.email) {
       await notifyEmail(this.notification.email, notif);

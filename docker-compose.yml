@@ -4,6 +4,12 @@ services:
       watch:
         - action: rebuild
           path: ./manager/src/
+        - action: rebuild
+          path: ./common/src/
+        - action: rebuild
+          path: ./config/src
+        - action: rebuild
+          path: ./models/src/
     command: npm run dev -- --port ${DERZIS_MNG_PORT} --host
     build:
       context: ./
