@@ -29,7 +29,7 @@ COPY --chown=node:node ["models/src", "./models/src"]
 COPY --chown=node:node ["models/package.json", "models/package-lock.json", "./models/package-lock.json", "models/tsconfig.json", "./models/"]
 
 COPY --chown=node:node ["manager/src", "./manager/src"]
-#COPY --chown=node:node ["manager/.svelte-kit/",  "./manager/.svelte-kit/"]
+COPY --chown=node:node ["manager/static",  "./manager/static"]
 COPY --chown=node:node ["manager/package.json", "manager/package-lock.json", "manager/tsconfig.json", "manager/vite.config.ts","manager/svelte.config.js", "./manager/"]
 
 
@@ -65,6 +65,7 @@ COPY --from=build --chown=node:node /home/node/derzis/models ./models/
 WORKDIR /usr/src/derzis/manager/
 
 COPY --from=build --chown=node:node /home/node/derzis/manager/node_modules ./node_modules/
+COPY --from=build --chown=node:node /home/node/derzis/manager/static ./static/
 COPY --from=build --chown=node:node /home/node/derzis/manager/vite.config.ts ./
 COPY --from=build --chown=node:node /home/node/derzis/manager/.svelte-kit/ ./.svelte-kit/
 COPY --from=build --chown=node:node /home/node/derzis/manager/package.json ./
