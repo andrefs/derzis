@@ -3,44 +3,19 @@ import { secondsToString } from '$lib/utils';
 import { Process, ProcessClass, Resource, Triple, Path } from '@derzis/models';
 import { addStep as addStepHelper } from '$lib/process-helper';
 import { redirect, type Action } from '@sveltejs/kit';
+import * as processHelper from '$lib/process-helper';
+import type { PageServerLoad } from './$types';
 
-export async function load({ params }) {
-	const _p: ProcessClass | null = await Process.findOne({ pid: params.pid }).lean();
-	if (!_p) {
+export const load: PageServerLoad = async ({ params }) => {
+	const p = await processHelper.info(params.pid);
+	if (!p) {
 		throw error(404, {
 			message: 'Not found'
 		});
 	}
 
-	const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO this should be process specific
-	const lastTriple = await Triple.findOne().sort({ updatedAt: -1 });
-	const lastPath = await Path.findOne().sort({ updatedAt: -1 });
-	const last = Math.max(
-		lastResource?.updatedAt.getTime() || 0,
-		lastTriple?.updatedAt.getTime() || 0,
-		lastPath?.updatedAt.getTime() || 0
-	);
-
-	const timeToLastResource = lastResource
-		? (lastResource!.updatedAt.getTime() - _p.createdAt!.getTime()) / 1000
-		: null;
-	const timeRunning = last ? (last - _p.createdAt!.getTime()) / 1000 : null;
-	const p = {
-		..._p,
-		createdAt: _p.createdAt?.toISOString(),
-		updatedAt: _p.updatedAt?.toISOString() || _p.createdAt,
-		timeToLastResource: timeToLastResource ? secondsToString(timeToLastResource) : '',
-		timeRunning: timeRunning ? secondsToString(timeRunning) : '',
-		notification: {
-			..._p.notification,
-			email: _p?.notification?.email
-				?.replace(/(?<=.).*?(?=.@)/, (x) => '*'.repeat(x.length))
-				?.replace(/^..(?=@)/, '**')
-		}
-	};
-
 	return { proc: structuredClone(p) };
-}
+};
 
 /** @type {import('./$types').Actions} */
 export const actions: { [name: string]: Action } = {
