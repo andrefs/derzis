@@ -34,7 +34,7 @@ if (!building) {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
-	//console.log(`[${event.request.method}] ${event.url}`);
+	console.log(`[${event.request.method}] ${event.url}`);
 	const response = await resolve(event);
 	return response;
 };

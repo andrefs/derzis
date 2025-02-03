@@ -1,8 +1,14 @@
 import { newProcess } from '$lib/process-helper';
 import { NotificationClass, Process, StepClass, type ProcessClass } from '@derzis/models';
-import { json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import type { RecursivePartial } from '@derzis/common';
 import type { RequestEvent } from './$types';
+
+export type BaseAPIResponse = {
+	ok: boolean;
+	err: string;
+	data: any;
+};
 
 export async function GET() {
 	const ps: ProcessClass[] = await Process.find().lean();
@@ -17,7 +23,11 @@ interface ProcessSkel {
 }
 
 export async function POST({ request }: RequestEvent) {
-	const { process: pskel }: { process: ProcessSkel } = await request.json();
+	const { ok, err, data }: BaseAPIResponse = await request.json();
+	if (!ok) {
+		throw error(424, err);
+	}
+	const pskel = data.process;
 
 	const process = {
 		steps: [pskel.step],
