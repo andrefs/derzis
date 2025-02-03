@@ -66,6 +66,7 @@ WORKDIR /usr/src/derzis/manager/
 
 COPY --from=build --chown=node:node /home/node/derzis/manager/node_modules ./node_modules/
 COPY --from=build --chown=node:node /home/node/derzis/manager/static ./static/
+COPY --from=build --chown=node:node /home/node/derzis/manager/svelte.config.js ./
 COPY --from=build --chown=node:node /home/node/derzis/manager/vite.config.ts ./
 COPY --from=build --chown=node:node /home/node/derzis/manager/.svelte-kit/ ./.svelte-kit/
 COPY --from=build --chown=node:node /home/node/derzis/manager/package.json ./
