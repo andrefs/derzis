@@ -6,7 +6,7 @@ import type { RequestEvent } from './$types';
 
 export const GET = async ({ params, request }: RequestEvent) => {
   log.info(`GET ${request.url}`);
-  const p = processHelper.info(params.pid);
+  const p = await processHelper.info(params.pid);
 
   if (!p) {
     throw error(404, {

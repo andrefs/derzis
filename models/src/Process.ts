@@ -5,7 +5,7 @@ import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
 import { Path, type PathSkeleton, type PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
-import { HttpError, createLogger } from '@derzis/common';
+import { HttpError, createLogger, webhookPost } from '@derzis/common';
 const log = createLogger('Process');
 import {
   prop,
@@ -52,7 +52,7 @@ export class StepClass {
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
-@pre<ProcessClass>('save', async function () {
+@pre<ProcessClass>('save', async function() {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await Process.countDocuments({
     createdAt: { $gt: today }
@@ -488,10 +488,32 @@ class ProcessClass {
 
   public async done() {
     await Process.updateOne({ pid: this.pid }, { $set: { status: 'done' } });
-    await this.notifyStep();
+    await this.notifyStepFinished();
   }
 
-  public async notifyStep() {
+  public async notifyStepStarted() {
+    const notif: StepNotification = {
+      ok: true,
+      messageType: 'OK_STEP_STARTED',
+      message: `Process ${this.pid} just started step #${this.steps.length}.`,
+      details: this.steps[this.steps.length - 1]
+    };
+
+    log.info(
+      `Notifying starting next step on project ${this.pid}`,
+      this.notification.email ?? '',
+      this.notification.webhook ?? ''
+    );
+
+    if (this.notification.email) {
+      await notifyEmail(this.notification.email, notif);
+    }
+    if (this.notification.webhook) {
+      await notifyWebhook(this.notification.webhook, notif);
+    }
+  }
+
+  public async notifyStepFinished() {
     const notif: StepNotification = {
       ok: true,
       messageType: 'OK_STEP_FINISHED',
@@ -550,11 +572,7 @@ const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
   let retries = 0;
   while (retries < 3) {
     try {
-      const res = await fetch(webhook, {
-        method: 'POST',
-        body: JSON.stringify(notif),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const res = webhookPost(webhook, notif);
       return res;
     } catch (e) {
       retries++;

@@ -1,7 +1,8 @@
 import { Process } from '@derzis/models';
 import { error } from '@sveltejs/kit';
+import type { RequestEvent } from './$types';
 
-export async function GET({ params }) {
+export async function GET({ params }: RequestEvent) {
 	const p = await Process.findOne({ pid: params.pid });
 	if (!p) {
 		throw error(404, {

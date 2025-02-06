@@ -27,10 +27,13 @@
 					<tr><th scope="row">Time to last resource</th><td>{data.proc.timeToLastResource}</td></tr>
 					<tr><th scope="row">Time running</th><td>{data.proc.timeRunning}</td></tr>
 					<tr>
-						<th scope="row">Triples</th><td><a href="{data.proc.pid}/triples">Download</a></td>
+						<th scope="row">Triples</th><td
+							><a href="/api/processes/{data.proc.pid}/triples">Download</a></td
+						>
 					</tr>
 					<tr>
-						<th scope="row">Info</th><td><a href="{data.proc.pid}/stats">View</a></td>
+						<th scope="row">Info</th><td><a href="/api/processes/{data.proc.pid}/stats">View</a></td
+						>
 					</tr>
 				</tbody>
 			</Table>
