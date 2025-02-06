@@ -3,6 +3,7 @@
 	import { Col, Row, Table, Badge } from '@sveltestrap/sveltestrap';
 	import { Icon } from 'svelte-icons-pack';
 	import { BsPencilSquare } from 'svelte-icons-pack/bs';
+	import { BiDownload } from 'svelte-icons-pack/bi';
 </script>
 
 <header style="padding-bottom: 1rem">
@@ -27,9 +28,14 @@
 					<tr><th scope="row">Time to last resource</th><td>{data.proc.timeToLastResource}</td></tr>
 					<tr><th scope="row">Time running</th><td>{data.proc.timeRunning}</td></tr>
 					<tr>
-						<th scope="row">Triples</th><td
-							><a href="/api/processes/{data.proc.pid}/triples">Download</a></td
-						>
+						<th scope="row">Triples</th><td>
+							<a href="/api/processes/{data.proc.pid}/triples.json.gz"
+								>JSON <Icon src={BiDownload} /></a
+							>
+							<a href="/api/processes/{data.proc.pid}/triples.nt.gz"
+								>N-Triples <Icon src={BiDownload} /></a
+							>
+						</td>
 					</tr>
 					<tr>
 						<th scope="row">Info</th><td><a href="/api/processes/{data.proc.pid}/stats">View</a></td

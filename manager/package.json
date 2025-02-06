@@ -52,6 +52,7 @@
     "parse-link-header": "2.0.0",
     "prettier": "3.4.2",
     "prettier-plugin-svelte": "3.3.3",
+    "rdf-string": "2.0.1",
     "redis": "^4.7.0",
     "robots-parser": "3.0.1",
     "streamify-string": "^1.0.1",
