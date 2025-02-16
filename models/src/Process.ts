@@ -163,7 +163,7 @@ class ProcessClass {
       yield {
         subject: triple.subject,
         predicate: triple.predicate,
-        object: triple.predicate
+        object: triple.object
       };
     }
   }
