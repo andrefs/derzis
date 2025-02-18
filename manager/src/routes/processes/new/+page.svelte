@@ -174,7 +174,7 @@
 
 					<FormGroup>
 						<Col sm={10}>
-							<Button color="primary" type="submit">Submit</Button>
+							<Button id="form-submit" color="primary" type="submit">Submit</Button>
 						</Col>
 					</FormGroup>
 				</form>

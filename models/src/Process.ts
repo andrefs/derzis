@@ -492,7 +492,7 @@ class ProcessClass {
   }
 
   public async notifyStepStarted() {
-    const notif: StepNotification = {
+    const notif: StepStartedNotification = {
       ok: true,
       messageType: 'OK_STEP_STARTED',
       message: `Process ${this.pid} just started step #${this.steps.length}.`,
@@ -513,8 +513,33 @@ class ProcessClass {
     }
   }
 
+  public async notifyProcessCreated() {
+    const notif: ProcCreatedNotification = {
+      ok: true,
+      messageType: 'OK_PROCESS_CREATED',
+      message: `Process ${this.pid} has been created.`,
+      details: {
+        pid: this.pid,
+        notification: this.notification,
+        steps: this.steps
+      }
+    };
+
+    log.info(
+      `Notifying creation of project ${this.pid}`,
+      this.notification.email ?? '',
+      this.notification.webhook ?? ''
+    );
+
+    if (this.notification.email) {
+      await notifyEmail(this.notification.email, notif);
+    }
+    if (this.notification.webhook) {
+      await notifyWebhook(this.notification.webhook, notif);
+    }
+  }
   public async notifyStepFinished() {
-    const notif: StepNotification = {
+    const notif: StepFinishedNotification = {
       ok: true,
       messageType: 'OK_STEP_FINISHED',
       message: `Process ${this.pid} just finished step #${this.steps.length}.`,
@@ -550,7 +575,11 @@ class ProcessClass {
     );
 
     if (this.notification.email) {
-      await notifyEmail(this.notification.email, notif);
+      try {
+        await notifyEmail(this.notification.email, notif);
+      } catch (e) {
+        log.error('Error sending email notification', e);
+      }
     }
     if (this.notification.webhook) {
       await notifyWebhook(this.notification.webhook, notif);
@@ -559,14 +588,18 @@ class ProcessClass {
 }
 
 const notifyEmail = async (email: string, notif: ProcessNotification) => {
-  const res = await sendEmail({
-    to: email,
-    from: 'derzis@andrefs.com',
-    text: notif.message,
-    html: `<p>${notif.message}</p>`,
-    subject: 'Derzis - Event'
-  });
-  return res;
+  try {
+    const res = await sendEmail({
+      to: email,
+      from: 'derzis@andrefs.com',
+      text: notif.message,
+      html: `<p>${notif.message}</p>`,
+      subject: 'Derzis - Event'
+    });
+    return res;
+  } catch (e) {
+    log.error('Error sending email notification', e);
+  }
 };
 const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
   let retries = 0;
@@ -576,6 +609,9 @@ const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
       return res;
     } catch (e) {
       retries++;
+      if (retries === 3) {
+        log.error('Error sending webhook notification', e);
+      }
     }
   }
 };
@@ -587,19 +623,34 @@ interface BaseProcNotification {
   details: any;
 }
 
+type ProcCreatedNotification = BaseProcNotification & {
+  ok: true;
+  messageType: 'OK_PROCESS_CREATED';
+  message: string;
+};
 type ProcStartNotification = BaseProcNotification & {
   ok: true;
   messageType: 'OK_PROCESS_STARTED';
   message: string;
 };
 
-type StepNotification = BaseProcNotification & {
+type StepFinishedNotification = BaseProcNotification & {
   details: StepClass;
   ok: true;
   messageType: 'OK_STEP_FINISHED';
 };
 
-type ProcessNotification = StepNotification | ProcStartNotification;
+type StepStartedNotification = BaseProcNotification & {
+  details: StepClass;
+  ok: true;
+  messageType: 'OK_STEP_STARTED';
+};
+
+type ProcessNotification =
+  | StepStartedNotification
+  | StepFinishedNotification
+  | ProcStartNotification
+  | ProcCreatedNotification;
 
 const matchesOne = (str: string, patterns: string[]) => {
   let matched = false;

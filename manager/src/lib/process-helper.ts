@@ -18,9 +18,10 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
 
 	await Process.startNext();
 
-	if (proc.notification?.email) {
-		await sendInitEmail(proc.notification.email, proc.pid);
-	}
+	//if (proc.notification?.email) {
+	//	await sendInitEmail(proc.notification.email, proc.pid);
+	//}
+	await proc.notifyProcessCreated();
 
 	return proc;
 }
