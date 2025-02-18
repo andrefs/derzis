@@ -492,12 +492,14 @@ class ProcessClass {
   }
 
   public async notifyStepStarted() {
-    const notif: StepStartedNotification = {
+    const notif = {
       ok: true,
-      pid: this.pid,
-      messageType: 'OK_STEP_STARTED',
-      message: `Process ${this.pid} just started step #${this.steps.length}.`,
-      details: this.steps[this.steps.length - 1]
+      data: {
+        pid: this.pid,
+        messageType: 'OK_STEP_STARTED',
+        message: `Process ${this.pid} just started step #${this.steps.length}.`,
+        details: this.steps[this.steps.length - 1]
+      } as StepStartedNotification
     };
 
     log.info(
@@ -515,16 +517,18 @@ class ProcessClass {
   }
 
   public async notifyProcessCreated() {
-    const notif: ProcCreatedNotification = {
+    const notif = {
       ok: true,
-      pid: this.pid,
-      messageType: 'OK_PROCESS_CREATED',
-      message: `Process ${this.pid} has been created.`,
-      details: {
+      data: {
         pid: this.pid,
-        notification: this.notification,
-        steps: this.steps
-      }
+        messageType: 'OK_PROCESS_CREATED',
+        message: `Process ${this.pid} has been created.`,
+        details: {
+          pid: this.pid,
+          notification: this.notification,
+          steps: this.steps
+        }
+      } as ProcCreatedNotification
     };
 
     log.info(
@@ -541,12 +545,14 @@ class ProcessClass {
     }
   }
   public async notifyStepFinished() {
-    const notif: StepFinishedNotification = {
+    const notif = {
       ok: true,
-      pid: this.pid,
-      messageType: 'OK_STEP_FINISHED',
-      message: `Process ${this.pid} just finished step #${this.steps.length}.`,
-      details: this.steps[this.steps.length - 1]
+      data: {
+        pid: this.pid,
+        messageType: 'OK_STEP_FINISHED',
+        message: `Process ${this.pid} just finished step #${this.steps.length}.`,
+        details: this.steps[this.steps.length - 1]
+      } as StepFinishedNotification
     };
 
     log.info(
@@ -564,12 +570,14 @@ class ProcessClass {
   }
 
   public async notifyStart() {
-    const notif: ProcStartNotification = {
+    const notif = {
       ok: true,
-      pid: this.pid,
-      messageType: 'OK_PROCESS_STARTED',
-      message: `Process ${this.pid} has started.`,
-      details: this.currentStep
+      data: {
+        pid: this.pid,
+        messageType: 'OK_PROCESS_STARTED',
+        message: `Process ${this.pid} has started.`,
+        details: this.currentStep
+      } as ProcStartNotification
     };
 
     log.info(
@@ -596,8 +604,8 @@ const notifyEmail = async (email: string, notif: ProcessNotification) => {
     const res = await sendEmail({
       to: email,
       from: 'derzis@andrefs.com',
-      text: notif.message,
-      html: `<p>${notif.message}</p>`,
+      text: notif.data.message,
+      html: `<p>${notif.data.message}</p>`,
       subject: 'Derzis - Event'
     });
     return res;
@@ -621,7 +629,6 @@ const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
 };
 
 interface BaseProcNotification {
-  ok: boolean;
   pid: string;
   messageType: string;
   message: string;
@@ -629,33 +636,32 @@ interface BaseProcNotification {
 }
 
 type ProcCreatedNotification = BaseProcNotification & {
-  ok: true;
   messageType: 'OK_PROCESS_CREATED';
   message: string;
 };
 type ProcStartNotification = BaseProcNotification & {
-  ok: true;
   messageType: 'OK_PROCESS_STARTED';
   message: string;
 };
 
 type StepFinishedNotification = BaseProcNotification & {
   details: StepClass;
-  ok: true;
   messageType: 'OK_STEP_FINISHED';
 };
 
 type StepStartedNotification = BaseProcNotification & {
   details: StepClass;
-  ok: true;
   messageType: 'OK_STEP_STARTED';
 };
 
-type ProcessNotification =
+type ProcessNotification = {
+  ok: boolean;
+  data:
   | StepStartedNotification
   | StepFinishedNotification
   | ProcStartNotification
   | ProcCreatedNotification;
+};
 
 const matchesOne = (str: string, patterns: string[]) => {
   let matched = false;
