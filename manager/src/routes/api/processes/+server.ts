@@ -35,7 +35,17 @@ export async function POST({ request }: RequestEvent) {
 		notification: pskel.notification
 	};
 
-	const proc = await newProcess(process);
+	try {
+		const proc = await newProcess(process);
 
-	return json(proc);
+		return json({
+			ok: true,
+			process: proc
+		});
+	} catch (e) {
+		return json({
+			ok: false,
+			err: e
+		});
+	}
 }

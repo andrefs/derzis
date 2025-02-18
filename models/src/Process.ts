@@ -494,6 +494,7 @@ class ProcessClass {
   public async notifyStepStarted() {
     const notif: StepStartedNotification = {
       ok: true,
+      pid: this.pid,
       messageType: 'OK_STEP_STARTED',
       message: `Process ${this.pid} just started step #${this.steps.length}.`,
       details: this.steps[this.steps.length - 1]
@@ -516,6 +517,7 @@ class ProcessClass {
   public async notifyProcessCreated() {
     const notif: ProcCreatedNotification = {
       ok: true,
+      pid: this.pid,
       messageType: 'OK_PROCESS_CREATED',
       message: `Process ${this.pid} has been created.`,
       details: {
@@ -541,6 +543,7 @@ class ProcessClass {
   public async notifyStepFinished() {
     const notif: StepFinishedNotification = {
       ok: true,
+      pid: this.pid,
       messageType: 'OK_STEP_FINISHED',
       message: `Process ${this.pid} just finished step #${this.steps.length}.`,
       details: this.steps[this.steps.length - 1]
@@ -563,6 +566,7 @@ class ProcessClass {
   public async notifyStart() {
     const notif: ProcStartNotification = {
       ok: true,
+      pid: this.pid,
       messageType: 'OK_PROCESS_STARTED',
       message: `Process ${this.pid} has started.`,
       details: this.currentStep
@@ -618,6 +622,7 @@ const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
 
 interface BaseProcNotification {
   ok: boolean;
+  pid: string;
   messageType: string;
   message: string;
   details: any;

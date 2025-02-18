@@ -15,13 +15,13 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	p.pathHeads = Object.fromEntries(pathHeads.entries());
 
 	const proc = await Process.create(p);
+	await proc.notifyProcessCreated();
 
 	await Process.startNext();
 
 	//if (proc.notification?.email) {
 	//	await sendInitEmail(proc.notification.email, proc.pid);
 	//}
-	await proc.notifyProcessCreated();
 
 	return proc;
 }
