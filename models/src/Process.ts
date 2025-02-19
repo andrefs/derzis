@@ -556,7 +556,7 @@ class ProcessClass {
     };
 
     log.info(
-      `Notifying starting next step on project ${this.pid}`,
+      `Notifying step finished on project ${this.pid}`,
       this.notification.email ?? '',
       this.notification.webhook ?? ''
     );
