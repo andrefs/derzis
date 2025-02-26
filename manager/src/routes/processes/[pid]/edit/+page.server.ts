@@ -1,8 +1,9 @@
 import { error } from '@sveltejs/kit';
 import { secondsToString } from '$lib/utils';
 import { Process, ProcessClass, Resource } from '@derzis/models';
+import type { RequestEvent } from './$types';
 
-export async function load({ params }) {
+export async function load({ params }: RequestEvent) {
 	const _p: ProcessClass | null = await Process.findOne({ pid: params.pid }).lean();
 	if (!_p) {
 		throw error(404, {

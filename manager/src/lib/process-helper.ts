@@ -1,6 +1,8 @@
 import { StepClass, Process, ProcessClass, Resource, Triple, Path } from '@derzis/models';
 import { type RecursivePartial, sendInitEmail } from '@derzis/common';
-import { secondsToString } from './utils';
+import { secondsToString, type MakeOptional } from './utils';
+import { createLogger } from 'vite';
+const log = createLogger()
 
 export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	const pathHeads: Map<string, number> = new Map();
@@ -26,7 +28,7 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	return proc;
 }
 
-export async function addStep(pid: string, params: StepClass) {
+export async function addStep(pid: string, params: MakeOptional<StepClass, 'seeds'>) {
 	const p = await Process.findOne({ pid, status: 'done' });
 
 	if (!p) {
@@ -34,7 +36,7 @@ export async function addStep(pid: string, params: StepClass) {
 	}
 
 	const oldSeeds = new Set(p.currentStep.seeds);
-	const newSeeds = params.seeds.filter((s) => !oldSeeds.has(s));
+	const newSeeds = (params.seeds || []).filter((s) => !oldSeeds.has(s));
 
 	const newMPL = Math.max(p.currentStep.maxPathLength, params.maxPathLength);
 	const newMPP = Math.max(p.currentStep.maxPathProps, params.maxPathProps);
@@ -55,8 +57,12 @@ export async function addStep(pid: string, params: StepClass) {
 			status: 'queued'
 		}
 	);
+	log.info(`Added step to process ${pid}`);
 
-	await Resource.insertSeeds(newSeeds, pid);
+	if (newSeeds.length) {
+		await Resource.insertSeeds(newSeeds, pid);
+		log.info(`Inserted seeds for process ${pid}`);
+	}
 }
 
 export async function info(pid: string) {
