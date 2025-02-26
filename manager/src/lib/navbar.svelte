@@ -33,7 +33,7 @@
 				<NavLink href="/processes/new"><Icon src={BsPlusSquare} /> Add new</NavLink>
 			</NavItem>
 			<NavItem>
-				<NavLink href="/api-docs"><Icon src={BsBookHalf} /> Documentation</NavLink>
+				<NavLink href="/docs/api"><Icon src={BsBookHalf} /> API docs</NavLink>
 			</NavItem>
 		</Nav>
 	</Collapse>
