@@ -13,7 +13,7 @@
 </script>
 
 <svelte:head>
-	<title>SwaggerUI</title>
+	<title>Derzis API documentation</title>
 </svelte:head>
 
 <div id="swagger-ui-container" />
