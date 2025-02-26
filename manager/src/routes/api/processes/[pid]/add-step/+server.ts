@@ -1,8 +1,8 @@
 import { addStep } from '$lib/process-helper';
 import { Process } from '@derzis/models';
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { createLogger } from 'vite';
-const log = createLogger();
+import { createLogger } from '@derzis/common';
+const log = createLogger('API');
 
 export const POST: RequestHandler = async ({ request, params }) => {
   const data = await request.json();
@@ -24,7 +24,8 @@ export const POST: RequestHandler = async ({ request, params }) => {
   }
 
 
-  addStep(params!.pid!, procParams);
+  await addStep(params!.pid!, procParams);
+  log.info(`Added step to process ${params.pid}`);
 
   return json({ ok: true }, { status: 201 });
 }

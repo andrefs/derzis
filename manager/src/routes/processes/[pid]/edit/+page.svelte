@@ -1,7 +1,7 @@
 <script lang="ts">
 	export let data;
 	import { enhance } from '$app/forms';
-	import { redirect } from '@sveltejs/kit';
+	import { goto } from '$app/navigation';
 	import {
 		Container,
 		Row,
@@ -16,6 +16,8 @@
 		Input,
 		InputGroupText
 	} from '@sveltestrap/sveltestrap';
+	import { createLogger } from 'vite';
+	const log = createLogger();
 	const showNewStep = data.status === 'done';
 	let newSeeds: string;
 	let whiteList: string;
@@ -44,10 +46,10 @@
 			});
 
 			// new step created
-			//redirect(201, `/processes/${data.pid}`);
+			goto(`/processes/${data.pid}`);
 		} catch (e) {
-			console.error('ERROR WTF', e);
-			redirect(500, `/processes/${data.pid}`);
+			log.error('Error adding new step' + e);
+			goto(`/processes/${data.pid}`);
 		}
 	}
 </script>
