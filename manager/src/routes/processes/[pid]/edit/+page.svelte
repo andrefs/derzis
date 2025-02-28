@@ -16,8 +16,8 @@
 		Input,
 		InputGroupText
 	} from '@sveltestrap/sveltestrap';
-	import { createLogger } from 'vite';
-	const log = createLogger();
+	//import { createLogger } from 'vite';
+	//const log = createLogger();
 	const showNewStep = data.status === 'done';
 	let newSeeds: string;
 	let whiteList: string;
@@ -48,7 +48,7 @@
 			// new step created
 			goto(`/processes/${data.pid}`);
 		} catch (e) {
-			log.error('Error adding new step' + e);
+			//log.error('Error adding new step' + e);
 			goto(`/processes/${data.pid}`);
 		}
 	}

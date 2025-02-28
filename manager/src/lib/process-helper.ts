@@ -1,8 +1,8 @@
 import { StepClass, Process, ProcessClass, Resource, Triple, Path } from '@derzis/models';
 import { type RecursivePartial, sendInitEmail } from '@derzis/common';
 import { secondsToString, type MakeOptional } from './utils';
-import { createLogger } from 'vite';
-const log = createLogger()
+import { createLogger } from '@derzis/common';
+const log = createLogger('process-helper');
 
 export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	const pathHeads: Map<string, number> = new Map();
