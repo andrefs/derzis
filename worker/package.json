@@ -90,7 +90,7 @@
     "streamify-string": "^1.0.1",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^11.0.5",
-    "vite": "6.0.11",
+    "vite": "6.2.3",
     "vitest": "3.0.4",
     "winston": "^3.17.0",
     "zlib": "1.0.5"
