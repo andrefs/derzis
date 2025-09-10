@@ -1,12 +1,11 @@
 <script lang="ts">
-	export const ssr = false;
 	import { Col, Row } from '@sveltestrap/sveltestrap';
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
 	export let data;
 	import { onMount } from 'svelte';
-	//import Sigma from 'sigma';
 	import Graph from 'graphology';
+	import type { NodeDisplayData } from 'sigma/types';
 
 	let container: HTMLDivElement;
 
@@ -65,6 +64,48 @@
 				minCameraRatio: 0.08,
 				maxCameraRatio: 3,
 				renderEdgeLabels: true
+			});
+
+			// Hover effect
+			interface State {
+				hoveredNode?: string;
+
+				// State derived from hovered node:
+				hoveredNeighbors?: Set<string>;
+			}
+			const state: State = {};
+			function setHoveredNode(node?: string) {
+				if (node) {
+					state.hoveredNode = node;
+					state.hoveredNeighbors = new Set(graph.neighbors(node));
+				}
+
+				if (!node) {
+					state.hoveredNode = undefined;
+					state.hoveredNeighbors = undefined;
+				}
+			}
+			// Bind graph interactions:
+			renderer.on('enterNode', ({ node }) => {
+				setHoveredNode(node);
+			});
+			renderer.on('leaveNode', () => {
+				setHoveredNode(undefined);
+			});
+
+			renderer.setSetting('nodeReducer', (node, data) => {
+				const res: Partial<NodeDisplayData> = { ...data };
+
+				if (
+					state.hoveredNeighbors &&
+					!state.hoveredNeighbors.has(node) &&
+					state.hoveredNode !== node
+				) {
+					res.label = '';
+					res.color = '#f6f6f6';
+				}
+
+				return res;
 			});
 		}
 	});
