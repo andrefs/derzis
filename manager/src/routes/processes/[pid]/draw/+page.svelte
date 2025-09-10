@@ -161,6 +161,7 @@
 				const res: Partial<NodeDisplayData> = { ...data };
 				if (state.hoveredNeighbors) {
 					if (!state.hoveredNeighbors.has(node) && state.hoveredNode !== node) {
+						res.label = '';
 						res.color = '#f6f6f6';
 					} else {
 						res.label = (data as any).displayLabel || '';
@@ -196,7 +197,11 @@
 
 <div class="page-container">
 	<header class="page-header">
-		<h2>Process <span style="font-style: italic;">{data.proc.pid}</span></h2>
+		<h2>
+			Process <a href="/processes/{data.proc.pid}"
+				><span style="font-style: italic;">{data.proc.pid}</span></a
+			>
+		</h2>
 	</header>
 
 	<main class="page-main">
