@@ -157,19 +157,19 @@
 			});
 
 			// Render nodes accordingly to the internal state:
-			renderer.setSetting('nodeReducer', (node: string, data) => {
+			renderer.setSetting('nodeReducer', (node: string, data: NodeDisplayData) => {
 				const res: Partial<NodeDisplayData> = { ...data };
 				if (state.hoveredNeighbors) {
 					if (!state.hoveredNeighbors.has(node) && state.hoveredNode !== node) {
 						res.color = '#f6f6f6';
 					} else {
-						res.label = data.displayLabel || '';
+						res.label = (data as any).displayLabel || '';
 					}
 				}
 				return res;
 			});
 
-			renderer.setSetting('edgeReducer', (edge: string, data) => {
+			renderer.setSetting('edgeReducer', (edge: string, data: EdgeDisplayData) => {
 				const res: Partial<EdgeDisplayData> = { ...data };
 				if (state.hoveredNode) {
 					if (
@@ -183,7 +183,7 @@
 						res.hidden = true;
 					} else {
 						res.hidden = false;
-						res.label = data.displayLabel || '';
+						res.label = (data as any).displayLabel || '';
 					}
 				}
 				return res;
