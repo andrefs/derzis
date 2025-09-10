@@ -149,7 +149,7 @@
 				});
 			}
 			// Bind graph interactions:
-			renderer.on('enterNode', ({ node }) => {
+			renderer.on('enterNode', ({ node }: { node: string }) => {
 				setHoveredNode(node);
 			});
 			renderer.on('leaveNode', () => {
@@ -157,7 +157,7 @@
 			});
 
 			// Render nodes accordingly to the internal state:
-			renderer.setSetting('nodeReducer', (node, data) => {
+			renderer.setSetting('nodeReducer', (node: string, data) => {
 				const res: Partial<NodeDisplayData> = { ...data };
 				if (state.hoveredNeighbors) {
 					if (!state.hoveredNeighbors.has(node) && state.hoveredNode !== node) {
@@ -169,7 +169,7 @@
 				return res;
 			});
 
-			renderer.setSetting('edgeReducer', (edge, data) => {
+			renderer.setSetting('edgeReducer', (edge: string, data) => {
 				const res: Partial<EdgeDisplayData> = { ...data };
 				if (state.hoveredNode) {
 					if (
