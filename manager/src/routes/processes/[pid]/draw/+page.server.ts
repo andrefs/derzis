@@ -11,11 +11,6 @@ export const load: PageServerLoad = async ({ params }) => {
     });
   }
 
-  // get all triples from async iterator
-  const triples = await Array.fromAsync(p?.getTriples());
-
-  console.log('XXXXXXXXXXXXXXXX', { triples })
-
   return {
     proc: {
       pid: p.pid,
@@ -23,6 +18,5 @@ export const load: PageServerLoad = async ({ params }) => {
         seeds: p.currentStep.seeds
       }
     },
-    triples
   };
 };

@@ -9,14 +9,33 @@
 
 	let container: HTMLDivElement;
 
+	async function loadData() {
+		const response = await fetch(`/api/processes/${data.proc.pid}/triples.json.gz`);
+		if (!response.ok) {
+			throw new Error(`Failed to fetch triples: ${response.statusText}`);
+		}
+		// uncompress gzipped response
+		const decompStream = new DecompressionStream('gzip');
+		const decompressedResponse = response.body!.pipeThrough(decompStream);
+		const text = await new Response(decompressedResponse).text();
+		const triples = JSON.parse(text);
+		return triples as Array<{
+			subject: string;
+			predicate: string;
+			object: string;
+		}>;
+	}
+
 	onMount(async () => {
 		if (typeof window !== 'undefined') {
+			const triples = await loadData();
+
 			const { default: Sigma } = await import('sigma');
 
 			// build dummy graph
 			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
 
-			for (const t of data.triples) {
+			for (const t of triples) {
 				const subjIsSeed = data.proc.currentStep.seeds.includes(t.subject.valueOf());
 				const objIsSeed = data.proc.currentStep.seeds.includes(t.object.valueOf());
 
