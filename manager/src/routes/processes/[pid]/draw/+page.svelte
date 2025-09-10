@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Col, Row, Spinner } from '@sveltestrap/sveltestrap';
+	import { Col, Row, Spinner, Button } from '@sveltestrap/sveltestrap';
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
 	export let data;
@@ -9,6 +9,8 @@
 
 	let container: HTMLDivElement;
 	let isLoading = true;
+	let renderer: any = null;
+	let _dlAsImg: any = null;
 
 	async function loadData() {
 		const response = await fetch(`/api/processes/${data.proc.pid}/triples.json.gz`);
@@ -85,11 +87,19 @@
 		}
 	}
 
+	function downloadGraph() {
+		if (renderer) {
+			_dlAsImg(renderer, { fileName: 'graph' });
+		}
+	}
+
 	async function initializeGraph() {
 		if (!container || !graphData) return;
 
 		try {
 			const { default: Sigma } = await import('sigma');
+			const { downloadAsImage } = await import('@sigma/export-image');
+			_dlAsImg = downloadAsImage;
 
 			const sensibleSettings = forceAtlas2.inferSettings(graphData);
 			const fa2Layout = new FA2Layout(graphData, {
@@ -108,7 +118,7 @@
 				fa2Layout.stop();
 			}, 10 * 1000);
 
-			const renderer = new Sigma(graphData, container, {
+			renderer = new Sigma(graphData, container, {
 				minCameraRatio: 0.08,
 				maxCameraRatio: 3,
 				renderEdgeLabels: true
@@ -165,7 +175,10 @@
 					if (
 						!graphData
 							.extremities(edge)
-							.every((n: string) => n === state.hoveredNode || graphData.areNeighbors(n, state.hoveredNode!))
+							.every(
+								(n: string) =>
+									n === state.hoveredNode || graphData.areNeighbors(n, state.hoveredNode!)
+							)
 					) {
 						res.hidden = true;
 					} else {
@@ -195,7 +208,14 @@
 						<p class="loading-text">Loading graph data...</p>
 					</div>
 				{:else}
-					<div bind:this={container} class="graph-container"></div>
+					<div class="graph-wrapper">
+						<div bind:this={container} class="graph-container"></div>
+						{#if renderer}
+							<Button color="primary" size="sm" class="download-btn" on:click={downloadGraph}>
+								📷 PNG
+							</Button>
+						{/if}
+					</div>
 				{/if}
 			</Col>
 		</Row>
@@ -276,5 +296,24 @@
 		margin: 0;
 		color: #6c757d;
 		font-size: 1.1rem;
+	}
+
+	.graph-wrapper {
+		position: relative;
+		height: 100%;
+		width: 100%;
+		flex: 1;
+	}
+
+	.graph-wrapper :global(.download-btn) {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		z-index: 1000;
+		opacity: 0.9;
+	}
+
+	.graph-wrapper :global(.download-btn):hover {
+		opacity: 1;
 	}
 </style>
