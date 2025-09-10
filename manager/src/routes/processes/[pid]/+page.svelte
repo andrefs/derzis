@@ -1,9 +1,9 @@
-<script>
+<script lang="ts">
 	export let data;
 	import { Col, Row, Table, Badge } from '@sveltestrap/sveltestrap';
 	import { Icon } from 'svelte-icons-pack';
 	import { BsPencilSquare } from 'svelte-icons-pack/bs';
-	import { BiDownload } from 'svelte-icons-pack/bi';
+	import { BiDownload, BiNetworkChart } from 'svelte-icons-pack/bi';
 </script>
 
 <header style="padding-bottom: 1rem">
@@ -29,17 +29,26 @@
 					<tr><th scope="row">Time running</th><td>{data.proc.timeRunning}</td></tr>
 					<tr>
 						<th scope="row">Triples</th><td>
-							<a href="/api/processes/{data.proc.pid}/triples.json.gz"
-								>JSON <Icon src={BiDownload} /></a
-							>
-							<a href="/api/processes/{data.proc.pid}/triples.nt.gz"
-								>N-Triples <Icon src={BiDownload} /></a
-							>
+							<p>
+								<a href="/api/processes/{data.proc.pid}/triples.json.gz"
+									>JSON <Icon src={BiDownload} /></a
+								>
+							</p>
+							<p>
+								<a href="/api/processes/{data.proc.pid}/triples.nt.gz"
+									>N-Triples <Icon src={BiDownload} /></a
+								>
+							</p>
+							<p>
+								<a href="/processes/{data.proc.pid}/draw"> Draw <Icon src={BiNetworkChart} /></a>
+							</p>
 						</td>
 					</tr>
 					<tr>
-						<th scope="row">Info</th><td><a href="/api/processes/{data.proc.pid}/stats">View</a></td
-						>
+						<th scope="row">Info</th>
+						<td>
+							<a href="/api/processes/{data.proc.pid}/stats">View</a>
+						</td>
 					</tr>
 				</tbody>
 			</Table>
