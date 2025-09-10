@@ -5,7 +5,7 @@
 	export let data;
 	import { onMount } from 'svelte';
 	import Graph from 'graphology';
-	import type { NodeDisplayData } from 'sigma/types';
+	import type { NodeDisplayData, EdgeDisplayData } from 'sigma/types';
 
 	let container: HTMLDivElement;
 
@@ -17,21 +17,33 @@
 			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
 
 			for (const t of data.triples) {
+				const subjIsSeed = data.proc.currentStep.seeds.includes(t.subject.valueOf());
+				const objIsSeed = data.proc.currentStep.seeds.includes(t.object.valueOf());
+
 				graph.mergeNode(t.subject.valueOf(), {
 					x: Math.random(),
 					y: Math.random(),
-					label: t.subject.valueOf(),
-					color: data.proc.currentStep.seeds.includes(t.subject.valueOf()) ? 'red' : 'blue'
+					displayLabel: t.subject.valueOf(),
+					label: subjIsSeed ? t.subject.valueOf() : '',
+					color: subjIsSeed ? 'red' : 'blue'
 				});
 				graph.mergeNode(t.object.valueOf(), {
 					x: Math.random(),
 					y: Math.random(),
-					label: t.object.valueOf(),
-					color: data.proc.currentStep.seeds.includes(t.object.valueOf()) ? 'red' : 'blue'
+					displayLabel: t.object.valueOf(),
+					label: objIsSeed ? t.object.valueOf() : '',
+					color: objIsSeed ? 'red' : 'blue'
 				});
+				// increase size logarithmically based on degree
+				graph.updateNodeAttribute(t.subject.valueOf(), 'size', (size) =>
+					size ? Math.log(size + 1) * 5 : 1
+				);
+				graph.updateNodeAttribute(t.object.valueOf(), 'size', (size) =>
+					size ? Math.log(size + 1) * 5 : 1
+				);
 				graph.addDirectedEdge(t.subject.valueOf(), t.object.valueOf(), {
 					type: 'arrow',
-					label: t.predicate.valueOf()
+					displayLabel: t.predicate.valueOf()
 				});
 			}
 
@@ -59,6 +71,9 @@
 
 			// Strt FA2
 			startFA2();
+			setTimeout(() => {
+				fa2Layout.stop();
+			}, 10 * 1000);
 
 			const renderer = new Sigma(graph, container, {
 				minCameraRatio: 0.08,
@@ -66,7 +81,9 @@
 				renderEdgeLabels: true
 			});
 
-			// Hover effect
+			/***********************
+			 * Hover effect
+			 ***********************/
 			interface State {
 				hoveredNode?: string;
 
@@ -84,6 +101,12 @@
 					state.hoveredNode = undefined;
 					state.hoveredNeighbors = undefined;
 				}
+
+				// Refresh rendering
+				renderer.refresh({
+					// We don't touch the graph data so we can skip its reindexation
+					skipIndexation: true
+				});
 			}
 			// Bind graph interactions:
 			renderer.on('enterNode', ({ node }) => {
@@ -93,20 +116,41 @@
 				setHoveredNode(undefined);
 			});
 
+			// Render nodes accordingly to the internal state:
+			// 3. If there is a hovered node, all non-neighbor nodes are greyed
 			renderer.setSetting('nodeReducer', (node, data) => {
 				const res: Partial<NodeDisplayData> = { ...data };
+				if (state.hoveredNeighbors) {
+					if (!state.hoveredNeighbors.has(node) && state.hoveredNode !== node) {
+						res.color = '#f6f6f6';
+					} else {
+						res.label = data.displayLabel || '';
+					}
+				}
+				return res;
+			});
 
-				if (
-					state.hoveredNeighbors &&
-					!state.hoveredNeighbors.has(node) &&
-					state.hoveredNode !== node
-				) {
-					res.label = '';
-					res.color = '#f6f6f6';
+			renderer.setSetting('edgeReducer', (edge, data) => {
+				const res: Partial<EdgeDisplayData> = { ...data };
+				if (state.hoveredNode) {
+					if (
+						!graph
+							.extremities(edge)
+							.every((n) => n === state.hoveredNode || graph.areNeighbors(n, state.hoveredNode))
+					) {
+						res.hidden = true;
+					} else {
+						res.hidden = false;
+						res.label = data.displayLabel || '';
+					}
 				}
 
 				return res;
 			});
+
+			return () => {
+				renderer.kill();
+			};
 		}
 	});
 </script>
