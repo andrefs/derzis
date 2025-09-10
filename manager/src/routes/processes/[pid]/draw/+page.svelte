@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Col, Row } from '@sveltestrap/sveltestrap';
+	import { Col, Row, Spinner } from '@sveltestrap/sveltestrap';
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
 	export let data;
@@ -8,6 +8,7 @@
 	import type { NodeDisplayData, EdgeDisplayData } from 'sigma/types';
 
 	let container: HTMLDivElement;
+	let isLoading = true;
 
 	async function loadData() {
 		const response = await fetch(`/api/processes/${data.proc.pid}/triples.json.gz`);
@@ -26,13 +27,20 @@
 		}>;
 	}
 
-	onMount(async () => {
+	let graphData: any = null;
+
+	onMount(() => {
 		if (typeof window !== 'undefined') {
+			loadGraphData();
+		}
+	});
+
+	async function loadGraphData() {
+		try {
+			isLoading = true;
 			const triples = await loadData();
 
-			const { default: Sigma } = await import('sigma');
-
-			// build dummy graph
+			// build graph
 			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
 
 			for (const t of triples) {
@@ -66,19 +74,25 @@
 				});
 			}
 
-			//graph.addNode('John', { x: 0, y: 10, size: 15, label: 'John', color: 'blue' });
-			//graph.addNode('Mary', { x: 10, y: 0, size: 10, label: 'Mary', color: 'green' });
-			//graph.addNode('Thomas', { x: 7, y: 9, size: 20, label: 'Thomas', color: 'red' });
-			//graph.addNode('Hannah', { x: -7, y: -6, size: 25, label: 'Hannah', color: 'teal' });
+			graphData = graph;
+			isLoading = false;
 
-			//graph.addEdge('John', 'Mary');
-			//graph.addEdge('John', 'Thomas');
-			//graph.addEdge('John', 'Hannah');
-			//graph.addEdge('Hannah', 'Thomas');
-			//graph.addEdge('Hannah', 'Mary');
+			// Initialize the graph after DOM update
+			setTimeout(initializeGraph, 0);
+		} catch (error) {
+			console.error('Error loading graph data:', error);
+			isLoading = false;
+		}
+	}
 
-			const sensibleSettings = forceAtlas2.inferSettings(graph);
-			const fa2Layout = new FA2Layout(graph, {
+	async function initializeGraph() {
+		if (!container || !graphData) return;
+
+		try {
+			const { default: Sigma } = await import('sigma');
+
+			const sensibleSettings = forceAtlas2.inferSettings(graphData);
+			const fa2Layout = new FA2Layout(graphData, {
 				settings: sensibleSettings
 			});
 
@@ -88,13 +102,13 @@
 				fa2Layout.start();
 			}
 
-			// Strt FA2
+			// Start FA2
 			startFA2();
 			setTimeout(() => {
 				fa2Layout.stop();
 			}, 10 * 1000);
 
-			const renderer = new Sigma(graph, container, {
+			const renderer = new Sigma(graphData, container, {
 				minCameraRatio: 0.08,
 				maxCameraRatio: 3,
 				renderEdgeLabels: true
@@ -105,15 +119,13 @@
 			 ***********************/
 			interface State {
 				hoveredNode?: string;
-
-				// State derived from hovered node:
 				hoveredNeighbors?: Set<string>;
 			}
 			const state: State = {};
 			function setHoveredNode(node?: string) {
 				if (node) {
 					state.hoveredNode = node;
-					state.hoveredNeighbors = new Set(graph.neighbors(node));
+					state.hoveredNeighbors = new Set(graphData.neighbors(node));
 				}
 
 				if (!node) {
@@ -123,7 +135,6 @@
 
 				// Refresh rendering
 				renderer.refresh({
-					// We don't touch the graph data so we can skip its reindexation
 					skipIndexation: true
 				});
 			}
@@ -136,7 +147,6 @@
 			});
 
 			// Render nodes accordingly to the internal state:
-			// 3. If there is a hovered node, all non-neighbor nodes are greyed
 			renderer.setSetting('nodeReducer', (node, data) => {
 				const res: Partial<NodeDisplayData> = { ...data };
 				if (state.hoveredNeighbors) {
@@ -153,9 +163,9 @@
 				const res: Partial<EdgeDisplayData> = { ...data };
 				if (state.hoveredNode) {
 					if (
-						!graph
+						!graphData
 							.extremities(edge)
-							.every((n) => n === state.hoveredNode || graph.areNeighbors(n, state.hoveredNode))
+							.every((n: string) => n === state.hoveredNode || graphData.areNeighbors(n, state.hoveredNode!))
 					) {
 						res.hidden = true;
 					} else {
@@ -163,15 +173,12 @@
 						res.label = data.displayLabel || '';
 					}
 				}
-
 				return res;
 			});
-
-			return () => {
-				renderer.kill();
-			};
+		} catch (error) {
+			console.error('Error initializing graph:', error);
 		}
-	});
+	}
 </script>
 
 <div class="page-container">
@@ -182,7 +189,14 @@
 	<main class="page-main">
 		<Row class="h-100">
 			<Col class="h-100">
-				<div bind:this={container} class="graph-container"></div>
+				{#if isLoading}
+					<div class="loading-container">
+						<Spinner color="primary" />
+						<p class="loading-text">Loading graph data...</p>
+					</div>
+				{:else}
+					<div bind:this={container} class="graph-container"></div>
+				{/if}
 			</Col>
 		</Row>
 	</main>
@@ -241,5 +255,26 @@
 		border-radius: 4px;
 		box-sizing: border-box;
 		flex: 1;
+	}
+
+	.loading-container {
+		height: 100%;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		border: 1px solid #ccc;
+		border-radius: 4px;
+		box-sizing: border-box;
+		flex: 1;
+		background-color: #f8f9fa;
+	}
+
+	.loading-text {
+		margin: 0;
+		color: #6c757d;
+		font-size: 1.1rem;
 	}
 </style>
