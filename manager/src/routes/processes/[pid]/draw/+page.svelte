@@ -1,6 +1,8 @@
 <script lang="ts">
 	export const ssr = false;
 	import { Col, Row } from '@sveltestrap/sveltestrap';
+	import forceAtlas2 from 'graphology-layout-forceatlas2';
+	import FA2Layout from 'graphology-layout-forceatlas2/worker';
 	export let data;
 	import { onMount } from 'svelte';
 	//import Sigma from 'sigma';
@@ -19,12 +21,14 @@
 				graph.mergeNode(t.subject.valueOf(), {
 					x: Math.random(),
 					y: Math.random(),
-					label: t.subject.valueOf()
+					label: t.subject.valueOf(),
+					color: data.proc.currentStep.seeds.includes(t.subject.valueOf()) ? 'red' : 'blue'
 				});
 				graph.mergeNode(t.object.valueOf(), {
 					x: Math.random(),
 					y: Math.random(),
-					label: t.object.valueOf()
+					label: t.object.valueOf(),
+					color: data.proc.currentStep.seeds.includes(t.object.valueOf()) ? 'red' : 'blue'
 				});
 				graph.addDirectedEdge(t.subject.valueOf(), t.object.valueOf(), {
 					type: 'arrow',
@@ -43,9 +47,24 @@
 			//graph.addEdge('Hannah', 'Thomas');
 			//graph.addEdge('Hannah', 'Mary');
 
+			const sensibleSettings = forceAtlas2.inferSettings(graph);
+			const fa2Layout = new FA2Layout(graph, {
+				settings: sensibleSettings
+			});
+
+			const cancelCurrentAnimation: (() => void) | null = null;
+			function startFA2() {
+				if (cancelCurrentAnimation) cancelCurrentAnimation();
+				fa2Layout.start();
+			}
+
+			// Strt FA2
+			startFA2();
+
 			const renderer = new Sigma(graph, container, {
-				minCameraRatio: 0.1,
-				maxCameraRatio: 10
+				minCameraRatio: 0.08,
+				maxCameraRatio: 3,
+				renderEdgeLabels: true
 			});
 		}
 	});

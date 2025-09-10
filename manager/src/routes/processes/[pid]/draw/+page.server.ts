@@ -17,9 +17,12 @@ export const load: PageServerLoad = async ({ params }) => {
   console.log('XXXXXXXXXXXXXXXX', { triples })
 
   return {
-    proc: structuredClone({
+    proc: {
       pid: p.pid,
-    }),
+      currentStep: {
+        seeds: p.currentStep.seeds
+      }
+    },
     triples
   };
 };
