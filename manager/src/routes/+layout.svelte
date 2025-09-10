@@ -6,8 +6,10 @@
 
 <Styles />
 
-<NavigationBar {version} />
+<div style="--navbar-height: 56px; --container-padding: 3rem;">
+	<NavigationBar {version} />
 
-<Container style="max-width: 800px; padding-top: 1.5rem; padding-bottom: 1.5rem">
-	<slot />
-</Container>
+	<Container style="max-width: 800px; padding-top: 1.5rem; padding-bottom: 1.5rem">
+		<slot />
+	</Container>
+</div>

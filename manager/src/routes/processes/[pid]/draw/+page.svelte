@@ -34,22 +34,72 @@
 	});
 </script>
 
-<header style="padding-bottom: 1rem">
-	<h2>Process {data.proc.pid}</h2>
-</header>
+<div class="page-container">
+	<header class="page-header">
+		<h2>Process {data.proc.pid}</h2>
+	</header>
 
-<main>
-	<Row>
-		<Col>
-			<div bind:this={container} class="container"></div>
-		</Col>
-	</Row>
-</main>
+	<main class="page-main">
+		<Row class="h-100">
+			<Col class="h-100">
+				<div bind:this={container} class="graph-container"></div>
+			</Col>
+		</Row>
+	</main>
+</div>
 
 <style>
-	.container {
-		height: 600px;
+	.page-container {
+		height: calc(100vh - var(--navbar-height, 56px) - var(--container-padding, 3rem) - 16px);
+		max-height: calc(100vh - var(--navbar-height, 56px) - var(--container-padding, 3rem) - 16px);
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		box-sizing: border-box;
+	}
+	
+	.page-header {
+		flex-shrink: 0;
+		padding-bottom: 1rem;
+		margin: 0;
+		line-height: 1; /* Reduce line height to minimize space */
+	}
+	
+	.page-header h2 {
+		margin: 0;
+		margin-bottom: 0;
+		padding: 0;
+		line-height: 1.2;
+	}
+	
+	.page-main {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+	
+	/* Completely reset Bootstrap spacing */
+	.page-main :global(.row) {
+		margin: 0 !important;
+		flex: 1;
+		display: flex !important;
+	}
+	
+	.page-main :global(.col) {
+		padding: 0 !important;
+		margin: 0 !important;
+		display: flex !important;
+		flex-direction: column !important;
+	}
+	
+	.graph-container {
+		height: 100%;
+		width: 100%;
 		border: 1px solid #ccc;
 		border-radius: 4px;
+		box-sizing: border-box;
+		flex: 1;
 	}
 </style>
