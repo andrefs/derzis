@@ -14,7 +14,7 @@ const genDomain = (n: number, prefixes: Prefixes) => {
   const num = n.toString().padStart(3, '0');
   // three digits with leading zeros
   const pref = `d${num}`;
-  prefixes[`http://domain-${num}.com/sw/`] = pref;
+  prefixes[`http://derzis-val${num}.andrefs.com/sw/`] = pref;
   return pref;
 };
 const genResName = (n: number, t: 'resource' | 'seed' | 'predicate') => {

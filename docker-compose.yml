@@ -83,8 +83,26 @@ services:
       - '${MONGO_PORT}:${MONGO_PORT}'
     networks:
       - db
+  validator:
+    build:
+      context: ./
+      dockerfile: ./validator/Dockerfile
+    environment:
+      VALIDATOR_PORT: ${VALIDATOR_PORT}
+    ports:
+      - 80:${VALIDATOR_PORT}
+    networks:
+      val:
+        aliases:
+          - derzis-val001.andrefs.com
+          - derzis-val002.andrefs.com            
+          - derzis-val003.andrefs.com
+          - derzis-val004.andrefs.com
+          - derzis-val005.andrefs.com
 networks:
   db:
     name: db
   ps:
     name: ps
+  val:
+    name: val

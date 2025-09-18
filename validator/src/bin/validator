@@ -1,0 +1,4 @@
+#!/bin/bash
+
+CURPATH=$(dirname "$0")
+time node -r ts-node/register -r tsconfig-paths/register --max_old_space_size=24576 "$CURPATH"/server.ts
