@@ -11,7 +11,7 @@ const MONGO_HOST = process.env.MONGO_HOST;
 const MONGO_PORT = process.env.MONGO_PORT;
 
 const dbPort = MONGO_PORT ? parseInt(MONGO_PORT) : 27017;
-const databasesToDrop = ['drz-mng-dev'];
+const databasesToDrop = ['drz-mng-dev', 'drz-wrk-dev'];
 
 const connStr = muri.format({
 	scheme: 'mongodb',
