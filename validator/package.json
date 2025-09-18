@@ -1,8 +1,10 @@
 {
   "devDependencies": {
+    "@types/express": "5.0.3",
     "tsconfig-paths": "4.2.0"
   },
   "dependencies": {
+    "express": "5.1.0",
     "handlebars": "4.7.8"
   }
 }
