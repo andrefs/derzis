@@ -85,10 +85,11 @@ for (let i = 0; i < resCount; i++) {
 }
 
 const dataFolder = path.join(__dirname, '../../data');
-const graphFolder = path.join(dataFolder, `graph-${Date.now()}`);
+const graphId = `graph-${Date.now()}`;
+const graphFolder = path.join(dataFolder, graphId);
 // create folder if it doesn't exist
 mkdirSync(graphFolder, { recursive: true });
 
-console.log(`Writing graph data to ./data/${path.basename(graphFolder)}`);
+console.log(`Writing graph data to ${path.relative(process.cwd(), graphFolder)}`);
 writeFileSync(path.join(graphFolder, 'data.ttl'), triplesToTurtle(prefixes, triples));
 writeFileSync(path.join(graphFolder, 'graph.html'), genPage(triples));
