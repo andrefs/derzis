@@ -100,6 +100,7 @@ services:
           - derzis-val003.andrefs.com
           - derzis-val004.andrefs.com
           - derzis-val005.andrefs.com
+    command: graph-1758276655616
 networks:
   db:
     name: db

@@ -46,4 +46,4 @@ COPY --from=build --chown=node:node /home/node/derzis/validator/data ./data/
 WORKDIR /usr/src/derzis/validator
 
 USER 1000
-CMD ["src/bin/validator"]
+ENTRYPOINT ["src/bin/validator"]
