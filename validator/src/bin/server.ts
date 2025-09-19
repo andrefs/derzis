@@ -22,7 +22,7 @@ app.get('/sw/:type-:num', (req: Request, res: Response) => {
   console.log(`${now()} - Request for /sw/${type}-${num} in domain ${req.hostname}`);
 })
 
-const port = process.env.VALIDATOR_PORT || 3000;
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log('Server is running on http://localhost:' + port);
 })
