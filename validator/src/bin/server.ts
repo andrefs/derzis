@@ -1,8 +1,16 @@
 
 const graphFolder = process.argv[2];
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 
 const app = express();
+
+const now = () => new Date().toISOString();
+
+// Request logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`${now()} - ${req.method} ${req.originalUrl} - Host: ${req.hostname} - IP: ${req.ip}`);
+  next();
+});
 
 
 app.get('/', (req: Request, res: Response) => {
@@ -11,7 +19,7 @@ app.get('/', (req: Request, res: Response) => {
 
 app.get('/sw/:type-:num', (req: Request, res: Response) => {
   const { type, num } = req.params;
-  console.log(`Request for /sw/${type}-${num} in domain ${req.hostname}`);
+  console.log(`${now()} - Request for /sw/${type}-${num} in domain ${req.hostname}`);
 })
 
 const port = process.env.VALIDATOR_PORT || 3000;

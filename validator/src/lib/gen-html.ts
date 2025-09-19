@@ -3,8 +3,6 @@ import Handlebars from 'handlebars';
 
 const cdnLinks = [
   '<script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/2.4.0/sigma.min.js"></script>',
-  '<script src="https://cdnjs.cloudflare.com/ajax/libs/graphology/0.25.4/graphology.umd.min.js"></script>',
-  '<script src=""></script>',
   '<script src="https://cdn.jsdelivr.net/npm/graphology@0.26.0/dist/graphology.umd.min.js"></script>',
   '<script src="https://cdn.jsdelivr.net/npm/graphology-library/dist/graphology-library.min.js"></script>'
 ]
@@ -19,52 +17,126 @@ export function genPage(triples: SimpleTriple[]) {
     {{#each cdnLinks}}
     {{{this}}}
     {{/each}}
+    <style>
+      body { background: lightgrey; }
+      #container { width: 800px; height: 600px; background: white; margin: 20px auto; }
+    </style>
   </head>
-  <body style="background: lightgrey">
-    <div id="container" style="width: 800px; height: 600px; background: white"></div>
+  <body>
+    <div id="container"></div>
     <script>
-
-
       // Create a graphology graph
-			const graph = new graphology.Graph({ type: 'directed', multi: true, allowSelfLoops: true });
+      const graph = new graphology.Graph({ type: 'directed', multi: true, allowSelfLoops: true });
+
+      // Track seed nodes so we can place them on a circle
+      const seedNodes = new Set();
+
+      // Create nodes and edges from triples
       {{#each triples}}
       {
-        const subColor = "{{subject}}".match(/seed/) ? "green" : "orange";
-        const objColor = "{{object}}".match(/seed/) ? "green" : "orange";
-        graph.mergeNode("{{subject}}", { label: "{{subject}}", x: Math.random(), y: Math.random(), size: 10, color: subColor });
-        graph.mergeNode("{{object}}", { label: "{{object}}", x: Math.random(), y: Math.random(), size: 10, color: objColor });
-        graph.addEdge("{{subject}}", "{{object}}", { size: 1, color: "grey" });
+        const sub = "{{subject}}";
+        const obj = "{{object}}";
+        const subIsSeed = /seed/.test(sub);
+        const objIsSeed = /seed/.test(obj);
 
+        const subColor = subIsSeed ? "green" : "orange";
+        const objColor = objIsSeed ? "green" : "orange";
 
-			  // increase size logarithmically based on degree
-			  graph.updateNodeAttribute("{{subject}}", 'size', (size) =>
-			  	size ? Math.log(size + 1) * 5 : 1
-			  );
-			  graph.updateNodeAttribute("{{object}}", 'size', (size) =>
-			  	size ? Math.log(size + 1) * 5 : 1
-			  );
+        // Give non-seed nodes a random initial position to help FA2
+        const randPos = () => ({ x: (Math.random() - 0.5) * 2, y: (Math.random() - 0.5) * 2 });
+
+        if (!graph.hasNode(sub)) {
+          const pos = subIsSeed ? { x: 0, y: 0 } : randPos();
+          graph.mergeNode(sub, { label: sub, x: pos.x, y: pos.y, size: 8, color: subColor, fixed: !!subIsSeed });
+        }
+
+        if (!graph.hasNode(obj)) {
+          const pos = objIsSeed ? { x: 0, y: 0 } : randPos();
+          graph.mergeNode(obj, { label: obj, x: pos.x, y: pos.y, size: 8, color: objColor, fixed: !!objIsSeed });
+        }
+
+        graph.addEdge(sub, obj, { size: 1, color: "grey" });
+
+        if (subIsSeed) seedNodes.add(sub);
+        if (objIsSeed) seedNodes.add(obj);
+
+        // increase size logarithmically based on degree
+        graph.updateNodeAttribute(sub, 'size', (size) =>
+          size ? Math.log(size + 1) * 5 : 1
+        );
+        graph.updateNodeAttribute(obj, 'size', (size) =>
+          size ? Math.log(size + 1) * 5 : 1
+        );
       }
       {{/each}}
 
-	
-			const sensibleSettings = graphologyLibrary.layoutForceAtlas2.inferSettings(graph);
-			const fa2Layout = new graphologyLibrary.FA2Layout(graph,{
-				settings: sensibleSettings
-			});
-			function startFA2() {
-				fa2Layout.start();
-			}
-			// Start FA2
-			startFA2();
-			setTimeout(() => {
-				fa2Layout.stop();
-			}, 10 * 1000);
+      // Function to place seed nodes on a centered circle
+      function placeSeedsOnCircle() {
+        const seeds = Array.from(seedNodes);
+        if (seeds.length === 0) return;
 
+        // Centered in graph coordinate space (sigma centers around 0,0)
+        const centerX = 0;
+        const centerY = 0;
+        const radius = 30.0; // radius in graph coordinate units
 
-//graphologyLibrary.layoutForceAtlas2.assign(graph, { iterations: 100 });
+        seeds.forEach((nodeId, i) => {
+          const angle = (2 * Math.PI * i) / seeds.length;
+          const x = centerX + radius * Math.cos(angle);
+          const y = centerY + radius * Math.sin(angle);
 
-      // Instantiate sigma.js and render the graph
+          // Set the node position and color/size explicitly and mark as fixed
+          graph.setNodeAttribute(nodeId, 'x', x);
+          graph.setNodeAttribute(nodeId, 'y', y);
+          graph.setNodeAttribute(nodeId, 'size', 12);
+          graph.setNodeAttribute(nodeId, 'color', 'green');
+          graph.setNodeAttribute(nodeId, 'fixed', true);
+        });
+      }
+
+      // Initial placement of seeds before running layout
+      placeSeedsOnCircle();
+
+      // Infer FA2 settings and create a layout runner
+      const sensibleSettings = graphologyLibrary.layoutForceAtlas2.inferSettings(graph);
+      const fa2Layout = new graphologyLibrary.FA2Layout(graph, {
+        settings: sensibleSettings
+      });
+
+      // Start FA2 to arrange non-seed nodes around the seeded circle
+      fa2Layout.start();
+
+      // Instantiate sigma.js so we can see the live layout
       const sigmaInstance = new Sigma(graph, document.getElementById("container"));
+
+      // Stop FA2 after some time, then reassert seed positions to keep them on the circle
+      setTimeout(() => {
+        fa2Layout.stop();
+
+        const seeds = Array.from(seedNodes);
+        if (seeds.length > 0) {
+          const centerX = 0;
+          const centerY = 0;
+          const radius = 30.0;
+
+          seeds.forEach((nodeId, i) => {
+            const angle = (2 * Math.PI * i) / seeds.length;
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+            graph.setNodeAttribute(nodeId, 'x', x);
+            graph.setNodeAttribute(nodeId, 'y', y);
+
+            // Ensure they remain fixed and visually prominent
+            graph.setNodeAttribute(nodeId, 'size', 14);
+            graph.setNodeAttribute(nodeId, 'color', 'green');
+            graph.setNodeAttribute(nodeId, 'fixed', true);
+          });
+
+          // Refresh sigma renderer to reflect final positions
+          sigmaInstance.refresh();
+        }
+      }, 10 * 1000);
+
     </script>
   </body>
 </html>
