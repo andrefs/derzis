@@ -46,7 +46,7 @@ export async function GET({ params, setHeaders }: RequestEvent) {
 	const gzipStream = createGzip();
 
 	setHeaders({
-		'Content-Disposition': 'attachment; filename="triples.nt.gz"'
+		'Content-Disposition': `attachment; filename="${params.pid}-triples.nt.gz"`
 	});
 
 	return new Response(

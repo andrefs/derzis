@@ -42,7 +42,7 @@ export async function GET({ params }: RequestEvent) {
 	return new Response(compStream.readable, {
 		headers: {
 			'Content-Type': 'application/gzip',
-			'Content-Disposition': 'attachment; filename="triples.json.gz"'
+			'Content-Disposition': `attachment; filename="${params.pid}-triples.json.gz"`
 		}
 	});
 }
