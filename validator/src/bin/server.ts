@@ -25,12 +25,38 @@ app.set('views', path.join(__dirname, '../views'));
 
 const now = () => new Date().toISOString();
 
-// Request logging middleware
+// Request/response logging middleware (logs method, url, status and duration)
+// Controlled by NODE_ENV and LOG_REQUESTS (set LOG_REQUESTS=true to force logging)
+//const shouldLogRequests = process.env.NODE_ENV !== 'production' || process.env.LOG_REQUESTS === 'true';
+const shouldLogRequests = true; // Always log for this server
 app.use((req: Request, res: Response, next: NextFunction) => {
-  console.log(`${now()} - ${req.method} ${req.originalUrl} - Host: ${req.hostname} - IP: ${req.ip}`);
+  if (!shouldLogRequests) {
+    return next();
+  }
+
+  // Log when the request is received so we have a trace even if the request hangs
+  console.log(`${now()} - -> ${req.method} ${req.protocol}://${req.get('host')}${req.originalUrl}`);
+
+  const start = process.hrtime();
+  res.on('finish', () => {
+    const diff = process.hrtime(start);
+    const durationMs = (diff[0] * 1e3) + (diff[1] / 1e6);
+    const base = `${now()} - <- ${req.method} ${req.originalUrl} - ${res.statusCode} ${res.statusMessage || ''} - ${durationMs.toFixed(3)} ms - Host: ${req.hostname}`;
+    if (res.statusCode >= 500) {
+      console.error(base);
+    } else if (res.statusCode >= 400) {
+      console.warn(base);
+    } else {
+      console.log(base);
+    }
+  });
   next();
 });
 
+
+app.get('/debug/triple-hash', (req: Request, res: Response) => {
+  res.json(tripleHash);
+});
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Up and running');
@@ -51,12 +77,13 @@ app.get('/sw/:type-:num', (req: Request, res: Response) => {
     return;
   }
   res.type('text/turtle');
-  res.send(triples.join('\n'));
+  // send triples as turtle
+  res.send(triples.map(t => `<${t.subject}> <${t.predicate}> <${t.object}> .`).join('\n'));
 })
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log('Server is running on http://localhost:' + port);
   console.log(`Loaded triples from ${graphFolder}/data.ttl}:`);
-  console.log(tripleHash);
+  //console.log(tripleHash);
 })

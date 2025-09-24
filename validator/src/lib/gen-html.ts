@@ -11,7 +11,7 @@ const cdnLinks = [
 
 export function genPage(triples: SimpleTriple[]) {
   // Read template from file ./graph.hbs
-  const templateSource = fs.readFileSync(path.join(__dirname, 'graph.hbs'), 'utf-8');
+  const templateSource = fs.readFileSync(path.join(__dirname, '..', 'views', 'graph.hbs'), 'utf-8');
   const template = Handlebars.compile(templateSource);
   return template({ triples, cdnLinks });
 }
