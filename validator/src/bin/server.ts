@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import express, { Request, Response, NextFunction } from 'express';
 import { parseTriples } from '../lib/triples';
+import { engine } from 'express-handlebars';
 
 const graphId = process.argv[2];
 if (!graphId) {
@@ -15,6 +16,12 @@ const tripleHash = parseTriples(rdfData);
 
 
 const app = express();
+app.engine('hbs', engine({ extname: '.hbs' }));
+app.set('view engine', 'hbs');
+app.set('views', path.join(__dirname, '../views'));
+// Serve static files from the "public" directory
+// app.use(express.static(path.join(__dirname, '../public')));
+
 
 const now = () => new Date().toISOString();
 
@@ -30,11 +37,8 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.get('/robots.txt', (req: Request, res: Response) => {
-  // Allow all
   res.type('text/plain');
-  res.send('User-agent: *');
-  res.send('Crawl-delay: 10');
-  res.send('Disallow:');
+  res.render('robots', { layout: false });
 });
 
 app.get('/sw/:type-:num', (req: Request, res: Response) => {
