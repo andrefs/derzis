@@ -10,11 +10,11 @@ export interface Prefixes {
 }
 
 
-const genDomain = (n: number, prefixes: Prefixes) => {
+const genDomain = (n: number, graphId: string, prefixes: Prefixes) => {
   const num = n.toString().padStart(3, '0');
   // three digits with leading zeros
   const pref = `d${num}`;
-  prefixes[`http://derzis-val${num}.andrefs.com/sw/`] = pref;
+  prefixes[`http://derzis-val${num}.andrefs.com/sw/${graphId}/`] = pref;
   return pref;
 };
 const genResName = (n: number, t: 'resource' | 'seed' | 'predicate') => {
@@ -24,13 +24,15 @@ const genResName = (n: number, t: 'resource' | 'seed' | 'predicate') => {
 const prefixes: Prefixes = {};
 
 
+// create a unique 6-character alphanumeric string
+const graphId = Math.random().toString(36).substring(2, 8);
 
 const domains = [
-  genDomain(1, prefixes),
-  genDomain(2, prefixes),
-  genDomain(3, prefixes),
-  genDomain(4, prefixes),
-  genDomain(5, prefixes),
+  genDomain(1, graphId, prefixes),
+  genDomain(2, graphId, prefixes),
+  genDomain(3, graphId, prefixes),
+  genDomain(4, graphId, prefixes),
+  genDomain(5, graphId, prefixes),
 ];
 
 const seeds = [
@@ -84,9 +86,31 @@ for (let i = 0; i < resCount; i++) {
   }
 }
 
+// level 3: each resource has 10 triples, 30% change of linking to a new resource, 70% chance of linking to an existing resource or seed
+const resCount2 = resources.length;
+for (let i = 0; i < resCount2; i++) {
+  for (let rn = 1; rn <= 10; rn++) {
+    const predicate = getRandom(predicates, 1)[0];
+    let obj: string;
+    if (Math.random() < 0.3) {
+      obj = `${domains[rn % 4]}:${genResName(rn + 30, 'resource')} `;
+      resources.push(obj);
+    } else {
+      obj = Math.random() < 0.5 ? getRandom(resources, 1)[0] : getRandom(seeds, 1)[0];
+    }
+    triples.push({
+      subject: resources[i],
+      predicate,
+      object: obj,
+    });
+  }
+}
+
+// write triples to a file in data/graph-<timestamp>/data.ttl
+// create folder if it doesn't exist
 const dataFolder = path.join(__dirname, '../../data');
-const graphId = `graph-${Date.now()}`;
-const graphFolder = path.join(dataFolder, graphId);
+const graphName = `graph-${graphId}-${Date.now()}`;
+const graphFolder = path.join(dataFolder, graphName);
 // create folder if it doesn't exist
 mkdirSync(graphFolder, { recursive: true });
 
