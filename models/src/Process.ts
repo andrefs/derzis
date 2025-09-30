@@ -5,6 +5,7 @@ import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
 import { Path, type PathSkeleton, type PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
+import { Counter } from './Counter';
 import { HttpError, createLogger, webhookPost } from '@derzis/common';
 const log = createLogger('Process');
 import {
@@ -58,8 +59,11 @@ export class StepClass {
     createdAt: { $gt: today }
   });
   if (!this.pid) {
+    // YYYY-MM-DD-count
     const date = today.toISOString().split('T')[0] + '-' + count;
-    const word = humanize('process' + date);
+    // YYYY-MM-DD-HHMM
+    const str = date + '-' + new Date().toISOString().split('T')[1].replace(/[:.]/g, '').slice(0, 4);
+    const word = humanize('process' + str);
     this.pid = `${word}-${date}`;
   }
   if (!this.notification) {
@@ -453,7 +457,7 @@ class ProcessClass {
       currentStep: this.currentStep,
       steps: this.steps,
       notification: this.notification,
-      status: this.status
+      status: this.status,
     };
   }
 
