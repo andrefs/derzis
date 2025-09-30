@@ -35,6 +35,7 @@
     "@types/mongodb-uri": "0.9.4",
     "@types/n3": "1.21.1",
     "@types/nodemailer": "6.4.17",
+    "@types/yazl": "3.3.0",
     "axios": "^1.7.9",
     "bluebird": "^3.7.2",
     "bootstrap": "5.3.3",
@@ -69,7 +70,8 @@
     "uuid": "^11.0.5",
     "vite": "6.0.11",
     "vitest": "3.0.4",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "yazl": "3.3.1"
   },
   "devDependencies": {
     "@types/bluebird": "3.5.42",

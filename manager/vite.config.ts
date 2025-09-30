@@ -20,7 +20,8 @@ export default defineConfig({
   build: {
     commonjsOptions: {
       transformMixedEsModules: true
-    }
+    },
+
   },
   plugins: [sveltekit()],
   test: {
@@ -32,5 +33,5 @@ export default defineConfig({
   },
   preview: {
     port: process.env.PORT ? parseInt(process.env.PORT) : 3000
-  }
+  },
 });

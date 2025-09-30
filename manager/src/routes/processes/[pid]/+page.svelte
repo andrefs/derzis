@@ -4,6 +4,7 @@
 	import { Icon } from 'svelte-icons-pack';
 	import { BsPencilSquare } from 'svelte-icons-pack/bs';
 	import { BiDownload, BiNetworkChart } from 'svelte-icons-pack/bi';
+	import { HiSolidMagnifyingGlass } from 'svelte-icons-pack/hi';
 </script>
 
 <header style="padding-bottom: 1rem">
@@ -47,7 +48,16 @@
 					<tr>
 						<th scope="row">Info</th>
 						<td>
-							<a href="/api/processes/{data.proc.pid}/stats">View</a>
+							<p>
+								<a href="/api/processes/{data.proc.pid}/stats"
+									>View <Icon src={HiSolidMagnifyingGlass} /></a
+								>
+							</p>
+							<p>
+								<a href="/api/processes/{data.proc.pid}-full.zip"
+									>Full download <Icon src={BiDownload} /></a
+								>
+							</p>
 						</td>
 					</tr>
 				</tbody>
