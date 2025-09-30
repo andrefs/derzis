@@ -10,6 +10,7 @@
     "express-handlebars": "8.0.3",
     "handlebars": "4.7.8",
     "ts-node": "10.9.2",
+    "vitest": "3.2.4",
     "yauzl": "3.2.0"
   }
 }
