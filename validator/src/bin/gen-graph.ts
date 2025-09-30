@@ -106,6 +106,27 @@ for (let i = 0; i < resCount2; i++) {
   }
 }
 
+
+// level 4: each resource has 5 triples, 20% change of linking to a new resource, 80% chance of linking to an existing resource or seed
+const resCount3 = resources.length;
+for (let i = 0; i < resCount3; i++) {
+  for (let rn = 1; rn <= 5; rn++) {
+    const predicate = getRandom(predicates, 1)[0];
+    let obj: string;
+    if (Math.random() < 0.2) {
+      obj = `${domains[rn % 4]}:${genResName(rn + 40, 'resource')} `;
+      resources.push(obj);
+    } else {
+      obj = Math.random() < 0.5 ? getRandom(resources, 1)[0] : getRandom(seeds, 1)[0];
+    }
+    triples.push({
+      subject: resources[i],
+      predicate,
+      object: obj,
+    });
+  }
+}
+
 // write triples to a file in data/graph-<timestamp>/data.ttl
 // create folder if it doesn't exist
 const dataFolder = path.join(__dirname, '../../data');

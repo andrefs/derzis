@@ -67,7 +67,9 @@ app.get('/robots.txt', (req: Request, res: Response) => {
   res.render('robots', { layout: false });
 });
 
-app.get('/sw/:type-:num', (req: Request, res: Response) => {
+
+// TODO use graph id from req.params
+app.get('/sw/:graphId/:type-:num', (req: Request, res: Response) => {
   const { type, num } = req.params;
   const url = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
   // return turtle data for the requested resource
