@@ -10,44 +10,73 @@ interface TripleReadable extends Readable {
   first?: boolean;
 }
 
+function addInfo(zipfile: yazl.ZipFile, info: Awaited<ReturnType<typeof Process.prototype.getInfo>>) {
+  const stats = JSON.stringify(info, null, 2);
+  zipfile.addBuffer(Buffer.from(stats), 'info.json');
+}
+
+function addItems(
+  zipfile: yazl.ZipFile,
+  iter: AsyncGenerator<string, void, unknown>,
+  filename: string
+) {
+  console.warn(`Adding ${filename} to zip...`);
+
+  let started = false;
+  let first = true;
+  let reading = false; // prevents concurrent reads
+
+  const stream = new Readable({
+    read() {
+      if (reading) return; // already in progress
+      reading = true;
+
+      (async () => {
+        try {
+          if (!started) {
+            this.push('[\n'); // start array
+            started = true;
+          }
+
+          const { value, done } = await iter.next();
+          if (done) {
+            this.push('\n]'); // close array
+            this.push(null);  // end stream
+            return;
+          }
+
+          const chunk = (first ? '  ' : ',\n  ') + value;
+          first = false;
+          this.push(chunk);
+        } catch (err) {
+          this.destroy(err as Error);
+        } finally {
+          reading = false;
+        }
+      })();
+    }
+  });
+
+  zipfile.addReadStream(stream, filename);
+}
 export async function GET({ params }: RequestEvent) {
   const p = await Process.findOne({ pid: params.pid });
   if (!p) throw new Error('Not found');
 
-  // info.json
-  const stats = JSON.stringify(await p.getInfo(), null, 2);
-
-
   const zipfile = new yazl.ZipFile();
 
   // Add info.json
-  zipfile.addBuffer(Buffer.from(stats), 'info.json');
+  addInfo(zipfile, await p.getInfo());
 
   // Add triples.json as a stream
-  const triplesIter = p.getTriplesJson();
+  addItems(zipfile, p.getTriplesJson(), `${params.pid}-triples.json`);
 
-  const triplesStream = new Readable({
-    async read(this: TripleReadable) {
-      if (!this.started) {
-        this.push('['); // start array
-        this.started = true;
-        this.first = true;
-      }
+  //// Add domains.json as a stream
+  //addItems(zipfile, p.getDomainsJson(), `${params.pid}-domains.json`);
 
-      const { value, done } = await triplesIter.next();
-      if (done) {
-        this.push('\n]'); // close array
-        this.push(null);
-        return;
-      }
+  // Add resources.json as a stream
+  addItems(zipfile, p.getResourcesJson(), `${params.pid}-resources.json`);
 
-      const chunk = (this.first ? '\n  ' : ',\n  ') + value;
-      this.first = false;
-      this.push(chunk);
-    }
-  });
-
-  zipfile.addReadStream(triplesStream, `${params.pid}-triples.json`);
 
   // Finalize zip and pipe to response
   const pass = new PassThrough();

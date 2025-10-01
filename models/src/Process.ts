@@ -1,5 +1,5 @@
 import { Types, Document } from 'mongoose';
-import { Resource } from './Resource';
+import { Resource, ResourceClass } from './Resource';
 import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Domain } from './Domain';
@@ -172,9 +172,26 @@ class ProcessClass {
     }
   }
 
-  public async *getTriplesJson(this: ProcessClass) {
+  /** 
+   * Get triples as a stream of JSON strings
+   * @returns {AsyncGenerator<string>} - JSON strings of triples
+   */
+  public async *getTriplesJson(this: ProcessClass): AsyncGenerator<string> {
     for await (const t of this.getTriples()) {
       yield JSON.stringify(t);
+    }
+  }
+
+  public async *getDomainsJson(this: ProcessClass) {
+    const domains = Domain.find({ processId: this.pid }).lean();
+    for await (const d of domains) {
+      yield JSON.stringify(d);
+    }
+  }
+
+  public async *getResourcesJson(this: ProcessClass) {
+    for await (const r of this.getAllResources()) {
+      yield JSON.stringify(r._id);
     }
   }
 
@@ -367,6 +384,45 @@ class ProcessClass {
     return res[0].count;
   }
 
+  public async* getAllResources(this: ProcessClass) {
+    const res = ProcessTriple.aggregate(
+      [
+        {
+          $match: {
+            processId: this.pid
+          }
+        },
+        { $group: { _id: '$triple' } },
+        {
+          $lookup: {
+            from: 'triples',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'ts'
+          }
+        },
+        {
+          $unwind: {
+            path: '$ts',
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        { $project: { sources: '$ts.sources' } },
+        {
+          $unwind: {
+            path: '$sources',
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        { $group: { _id: '$sources' } }
+      ],
+      { maxTimeMS: 60000, allowDiskUse: true }
+    ).cursor({ batchSize: 100 });
+    for await (const r of res) {
+      yield r
+    }
+  }
+
   public async getInfo(this: DocumentType<ProcessClass>) {
     const baseFilter = { processId: this.pid };
     const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
@@ -377,6 +433,23 @@ class ProcessClass {
       lastTriple?.updatedAt.getTime() || 0,
       lastPath?.updatedAt.getTime() || 0
     );
+
+    const totalPaths = await Path.countDocuments({
+      'seed.url': { $in: this.currentStep.seeds }
+    }).lean();
+    const avgPathLength = totalPaths
+      ? await Path.aggregate([
+        { $match: { 'seed.url': { $in: this.currentStep.seeds } } },
+        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+      ]).then((res) => res[0]?.avgLength || 0)
+      : 0;
+
+    const avgPathProps = totalPaths
+      ? await Path.aggregate([
+        { $match: { 'seed.url': { $in: this.currentStep.seeds } } },
+        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+      ]).then((res) => res[0]?.avgProps || 0)
+      : 0;
 
     const timeToLastResource = lastResource
       ? (lastResource!.updatedAt.getTime() - this.createdAt!.getTime()) / 1000
@@ -441,7 +514,9 @@ class ProcessClass {
         active: await Path.countDocuments({
           'seed.url': { $in: this.currentStep.seeds },
           status: 'active'
-        }).lean() // TODO add index
+        }).lean(), // TODO add index
+        avgPathLength,
+        avgPathProps,
       },
       // TODO remove allPaths
       allPaths: {
