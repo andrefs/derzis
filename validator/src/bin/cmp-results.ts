@@ -1,8 +1,17 @@
 import yauzl from 'yauzl';
-import { cmpGraphPreConds } from '../lib/cmp-results';
+import { checkPreConditions } from '../lib/cmp-results';
 
 import { ProcessInfo } from '../lib/types';
 
+
+async function loadJsonFromZip<T>(zipPath: string, filePath: string): Promise<T> {
+  try {
+    const content = await loadFileFromZip(zipPath, filePath);
+    return JSON.parse(content) as T;
+  } catch (err) {
+    throw new Error(`Error loading or parsing ${filePath} from ${zipPath}: ${err}`);
+  }
+}
 
 async function loadFileFromZip(zipPath: string, filePath: string): Promise<string> {
   return new Promise<string>((resolve, reject) => {
@@ -50,33 +59,15 @@ async function loadFileFromZip(zipPath: string, filePath: string): Promise<strin
 
 
 async function cmpGraphs(zip1: string, zip2: string) {
-  const checkPC = await checkPreConditions(zip1, zip2);
+  const info1 = await loadJsonFromZip<ProcessInfo>(zip1, 'info.json');
+  const info2 = await loadJsonFromZip<ProcessInfo>(zip2, 'info.json');
+  const checkPC = checkPreConditions(info1, info2);
   console.log('Pre-conditions match:', checkPC);
 
-  // compar
+  // compare 
 }
 
 
-async function checkPreConditions(zip1: string, zip2: string) {
-  try {
-    const [infoStr1, infoStr2] = await Promise.all([
-      loadFileFromZip(zip1, 'info.json'),
-      loadFileFromZip(zip2, 'info.json'),
-    ]).catch((err) => {
-      console.error('Error loading info.json from zips:', err);
-      throw err;
-    });
-
-    const info1: ProcessInfo = JSON.parse(infoStr1);
-    const info2: ProcessInfo = JSON.parse(infoStr2);
-
-    return cmpGraphPreConds(info1, info2);
-  }
-  catch (err) {
-    console.error('Error checking pre-conditions:', err);
-    return false;
-  }
-}
 
 
 async function main() {

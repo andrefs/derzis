@@ -1,6 +1,7 @@
 import { ProcessInfo } from "./types";
+import * as jsondiffpatch from "jsondiffpatch";
 
-export function cmpGraphPreConds(info1: ProcessInfo, info2: ProcessInfo) {
+export function checkPreConditions(info1: ProcessInfo, info2: ProcessInfo) {
   if (info1?.steps?.length !== info2?.steps?.length) {
     console.warn('Different number of steps');
     return false;
@@ -40,5 +41,24 @@ export function cmpGraphPreConds(info1: ProcessInfo, info2: ProcessInfo) {
     }
   }
   return true;
+}
+
+export function cmpCounts(info1: ProcessInfo, info2: ProcessInfo) {
+  const i1 = {
+    resources: info1.resources.total || 0,
+    triples: info1.triples.total || 0,
+    domains: info1.domains.total || 0,
+    paths: info1.paths.total || 0,
+  };
+
+  const i2 = {
+    resources: info2.resources.total || 0,
+    triples: info2.triples.total || 0,
+    domains: info2.domains.total || 0,
+    paths: info2.paths.total || 0,
+  };
+
+  const delta = jsondiffpatch.diff(i1, i2);
+  return delta;
 }
 

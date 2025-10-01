@@ -26,7 +26,3 @@ export function diffObjs(obj1: any, obj2: any) {
   return delta;
 }
 
-export function patchToText(delta: jsondiffpatch.Delta) {
-  const text = jsondiffpatch.for
-  return text;
-}
