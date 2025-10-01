@@ -1,10 +1,13 @@
 import yauzl from 'yauzl';
-import { checkPreConditions } from '../lib/cmp-results';
+import { checkPreConditions, cmpCounts } from '../lib/cmp-results';
 
 import { ProcessInfo } from '../lib/types';
+import { humanizeDelta } from '../lib/jdp-humanize';
+import { SimpleTriple } from '@derzis/common';
+import { diffTripleArrays } from '../lib/diff';
 
 
-async function loadJsonFromZip<T>(zipPath: string, filePath: string): Promise<T> {
+async function loadJsonFromZip<T>(zipPath: string, filePath: string | RegExp): Promise<T> {
   try {
     const content = await loadFileFromZip(zipPath, filePath);
     return JSON.parse(content) as T;
@@ -13,7 +16,7 @@ async function loadJsonFromZip<T>(zipPath: string, filePath: string): Promise<T>
   }
 }
 
-async function loadFileFromZip(zipPath: string, filePath: string): Promise<string> {
+async function loadFileFromZip(zipPath: string, filePath: string | RegExp): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     return yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
       if (err || !zipfile) return reject(err);
@@ -22,7 +25,7 @@ async function loadFileFromZip(zipPath: string, filePath: string): Promise<strin
 
       zipfile.readEntry();
       zipfile.on('entry', (entry) => {
-        if (entry.fileName === filePath) {
+        if ((filePath instanceof RegExp && filePath.test(entry.fileName)) || entry.fileName === filePath) {
           found = true;
           zipfile.openReadStream(entry, (err, readStream) => {
             if (err || !readStream) {
@@ -64,7 +67,24 @@ async function cmpGraphs(zip1: string, zip2: string) {
   const checkPC = checkPreConditions(info1, info2);
   console.log('Pre-conditions match:', checkPC);
 
-  // compare 
+  // compare counts
+  const countDelta = cmpCounts(info1, info2);
+  if (countDelta) {
+    console.log('Count differences:', humanizeDelta(countDelta));
+  } else {
+    console.log('No count differences');
+  }
+
+  // compare triples
+  const triples1 = await loadJsonFromZip<SimpleTriple[]>(zip1, /.*-triples\.json$/);
+  const triples2 = await loadJsonFromZip<SimpleTriple[]>(zip2, /.*-triples\.json$/);
+
+  const delta = diffTripleArrays(triples1, triples2);
+  if (delta) {
+    console.log('Triple differences:', humanizeDelta(delta));
+  } else {
+    console.log('No triple differences');
+  }
 }
 
 
