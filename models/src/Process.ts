@@ -183,9 +183,9 @@ class ProcessClass {
   }
 
   public async *getDomainsJson(this: ProcessClass) {
-    const domains = Domain.find({ processId: this.pid }).lean();
-    for await (const d of domains) {
-      yield JSON.stringify(d);
+    for await (const d of this.getAllDomains()) {
+      console.log('XXXXXXXXXXXX', d);
+      yield JSON.stringify(d.origin);
     }
   }
 
@@ -387,12 +387,15 @@ class ProcessClass {
   public async* getAllResources(this: ProcessClass) {
     const res = ProcessTriple.aggregate(
       [
+        // get all process triples matching this process
         {
           $match: {
             processId: this.pid
           }
         },
+        // group by triple to avoid duplicates
         { $group: { _id: '$triple' } },
+        // get actual triples
         {
           $lookup: {
             from: 'triples',
@@ -401,25 +404,112 @@ class ProcessClass {
             as: 'ts'
           }
         },
+        // flatten array
         {
           $unwind: {
             path: '$ts',
             preserveNullAndEmptyArrays: true
           }
         },
+        // get sources (resources) from triples
         { $project: { sources: '$ts.sources' } },
+        // flatten sources array
         {
           $unwind: {
             path: '$sources',
             preserveNullAndEmptyArrays: true
           }
         },
+        // group by source to avoid duplicates
         { $group: { _id: '$sources' } }
       ],
       { maxTimeMS: 60000, allowDiskUse: true }
     ).cursor({ batchSize: 100 });
     for await (const r of res) {
       yield r
+    }
+  }
+
+  public async* getAllDomains(this: ProcessClass) {
+    const res = ProcessTriple.aggregate(
+      [
+        {
+          '$match': {
+            'processId': this.pid
+          }
+        }, {
+          '$group': {
+            '_id': '$triple'
+          }
+        }, {
+          '$lookup': {
+            'from': 'triples',
+            'localField': '_id',
+            'foreignField': '_id',
+            'as': 'ts'
+          }
+        }, {
+          '$unwind': {
+            'path': '$ts',
+            'preserveNullAndEmptyArrays': true
+          }
+        }, {
+          '$project': {
+            'sources': '$ts.sources'
+          }
+        }, {
+          '$unwind': {
+            'path': '$sources',
+            'preserveNullAndEmptyArrays': true
+          }
+        }, {
+          '$group': {
+            '_id': '$sources'
+          }
+        }, {
+          '$lookup': {
+            'from': 'resources',
+            'localField': '_id',
+            'foreignField': 'url',
+            'as': 'rs'
+          }
+        }, {
+          '$unwind': {
+            'path': '$rs',
+            'preserveNullAndEmptyArrays': true
+          }
+        }, {
+          '$group': {
+            '_id': '$rs.url',
+            'domain': {
+              '$first': '$rs.domain'
+            }
+          }
+        }, {
+          '$lookup': {
+            'from': 'domains',
+            'localField': 'domain',
+            'foreignField': 'origin',
+            'as': 'ds'
+          }
+        }, {
+          '$unwind': {
+            'path': '$ds',
+            'preserveNullAndEmptyArrays': true
+          }
+        }, {
+          '$group': {
+            '_id': '$ds._id',
+            'origin': {
+              '$first': '$ds.origin'
+            }
+          }
+        }
+      ],
+      { maxTimeMS: 60000, allowDiskUse: true }
+    ).cursor({ batchSize: 100 });
+    for await (const d of res) {
+      yield d
     }
   }
 
@@ -480,24 +570,24 @@ class ProcessClass {
         total: await ProcessTriple.countDocuments(baseFilter).lean()
       },
       domains: {
-        total: await Domain.countDocuments(baseFilter).lean(),
-        beingCrawled: (
-          await Domain.find({ ...baseFilter, status: 'crawling' })
-            .select('origin')
-            .lean()
-        ).map((d) => d.origin),
-        ready: await Domain.countDocuments({
-          ...baseFilter,
-          status: 'ready'
-        }).lean(), // TODO add index
-        crawling: await Domain.countDocuments({
-          ...baseFilter,
-          status: 'crawling'
-        }).lean(), // TODO add index
-        error: await Domain.countDocuments({
-          ...baseFilter,
-          status: 'error'
-        }).lean() // TODO add index
+        total: (await Array.fromAsync(this.getAllDomains())).length,
+        //beingCrawled: (
+        //  await Domain.find({ ...baseFilter, status: 'crawling' })
+        //    .select('origin')
+        //    .lean()
+        //).map((d) => d.origin),
+        //ready: await Domain.countDocuments({
+        //  ...baseFilter,
+        //  status: 'ready'
+        //}).lean(), // TODO add index
+        //crawling: await Domain.countDocuments({
+        //  ...baseFilter,
+        //  status: 'crawling'
+        //}).lean(), // TODO add index
+        //error: await Domain.countDocuments({
+        //  ...baseFilter,
+        //  status: 'error'
+        //}).lean() // TODO add index
       },
       paths: {
         total: await Path.countDocuments({

@@ -71,11 +71,12 @@ export async function GET({ params }: RequestEvent) {
   // Add triples.json as a stream
   addItems(zipfile, p.getTriplesJson(), `${params.pid}-triples.json`);
 
-  //// Add domains.json as a stream
-  //addItems(zipfile, p.getDomainsJson(), `${params.pid}-domains.json`);
-
   // Add resources.json as a stream
   addItems(zipfile, p.getResourcesJson(), `${params.pid}-resources.json`);
+
+  // Add domains.json as a stream
+  addItems(zipfile, p.getDomainsJson(), `${params.pid}-domains.json`);
+
 
 
   // Finalize zip and pipe to response
