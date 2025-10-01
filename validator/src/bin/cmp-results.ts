@@ -52,6 +52,8 @@ async function loadFileFromZip(zipPath: string, filePath: string): Promise<strin
 async function cmpGraphs(zip1: string, zip2: string) {
   const checkPC = await checkPreConditions(zip1, zip2);
   console.log('Pre-conditions match:', checkPC);
+
+  // compar
 }
 
 

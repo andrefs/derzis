@@ -9,6 +9,7 @@
     "express": "5.1.0",
     "express-handlebars": "8.0.3",
     "handlebars": "4.7.8",
+    "jsondiffpatch": "0.7.3",
     "ts-node": "10.9.2",
     "vitest": "3.2.4",
     "yauzl": "3.2.0"
