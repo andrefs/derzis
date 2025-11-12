@@ -6,6 +6,7 @@
   "dependencies": {
     "@types/node": "24.5.2",
     "@types/yauzl": "2.10.3",
+    "deep-object-diff": "1.1.9",
     "express": "5.1.0",
     "express-handlebars": "8.0.3",
     "handlebars": "4.7.8",
