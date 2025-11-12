@@ -21,6 +21,7 @@ services:
         REDIS_HOST: pubsub
         REDIS_PORT: ${REDIS_PORT}
         DERZIS_MNG_DB_NAME: ${DERZIS_MNG_DB_NAME}
+        MAILTRAP_API_TOKEN: ${MAILTRAP_API_TOKEN}
         PORT: ${DERZIS_MNG_PORT}
     restart: unless-stopped
     depends_on:
@@ -35,6 +36,7 @@ services:
       REDIS_HOST: pubsub
       REDIS_PORT: ${REDIS_PORT}
       DERZIS_MNG_DB_NAME: ${DERZIS_MNG_DB_NAME}
+      MAILTRAP_API_TOKEN: ${MAILTRAP_API_TOKEN}
       PORT: ${DERZIS_MNG_PORT}
     volumes:
       - type: bind

@@ -1,6 +1,6 @@
 import { createClient } from 'redis';
 import config from '@derzis/config';
-import { createLogger } from '@derzis/common';
+import { createLogger, MAILTRAP_API_TOKEN } from '@derzis/common';
 const log = createLogger('Manager');
 import Manager from './Manager';
 import process from 'process';
@@ -40,6 +40,7 @@ class ManagerPubSub {
 	}
 
 	async connect() {
+		log.info('Using Mailtrap API token ' + '...' + MAILTRAP_API_TOKEN.slice(-4));
 		log.info('Connecting to Redis');
 		await this._redisClient.connect();
 		this._pub = this._redisClient.duplicate();
