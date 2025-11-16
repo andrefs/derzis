@@ -1,5 +1,6 @@
-import { config } from 'dotenv';
-config({ path: '../.env' });
+import config from '@derzis/config';
+import { config as dotenvConfig } from 'dotenv';
+dotenvConfig({ path: '../.env' });
 import Nodemailer, { type SendMailOptions } from 'nodemailer';
 import { MailtrapTransport } from 'mailtrap';
 import { createLogger } from './logger';
@@ -14,14 +15,17 @@ const transport = Nodemailer.createTransport(
 );
 
 export async function sendEmail(msg: SendMailOptions) {
+	if (config.manager.email.doNotSend) {
+		log.warn('Email sending is disabled by configuration. Email not sent.');
+		return null;
+	}
 	if (MAILTRAP_API_TOKEN) {
 		const res = await transport.sendMail(msg);
 		return res;
-	} else {
-
-		log.warn('Mailtrap API token is not set. Email not sent.');
-		return null;
 	}
+
+	log.warn('Mailtrap API token is not set. Email not sent.');
+	return null;
 }
 
 export async function sendInitEmail(to: string, pid: string) {

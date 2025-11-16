@@ -14,6 +14,9 @@ export default {
       user: process.env.MONGODB_USER || undefined,
       pass: process.env.MONGODB_PASS || undefined,
       debug: true
+    },
+    email: {
+      doNotSend: true,
     }
   },
   worker: {
