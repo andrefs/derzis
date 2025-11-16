@@ -4,22 +4,39 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common';
 const log = createLogger('API');
 
+interface NewStepReqBody {
+  ok: boolean;
+  data: {
+    newSeeds: string[];
+    maxPathLength: number;
+    maxPathProps: number;
+    whiteList: string[];
+    blackList: string[];
+  };
+}
+
 export const POST: RequestHandler = async ({ request, params }) => {
-  const data = await request.json();
+  const resp = await request.json() as NewStepReqBody;
+  if (!params.pid) {
+    log.warn('No process ID provided');
+    return json({ ok: false, err: { message: 'No process ID provided' } }, { status: 400 });
+  }
 
   const procParams = {
-    seeds: data.seeds,
-    maxPathLength: data.maxPathLength,
-    maxPathProps: data.maxPathProps,
-    whiteList: data.whiteList,
-    blackList: data.blackList
+    seeds: resp.data.newSeeds,
+    maxPathLength: resp.data.maxPathLength,
+    maxPathProps: resp.data.maxPathProps,
+    whiteList: resp.data.whiteList,
+    blackList: resp.data.blackList
   };
 
   const proc = await Process.findOne({ pid: params.pid });
   if (!proc) {
+    log.warn(`Process ${params.pid} not found`);
     return json({ ok: false, err: { message: 'Process not found' } }, { status: 404 });
   }
   if (proc.status !== 'done') {
+    log.warn(`Process ${params.pid} is still running, cannot add another step`);
     return json({ ok: false, err: { message: 'Process still running, cannot add another step' } }, { status: 400 });
   }
 
