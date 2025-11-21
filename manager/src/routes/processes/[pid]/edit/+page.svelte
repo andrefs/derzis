@@ -20,15 +20,14 @@
 	//const log = createLogger();
 	const showNewStep = data.status === 'done';
 	let newSeeds: string;
-	let whiteList: string;
-	let blackList: string;
+	let predList: string;
+	let predLimType: 'blacklist' | 'whitelist' = 'blacklist';
 	let maxPathLength: number = data.currentStep.maxPathLength;
 	let maxPathProps: number = data.currentStep.maxPathProps;
 
 	async function addStep() {
 		const ns = newSeeds?.split(/\s*[\n,]\s*/).filter((s: string) => !s.match(/^\s*$/));
-		const wl = whiteList?.split(/\s*[\n,]\s*/).filter((s: string) => !s.match(/^\s*$/));
-		const bl = blackList?.split(/\s*[\n,]\s*/).filter((s: string) => !s.match(/^\s*$/));
+		const pl = predList?.split(/\s*[\n,]\s*/).filter((s: string) => !s.match(/^\s*$/));
 
 		try {
 			await fetch(`/api/processes/${data.pid}/add-step`, {
@@ -40,8 +39,7 @@
 					maxPathLength,
 					maxPathProps,
 					newSeeds: ns,
-					whiteList: wl,
-					blackList: bl
+					predList: pl
 				})
 			});
 
@@ -138,46 +136,50 @@
 							<FormGroup>
 								<Row>
 									<Col sm={2}>
-										<Label>Predicate white list:</Label>
+										<Label>Limitation type:</Label>
 									</Col>
 									<Col sm={10}>
 										<InputGroup>
 											<Input
-												id="whiteList"
-												name="whiteList"
+												type="radio"
+												id="black-list"
+												name="limitation-type"
+												value="blacklist"
+												bind:group={predLimType}
+											/>
+											<Label for="black-list" class="ms-2 me-3">Blacklist</Label>
+											<Input
+												type="radio"
+												id="white-list"
+												name="limitation-type"
+												value="whitelist"
+												bind:group={predLimType}
+											/>
+											<Label for="white-list" class="ms-2">Whitelist</Label>
+										</InputGroup>
+									</Col>
+								</Row>
+							</FormGroup>
+							<FormGroup>
+								<Row>
+									<Col sm={2}>
+										<Label>Predicate list:</Label>
+										<InputGroup>
+											<Input
+												id="pred-list"
+												name="pred-list"
 												type="textarea"
-												bind:value={whiteList}
+												bind:value={predList}
 												rows={3}
 												form="new-crawl-step"
 											/>
-											<Tooltip target="white-list-tt">One resource URL per line</Tooltip>
+											<Tooltip target="pred-list-tt">One resource URL per line</Tooltip>
 											<InputGroupText id="white-list-tt">?</InputGroupText>
 										</InputGroup>
 									</Col>
 								</Row>
 							</FormGroup>
 
-							<FormGroup>
-								<Row>
-									<Col sm={2}>
-										<Label>Predicate black list:</Label>
-									</Col>
-									<Col sm={10}>
-										<InputGroup>
-											<Input
-												id="blackList"
-												name="blackList"
-												type="textarea"
-												bind:value={blackList}
-												rows={3}
-												form="new-crawl-step"
-											/>
-											<Tooltip target="black-list-tt">One resource URL per line</Tooltip>
-											<InputGroupText id="black-list-tt">?</InputGroupText>
-										</InputGroup>
-									</Col>
-								</Row>
-							</FormGroup>
 							<FormGroup>
 								<Col sm={10}>
 									<Button color="primary" on:click={addStep} type="button">Add new step</Button>

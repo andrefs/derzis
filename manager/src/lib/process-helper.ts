@@ -45,8 +45,7 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 		seeds: [...oldSeeds, ...newSeeds],
 		maxPathLength: newMPL,
 		maxPathProps: newMPP,
-		whiteList: params.whiteList,
-		blackList: params.blackList
+		predLimit: params.predLimit,
 	};
 
 	await Process.updateOne(

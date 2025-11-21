@@ -14,6 +14,7 @@
 		Input,
 		InputGroupText
 	} from '@sveltestrap/sveltestrap';
+	let predLimType = 'blacklist';
 </script>
 
 <Container>
@@ -126,44 +127,51 @@
 									</Row>
 								</FormGroup>
 							</AccordionItem>
-							<AccordionItem header="White/black lists">
+							<AccordionItem header="Limit predicates">
 								<FormGroup>
 									<Row>
 										<Col sm={2}>
-											<Label>Predicate white list:</Label>
+											<Label>Limitation type:</Label>
+										</Col>
+										<Col sm={10}>
+											<!-- Radio buttons for limitation type: white/black list, default blacklist -->
+											<InputGroup>
+												<Input
+													type="radio"
+													id="black-list"
+													name="limitation-type"
+													value="blacklist"
+													bind:group={predLimType}
+												/>
+												<Label for="black-list" class="ms-2 me-3">Blacklist</Label>
+												<Input
+													type="radio"
+													id="white-list"
+													name="limitation-type"
+													value="whitelist"
+													bind:group={predLimType}
+												/>
+												<Label for="white-list" class="ms-2">Whitelist</Label>
+											</InputGroup>
+										</Col>
+									</Row>
+								</FormGroup>
+								<FormGroup>
+									<Row>
+										<Col sm={2}>
+											<Label>Predicate list:</Label>
 										</Col>
 										<Col sm={10}>
 											<InputGroup>
 												<Input
-													id="whiteList"
-													name="whiteList"
+													id="pred-list"
+													name="pred-list"
 													type="textarea"
 													rows={3}
 													form="new-proc"
 												/>
 												<Tooltip target="white-list-tt">One resource URL per line</Tooltip>
 												<InputGroupText id="white-list-tt">?</InputGroupText>
-											</InputGroup>
-										</Col>
-									</Row>
-								</FormGroup>
-
-								<FormGroup>
-									<Row>
-										<Col sm={2}>
-											<Label>Predicate black list:</Label>
-										</Col>
-										<Col sm={10}>
-											<InputGroup>
-												<Input
-													id="blackList"
-													name="blackList"
-													type="textarea"
-													rows={3}
-													form="new-proc"
-												/>
-												<Tooltip target="black-list-tt">One resource URL per line</Tooltip>
-												<InputGroupText id="black-list-tt">?</InputGroupText>
 											</InputGroup>
 										</Col>
 									</Row>

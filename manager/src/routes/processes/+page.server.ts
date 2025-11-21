@@ -1,4 +1,4 @@
-import { addStep, newProcess } from '$lib/process-helper';
+import { newProcess } from '$lib/process-helper';
 import { Process, type ProcessClass } from '@derzis/models';
 import { redirect, type Action } from '@sveltejs/kit';
 
@@ -24,12 +24,13 @@ export const actions: { [name: string]: Action } = {
 		const firstStep = {
 			maxPathLength: Number(data.get('maxPathLength')),
 			maxPathProps: Number(data.get('maxPathProps')),
-			whiteList: (data.get('white-list') as string)
-				?.split(/\s*[\n]\s*/)
-				.filter((s: string) => !s.match(/^\s*$/)),
-			blackList: (data.get('black-list') as string)
-				?.split(/\s*[\n]\s*/)
-				.filter((s: string) => !s.match(/^\s*$/)),
+			predLimit: {
+				type: data.get('limitation-type') as 'blacklist' | 'whitelist',
+
+				predicates: (data.get('pred-list') as string)
+					?.split(/\s*[\n]\s*/)
+					.filter((s: string) => !s.match(/^\s*$/)),
+			},
 			seeds: uniqueSeeds
 		};
 

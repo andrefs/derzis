@@ -32,6 +32,21 @@ export class NotificationClass {
   @prop({ type: String })
   public ssePath?: string;
 }
+
+export class PredicateLimitationClass {
+  _id?: Types.ObjectId | string;
+
+  @prop({
+    enum: ['whitelist', 'blacklist'],
+    default: 'blacklist',
+    type: String
+  })
+  public type!: 'whitelist' | 'blacklist';
+
+  @prop({ required: true, type: [String] }, PropType.ARRAY)
+  public predicates!: string[];
+}
+
 export class StepClass {
   _id?: Types.ObjectId | string;
 
@@ -44,11 +59,8 @@ export class StepClass {
   @prop({ default: 1, required: true, type: Number })
   public maxPathProps!: number;
 
-  @prop({ default: [], type: [String] }, PropType.ARRAY)
-  public whiteList?: string[];
-
-  @prop({ default: [], type: [String] }, PropType.ARRAY)
-  public blackList?: string[];
+  @prop({ required: true, type: PredicateLimitationClass })
+  public predLimit!: PredicateLimitationClass;
 }
 
 @index({ status: 1 })
@@ -107,16 +119,14 @@ class ProcessClass {
 
   public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
     // triple predicate allowed by white/blacklist
-    if (
-      this.currentStep.whiteList?.length &&
-      !matchesOne(t.predicate, this.currentStep.whiteList)
-    ) {
-      return false;
+    if (!this.currentStep.predLimit) {
+      return true;
     }
-    if (this.currentStep.blackList?.length && matchesOne(t.predicate, this.currentStep.blackList)) {
-      return false;
+    if (this.currentStep.predLimit.type === 'whitelist') {
+      return matchesOne(t.predicate, this.currentStep.predLimit.predicates);
     }
-    return true;
+    // blacklist
+    return !matchesOne(t.predicate, this.currentStep.predLimit.predicates);
   }
 
   public async isDone(this: ProcessClass) {
@@ -631,6 +641,7 @@ class ProcessClass {
     const runningProcs = await this.countDocuments({ status: 'running' });
 
     if (!runningProcs) {
+      log.info('No running processes, starting next queued process');
       const process = await this.findOneAndUpdate(
         { status: 'queued' },
         { $set: { status: 'running' } },
@@ -643,6 +654,7 @@ class ProcessClass {
         return true;
       }
     }
+    log.info('There are already running processes, not starting a new one');
     return false;
   }
 

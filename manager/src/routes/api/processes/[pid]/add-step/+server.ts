@@ -10,8 +10,10 @@ interface NewStepReqBody {
     newSeeds: string[];
     maxPathLength: number;
     maxPathProps: number;
-    whiteList: string[];
-    blackList: string[];
+    predLimit: {
+      type: 'blacklist' | 'whitelist';
+      predicates: string[];
+    }
   };
 }
 
@@ -26,8 +28,8 @@ export const POST: RequestHandler = async ({ request, params }) => {
     seeds: resp.data.newSeeds,
     maxPathLength: resp.data.maxPathLength,
     maxPathProps: resp.data.maxPathProps,
-    whiteList: resp.data.whiteList,
-    blackList: resp.data.blackList
+
+    predLimit: resp.data.predLimit,
   };
 
   const proc = await Process.findOne({ pid: params.pid });
