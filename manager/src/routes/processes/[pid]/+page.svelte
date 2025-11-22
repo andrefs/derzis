@@ -64,7 +64,7 @@
 			</Table>
 
 			<h3>Steps</h3>
-			<h4>Current step</h4>
+			<h4>Current step (#{data.proc.steps.length})</h4>
 			<Table>
 				<tbody>
 					<tr><th scope="row">Max path length</th><td>{data.proc.currentStep.maxPathLength}</td></tr
@@ -82,12 +82,12 @@
 					</tr>
 					<tr>
 						<th scope="row">Predicate limitation</th>
-						<td>{data.proc.currentStep.predLimit.type}</td>
+						<td>{data.proc.currentStep.predLimit?.limType}</td>
 					</tr>
 					<tr>
 						<th scope="row">Predicate list</th>
 						<td>
-							{#each data.proc.currentStep.predLimit.predicates as p}
+							{#each data.proc.currentStep.predLimit?.predicates || [] as p}
 								<p style="margin-bottom: 0">
 									<a href={p}>{p}</a>
 								</p>
@@ -118,7 +118,7 @@
 
 							<tr>
 								<th scope="row">Predicate limitation</th>
-								<td>{step.predLimit.type}</td>
+								<td>{step.predLimit.limType}</td>
 							</tr>
 							<tr>
 								<th scope="row">Predicate list</th>

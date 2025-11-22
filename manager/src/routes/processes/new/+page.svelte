@@ -1,5 +1,7 @@
-<script>
-	import { enhance } from '$app/forms';
+<script lang="ts">
+	import { applyAction, deserialize, enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
+	import type { ActionResult } from '@sveltejs/kit';
 	import {
 		Container,
 		Row,
@@ -14,7 +16,45 @@
 		Input,
 		InputGroupText
 	} from '@sveltestrap/sveltestrap';
+	let resources = '';
+	let maxPathLength = 3;
+	let maxPathProps = 2;
+	let email = '';
+	let webhook = '';
 	let predLimType = 'blacklist';
+	let predList = '';
+
+	async function handleSubmit(
+		event: SubmitEvent & { currentTarget: EventTarget & HTMLFormElement }
+	) {
+		event.preventDefault();
+
+		// build form data from variables
+		const formData = new FormData();
+		formData.append('seeds', resources);
+		formData.append('maxPathLength', maxPathLength.toString());
+		formData.append('maxPathProps', maxPathProps.toString());
+		formData.append('email', email);
+		formData.append('webhook', webhook);
+		formData.append('limitation-type', predLimType);
+		formData.append('pred-list', predList);
+
+		console.log(
+			'XXXXXXXXXXXXX form data page.svelte',
+			JSON.stringify(Object.fromEntries(formData.entries()))
+		);
+
+		const response = await fetch(event.currentTarget.action, {
+			method: 'POST',
+			body: formData
+		});
+
+		const result: ActionResult = deserialize(await response.text());
+		if (result.type === 'success') {
+			await invalidateAll();
+		}
+		applyAction(result);
+	}
 </script>
 
 <Container>
@@ -28,7 +68,7 @@
 				<form
 					id="new-proc"
 					action="/processes?/newProc"
-					method="POST"
+					on:submit={handleSubmit}
 					use:enhance={() => {
 						return ({ update }) => update({ reset: false });
 					}}
@@ -43,7 +83,14 @@
 										</Col>
 										<Col sm={10}>
 											<InputGroup>
-												<Input id="seeds" name="seeds" type="textarea" rows={3} form="new-proc" />
+												<Input
+													id="seeds"
+													name="seeds"
+													type="textarea"
+													rows={3}
+													form="new-proc"
+													bind:value={resources}
+												/>
 												<Tooltip target="resources-tt">One resource URL per line</Tooltip>
 												<InputGroupText id="resources-tt">?</InputGroupText>
 											</InputGroup>
@@ -62,9 +109,9 @@
 													min="1"
 													max="20"
 													step="1"
-													value="3"
 													type="number"
 													name="maxPathLength"
+													bind:value={maxPathLength}
 												/>
 											</InputGroup>
 										</Col>
@@ -82,9 +129,9 @@
 													min="1"
 													max="5"
 													step="1"
-													value="2"
 													type="number"
 													name="maxPathProps"
+													bind:value={maxPathProps}
 												/>
 											</InputGroup>
 										</Col>
@@ -99,7 +146,7 @@
 										</Col>
 										<Col sm={{ size: 6, offset: 1 }}>
 											<InputGroup>
-												<Input name="email" />
+												<Input name="email" bind:value={email} />
 												<Tooltip target="email-tt"
 													>We'll only send you 3 emails: confirming your process has been added;
 													when your process starts; and when your process finishes. No SPAM</Tooltip
@@ -116,7 +163,7 @@
 										</Col>
 										<Col sm={{ size: 6, offset: 1 }}>
 											<InputGroup>
-												<Input name="webhook" />
+												<Input name="webhook" bind:value={webhook} />
 												<Tooltip target="webhook-tt"
 													>An HTTP callback which can be used to send notifications when the status
 													of this process changes.</Tooltip

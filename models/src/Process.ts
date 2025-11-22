@@ -33,15 +33,25 @@ export class NotificationClass {
   public ssePath?: string;
 }
 
+interface PredicateLimitation {
+  type: 'whitelist' | 'blacklist';
+  predicates: string[];
+}
+
 export class PredicateLimitationClass {
   _id?: Types.ObjectId | string;
 
   @prop({
     enum: ['whitelist', 'blacklist'],
     default: 'blacklist',
+    required: true,
     type: String
   })
-  public type!: 'whitelist' | 'blacklist';
+  public limType!: {
+    default: 'blacklist';
+    required: true;
+    type: 'whitelist' | 'blacklist';
+  }
 
   @prop({ required: true, type: [String] }, PropType.ARRAY)
   public predicates!: string[];
