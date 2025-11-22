@@ -39,11 +39,6 @@
 		formData.append('limitation-type', predLimType);
 		formData.append('pred-list', predList);
 
-		console.log(
-			'XXXXXXXXXXXXX form data page.svelte',
-			JSON.stringify(Object.fromEntries(formData.entries()))
-		);
-
 		const response = await fetch(event.currentTarget.action, {
 			method: 'POST',
 			body: formData
@@ -68,7 +63,7 @@
 				<form
 					id="new-proc"
 					action="/processes?/newProc"
-					on:submit={handleSubmit}
+					onsubmit={handleSubmit}
 					use:enhance={() => {
 						return ({ update }) => update({ reset: false });
 					}}

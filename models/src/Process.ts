@@ -33,11 +33,6 @@ export class NotificationClass {
   public ssePath?: string;
 }
 
-interface PredicateLimitation {
-  type: 'whitelist' | 'blacklist';
-  predicates: string[];
-}
-
 export class PredicateLimitationClass {
   _id?: Types.ObjectId | string;
 
@@ -47,11 +42,7 @@ export class PredicateLimitationClass {
     required: true,
     type: String
   })
-  public limType!: {
-    default: 'blacklist';
-    required: true;
-    type: 'whitelist' | 'blacklist';
-  }
+  public limType!: 'whitelist' | 'blacklist';
 
   @prop({ required: true, type: [String] }, PropType.ARRAY)
   public predicates!: string[];
@@ -132,7 +123,7 @@ class ProcessClass {
     if (!this.currentStep.predLimit) {
       return true;
     }
-    if (this.currentStep.predLimit.type === 'whitelist') {
+    if (this.currentStep.predLimit.limType === 'whitelist') {
       return matchesOne(t.predicate, this.currentStep.predLimit.predicates);
     }
     // blacklist
