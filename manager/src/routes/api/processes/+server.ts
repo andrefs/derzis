@@ -28,11 +28,18 @@ export async function POST({ request }: RequestEvent) {
 		throw error(424, err);
 	}
 	const pskel = data.process;
+	const step = {
+		...pskel.step,
+		predLimit: {
+			type: 'blacklist',
+			predicates: []
+		}
+	};
 
 	const process = {
-		steps: [pskel.step],
-		currentStep: pskel.step,
-		notification: pskel.notification
+		steps: [step],
+		currentStep: step,
+		notification: pskel.notification,
 	};
 
 	try {

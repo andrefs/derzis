@@ -80,6 +80,21 @@
 							{/each}</td
 						>
 					</tr>
+					<tr>
+						<th scope="row">Predicate limitation</th>
+						<td>{data.proc.currentStep.predLimit.type}</td>
+					</tr>
+					<tr>
+						<th scope="row">Predicate list</th>
+						<td>
+							{#each data.proc.currentStep.predLimit.predicates as p}
+								<p style="margin-bottom: 0">
+									<a href={p}>{p}</a>
+								</p>
+							{/each}
+							N/A
+						</td>
+					</tr>
 				</tbody>
 			</Table>
 
@@ -99,6 +114,22 @@
 										</p>
 									{/each}</td
 								>
+							</tr>
+
+							<tr>
+								<th scope="row">Predicate limitation</th>
+								<td>{step.predLimit.type}</td>
+							</tr>
+							<tr>
+								<th scope="row">Predicate list</th>
+								<td>
+									{#each step.predLimit.predicates as p}
+										<p style="margin-bottom: 0">
+											<a href={p}>{p}</a>
+										</p>
+									{/each}
+									N/A
+								</td>
 							</tr>
 						{/if}
 					{/each}
