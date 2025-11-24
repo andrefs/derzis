@@ -15,8 +15,6 @@ export async function load() {
 export const actions: { [name: string]: Action } = {
 	newProc: async ({ request }) => {
 		const data = await request.formData();
-		console.log('XXXXXXXXXXXXX form data page.server', JSON.stringify(Object.fromEntries(data.entries())));
-
 		const seeds: string[] = (data.get('seeds') as string)
 			?.split(/\s*[\n,]\s*/)
 			.filter((s: string) => !s.match(/^\s*$/));

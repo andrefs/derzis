@@ -11,7 +11,7 @@ interface NewStepReqBody {
     maxPathLength: number;
     maxPathProps: number;
     predLimit: {
-      type: 'blacklist' | 'whitelist';
+      limType: 'blacklist' | 'whitelist';
       predicates: string[];
     }
   };
