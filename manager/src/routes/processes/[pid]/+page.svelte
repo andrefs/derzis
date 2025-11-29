@@ -87,7 +87,7 @@
 					<tr>
 						<th scope="row">Predicate list</th>
 						<td>
-							{#each data.proc.currentStep.predLimit?.predicates || [] as p}
+							{#each data.proc.currentStep.predLimit?.limPredicates || [] as p}
 								<p style="margin-bottom: 0">
 									<a href={p}>{p}</a>
 								</p>
@@ -123,7 +123,7 @@
 							<tr>
 								<th scope="row">Predicate list</th>
 								<td>
-									{#each step.predLimit.predicates as p}
+									{#each step.predLimit.limPredicates as p}
 										<p style="margin-bottom: 0">
 											<a href={p}>{p}</a>
 										</p>

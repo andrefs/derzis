@@ -45,7 +45,7 @@ export class PredicateLimitationClass {
   public limType!: 'whitelist' | 'blacklist';
 
   @prop({ required: true, type: [String] }, PropType.ARRAY)
-  public predicates!: string[];
+  public limPredicates!: string[];
 }
 
 export class StepClass {
@@ -124,10 +124,10 @@ class ProcessClass {
       return true;
     }
     if (this.currentStep.predLimit.limType === 'whitelist') {
-      return matchesOne(t.predicate, this.currentStep.predLimit.predicates);
+      return matchesOne(t.predicate, this.currentStep.predLimit.limPredicates);
     }
     // blacklist
-    return !matchesOne(t.predicate, this.currentStep.predLimit.predicates);
+    return !matchesOne(t.predicate, this.currentStep.predLimit.limPredicates);
   }
 
   public async isDone(this: ProcessClass) {

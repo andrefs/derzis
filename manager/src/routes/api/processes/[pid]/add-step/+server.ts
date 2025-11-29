@@ -12,7 +12,7 @@ interface NewStepReqBody {
     maxPathProps: number;
     predLimit: {
       limType: 'blacklist' | 'whitelist';
-      predicates: string[];
+      limPredicates: string[];
     }
   };
 }
@@ -28,7 +28,6 @@ export const POST: RequestHandler = async ({ request, params }) => {
     seeds: resp.data.newSeeds,
     maxPathLength: resp.data.maxPathLength,
     maxPathProps: resp.data.maxPathProps,
-
     predLimit: resp.data.predLimit,
   };
 
