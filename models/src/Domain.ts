@@ -54,8 +54,10 @@ class RobotsClass {
   @prop({ type: Number })
   public elapsedTime?: number;
 }
+@index({ delay: 1 })
+@index({ nextAllowed: 1 })
 class CrawlClass {
-  @prop({ default: 0, type: Number })
+  @prop({ default: 0, type: Number, index: true, required: true })
   public delay!: number;
 
   @prop({ default: 0, type: Number })
@@ -74,7 +76,10 @@ class CrawlClass {
   public failed!: number;
 
   @prop({ type: Date })
-  public nextAllowed?: Date;
+  public nextAllowed!: {
+    type: Date;
+    required: true;
+  }
 }
 
 @post<DomainClass>('findOneAndUpdate', async function (doc) {
@@ -510,7 +515,10 @@ const robotsUnknownError = (jobResult: RobotsCheckResultError) => {
   return {
     $set: {
       'robots.status': 'error' as const,
-      status: 'ready' as const
+      status: 'ready' as const,
+      'crawl.delay': 1,
+      'crawl.nextAllowed': Date.now() + 1000,
+      error: true
     },
     $push: {
       lastWarnings: {
@@ -533,6 +541,8 @@ const robotsHostNotFoundError = () => {
     $set: {
       'robots.status': 'error' as const,
       status: 'error' as const,
+      'crawl.nextAllowed': Date.now() + 1000,
+      'crawl.delay': 1,
       error: true
     },
     $push: {
