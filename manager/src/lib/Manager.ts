@@ -49,7 +49,7 @@ export default class Manager {
 			} catch (e) {
 				// TODO handle errors
 				log.error(`Error saving robots (job #${jobResult.jobId}) for ${jobResult.origin}`);
-				log.info(jobResult);
+				log.info(JSON.stringify(jobResult, null, 2));
 			} finally {
 				this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
 				this.jobs.deregisterJob(jobResult.origin);
@@ -70,7 +70,7 @@ export default class Manager {
 						`Error saving resource crawl (job #${jobResult.jobId}) for ${jobResult.url}`,
 						e
 					);
-					log.info('', jobResult);
+					log.info(JSON.stringify(jobResult, null, 2));
 				} finally {
 					this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
 					log.debug(
@@ -260,7 +260,7 @@ export default class Manager {
 		}
 		if (!assignedCheck && !assignedCrawl && !this.jobs.count() && !this.jobs.beingSaved.count()) {
 			log.info(
-				'Could not find any domains to check or crawl and there are no outstanding jobs',
+				'Could not find any domains to check or crawl *right now* and there are no outstanding jobs',
 				this.jobs
 			);
 

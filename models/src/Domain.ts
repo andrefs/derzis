@@ -75,11 +75,8 @@ class CrawlClass {
   @prop({ default: 0, type: Number })
   public failed!: number;
 
-  @prop({ type: Date })
-  public nextAllowed!: {
-    type: Date;
-    required: true;
-  }
+  @prop({ type: Date, required: true })
+  public nextAllowed!: Date;
 }
 
 @post<DomainClass>('findOneAndUpdate', async function (doc) {
