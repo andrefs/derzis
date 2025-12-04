@@ -95,28 +95,28 @@ export default class RunningJobs extends EventEmitter {
 		const customUpdate: UpdateQuery<DomainClass> =
 			jobType === 'robotsCheck'
 				? {
-						$set: {
-							'robots.status': 'error'
-						},
-						$push: {
-							lastWarnings: {
-								$each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
-								$slice: -10
-							}
-						},
-						$inc: {
-							'warnings.E_ROBOTS_TIMEOUT': 1
+					$set: {
+						'robots.status': 'error'
+					},
+					$push: {
+						lastWarnings: {
+							$each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
+							$slice: -10
 						}
-				  }
+					},
+					$inc: {
+						'warnings.E_ROBOTS_TIMEOUT': 1
+					}
+				}
 				: {
-						$push: {
-							lastWarnings: {
-								$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
-								$slice: -10
-							}
-						},
-						$inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
-				  };
+					$push: {
+						lastWarnings: {
+							$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
+							$slice: -10
+						}
+					},
+					$inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
+				};
 		return this.cleanJob(origin, jobType, customUpdate);
 	}
 
@@ -147,13 +147,20 @@ export default class RunningJobs extends EventEmitter {
 		}
 	}
 
+	/**
+	* Cleanup all running jobs, setting their status back to unvisited/ready
+	*/
 	async cancelAllJobs() {
 		log.info(`Cleaning outstanding jobs`);
+		log.debug('Deregistering running jobs');
 		if (Object.keys(this._running).length) {
 			for (const j in this._running) {
 				this.deregisterJob(j);
 			}
 		}
+
+		// Reset robot checks
+		log.debug('Resetting outstanding robot checks');
 		await Domain.updateMany(
 			{ 'robots.status': 'checking' },
 			{
@@ -167,8 +174,13 @@ export default class RunningJobs extends EventEmitter {
 				}
 			}
 		);
+
+		// Reset path head domains being checked
+		log.debug('Resetting outstanding path head domains being checked');
 		await Path.updateMany({ 'head.domain.status': 'checking' }, { $set: { status: 'unvisited' } });
 
+		// Reset domain crawls
+		log.debug('Resetting outstanding domain crawls');
 		await Domain.updateMany(
 			{ status: 'crawling' },
 			{
@@ -179,7 +191,19 @@ export default class RunningJobs extends EventEmitter {
 				}
 			}
 		);
+
+		// Reset path head domains being crawled
+		log.debug('Resetting outstanding path head domains being crawled');
 		await Path.updateMany({ 'head.domain.status': 'crawling' }, { $set: { status: 'unvisited' } });
+
+		// Reset resources being crawled
+		log.debug('Resetting outstanding resources being crawled');
+		await Resource.updateMany({ status: 'crawling' }, { status: 'unvisited' });
+		// Reset path head resources being crawled
+		log.debug('Resetting outstanding path head resources being crawled');
+		await Path.updateMany({ 'head.status': 'crawling' }, { $set: { status: 'unvisited' } });
+
+		log.info(`Outstanding jobs cleaned`);
 		return;
 	}
 
@@ -187,8 +211,7 @@ export default class RunningJobs extends EventEmitter {
 		if (this._running[origin]) {
 			const jobId = this._running[origin].jobId;
 			log.warn(
-				`Job #${jobId} ${jobType} for domain ${origin} timed out (${
-					timeout / 1000
+				`Job #${jobId} ${jobType} for domain ${origin} timed out (${timeout / 1000
 				}s started at ${ts.toISOString()})`
 			);
 		}
