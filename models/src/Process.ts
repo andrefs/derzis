@@ -224,6 +224,45 @@ class ProcessClass {
   }
 
   /**
+   * Check if process can follow path according to white/black lists
+   * @param path - path to check
+   * @returns {Promise<boolean>} - true if can follow path
+   */
+  // DISABLED because it is already checked in getPathsForDomainCrawl
+  //public canFollowPath(path: PathDocument): boolean {
+  //  // no white/black lists
+  //  if (!this.currentStep.predLimit) {
+  //    return true;
+  //  }
+  //  // check all predicates in path againt the current step's white/black lists
+  //  for (const pred of path.predicates.elems) {
+  //    if (this.currentStep.predLimit.limType === 'whitelist') {
+  //      if (!matchesOne(pred, this.currentStep.predLimit.limPredicates)) {
+  //        log.debug(`Path ${path._id} cannot be followed because predicate ${pred} is not in whitelist`);
+  //        return false;
+  //      }
+  //    } else {
+  //      // blacklist
+  //      if (matchesOne(pred, this.currentStep.predLimit.limPredicates)) {
+  //        log.debug(`Path ${path._id} cannot be followed because predicate ${pred} is in blacklist`);
+  //        return false;
+  //      }
+  //    }
+  //  }
+  //  // Already checked in getPathsForDomainCrawl
+  //  // // check predicate count and path length
+  //  // if (
+  //  //   path.predicates.count > this.currentStep.maxPathProps ||
+  //  //   path.nodes.count > this.currentStep.maxPathLength
+  //  // ) {
+  //  //   log.debug(`Path ${path._id} cannot be followed because it exceeds limits`);
+  //  //   return false;
+  //  // }
+  //  return true;
+  //}
+
+
+  /**
    * Get paths that are ready to be crawled
    * @param skip - number of paths to skip
    * @param limit - number of paths to return
@@ -231,19 +270,22 @@ class ProcessClass {
    * @memberof ProcessClass
    */
   public async getPathsForDomainCrawl(skip = 0, limit = 20) {
+    const predLimFilter = this.currentStep.predLimit.limType === 'whitelist' ?
+      { 'predicates.elems': { $in: this.currentStep.predLimit.limPredicates } } :
+      { 'predicates.elems': { $nin: this.currentStep.predLimit.limPredicates } };
     const paths = await Path.find({
       processId: this.pid,
       'head.domain.status': 'ready',
       'head.status': 'unvisited',
       'nodes.count': { $lt: this.currentStep.maxPathLength },
-      'predicates.count': { $lte: this.currentStep.maxPathProps }
+      'predicates.count': { $lte: this.currentStep.maxPathProps },
+      ...predLimFilter
     })
       // shorter paths first
       .sort({ 'nodes.count': 1 })
       .limit(limit)
       .skip(skip)
-      .select('head.domain head.url head.status')
-      .lean();
+      .select('head.domain head.url head.status nodes.elems predicates.elems')
     return paths;
   }
 

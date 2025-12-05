@@ -395,6 +395,7 @@ class DomainClass {
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
+        // TODO check if paths are allowed by whitelist/blacklist
         const paths = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
         pathSkip += pathLimit;
         if (!paths.length) {
@@ -412,6 +413,12 @@ class DomainClass {
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
+          const domains = await this.find({ origin: { $in: Array.from(origins) } }).select('crawl').lean();
+          for (const d of domains) {
+            if (d.crawl.nextAllowed > new Date()) {
+              log.info(`Domain ${d.origin} cannot be crawled yet, next allowed at ${d.crawl.nextAllowed}`);
+            }
+          }
           continue PATHS_LOOP;
         }
 
