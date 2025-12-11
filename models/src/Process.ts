@@ -103,7 +103,7 @@ class ProcessClass {
   public currentStep!: StepClass;
 
   @prop({ required: true, default: [], type: [StepClass] }, PropType.ARRAY)
-  public steps!: StepClass[];
+  public prevSteps!: StepClass[];
 
   @prop({ required: true, type: Object })
   public pathHeads!: {
@@ -674,7 +674,7 @@ class ProcessClass {
       timeToLastResource: timeToLastResource || '',
       timeRunning: timeRunning || '',
       currentStep: this.currentStep,
-      steps: this.steps,
+      prevSteps: this.prevSteps,
       notification: this.notification,
       status: this.status,
     };
@@ -712,7 +712,21 @@ class ProcessClass {
   }
 
   public async done() {
-    await Process.updateOne({ pid: this.pid }, { $set: { status: 'done' } });
+    const p = await Process.findOne({ pid: this.pid });
+    if (!p) {
+      throw new HttpError(404, `Process ${this.pid} not found`);
+    }
+    if (p.status === 'done') {
+      log.info(`Process ${this.pid} is already marked as done`);
+      return;
+    }
+    await Process.updateOne(
+      { pid: this.pid },
+      {
+        $set: { status: 'done' },
+        $push: { prevSteps: this.currentStep },
+        $unset: { currentStep: "" }
+      });
     await this.notifyStepFinished();
   }
 
@@ -722,8 +736,8 @@ class ProcessClass {
       data: {
         pid: this.pid,
         messageType: 'OK_STEP_STARTED',
-        message: `Process ${this.pid} just started step #${this.steps.length}.`,
-        details: this.steps[this.steps.length - 1]
+        message: `Process ${this.pid} just started step #${this.prevSteps.length + 1}.`,
+        details: this.currentStep
       } as StepStartedNotification
     };
 
@@ -751,7 +765,9 @@ class ProcessClass {
         details: {
           pid: this.pid,
           notification: this.notification,
-          steps: this.steps
+          prevSteps: this.prevSteps,
+          currentStep: this.currentStep,
+          status: this.status
         }
       } as ProcCreatedNotification
     };
@@ -775,8 +791,8 @@ class ProcessClass {
       data: {
         pid: this.pid,
         messageType: 'OK_STEP_FINISHED',
-        message: `Process ${this.pid} just finished step #${this.steps.length}.`,
-        details: this.steps[this.steps.length - 1]
+        message: `Process ${this.pid} just finished step #${this.prevSteps.length}.`,
+        details: this.prevSteps[this.prevSteps.length - 1]
       } as StepFinishedNotification
     };
 

@@ -64,74 +64,77 @@
 			</Table>
 
 			<h3>Steps</h3>
-			<h4>Current step (#{data.proc.steps.length})</h4>
-			<Table>
-				<tbody>
-					<tr><th scope="row">Max path length</th><td>{data.proc.currentStep.maxPathLength}</td></tr
-					>
-					<tr><th scope="row">Max path props</th><td>{data.proc.currentStep.maxPathProps}</td></tr>
-					<tr>
-						<th scope="row">Seeds</th>
-						<td
-							>{#each data.proc.currentStep.seeds as r}
-								<p style="margin-bottom: 0">
-									<a href={r}>{r}</a>
-								</p>
-							{/each}</td
+			{#if data.proc.currentStep}
+				<h4>Current step (#{data.proc.prevSteps.length + 1})</h4>
+				<Table>
+					<tbody>
+						<tr
+							><th scope="row">Max path length</th><td>{data.proc.currentStep.maxPathLength}</td
+							></tr
 						>
-					</tr>
-					<tr>
-						<th scope="row">Predicate limitation</th>
-						<td>{data.proc.currentStep.predLimit?.limType}</td>
-					</tr>
-					<tr>
-						<th scope="row">Predicate list</th>
-						<td>
-							{#each data.proc.currentStep.predLimit?.limPredicates || [] as p}
-								<p style="margin-bottom: 0">
-									<a href={p}>{p}</a>
-								</p>
-							{/each}
-							N/A
-						</td>
-					</tr>
-				</tbody>
-			</Table>
+						<tr><th scope="row">Max path props</th><td>{data.proc.currentStep.maxPathProps}</td></tr
+						>
+						<tr>
+							<th scope="row">Seeds</th>
+							<td
+								>{#each data.proc.currentStep.seeds as r}
+									<p style="margin-bottom: 0">
+										<a href={r}>{r}</a>
+									</p>
+								{/each}</td
+							>
+						</tr>
+						<tr>
+							<th scope="row">Predicate limitation</th>
+							<td>{data.proc.currentStep.predLimit?.limType}</td>
+						</tr>
+						<tr>
+							<th scope="row">Predicate list</th>
+							<td>
+								{#each data.proc.currentStep.predLimit?.limPredicates || [] as p}
+									<p style="margin-bottom: 0">
+										<a href={p}>{p}</a>
+									</p>
+								{/each}
+								N/A
+							</td>
+						</tr>
+					</tbody>
+				</Table>
+			{/if}
 
 			<h4>Previous steps</h4>
 			<Table>
 				<tbody>
-					{#each data.proc.steps as step, i}
-						{#if i !== data.proc.steps.length - 1}
-							<tr><th scope="row">Max path length</th><td>{step.maxPathLength}</td></tr>
-							<tr><th scope="row">Max path props</th><td>{step.maxPathProps}</td></tr>
-							<tr>
-								<th scope="row">Seeds</th>
-								<td
-									>{#each step.seeds as r}
-										<p style="margin-bottom: 0">
-											<a href={r}>{r}</a>
-										</p>
-									{/each}</td
-								>
-							</tr>
+					{#each data.proc.prevSteps as step, i}
+						<tr><th scope="row">Max path length</th><td>{step.maxPathLength}</td></tr>
+						<tr><th scope="row">Max path props</th><td>{step.maxPathProps}</td></tr>
+						<tr>
+							<th scope="row">Seeds</th>
+							<td
+								>{#each step.seeds as r}
+									<p style="margin-bottom: 0">
+										<a href={r}>{r}</a>
+									</p>
+								{/each}</td
+							>
+						</tr>
 
-							<tr>
-								<th scope="row">Predicate limitation</th>
-								<td>{step.predLimit.limType}</td>
-							</tr>
-							<tr>
-								<th scope="row">Predicate list</th>
-								<td>
-									{#each step.predLimit.limPredicates as p}
-										<p style="margin-bottom: 0">
-											<a href={p}>{p}</a>
-										</p>
-									{/each}
-									N/A
-								</td>
-							</tr>
-						{/if}
+						<tr>
+							<th scope="row">Predicate limitation</th>
+							<td>{step.predLimit.limType}</td>
+						</tr>
+						<tr>
+							<th scope="row">Predicate list</th>
+							<td>
+								{#each step.predLimit.limPredicates as p}
+									<p style="margin-bottom: 0">
+										<a href={p}>{p}</a>
+									</p>
+								{/each}
+								N/A
+							</td>
+						</tr>
 					{/each}
 				</tbody>
 			</Table>
