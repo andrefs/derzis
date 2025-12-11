@@ -117,6 +117,9 @@ class ProcessClass {
   public status!: 'queued' | 'running' | 'done' | 'error';
 
   public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
+    if (!this.currentStep) {
+      throw new Error('Current step is not defined');
+    }
     // triple predicate allowed by white/blacklist
     if (!this.currentStep.predLimit) {
       return true;
@@ -206,6 +209,9 @@ class ProcessClass {
   }
 
   public async getPathsForRobotsChecking(skip = 0, limit = 20) {
+    if (!this.currentStep) {
+      throw new Error('Current step is not defined');
+    }
     const paths = await Path.find({
       processId: this.pid,
       'head.domain.status': 'unvisited',
@@ -576,19 +582,20 @@ class ProcessClass {
       lastPath?.updatedAt.getTime() || 0
     );
 
+    const lastStep = this.currentStep ?? this.prevSteps[this.prevSteps.length - 1];
     const totalPaths = await Path.countDocuments({
-      'seed.url': { $in: this.currentStep.seeds }
+      'seed.url': { $in: lastStep.seeds }
     }).lean();
     const avgPathLength = totalPaths
       ? await Path.aggregate([
-        { $match: { 'seed.url': { $in: this.currentStep.seeds } } },
+        { $match: { 'seed.url': { $in: lastStep.seeds } } },
         { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
       ]).then((res) => res[0]?.avgLength || 0)
       : 0;
 
     const avgPathProps = totalPaths
       ? await Path.aggregate([
-        { $match: { 'seed.url': { $in: this.currentStep.seeds } } },
+        { $match: { 'seed.url': { $in: lastStep.seeds } } },
         { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
       ]).then((res) => res[0]?.avgProps || 0)
       : 0;
@@ -643,18 +650,18 @@ class ProcessClass {
       },
       paths: {
         total: await Path.countDocuments({
-          'seed.url': { $in: this.currentStep.seeds }
+          'seed.url': { $in: lastStep.seeds }
         }).lean(),
         finished: await Path.countDocuments({
-          'seed.url': { $in: this.currentStep.seeds },
+          'seed.url': { $in: lastStep.seeds },
           status: 'finished'
         }).lean(), // TODO add index
         disabled: await Path.countDocuments({
-          'seed.url': { $in: this.currentStep.seeds },
+          'seed.url': { $in: lastStep.seeds },
           status: 'disabled'
         }).lean(), // TODO add index
         active: await Path.countDocuments({
-          'seed.url': { $in: this.currentStep.seeds },
+          'seed.url': { $in: lastStep.seeds },
           status: 'active'
         }).lean(), // TODO add index
         avgPathLength,
@@ -691,6 +698,10 @@ class ProcessClass {
       );
 
       if (process) {
+        if (!process.currentStep) {
+          throw new Error('Current step is not defined');
+        }
+        log.info(`Process ${process.pid} is starting with seeds:`, process.currentStep.seeds);
         await Resource.insertSeeds(process.currentStep.seeds, process.pid);
         await process.notifyStart();
         return true;
