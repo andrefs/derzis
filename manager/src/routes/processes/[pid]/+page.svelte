@@ -65,7 +65,7 @@
 
 			<h3>Steps</h3>
 			{#if data.proc.currentStep}
-				<h4>Current step (#{data.proc.prevSteps.length + 1})</h4>
+				<h4>Current step (#{data.proc.steps.length})</h4>
 				<Table>
 					<tbody>
 						<tr
@@ -106,7 +106,7 @@
 			<h4>Previous steps</h4>
 			<Table>
 				<tbody>
-					{#each data.proc.prevSteps as step, i}
+					{#each data.proc.steps as step, i}
 						<tr><th scope="row">Max path length</th><td>{step.maxPathLength}</td></tr>
 						<tr><th scope="row">Max path props</th><td>{step.maxPathProps}</td></tr>
 						<tr>

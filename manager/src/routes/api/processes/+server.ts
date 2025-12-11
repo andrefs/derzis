@@ -22,6 +22,17 @@ interface ProcessSkel {
 	step: Partial<StepClass>;
 }
 
+/**
+ * Creates a new process based on the provided skeleton.
+ * Expects a JSON body with the following structure:
+ * {
+ *   ok: boolean,
+ *   err: string,
+ *   data: {
+ *     process: ProcessSkel
+ *   }
+ * }
+ */
 export async function POST({ request }: RequestEvent) {
 	const { ok, err, data }: BaseAPIResponse = await request.json();
 	if (!ok) {
@@ -29,7 +40,7 @@ export async function POST({ request }: RequestEvent) {
 	}
 	const pskel = data.process;
 	const process = {
-		prevSteps: [],
+		steps: [pskel.step],
 		currentStep: pskel.step,
 		notification: pskel.notification,
 	};
