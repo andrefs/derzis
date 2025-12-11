@@ -83,7 +83,7 @@ export class StepClass {
   const ssePath = `/processes/${this.pid}/events`;
   this.notification.ssePath = ssePath;
 })
-class ProcessClass {
+class ProcessClass extends Document {
   _id!: Types.ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -273,7 +273,10 @@ class ProcessClass {
    * @returns {Promise<PathDocument[]>} - paths
    * @memberof ProcessClass
    */
-  public async getPathsForDomainCrawl(skip = 0, limit = 20) {
+  public async getPathsForDomainCrawl(skip = 0, limit = 20): Promise<PathDocument[]> {
+    if (!this.currentStep) {
+      throw new Error('Current step is not defined');
+    }
     const predLimFilter = this.currentStep.predLimit.limType === 'whitelist' ?
       { 'predicates.elems': { $in: this.currentStep.predLimit.limPredicates } } :
       { 'predicates.elems': { $nin: this.currentStep.predLimit.limPredicates } };
