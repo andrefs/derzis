@@ -729,6 +729,9 @@ class ProcessClass extends Document {
       return;
     }
     this.status = 'done';
+    if (!this.currentStep) {
+      throw new Error('Current step is not defined');
+    }
     this.prevSteps.push(this.currentStep);
     this.currentStep = undefined as any;
     // save to DB
