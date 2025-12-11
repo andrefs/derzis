@@ -2,11 +2,9 @@ import { Types, Document } from 'mongoose';
 import { Resource, ResourceClass } from './Resource';
 import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
-import { Domain } from './Domain';
 import { Path, type PathSkeleton, type PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
-import { Counter } from './Counter';
-import { HttpError, createLogger, webhookPost } from '@derzis/common';
+import { createLogger, webhookPost } from '@derzis/common';
 const log = createLogger('Process');
 import {
   prop,
@@ -100,7 +98,7 @@ class ProcessClass {
   public description?: string;
 
   @prop({ required: true, type: StepClass })
-  public currentStep!: StepClass;
+  public currentStep?: StepClass;
 
   @prop({ required: true, default: [], type: [StepClass] }, PropType.ARRAY)
   public prevSteps!: StepClass[];
@@ -712,21 +710,16 @@ class ProcessClass {
   }
 
   public async done() {
-    const p = await Process.findOne({ pid: this.pid });
-    if (!p) {
-      throw new HttpError(404, `Process ${this.pid} not found`);
-    }
-    if (p.status === 'done') {
-      log.info(`Process ${this.pid} is already marked as done`);
+    if (this.status === 'done') {
+      log.warn(`Process ${this.pid} is already marked as done`);
       return;
     }
-    await Process.updateOne(
-      { pid: this.pid },
-      {
-        $set: { status: 'done' },
-        $push: { prevSteps: this.currentStep },
-        $unset: { currentStep: "" }
-      });
+    this.status = 'done';
+    this.prevSteps.push(this.currentStep);
+    this.currentStep = undefined as any;
+    // save to DB
+    await this.save();
+
     await this.notifyStepFinished();
   }
 
@@ -801,6 +794,7 @@ class ProcessClass {
       this.notification.email ?? '',
       this.notification.webhook ?? ''
     );
+    log.info('Notification details:', JSON.stringify(notif, null, 2));
 
     if (this.notification.email) {
       await notifyEmail(this.notification.email, notif);
