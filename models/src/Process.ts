@@ -162,12 +162,12 @@ class ProcessClass extends Document {
     }
 
     // process is not done
-    log.info(`Process ${this.pid} is not done yet:`, {
+    log.info(`Process ${this.pid} is not done yet: ` + JSON.stringify({
       pathsToCrawl,
       pathsToCheck,
       hasPathsChecking,
       hasPathsCrawling
-    });
+    }, null, 2));
     return false;
   }
 
