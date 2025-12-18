@@ -12,6 +12,8 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import contentType from 'content-type';
 import LinkHeader from 'http-link-header';
+import { createLogger } from '@derzis/common';
+const log = createLogger('Axios');
 
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 
@@ -94,7 +96,7 @@ export const fetchRobots = async (url: string, axios: AxiosGet) => {
 			status: 'ok' as const
 		}))
 		.catch((err) => {
-			console.log('XXXXXXXXXXXXXXX worker fetchRobots err', err);
+			log.warn(`Error fetching robots.txt from ${url}: ${err.message}`);
 			return { ...handleHttpError(url, err), status: 'not_ok' as const };
 		});
 	return res;

@@ -316,6 +316,10 @@ class ProcessClass extends Document {
     return !!paths.length;
   }
 
+  /**
+   * Recursively extend paths with existing triples
+   * @param paths - paths to extend
+   */
   public async extendPathsWithExistingTriples(paths: PathDocument[]) {
     for (const path of paths) {
       const newPathObjs = [];
@@ -343,7 +347,7 @@ class ProcessClass extends Document {
     }
   }
 
-  public async extendPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
+  public async extendProcPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
     const newHeads = Object.keys(triplesByNode);
     log.silly('New heads:', newHeads);
     const paths = await Path.find({
@@ -811,8 +815,8 @@ class ProcessClass extends Document {
       ok: true,
       data: {
         pid: this.pid,
-        messageType: 'OK_PROCESS_STARTED',
-        message: `Process ${this.pid} has started.`,
+        messageType: 'OK_STEP_STARTED',
+        message: `Step ${this.steps.length} of ${this.pid} has started.`,
         details: this.currentStep
       } as ProcStartNotification
     };

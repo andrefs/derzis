@@ -153,6 +153,11 @@ class PathClass {
 		);
 	}
 
+	/**
+	* Try to extend the path with existing triples in the database.
+	* If successful, create new paths and return them along with the ProcessTriples to create.
+	* If not, return empty array.
+	*/
 	public async extendWithExistingTriples(): Promise<{
 		newPaths: PathSkeleton[];
 		procTriples: Types.ObjectId[];
@@ -216,6 +221,11 @@ class PathClass {
 		return copy;
 	}
 
+	/**
+	* Try to extend the path with the given triples.
+	* If successful, create new paths and return them along with the ProcessTriples to create.
+	* If not, return empty array.
+	*/
 	public async extend(
 		triples: TripleClass[]
 	): Promise<{ newPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
@@ -237,7 +247,9 @@ class PathClass {
 				np.head.url = newHeadUrl;
 				np.head.status = 'unvisited'; // to be redefined later
 
+				// check if triple is out of bounds
 				if (this.tripleIsOutOfBounds(t, process!)) {
+					// mark triple as out of bounds for the path
 					np.outOfBounds = t._id;
 				} else {
 					procTriples.push(t._id);

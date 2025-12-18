@@ -177,7 +177,10 @@ export default class RunningJobs extends EventEmitter {
 
 		// Reset path head domains being checked
 		log.debug('Resetting outstanding path head domains being checked');
-		await Path.updateMany({ 'head.domain.status': 'checking' }, { $set: { status: 'unvisited' } });
+		await Path.updateMany(
+			{ 'head.domain.status': 'checking' },
+			{ $set: { 'head.domain.status': 'unvisited' } }
+		);
 
 		// Reset domain crawls
 		log.debug('Resetting outstanding domain crawls');
@@ -201,7 +204,7 @@ export default class RunningJobs extends EventEmitter {
 		await Resource.updateMany({ status: 'crawling' }, { status: 'unvisited' });
 		// Reset path head resources being crawled
 		log.debug('Resetting outstanding path head resources being crawled');
-		await Path.updateMany({ 'head.status': 'crawling' }, { $set: { status: 'unvisited' } });
+		await Path.updateMany({ 'head.status': 'crawling' }, { $set: { 'head.status': 'unvisited' } });
 
 		log.info(`Outstanding jobs cleaned`);
 		return;

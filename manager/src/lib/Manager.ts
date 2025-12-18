@@ -150,20 +150,20 @@ export default class Manager {
 					triplesByNode[source.url].push(t);
 				}
 				log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
-				await this.updatePaths(source.url, triplesByNode);
+				await this.updateAllProcPaths(source.url, triplesByNode);
 			}
 		} else {
 			log.warn('No triples found when dereferencing', jobResult.url);
 		}
 	}
 
-	async updatePaths(sourceUrl: string, triplesByNode: { [url: string]: TripleClass[] }) {
+	async updateAllProcPaths(sourceUrl: string, triplesByNode: { [url: string]: TripleClass[] }) {
 		const pids = await Path.distinct('processId', {
 			'head.url': sourceUrl
 		});
 		for (const pid of pids) {
 			const proc = await Process.findOne({ pid });
-			await proc?.extendPaths(triplesByNode);
+			await proc?.extendProcPaths(triplesByNode);
 		}
 	}
 
