@@ -1,5 +1,5 @@
 import { addStep } from '$lib/process-helper';
-import { Process } from '@derzis/models';
+import { PredDirMetricsClass, Process } from '@derzis/models';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common';
 const log = createLogger('API');
@@ -13,7 +13,9 @@ interface NewStepReqBody {
     predLimit: {
       limType: 'blacklist' | 'whitelist';
       limPredicates: string[];
-    }
+    },
+    followDirection: boolean;
+    predDirMetrics?: PredDirMetricsClass[];
   };
 }
 
@@ -24,11 +26,15 @@ export const POST: RequestHandler = async ({ request, params }) => {
     return json({ ok: false, err: { message: 'No process ID provided' } }, { status: 400 });
   }
 
+  console.log('XXXXXXXXXXXXXXX add-step server 3', JSON.stringify(resp.data, null, 2));
+
   const procParams = {
     seeds: resp.data.newSeeds,
     maxPathLength: resp.data.maxPathLength,
     maxPathProps: resp.data.maxPathProps,
     predLimit: resp.data.predLimit,
+    followDirection: resp.data.followDirection,
+    predDirMetrics: resp.data.predDirMetrics
   };
 
   const proc = await Process.findOne({ pid: params.pid });

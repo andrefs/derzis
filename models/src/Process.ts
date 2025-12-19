@@ -1,5 +1,5 @@
 import { Types, Document } from 'mongoose';
-import { Resource, ResourceClass } from './Resource';
+import { Resource } from './Resource';
 import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Path, type PathSkeleton, type PathDocument } from './Path';
@@ -13,10 +13,20 @@ import {
   pre,
   type ReturnModelType,
   PropType,
-  post,
   type DocumentType
 } from '@typegoose/typegoose';
 import { sendEmail } from '@derzis/common';
+
+export class PredDirMetricsClass {
+  @prop({ type: String })
+  public url!: string;
+
+  @prop({ type: Number })
+  public branchingFactor?: number;
+
+  @prop({ type: Number })
+  public seedDirectionality?: number;
+}
 
 export class NotificationClass {
   _id?: Types.ObjectId | string;
@@ -46,20 +56,47 @@ export class PredicateLimitationClass {
   public limPredicates!: string[];
 }
 
+/**
+ * Class representing a crawling step in a process
+ */
 export class StepClass {
   _id?: Types.ObjectId | string;
 
+  /**
+   * Seed URLs to start crawling from
+   */
   @prop({ required: true, type: String }, PropType.ARRAY)
   public seeds!: string[];
 
+  /**
+   * Maximum path length to follow
+   */
   @prop({ default: 2, required: true, type: Number })
   public maxPathLength!: number;
 
+  /**
+   * Maximum number of properties in a path
+   */
   @prop({ default: 1, required: true, type: Number })
   public maxPathProps!: number;
 
+  /**
+   * Predicate limitation (whitelist/blacklist) for this step
+   */
   @prop({ required: true, type: PredicateLimitationClass })
   public predLimit!: PredicateLimitationClass;
+
+  /**
+   * Metrics calculated over last step's predicates regarding directionality
+   */
+  @prop({ type: [PredDirMetricsClass] }, PropType.ARRAY)
+  public predDirMetrics?: PredDirMetricsClass[];
+
+  /**
+   * Whether to follow predicate directionality
+   */
+  @prop({ type: Boolean, default: false, required: true })
+  public followDirection: boolean = false;
 }
 
 @index({ status: 1 })

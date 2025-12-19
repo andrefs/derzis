@@ -41,13 +41,17 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 	const newMPL = Math.max(p.currentStep.maxPathLength, params.maxPathLength);
 	const newMPP = Math.max(p.currentStep.maxPathProps, params.maxPathProps);
 
+	console.log('XXXXXXXXXXXXXXX proc-helper 5', JSON.stringify({ params }, null, 2));
 	const newStep = {
 		seeds: [...oldSeeds, ...newSeeds],
 		maxPathLength: newMPL,
 		maxPathProps: newMPP,
 		predLimit: params.predLimit,
+		followDirection: params.followDirection as boolean,
+		predDirMetrics: params.predDirMetrics
 	};
 
+	console.log('XXXXXXXXXXXXXXX proc-helper 6', JSON.stringify({ newStep }, null, 2));
 	await Process.updateOne(
 		{ pid, status: 'done' },
 		{
