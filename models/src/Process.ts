@@ -17,15 +17,12 @@ import {
 } from '@typegoose/typegoose';
 import { sendEmail } from '@derzis/common';
 
-export class PredDirMetricsClass {
+export class PredsBranchFactor {
   @prop({ type: String })
   public url!: string;
 
   @prop({ type: Number })
   public branchingFactor?: number;
-
-  @prop({ type: Number })
-  public seedDirectionality?: number;
 }
 
 export class NotificationClass {
@@ -87,13 +84,13 @@ export class StepClass {
   public predLimit!: PredicateLimitationClass;
 
   /**
-   * Metrics calculated over last step's predicates regarding directionality
+   * Branching factors of last step's predicates
    */
-  @prop({ type: [PredDirMetricsClass] }, PropType.ARRAY)
-  public predDirMetrics?: PredDirMetricsClass[];
+  @prop({ type: [PredsBranchFactor] }, PropType.ARRAY)
+  public predsBranchFactor?: PredsBranchFactor[];
 
   /**
-   * Whether to follow predicate directionality
+   * Whether to crawl taking into account predicates branching factor
    */
   @prop({ type: Boolean, default: false, required: true })
   public followDirection: boolean = false;
