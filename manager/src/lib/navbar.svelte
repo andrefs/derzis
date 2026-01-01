@@ -25,7 +25,7 @@
 		<Icon src={FiCloudLightning} size="1.5em" /> <span style="font-weight: bold">Derzis</span>
 		<small class="text-muted"> v{version}</small>
 		<Badge
-			color={/local/.test('local') ? 'info' : /dc|docker/.test(modeTag) ? 'warning' : 'primary'}
+			color={/local/.test(modeTag) ? 'info' : /dc|docker/.test(modeTag) ? 'warning' : 'primary'}
 			class="ms-2"
 		>
 			{modeTag || 'production'}
