@@ -23,6 +23,7 @@ services:
         DERZIS_MNG_DB_NAME: ${DC_DERZIS_MNG_DB_NAME}
         MAILTRAP_API_TOKEN: ${MAILTRAP_API_TOKEN}
         PORT: ${DC_DERZIS_MNG_PORT}
+        PUBLIC_MODE_TAG: ${DC_MODE_TAG}
     restart: unless-stopped
     depends_on:
       - pubsub
@@ -38,6 +39,7 @@ services:
       DERZIS_MNG_DB_NAME: ${DC_DERZIS_MNG_DB_NAME}
       MAILTRAP_API_TOKEN: ${MAILTRAP_API_TOKEN}
       PORT: ${DC_DERZIS_MNG_PORT}
+      PUBLIC_MODE_TAG: ${DC_MODE_TAG}
     volumes:
       - type: bind
         source: ./data/export

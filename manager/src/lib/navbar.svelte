@@ -1,5 +1,6 @@
 <script lang="ts">
 	export let version: string;
+	export let modeTag;
 
 	import {
 		Navbar,
@@ -8,7 +9,8 @@
 		NavbarToggler,
 		Collapse,
 		NavItem,
-		NavLink
+		NavLink,
+		Badge
 	} from '@sveltestrap/sveltestrap';
 	import { Icon } from 'svelte-icons-pack';
 	import { BsCardList, BsPlusSquare, BsBookHalf } from 'svelte-icons-pack/bs';
@@ -22,6 +24,12 @@
 	<NavbarBrand href="/processes">
 		<Icon src={FiCloudLightning} size="1.5em" /> <span style="font-weight: bold">Derzis</span>
 		<small class="text-muted"> v{version}</small>
+		<Badge
+			color={/local/.test('local') ? 'info' : /dc|docker/.test(modeTag) ? 'warning' : 'primary'}
+			class="ms-2"
+		>
+			{modeTag || 'production'}
+		</Badge>
 	</NavbarBrand>
 	<NavbarToggler on:click={toggle} />
 	<Collapse {isOpen} navbar expand="md">
