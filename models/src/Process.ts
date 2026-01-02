@@ -793,7 +793,7 @@ class ProcessClass extends Document {
       ok: true,
       data: {
         pid: this.pid,
-        messageType: 'OK_PROCESS_CREATED',
+        messageType: 'OK_PROC_CREATED',
         message: `Process ${this.pid} has been created.`,
         details: {
           pid: this.pid,
@@ -911,11 +911,11 @@ interface BaseProcNotification {
 }
 
 type ProcCreatedNotification = BaseProcNotification & {
-  messageType: 'OK_PROCESS_CREATED';
+  messageType: 'OK_PROC_CREATED';
   message: string;
 };
 type ProcStartNotification = BaseProcNotification & {
-  messageType: 'OK_PROCESS_STARTED';
+  messageType: 'OK_PROC_STARTED';
   message: string;
 };
 
