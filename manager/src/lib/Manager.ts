@@ -18,7 +18,7 @@ import {
 } from '@derzis/common';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
-import type { JobCapacity, JobRequest, ResourceCrawlJobRequest } from '@derzis/common';
+import type { JobCapacity, JobRequest, ResourceCrawlJobRequest, SimpleTriple } from '@derzis/common';
 import { ObjectId } from 'bson';
 
 export default class Manager {
@@ -121,10 +121,21 @@ export default class Manager {
 			(t) => t.object === jobResult.url || t.subject === jobResult.url
 		);
 
+		await this.processNewTriples(jobResult.url, triples);
+	}
+
+	/**
+	* Process new triples found when crawling a resource
+	* Adds new resources and triples to the database, and updates process paths accordingly
+	* @param sourceUrl URL of the resource from which the triples were obtained
+	* @param triples Array of triples to process
+	*/
+	async processNewTriples(sourceUrl: string, triples: SimpleTriple[]) {
 		log.silly('Triples:', triples);
+
 		if (triples.length) {
 			const source = (await Resource.findOne({
-				url: jobResult.url
+				url: sourceUrl
 			})) as ResourceClass;
 
 			// add new resources
@@ -150,20 +161,25 @@ export default class Manager {
 					triplesByNode[source.url].push(t);
 				}
 				log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
-				await this.updateAllProcPaths(source.url, triplesByNode);
+				await this.updateAllPathsWithHead(source.url, triplesByNode);
 			}
 		} else {
-			log.warn('No triples found when dereferencing', jobResult.url);
+			log.warn('No triples found when dereferencing', sourceUrl);
 		}
 	}
 
-	async updateAllProcPaths(sourceUrl: string, triplesByNode: { [url: string]: TripleClass[] }) {
+	/**
+	* Update all paths that have the given source URL as head
+	* @param sourceUrl URL of the resource that is the head of the paths to update
+	* @param triplesByNode Object mapping node URLs to arrays of triples connected to them
+	*/
+	async updateAllPathsWithHead(sourceUrl: string, triplesByNode: { [url: string]: TripleClass[] }) {
 		const pids = await Path.distinct('processId', {
 			'head.url': sourceUrl
 		});
 		for (const pid of pids) {
 			const proc = await Process.findOne({ pid });
-			await proc?.extendProcPaths(triplesByNode);
+			await proc?.extendProcessPaths(triplesByNode);
 		}
 	}
 

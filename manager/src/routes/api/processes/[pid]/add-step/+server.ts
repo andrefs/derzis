@@ -1,5 +1,5 @@
 import { addStep } from '$lib/process-helper';
-import { PredDirMetricsClass, Process } from '@derzis/models';
+import { PredsBranchFactor, Process } from '@derzis/models';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common';
 const log = createLogger('API');
@@ -15,7 +15,7 @@ interface NewStepReqBody {
       limPredicates: string[];
     },
     followDirection: boolean;
-    predDirMetrics?: PredDirMetricsClass[];
+    predsBranchFactor?: PredsBranchFactor[];
   };
 }
 
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
     maxPathProps: resp.data.maxPathProps,
     predLimit: resp.data.predLimit,
     followDirection: resp.data.followDirection,
-    predDirMetrics: resp.data.predDirMetrics
+    predsBranchFactor: resp.data.predsBranchFactor
   };
 
   const proc = await Process.findOne({ pid: params.pid });

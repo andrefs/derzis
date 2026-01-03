@@ -381,7 +381,7 @@ class ProcessClass extends Document {
     }
   }
 
-  public async extendProcPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
+  public async extendProcessPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
     const newHeads = Object.keys(triplesByNode);
     log.silly('New heads:', newHeads);
     const paths = await Path.find({
@@ -390,13 +390,19 @@ class ProcessClass extends Document {
     });
     log.silly('Paths:', paths);
 
+    const followDirection = this.currentStep.followDirection;
+    const predsBranchFactor = this.currentStep.predsBranchFactor;
     const pathsToDelete = new Set();
     const newPathObjs = [];
     const toDelete = new Set();
     const procTriples = new Set();
 
     for (const path of paths) {
-      const { newPaths: nps, procTriples: pts } = await path.extend(triplesByNode[path.head.url]);
+      const { newPaths: nps, procTriples: pts } = await path.extend(
+        triplesByNode[path.head.url],
+        predsBranchFactor ? new Map(predsBranchFactor.map((p) => [p.url, p.branchingFactor || 0])) : undefined,
+        followDirection
+      );
       log.silly('New paths:', nps);
       if (nps.length) {
         toDelete.add(path._id);

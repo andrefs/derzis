@@ -221,22 +221,28 @@ class PathClass {
 		return copy;
 	}
 
+
 	/**
 	* Try to extend the path with the given triples.
 	* If successful, create new paths and return them along with the ProcessTriples to create.
 	* If not, return empty array.
 	*/
 	public async extend(
-		triples: TripleClass[]
+		triples: TripleClass[],
+		predsBranchFactor?: Map<string, number>,
+		followDirection = false,
 	): Promise<{ newPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
 		let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
 		let procTriples: Types.ObjectId[] = [];
 		const process = await Process.findOne({ pid: this.processId });
 
-		for (const t of triples.filter(
-			(t) => this.shouldCreateNewPath(t) && process?.whiteBlackListsAllow(t)
+		for (const t of triples.filter((t) =>
+			this.shouldCreateNewPath(t) &&
+			process?.whiteBlackListsAllow(t) &&
+			t.directionOk(this.head.url, followDirection, predsBranchFactor)
 		)) {
 			log.silly('Extending path with triple', t);
+			// TODO check follow direction
 			const newHeadUrl: string = t.subject === this.head.url ? t.object : t.subject;
 			const prop = t.predicate;
 
