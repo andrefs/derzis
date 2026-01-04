@@ -78,6 +78,11 @@ class TripleClass {
 			return true;
 		}
 
+		if (!predsBranchFactor) {
+			log.warn('Predicate branch factor not provided, cannot enforce directionality');
+			return true;
+		}
+
 		// followDirection is true, assume predsBranchFactor is defined
 		// FIXME does it make sense to return true if predicate not in predsBranchFactor?
 		// why would we have a triple with a predicate not in predsBranchFactor?
