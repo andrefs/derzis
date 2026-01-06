@@ -840,7 +840,7 @@ class ProcessClass extends Document {
       this.notification.email ?? '',
       this.notification.webhook ?? ''
     );
-    log.info('Notification details:', JSON.stringify(notif, null, 2));
+    log.info('Notification details: ' + JSON.stringify(notif, null, 2));
 
     if (this.notification.email) {
       await notifyEmail(this.notification.email, notif);

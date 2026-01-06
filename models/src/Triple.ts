@@ -75,6 +75,7 @@ class TripleClass {
 		predsBranchFactor?: Map<string, number>
 	): boolean {
 		if (!followDirection) {
+			log.silly('Not following direction because followDirection is false');
 			return true;
 		}
 
@@ -87,6 +88,7 @@ class TripleClass {
 		// FIXME does it make sense to return true if predicate not in predsBranchFactor?
 		// why would we have a triple with a predicate not in predsBranchFactor?
 		if (!(this.predicate in predsBranchFactor)) {
+			log.silly(`Predicate ${this.predicate} not in predsBranchFactor, cannot enforce directionality`);
 			return true;
 		}
 
@@ -95,11 +97,13 @@ class TripleClass {
 		// should it return true if bf === 1 ?
 		// FIXME >= or > ?
 		if (headUrl === this.subject && bf >= 1) {
+			log.silly(`Direction ok for triple\n\t${this.subject}\n\t${this.predicate}\n\t${this.object}\n\tbranch factor: ${bf}\n\theadUrl: ${headUrl}`);
 			return true;
 		}
 
 		// FIXME <= or < ?
 		if (headUrl === this.object && bf <= 1) {
+			log.silly(`Direction ok for triple\n\t${this.subject}\n\t${this.predicate}\n\t${this.object}\n\tbranch factor: ${bf}\n\theadUrl: ${headUrl}`);
 			return true;
 		}
 

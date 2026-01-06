@@ -3,7 +3,7 @@ import {
 	urlListValidator,
 	urlValidator,
 	type RecursivePartial,
-	createLogger
+	createLogger,
 } from '@derzis/common';
 import {
 	prop,
@@ -198,10 +198,23 @@ class PathClass {
 			}
 		}
 		// find triples which include the head but dont belong to the path yet
-		let triples: TripleDocument[] = await Triple.find({
-			nodes: { $eq: this.head.url, $nin: this.nodes.elems }
+		let triples1: TripleDocument[] = await Triple.find({
+			subject: this.head.url,
+			$not: {
+				predicate: this.predicates.elems[this.predicates.elems.length - 1],
+				object: this.nodes.elems[this.nodes.elems.length - 1]
+			}
 		});
-		return this.extend(triples);
+		let triples2: TripleDocument[] = await Triple.find({
+			object: this.head.url,
+			$not: {
+				predicate: this.predicates.elems[this.predicates.elems.length - 1],
+				subject: this.nodes.elems[this.nodes.elems.length - 1]
+			}
+		});
+
+
+		return this.extend([...triples1, ...triples2]);
 	}
 
 	public copy(this: PathClass): PathSkeleton {
