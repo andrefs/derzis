@@ -1,5 +1,6 @@
 import { newProcess } from '$lib/process-helper';
-import { Process, type ProcessClass } from '@derzis/models';
+import type { RecursivePartial } from '@derzis/common';
+import { Process, StepClass, type ProcessClass } from '@derzis/models';
 import { redirect, type Action } from '@sveltejs/kit';
 
 export async function load() {
@@ -20,26 +21,26 @@ export const actions: { [name: string]: Action } = {
 			.filter((s: string) => !s.match(/^\s*$/));
 		const uniqueSeeds = [...new Set(seeds)];
 
-		const firstStep = {
+		const firstStep: RecursivePartial<StepClass> = {
 			maxPathLength: Number(data.get('maxPathLength')),
 			maxPathProps: Number(data.get('maxPathProps')),
 			predLimit: {
-				type: data.get('limitation-type') as 'blacklist' | 'whitelist',
+				limType: data.get('limitation-type') as 'blacklist' | 'whitelist',
 
-				predicates: (data.get('pred-list') as string)
+				limPredicates: (data.get('pred-list') as string)
 					?.split(/\s*[\n]\s*/)
 					.filter((s: string) => !s.match(/^\s*$/)),
 			},
 			seeds: uniqueSeeds
 		};
 
-		const p = {
+		const p: RecursivePartial<ProcessClass> = {
 			steps: [firstStep],
 			currentStep: firstStep,
 			notification: {
 				email: data.get('email') as string,
 				webhook: data.get('webhook') as string
-			}
+			},
 		};
 		const proc = await newProcess(p);
 

@@ -141,30 +141,36 @@ export default class Manager {
 			// add new resources
 			await Resource.addFromTriples(triples);
 
-			// add new triples
+			// add new triples in batches
 			const res = await Triple.upsertMany(source, triples);
+			let foundTripes = false;
 
-			if (res.upsertedCount) {
-				const tids = Object.values(res.upsertedIds).map((i) => new ObjectId(i));
-				// filter out reflexive triples and triples not referring to head resource
-				const tObjs: TripleClass[] = (await Triple.find({ _id: { $in: tids } })).filter(
-					(t) => t.subject !== t.object && (t.subject == source.url || t.object == source.url)
-				);
+			// for each batch bulk write result
+			for (const r of res) {
+				if (r.upsertedCount) {
+					foundTripes = true;
+					const tids = Object.values(r.upsertedIds).map((i) => new ObjectId(i));
+					// filter out reflexive triples and triples not referring to head resource
+					const tObjs: TripleClass[] = (await Triple.find({ _id: { $in: tids } })).filter(
+						(t) => t.subject !== t.object && (t.subject == source.url || t.object == source.url)
+					);
 
-				// TODO convert to TripleDocument
-				const triplesByNode: { [url: string]: TripleClass[] } = {};
-				for (const t of tObjs) {
-					const newHead = t.subject === source.url ? t.object : t.subject;
-					if (!triplesByNode[source.url]) {
-						triplesByNode[source.url] = [];
+					// TODO convert to TripleDocument
+					const triplesByNode: { [url: string]: TripleClass[] } = {};
+					for (const t of tObjs) {
+						const newHead = t.subject === source.url ? t.object : t.subject;
+						if (!triplesByNode[source.url]) {
+							triplesByNode[source.url] = [];
+						}
+						triplesByNode[source.url].push(t);
 					}
-					triplesByNode[source.url].push(t);
+					log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
+					await this.updateAllPathsWithHead(source.url, triplesByNode);
 				}
-				log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
-				await this.updateAllPathsWithHead(source.url, triplesByNode);
 			}
-		} else {
-			log.warn('No triples found when dereferencing', sourceUrl);
+			if (!foundTripes) {
+				log.warn('No triples found when dereferencing', sourceUrl);
+			}
 		}
 	}
 
@@ -220,13 +226,14 @@ export default class Manager {
 		if (jobResult.status === 'ok') {
 			const robots = robotsParser(jobResult.origin + '/robots.txt', jobResult.details.robotsText);
 			crawlDelay = robots.getCrawlDelay(config.http.userAgent) || crawlDelay;
-			return Domain.saveRobotsOk(jobResult, crawlDelay);
+			await Domain.saveRobotsOk(jobResult, crawlDelay);
 		} else {
-			return Domain.saveRobotsError(jobResult, crawlDelay);
+			await Domain.saveRobotsError(jobResult, crawlDelay);
 		}
+		return;
 	}
 
-	async *assignJobs(
+	async * assignJobs(
 		workerId: string,
 		workerAvail: JobCapacity
 	): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>> {
@@ -238,10 +245,16 @@ export default class Manager {
 		}
 		let assignedCheck = 0;
 		let assignedCrawl = 0;
+		// robotsCheck jobs
 		if (workerAvail.robotsCheck.capacity) {
 			log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
 			for await (const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)) {
 				if (await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')) {
+					log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning robotsCheck', {
+						workerId,
+						workerAvail,
+						check
+					});
 					assignedCheck++;
 					yield {
 						type: 'robotsCheck',
@@ -251,6 +264,8 @@ export default class Manager {
 				}
 			}
 		}
+
+		// domainCrawl jobs
 		if (workerAvail.domainCrawl) {
 			log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
 			//for await (const crawl of this.domainsToCrawl(

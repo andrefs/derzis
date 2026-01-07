@@ -183,7 +183,8 @@ class ResourceClass {
 			seed: { url: s.url },
 			head: { url: s.url, status: s.status },
 			nodes: { elems: [s.url] },
-			predicates: { elems: [] }
+			predicates: { elems: [] },
+			triples: []
 		}));
 
 		const insPaths = await Path.create(paths);

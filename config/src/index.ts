@@ -16,7 +16,7 @@ export default {
       debug: true
     },
     email: {
-      doNotSend: true,
+     doNotSend: true 
     }
   },
   worker: {

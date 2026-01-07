@@ -395,7 +395,6 @@ class DomainClass {
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
-        // TODO check if paths are allowed by whitelist/blacklist
         const paths = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
         pathSkip += pathLimit;
         if (!paths.length) {

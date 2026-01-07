@@ -174,6 +174,16 @@ export default class RunningJobs extends EventEmitter {
 				}
 			}
 		);
+		await Domain.updateMany(
+			{ status: 'checking' },
+			{
+				$set: { status: 'unvisited' },
+				$unset: {
+					workerId: '',
+					jobId: ''
+				}
+			}
+		);
 
 		// Reset path head domains being checked
 		log.debug('Resetting outstanding path head domains being checked');

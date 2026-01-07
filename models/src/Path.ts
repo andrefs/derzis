@@ -117,6 +117,9 @@ class PathClass {
 	@prop({ ref: 'Triple' })
 	public outOfBounds?: Types.ObjectId;
 
+	@prop({ ref: 'Triple', type: [Types.ObjectId] }, PropType.ARRAY)
+	public triples: Types.ObjectId[];
+
 	public shouldCreateNewPath(this: PathClass, t: TripleClass): boolean {
 		//console.log('XXXXXXXXXXXXXX shouldCreateNewPath', { t, _this: this });
 		// triple is reflexive
@@ -158,17 +161,24 @@ class PathClass {
 	* If successful, create new paths and return them along with the ProcessTriples to create.
 	* If not, return empty array.
 	*/
-	public async extendWithExistingTriples(): Promise<{
+	public async extendWithExistingTriples(process: ProcessClass): Promise<{
 		newPaths: PathSkeleton[];
 		procTriples: Types.ObjectId[];
 	}> {
 		// if path has outOfBounds triple, try to extend with that
 		if (!!this.outOfBounds) {
 			const t: TripleClass | null = await Triple.findById(this.outOfBounds);
-			const process = await Process.findOne({ pid: this.processId });
+			const predsBranchFactor = process.curPredsBranchFactor();
+			const followDirection = process!.currentStep.followDirection;
 
 			// triple is not out of bounds and is allowed by white/black lists
-			if (t && !this.tripleIsOutOfBounds(t, process!) && process?.whiteBlackListsAllow(t!)) {
+			if (
+				t
+				&& !this.tripleIsOutOfBounds(t, process!)
+				&& process?.whiteBlackListsAllow(t!)
+				&& t.directionOk(this.head.url, followDirection, predsBranchFactor)
+			) {
+				log.silly('Extending path with existing outOfBounds triple', t);
 				const newHeadUrl: string = t!.subject === this.head.url ? t!.object : t!.subject;
 				const newHead = await Resource.findOne({ url: newHeadUrl }).select('url status').lean();
 
@@ -182,6 +192,7 @@ class PathClass {
 					np.head.status = newHead?.status || 'unvisited';
 					np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
 					np.nodes.elems.push(newHeadUrl);
+					np.triples = [...this.triples, t._id];
 
 					// insert ProcessTriple, create new path, delete old one
 					await ProcessTriple.findOneAndUpdate(
@@ -193,28 +204,17 @@ class PathClass {
 					await Path.deleteOne({ _id: this._id });
 
 					// existing triples might be able to further extend the new path
-					return path.extendWithExistingTriples();
+					return path.extendWithExistingTriples(process);
 				}
 			}
 		}
 		// find triples which include the head but dont belong to the path yet
-		let triples1: TripleDocument[] = await Triple.find({
-			subject: this.head.url,
-			$not: {
-				predicate: this.predicates.elems[this.predicates.elems.length - 1],
-				object: this.nodes.elems[this.nodes.elems.length - 1]
-			}
-		});
-		let triples2: TripleDocument[] = await Triple.find({
-			object: this.head.url,
-			$not: {
-				predicate: this.predicates.elems[this.predicates.elems.length - 1],
-				subject: this.nodes.elems[this.nodes.elems.length - 1]
-			}
+		let triples: TripleDocument[] = await Triple.find({
+			nodes: this.head.url,
+			_id: { $nin: this.triples },
 		});
 
-
-		return this.extend([...triples1, ...triples2]);
+		return this.extend(triples, process);
 	}
 
 	public copy(this: PathClass): PathSkeleton {
@@ -242,12 +242,12 @@ class PathClass {
 	*/
 	public async extend(
 		triples: TripleClass[],
-		predsBranchFactor?: Map<string, number>,
-		followDirection = false,
+		process: ProcessClass,
 	): Promise<{ newPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
 		let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
 		let procTriples: Types.ObjectId[] = [];
-		const process = await Process.findOne({ pid: this.processId });
+		const predsBranchFactor = process.curPredsBranchFactor();
+		const followDirection = process!.currentStep.followDirection;
 
 		for (const t of triples.filter((t) =>
 			this.shouldCreateNewPath(t) &&
@@ -265,6 +265,7 @@ class PathClass {
 				const np = this.copy();
 				np.head.url = newHeadUrl;
 				np.head.status = 'unvisited'; // to be redefined later
+				np.triples = [...this.triples, t._id];
 
 				// check if triple is out of bounds
 				if (this.tripleIsOutOfBounds(t, process!)) {

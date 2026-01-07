@@ -360,7 +360,7 @@ class ProcessClass extends Document {
       const toDelete = new Set();
       const procTriples = new Set();
 
-      const { newPaths: nps, procTriples: pts } = await path.extendWithExistingTriples();
+      const { newPaths: nps, procTriples: pts } = await path.extendWithExistingTriples(this);
 
       // if new paths were created
       if (nps.length) {
@@ -390,8 +390,6 @@ class ProcessClass extends Document {
     });
     log.silly('Paths:', paths);
 
-    const followDirection = this.currentStep.followDirection;
-    const predsBranchFactor = this.currentStep.predsBranchFactor;
     const pathsToDelete = new Set();
     const newPathObjs = [];
     const toDelete = new Set();
@@ -400,8 +398,7 @@ class ProcessClass extends Document {
     for (const path of paths) {
       const { newPaths: nps, procTriples: pts } = await path.extend(
         triplesByNode[path.head.url],
-        predsBranchFactor ? new Map(predsBranchFactor.map((p) => [p.url, p.branchingFactor || 0])) : undefined,
-        followDirection
+        this
       );
       log.silly('New paths:', nps);
       if (nps.length) {
@@ -430,6 +427,20 @@ class ProcessClass extends Document {
     await this.extendPathsWithExistingTriples(newPaths);
   }
 
+  /**
+   * Get predicates branching factor for the current step as a map
+   * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor
+   */
+  public curPredsBranchFactor(this: ProcessClass): Map<string, number> | undefined {
+    return this.currentStep.predsBranchFactor?.reduce(
+      (map, obj) => {
+        map.set(obj.url, obj.branchingFactor || 0);
+        return map;
+      },
+      new Map<string, number>()
+    );
+  }
+
   public async updateLimits(this: ProcessClass) {
     const paths = Path.find({
       processId: this.pid,
@@ -437,7 +448,7 @@ class ProcessClass extends Document {
     });
 
     for await (const path of paths) {
-      const { newPaths, procTriples } = await path.extendWithExistingTriples();
+      const { newPaths, procTriples } = await path.extendWithExistingTriples(this);
       await ProcessTriple.insertMany(
         [...procTriples].map((tId) => ({ processId: this.pid, triple: tId }))
       );

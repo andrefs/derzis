@@ -1,0 +1,4 @@
+#!/bin/bash
+
+unbuffer npm run dev 2>&1 | tee manager.log
+
