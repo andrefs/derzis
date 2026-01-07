@@ -118,7 +118,7 @@ class TripleClass {
 			return true;
 		}
 
-		if (!predsBranchFactor) {
+		if (!predsBranchFactor || !predsBranchFactor.size) {
 			log.warn('XXXXXXXXXXdir Predicate branch factor not provided, cannot enforce directionality');
 			return true;
 		}
@@ -126,12 +126,12 @@ class TripleClass {
 		// followDirection is true, assume predsBranchFactor is defined
 		// FIXME does it make sense to return true if predicate not in predsBranchFactor?
 		// why would we have a triple with a predicate not in predsBranchFactor?
-		if (!(this.predicate in predsBranchFactor)) {
+		if (!(predsBranchFactor.has(this.predicate))) {
 			log.silly(`XXXXXXXXXXdir Predicate ${this.predicate} not in predsBranchFactor, cannot enforce directionality`);
 			return true;
 		}
 
-		const bf = predsBranchFactor!.get(this.predicate)!;
+		const bf = predsBranchFactor.get(this.predicate)!;
 
 		// should it return true if bf === 1 ?
 		// FIXME >= or > ?

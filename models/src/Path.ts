@@ -169,6 +169,8 @@ class PathClass {
 		if (!!this.outOfBounds) {
 			const t: TripleClass | null = await Triple.findById(this.outOfBounds);
 			const predsBranchFactor = process.curPredsBranchFactor();
+			log.silly('XXXXXXXXXXXXXXdir1 ' + JSON.stringify(process!.currentStep.predsBranchFactor));
+			log.silly('XXXXXXXXXXXXXXdir2 ' + JSON.stringify(Array.from(predsBranchFactor || new Map())));
 			const followDirection = process!.currentStep.followDirection;
 
 			// triple is not out of bounds and is allowed by white/black lists
@@ -247,6 +249,9 @@ class PathClass {
 		let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
 		let procTriples: Types.ObjectId[] = [];
 		const predsBranchFactor = process.curPredsBranchFactor();
+
+		log.silly('XXXXXXXXXXXXXXdir3 ' + JSON.stringify(process!.currentStep.predsBranchFactor));
+		log.silly('XXXXXXXXXXXXXXdir4 ' + JSON.stringify(Array.from(predsBranchFactor || new Map())));
 		const followDirection = process!.currentStep.followDirection;
 
 		for (const t of triples.filter((t) =>
