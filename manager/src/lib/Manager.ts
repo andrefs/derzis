@@ -133,43 +133,41 @@ export default class Manager {
 	async processNewTriples(sourceUrl: string, triples: SimpleTriple[]) {
 		log.silly('Triples:', triples);
 
-		if (triples.length) {
-			const source = (await Resource.findOne({
-				url: sourceUrl
-			})) as ResourceClass;
+		if (!triples.length) {
+			log.warn('No triples found when dereferencing', sourceUrl);
+			return;
+		}
 
-			// add new resources
-			await Resource.addFromTriples(triples);
+		const source = (await Resource.findOne({
+			url: sourceUrl
+		})) as ResourceClass;
 
-			// add new triples in batches
-			const res = await Triple.upsertMany(source, triples);
-			let foundTripes = false;
+		// add new resources
+		await Resource.addFromTriples(triples);
 
-			// for each batch bulk write result
-			for (const r of res) {
-				if (r.upsertedCount) {
-					foundTripes = true;
-					const tids = Object.values(r.upsertedIds).map((i) => new ObjectId(i));
-					// filter out reflexive triples and triples not referring to head resource
-					const tObjs: TripleClass[] = (await Triple.find({ _id: { $in: tids } })).filter(
-						(t) => t.subject !== t.object && (t.subject == source.url || t.object == source.url)
-					);
+		// add new triples in batches
+		const res = await Triple.upsertMany(source, triples);
 
-					// TODO convert to TripleDocument
-					const triplesByNode: { [url: string]: TripleClass[] } = {};
-					for (const t of tObjs) {
-						const newHead = t.subject === source.url ? t.object : t.subject;
-						if (!triplesByNode[source.url]) {
-							triplesByNode[source.url] = [];
-						}
-						triplesByNode[source.url].push(t);
+		// for each batch bulk write result
+		for (const r of res) {
+			if (r.upsertedCount) {
+				const tids = Object.values(r.upsertedIds).map((i) => new ObjectId(i));
+				// filter out reflexive triples and triples not referring to head resource
+				const tObjs: TripleClass[] = (await Triple.find({ _id: { $in: tids } })).filter(
+					(t) => t.subject !== t.object && (t.subject == source.url || t.object == source.url)
+				);
+
+				// TODO convert to TripleDocument
+				const triplesByNode: { [url: string]: TripleClass[] } = {};
+				for (const t of tObjs) {
+					const newHead = t.subject === source.url ? t.object : t.subject;
+					if (!triplesByNode[source.url]) {
+						triplesByNode[source.url] = [];
 					}
-					log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
-					await this.updateAllPathsWithHead(source.url, triplesByNode);
+					triplesByNode[source.url].push(t);
 				}
-			}
-			if (!foundTripes) {
-				log.warn('No triples found when dereferencing', sourceUrl);
+				log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
+				await this.updateAllPathsWithHead(source.url, triplesByNode);
 			}
 		}
 	}

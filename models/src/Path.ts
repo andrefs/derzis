@@ -15,7 +15,7 @@ import {
 	modelOptions
 } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from './Triple';
-import { Process, ProcessClass } from './Process';
+import { ProcessClass } from './Process';
 import { ProcessTriple } from './ProcessTriple';
 import { Domain } from './Domain';
 import { Resource } from './Resource';
@@ -168,9 +168,9 @@ class PathClass {
 		// if path has outOfBounds triple, try to extend with that
 		if (!!this.outOfBounds) {
 			const t: TripleClass | null = await Triple.findById(this.outOfBounds);
-			const predsBranchFactor = process.curPredsBranchFactor();
-			log.silly('XXXXXXXXXXXXXXdir1 ' + JSON.stringify(process!.currentStep.predsBranchFactor));
-			log.silly('XXXXXXXXXXXXXXdir2 ' + JSON.stringify(Array.from(predsBranchFactor || new Map())));
+			const predsDirMetrics = process.curPredsDirMetrics();
+			log.silly('XXXXXXXXXXXXXXdir1 ' + JSON.stringify(process!.currentStep.predsDirMetrics));
+			log.silly('XXXXXXXXXXXXXXdir2 ' + JSON.stringify(Array.from(predsDirMetrics || new Map())));
 			const followDirection = process!.currentStep.followDirection;
 
 			// triple is not out of bounds and is allowed by white/black lists
@@ -178,7 +178,7 @@ class PathClass {
 				t
 				&& !this.tripleIsOutOfBounds(t, process!)
 				&& process?.whiteBlackListsAllow(t!)
-				&& t.directionOk(this.head.url, followDirection, predsBranchFactor)
+				&& t.directionOk(this.head.url, followDirection, predsDirMetrics)
 			) {
 				log.silly('Extending path with existing outOfBounds triple', t);
 				const newHeadUrl: string = t!.subject === this.head.url ? t!.object : t!.subject;
@@ -248,16 +248,16 @@ class PathClass {
 	): Promise<{ newPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
 		let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
 		let procTriples: Types.ObjectId[] = [];
-		const predsBranchFactor = process.curPredsBranchFactor();
+		const predsDirMetrics = process.curPredsDirMetrics();
 
-		log.silly('XXXXXXXXXXXXXXdir3 ' + JSON.stringify(process!.currentStep.predsBranchFactor));
-		log.silly('XXXXXXXXXXXXXXdir4 ' + JSON.stringify(Array.from(predsBranchFactor || new Map())));
+		log.silly('XXXXXXXXXXXXXXdir3 ' + JSON.stringify(process!.currentStep.predsDirMetrics));
+		log.silly('XXXXXXXXXXXXXXdir4 ' + JSON.stringify(Array.from(predsDirMetrics || new Map())));
 		const followDirection = process!.currentStep.followDirection;
 
 		for (const t of triples.filter((t) =>
 			this.shouldCreateNewPath(t) &&
 			process?.whiteBlackListsAllow(t) &&
-			t.directionOk(this.head.url, followDirection, predsBranchFactor)
+			t.directionOk(this.head.url, followDirection, predsDirMetrics)
 		)) {
 			log.silly('Extending path with triple', t);
 			// TODO check follow direction

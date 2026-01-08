@@ -17,12 +17,15 @@ import {
 } from '@typegoose/typegoose';
 import { sendEmail } from '@derzis/common';
 
-export class PredsBranchFactor {
+export class PredDirMetrics {
   @prop({ type: String })
   public url!: string;
 
   @prop({ type: Number })
-  public branchingFactor?: number;
+  public branchFactor?: number;
+
+  @prop({ type: Number })
+  public seedPosRatio?: number;
 }
 
 export class NotificationClass {
@@ -84,13 +87,13 @@ export class StepClass {
   public predLimit!: PredicateLimitationClass;
 
   /**
-   * Branching factors of last step's predicates
+   * Direction metrics of last step's predicates
    */
-  @prop({ type: [PredsBranchFactor] }, PropType.ARRAY)
-  public predsBranchFactor?: PredsBranchFactor[];
+  @prop({ type: [PredDirMetrics] }, PropType.ARRAY)
+  public predsDirMetrics?: PredDirMetrics[];
 
   /**
-   * Whether to crawl taking into account predicates branching factor
+   * Whether to crawl taking into account predicates direction metrics
    */
   @prop({ type: Boolean, default: false, required: true })
   public followDirection: boolean = false;
@@ -428,16 +431,19 @@ class ProcessClass extends Document {
   }
 
   /**
-   * Get predicates branching factor for the current step as a map
-   * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor
+   * Get predicates branching factor and seed position ratio for the current step as a map
+   * @returns {Map<string, {bf: number, spr: number}> | undefined} - map of predicate URL to branching factor and seeds position ratio
    */
-  public curPredsBranchFactor(this: ProcessClass): Map<string, number> | undefined {
-    return this.currentStep.predsBranchFactor?.reduce(
+  public curPredsDirMetrics(this: ProcessClass): Map<string, { bf: number; spr: number }> | undefined {
+    return this.currentStep.predsDirMetrics?.reduce(
       (map, obj) => {
-        map.set(obj.url, obj.branchingFactor || 0);
+        map.set(obj.url, {
+          bf: obj.branchFactor || 0,
+          spr: obj.seedPosRatio || 0
+        });
         return map;
       },
-      new Map<string, number>()
+      new Map<string, { bf: number; spr: number }>()
     );
   }
 

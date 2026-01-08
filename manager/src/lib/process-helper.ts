@@ -48,7 +48,7 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 		maxPathProps: newMPP,
 		predLimit: params.predLimit,
 		followDirection: params.followDirection as boolean,
-		predsBranchFactor: params.predsBranchFactor
+		predsDirMetrics: params.predsDirMetrics
 	};
 
 	console.log('XXXXXXXXXXXXXXX proc-helper 6', JSON.stringify({ newStep }, null, 2));

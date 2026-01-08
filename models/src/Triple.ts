@@ -102,36 +102,36 @@ class TripleClass {
 
 
 	/**
-	* Check if the direction of the triple is acceptable based on the position of head URL in the triple and predicate branch factor.
+	* Check if the direction of the triple is acceptable based on the position of head URL in the triple and predicate direction metrics.
 	* @param headUrl The URL of the head resource.
 	* @param followDirection Boolean indicating whether to enforce directionality.
-	* @param predsBranchFactor Optional map of predicate branch factors. Required if followDirection is true.
+	* @param predsDirMetrics Optional map of predicate direction metrics. Required if followDirection is true.
 	* @returns True if the direction is acceptable, false otherwise.
 	*/
 	public directionOk(
 		headUrl: string,
 		followDirection: boolean,
-		predsBranchFactor?: Map<string, number>
+		predsDirMetrics?: Map<string, { bf: number, spr: number }>
 	): boolean {
 		if (!followDirection) {
 			log.silly('XXXXXXXXXXdir Not following direction because followDirection is false');
 			return true;
 		}
 
-		if (!predsBranchFactor || !predsBranchFactor.size) {
-			log.warn('XXXXXXXXXXdir Predicate branch factor not provided, cannot enforce directionality');
+		if (!predsDirMetrics || !predsDirMetrics.size) {
+			log.warn('XXXXXXXXXXdir Predicate direction metrics not provided, cannot enforce directionality');
 			return true;
 		}
 
-		// followDirection is true, assume predsBranchFactor is defined
-		// FIXME does it make sense to return true if predicate not in predsBranchFactor?
-		// why would we have a triple with a predicate not in predsBranchFactor?
-		if (!(predsBranchFactor.has(this.predicate))) {
-			log.silly(`XXXXXXXXXXdir Predicate ${this.predicate} not in predsBranchFactor, cannot enforce directionality`);
+		// followDirection is true, assume predsDirMetrics is defined
+		// FIXME does it make sense to return true if predicate not in predsDirMetrics?
+		// why would we have a triple with a predicate not in predsDirMetrics?
+		if (!(predsDirMetrics.has(this.predicate))) {
+			log.silly(`XXXXXXXXXXdir Predicate ${this.predicate} not in predsDirMpredsDirMetrics, cannot enforce directionality`);
 			return true;
 		}
 
-		const bf = predsBranchFactor.get(this.predicate)!;
+		const bf = predsDirMetrics.get(this.predicate)!.bf!;
 
 		// should it return true if bf === 1 ?
 		// FIXME >= or > ?
