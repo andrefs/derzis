@@ -24,6 +24,7 @@
 	let predLimType: 'blacklist' | 'whitelist' = 'blacklist';
 	let maxPathLength: number = data.currentStep.maxPathLength;
 	let maxPathProps: number = data.currentStep.maxPathProps;
+	let followDirection: boolean = data.currentStep.followDirection;
 
 	async function addStep() {
 		const ns = newSeeds?.split(/\s*[\n,]\s*/).filter((s: string) => !s.match(/^\s*$/));
@@ -164,6 +165,8 @@
 								<Row>
 									<Col sm={2}>
 										<Label>Predicate list:</Label>
+									</Col>
+									<Col sm={10}>
 										<InputGroup>
 											<Input
 												id="pred-list"
@@ -176,6 +179,22 @@
 											<Tooltip target="pred-list-tt">One resource URL per line</Tooltip>
 											<InputGroupText id="white-list-tt">?</InputGroupText>
 										</InputGroup>
+									</Col>
+								</Row>
+							</FormGroup>
+
+							<FormGroup>
+								<Row>
+									<Col sm={2}>
+										<Label for="follow-direction">Follow direction:</Label>
+									</Col>
+									<Col sm={10}>
+										<Input
+											id="follow-direction"
+											name="followDirection"
+											bind:checked={followDirection}
+											type="checkbox"
+										/>
 									</Col>
 								</Row>
 							</FormGroup>

@@ -25,21 +25,31 @@ export const actions: { [name: string]: Action } = {
 		}
 		const data = await request.formData();
 
+		const seeds = (data.get('seeds') as string)
+			?.split(/\s*[\n,]\s*/)
+			.filter((s: string) => !s.match(/^\s*$/));
+		const maxPathLength = Number(data.get('maxPathLength'));
+		const maxPathProps = Number(data.get('maxPathProps'));
+		const predLimType = data.get('predLimType') as string;
+		const predList = (data.get('predList') as string)
+			?.split(/\s*[\n,]\s*/)
+			.filter((s: string) => !s.match(/^\s*$/));
+		const followDirection = data.get('followDirection') === 'true';
+
+
 		const procParams = {
-			seeds: (data.get('seeds') as string)
-				?.split(/\s*[\n,]\s*/)
-				.filter((s: string) => !s.match(/^\s*$/)),
-			maxPathLength: Number(data.get('maxPathLength')),
-			maxPathProps: Number(data.get('maxPathProps')),
-			whiteList: (data.get('white-list') as string)
-				?.split(/\s*[\n,]\s*/)
-				.filter((s: string) => !s.match(/^\s*$/)),
-			blackList: (data.get('black-list') as string)
-				?.split(/\s*[\n,]\s*/)
-				.filter((s: string) => !s.match(/^\s*$/))
+			seeds,
+			maxPathLength,
+			maxPathProps,
+			predLimit: {
+				limType: predLimType as 'whitelist' | 'blacklist',
+				limPredicates: predList
+			},
+			followDirection,
+			predsDirMetrics: undefined
 		};
 
-		addStepHelper(params!.pid, procParams);
+		await addStepHelper(params!.pid, procParams);
 
 		throw redirect(303, `/processes/${params.pid}`);
 	}
