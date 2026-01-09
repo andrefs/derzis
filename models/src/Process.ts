@@ -137,7 +137,6 @@ export class StepClass {
   this.notification.ssePath = ssePath;
 })
 class ProcessClass extends Document {
-  _id!: Types.ObjectId | string;
   createdAt?: Date;
   updatedAt?: Date;
 
