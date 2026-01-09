@@ -17,15 +17,31 @@ import {
 } from '@typegoose/typegoose';
 import { sendEmail } from '@derzis/common';
 
+class BranchFactorClass {
+  @prop({ type: Number })
+  public subj!: number;
+
+  @prop({ type: Number })
+  public obj!: number;
+}
+
+class SeedPosRatioClass {
+  @prop({ type: Number })
+  public subj!: number;
+
+  @prop({ type: Number })
+  public obj!: number;
+}
+
 export class PredDirMetrics {
   @prop({ type: String })
   public url!: string;
 
-  @prop({ type: Number })
-  public branchFactor?: number;
+  @prop({ type: BranchFactorClass })
+  public branchFactor?: BranchFactorClass;
 
-  @prop({ type: Number })
-  public seedPosRatio?: number;
+  @prop({ type: SeedPosRatioClass })
+  public seedPosRatio?: SeedPosRatioClass;
 }
 
 export class NotificationClass {
@@ -438,8 +454,9 @@ class ProcessClass extends Document {
     return this.currentStep.predsDirMetrics?.reduce(
       (map, obj) => {
         map.set(obj.url, {
-          bf: obj.branchFactor || 0,
-          spr: obj.seedPosRatio || 0
+          // TODO should this return decomposed metrics instead of ratio?
+          bf: obj.branchFactor ? (obj.branchFactor.subj / obj.branchFactor.obj) : 0,
+          spr: obj.seedPosRatio ? (obj.seedPosRatio.subj / obj.seedPosRatio.obj) : 0
         });
         return map;
       },

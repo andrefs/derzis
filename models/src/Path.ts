@@ -117,8 +117,8 @@ class PathClass {
 	@prop({ ref: 'Triple' })
 	public outOfBounds?: Types.ObjectId;
 
-	@prop({ ref: 'Triple', type: [Types.ObjectId] }, PropType.ARRAY)
-	public triples: Types.ObjectId[];
+	@prop({ required: true, ref: 'Triple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
+	public triples!: Types.ObjectId[];
 
 	public shouldCreateNewPath(this: PathClass, t: TripleClass): boolean {
 		//console.log('XXXXXXXXXXXXXX shouldCreateNewPath', { t, _this: this });
