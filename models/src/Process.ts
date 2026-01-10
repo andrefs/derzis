@@ -17,7 +17,7 @@ import {
 } from '@typegoose/typegoose';
 import { sendEmail } from '@derzis/common';
 
-class BranchFactorClass {
+export class BranchFactorClass {
   @prop({ type: Number })
   public subj!: number;
 
@@ -25,7 +25,7 @@ class BranchFactorClass {
   public obj!: number;
 }
 
-class SeedPosRatioClass {
+export class SeedPosRatioClass {
   @prop({ type: Number })
   public subj!: number;
 
@@ -449,17 +449,17 @@ class ProcessClass extends Document {
    * Get predicates branching factor and seed position ratio for the current step as a map
    * @returns {Map<string, {bf: number, spr: number}> | undefined} - map of predicate URL to branching factor and seeds position ratio
    */
-  public curPredsDirMetrics(this: ProcessClass): Map<string, { bf: number; spr: number }> | undefined {
+  public curPredsDirMetrics(this: ProcessClass): Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined {
     return this.currentStep.predsDirMetrics?.reduce(
       (map, obj) => {
         map.set(obj.url, {
           // TODO should this return decomposed metrics instead of ratio?
-          bf: obj.branchFactor ? (obj.branchFactor.subj / obj.branchFactor.obj) : 0,
-          spr: obj.seedPosRatio ? (obj.seedPosRatio.subj / obj.seedPosRatio.obj) : 0
+          bf: obj.branchFactor,
+          spr: obj.seedPosRatio
         });
         return map;
       },
-      new Map<string, { bf: number; spr: number }>()
+      new Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>()
     );
   }
 

@@ -12,6 +12,7 @@ import {
 	PropType
 } from '@typegoose/typegoose';
 import type { Document } from 'mongoose';
+import { BranchFactorClass, SeedPosRatioClass } from './Process';
 
 type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
 type TripleWithSources = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 'sources'>;
@@ -103,6 +104,8 @@ class TripleClass {
 
 	/**
 	* Check if the direction of the triple is acceptable based on the position of head URL in the triple and predicate direction metrics.
+	* If branch factor (bf) >= 1 the predicate converges from subject to object.
+	* If seed position ratio (spr) >= 1 the seeds are mostly in the subject position.
 	* @param headUrl The URL of the head resource.
 	* @param followDirection Boolean indicating whether to enforce directionality.
 	* @param predsDirMetrics Optional map of predicate direction metrics. Required if followDirection is true.
@@ -111,7 +114,7 @@ class TripleClass {
 	public directionOk(
 		headUrl: string,
 		followDirection: boolean,
-		predsDirMetrics?: Map<string, { bf: number, spr: number }>
+		predsDirMetrics?: Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>
 	): boolean {
 		if (!followDirection) {
 			log.silly('XXXXXXXXXXdir Not following direction because followDirection is false');
@@ -127,26 +130,53 @@ class TripleClass {
 		// FIXME does it make sense to return true if predicate not in predsDirMetrics?
 		// why would we have a triple with a predicate not in predsDirMetrics?
 		if (!(predsDirMetrics.has(this.predicate))) {
-			log.silly(`XXXXXXXXXXdir Predicate ${this.predicate} not in predsDirMpredsDirMetrics, cannot enforce directionality`);
+			log.silly(`XXXXXXXXXXdir Predicate ${this.predicate} not in predsDirMetrics, cannot enforce directionality`);
 			return true;
 		}
 
 		const bf = predsDirMetrics.get(this.predicate)!.bf!;
+		const bfRatio = bf.subj / bf.obj;
+		const sp = predsDirMetrics.get(this.predicate)!.spr!;
+		const spRatio = sp.subj / sp.obj;
 
-		// should it return true if bf === 1 ?
-		// FIXME >= or > ?
-		if (headUrl === this.subject && bf >= 1) {
-			log.silly(`XXXXXXXXXXdir Direction ok for triple\n\t${this.subject}\n\t${this.predicate}\n\t${this.object}\n\tbranch factor: ${bf}\n\theadUrl: ${headUrl}`);
-			return true;
+		const bfDir = bfRatio >= 1 ? 'subj->obj' : 'obj->subj';
+		const sprDir = spRatio >= 1 ? 'subj->obj' : 'obj->subj';
+
+		if (bfDir === sprDir) {
+			// bf and spr agree on direction
+			if (headUrl === this.subject && bfDir === 'subj->obj') {
+				log.silly(`XXXXXXXXXXdir Direction ok for triple
+\t${this.subject}
+\t${this.predicate}
+\t${this.object}
+\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
+\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
+\theadUrl: ${headUrl}`);
+				return true;
+			}
+
+			if (headUrl === this.object && bfDir === 'obj->subj') {
+				log.silly(`XXXXXXXXXXdir Direction ok for triple
+\t${this.subject}
+\t${this.predicate}
+\t${this.object}
+\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
+\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
+\theadUrl: ${headUrl}`);
+				return true;
+			}
 		}
 
-		// FIXME <= or < ?
-		if (headUrl === this.object && bf <= 1) {
-			log.silly(`XXXXXXXXXXdir Direction ok for triple\n\t${this.subject}\n\t${this.predicate}\n\t${this.object}\n\tbranch factor: ${bf}\n\theadUrl: ${headUrl}`);
-			return true;
-		}
+		// FIXME what to do when bf and spr disagree on direction?
+		// for now, we consider direction not ok
 
-		log.silly(`XXXXXXXXXXdir Direction not ok for triple\n\t${this.subject}\n\t${this.predicate}\n\t${this.object}\n\tbranch factor: ${bf}\n\theadUrl: ${headUrl}`);
+		log.silly(`XXXXXXXXXXdir Direction not ok for triple
+\t${this.subject}
+\t${this.predicate}
+\t${this.object}
+\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
+\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
+\theadUrl: ${headUrl}`);
 		return false;
 	}
 }
