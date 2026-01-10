@@ -1,6 +1,6 @@
-import type { Types, Document } from 'mongoose';
+import type { Types, Document, UpdateQuery } from 'mongoose';
 import { urlValidator, WorkerError } from '@derzis/common';
-import { Domain } from './Domain';
+import { Domain, DomainClass } from './Domain';
 import { Path, type PathDocument } from './Path';
 import { Triple, type TripleClass, type TripleSkeleton } from './Triple';
 import type { CrawlResourceResultDetails } from '@derzis/common';
@@ -122,34 +122,55 @@ class ResourceClass {
 		// Domain
 		const baseFilter = { origin: new URL(url).origin };
 
+		let update: UpdateQuery<DomainClass> = {};
 		if (oldRes) {
-			let updateInc = error ? { 'crawl.failed': 1 } : { 'crawl.success': 1 };
-			const update = {
-				$inc: {
-					...updateInc,
-					'crawl.queued': -1,
-					'crawl.ongoing': -1
-				}
-			};
-
-			await Domain.findOneAndUpdate(baseFilter, update);
-		}
-
-		let d = await Domain.findOne(baseFilter)!;
-
-		const nextAllowed = new Date(details.ts + d!.crawl.delay * 1000);
-		const filter = {
-			...baseFilter,
-			'crawl.nextAllowed': {
-				$lt: nextAllowed
+			update['$inc'] = {
+				'crawl.queued': -1,
+				'crawl.ongoing': -1
 			}
 		};
-		d = await Domain.findOneAndUpdate(filter, {
-			'crawl.nextAllowed': nextAllowed
-		});
 
+		if (error) {
+			update['$inc'] = update['$inc'] || {};
+			update['$inc']['crawl.failed'] = 1
+
+			if (error.errorType === 'request_timeout') {
+				update['$inc']['warnings.E_RESOURCE_TIMEOUT'] = 1;
+				update['$push'] = update['$push'] || {};
+				update['$push'].lastWarnings = {
+					$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
+					$slice: -10
+				};
+			} else if (error.errorType === 'host_not_found') {
+				update['$inc']['warnings.E_DOMAIN_NOT_FOUND'] = 1;
+				update['$push'] = update['$push'] || {};
+				update['$push'].lastWarnings = {
+					$each: [{ errType: 'E_DOMAIN_NOT_FOUND' }],
+					$slice: -10
+				};
+			} else if (error.errorType === 'connection_reset' || error.errorType === 'too_many_redirects' || error.errorType === 'unsupported_mime_type') {
+				update['$inc']['warnings.E_RESOURCE_ISSUE'] = 1;
+				update['$push'] = update['$push'] || {};
+				update['$push'].lastWarnings = {
+					$each: [{ errType: 'E_RESOURCE_ISSUE' }],
+					$slice: -10
+				};
+			} else {
+				update['$inc']['warnings.E_UNKNOWN'] = 1;
+				update['$push'] = update['$push'] || {};
+				update['$push'].lastWarnings = {
+					$each: [{ errType: 'E_UNKNOWN' }],
+					$slice: -10
+				};
+			}
+		} else {
+			update['$inc'] = update['$inc'] || {};
+			update['$inc']['crawl.success'] = 1
+		};
+
+		const d = await Domain.findOneAndUpdate(baseFilter, update, { returnDocument: 'after' })!;
 		return {
-			domain: d
+			domain: await Domain.setNextCrawlAllowed(url, details.ts, d!.crawl.delay),
 		};
 	}
 

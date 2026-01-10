@@ -1,36 +1,49 @@
+type ErrorType =
+  | 'no_capacity'
+  | 'already_being_done'
+  | 'robots_forbidden'
+  | 'request_timeout'
+  | 'job_timeout'
+  | 'connection_reset'
+  | 'too_many_redirects'
+  | 'http'
+  | 'host_not_found'
+  | 'unsupported_mime_type'
+  | 'axios_error'
+  | 'parsing'
+  | 'unknown_worker_error';
 export class WorkerError extends Error {
-  errorType: string;
+  errorType: ErrorType = 'unknown_worker_error';
   name = 'Unknown Worker Error';
 
   constructor() {
     super();
-    this.errorType = 'unknown_worker_error';
   }
 
   toString() { return '[' + this.constructor.name.toString() + '] ' + this.errorType; }
 };
 
 export class NoCapacityError extends WorkerError {
-  errorType = 'no_capacity';
+  errorType = 'no_capacity' as const;
   name = 'No Capacity Error';
   constructor() { super(); }
 };
 
 export class AlreadyBeingDone extends WorkerError {
-  errorType = 'already_being_done';
-  name = 'Already Being Done';
+  errorType = 'already_being_done' as const;
+  name = 'Already Being Done' as const;
   constructor() { super(); }
 };
 
 export class RobotsForbiddenError extends WorkerError {
-  errorType = 'robots_forbidden';
+  errorType = 'robots_forbidden' as const;
   name = 'Robots Forbidden Error';
   constructor() { super(); }
 };
 
 export class RequestTimeoutError extends WorkerError {
   timeout: number;
-  errorType = 'request_timeout';
+  errorType = 'request_timeout' as const;
   name = 'Request Timeout Error';
   constructor(timeout: number) {
     super();
@@ -39,21 +52,21 @@ export class RequestTimeoutError extends WorkerError {
 };
 
 export class JobTimeoutError extends WorkerError {
-  errorType = 'job_timeout';
+  errorType = 'job_timeout' as const;
   name = 'Job Timeout Error';
 
   constructor() { super(); }
 };
 
 export class ConnectionResetError extends WorkerError {
-  errorType = 'connection_reset';
+  errorType = 'connection_reset' as const;
   name = 'Connection Reset Error';
   constructor() { super(); }
 };
 
 export class TooManyRedirectsError extends WorkerError {
   lastUrl: string;
-  errorType = 'too_many_redirects';
+  errorType = 'too_many_redirects' as const;
   name = 'Too Many Redirect Error';
 
   constructor(lastUrl: string) {
@@ -64,7 +77,7 @@ export class TooManyRedirectsError extends WorkerError {
 
 export class HttpError extends WorkerError {
   httpStatus: number;
-  errorType = 'http';
+  errorType = 'http' as const;
   name = 'HTTP Error';
   constructor(httpStatus: number) {
     super();
@@ -73,7 +86,7 @@ export class HttpError extends WorkerError {
 };
 
 export class DomainNotFoundError extends WorkerError {
-  errorType = 'host_not_found';
+  errorType = 'host_not_found' as const;
   name = 'Host Not Found Error';
   constructor() { super(); }
 };
@@ -81,10 +94,10 @@ export class DomainNotFoundError extends WorkerError {
 export class MimeTypeError extends WorkerError {
   mimeType: string;
   httpStatus?: number;
-  errorType = 'unsupported_mime_type';
+  errorType = 'unsupported_mime_type' as const;
   name = 'Unsupported Mime Type Error';
 
-  constructor(mimeType: string, info: {httpStatus?: number} = {}) {
+  constructor(mimeType: string, info: { httpStatus?: number } = {}) {
     super();
     this.mimeType = this.message = mimeType;
     if (info.httpStatus) {
@@ -95,9 +108,9 @@ export class MimeTypeError extends WorkerError {
 
 export class AxiosError extends WorkerError {
   name = 'Axios Error';
-  errorType = 'axios_error';
+  errorType = 'axios_error' as const;
 
-  constructor(axiosError: any){
+  constructor(axiosError: any) {
     super();
     this.message = axiosError.message;
   }
@@ -106,11 +119,11 @@ export class AxiosError extends WorkerError {
 export class ParsingError extends WorkerError {
   mimeType!: string;
   httpStatus!: number;
-  errorType = 'parsing';
+  errorType = 'parsing' as const;
   name = 'Parsing Error';
 
   constructor(message: string,
-              {httpStatus, mimeType}: {httpStatus: number, mimeType: string}) {
+    { httpStatus, mimeType }: { httpStatus: number, mimeType: string }) {
     super();
     this.message = message;
     if (httpStatus) {

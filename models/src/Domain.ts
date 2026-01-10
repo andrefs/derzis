@@ -1,7 +1,7 @@
 import { HttpError, createLogger } from '@derzis/common';
 import type { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
-import { Path, type PathDocument } from './Path';
+import { Path } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type UpdateOneModel } from 'mongoose';
@@ -20,9 +20,16 @@ export interface DomainCrawlJobInfo {
   resources: { url: string }[];
 }
 
+type DomainErrorType =
+  | 'E_ROBOTS_TIMEOUT'
+  | 'E_RESOURCE_TIMEOUT'
+  | 'E_DOMAIN_NOT_FOUND'
+  | 'E_RESOURCE_ISSUE'
+  | 'E_UNKNOWN';
+
 class LastWarningClass {
-  @prop({ type: String })
-  public errType!: 'E_ROBOTS_TIMEOUT' | 'E_RESOURCE_TIMEOUT' | 'E_DOMAIN_NOT_FOUND' | 'E_UNKNOWN';
+  @prop({ type: String, required: true, enum: ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN'] })
+  public errType!: DomainErrorType;
 }
 class WarningsClass {
   @prop({ default: 0, type: Number })
@@ -54,6 +61,7 @@ class RobotsClass {
   @prop({ type: Number })
   public elapsedTime?: number;
 }
+
 @index({ delay: 1 })
 @index({ nextAllowed: 1 })
 class CrawlClass {
@@ -487,6 +495,26 @@ class DomainClass {
   //	}
   //	return;
   //}
+
+  public static async setNextCrawlAllowed(
+    this: ReturnModelType<typeof DomainClass>,
+    origin: string,
+    ts: number,
+    crawlDelay: number) {
+    const nextAllowed = new Date(ts + crawlDelay * 1000);
+
+    const filter = {
+      origin: new URL(origin).origin,
+      'crawl.nextAllowed': {
+        $lt: nextAllowed
+      }
+    };
+    let d = await this.findOneAndUpdate(filter, {
+      'crawl.nextAllowed': nextAllowed
+    }, { returnDocument: 'after' });
+
+    return d;
+  }
 }
 
 const robotsNotFound = (jobResult: RobotsCheckResultError, crawlDelay: number) => {

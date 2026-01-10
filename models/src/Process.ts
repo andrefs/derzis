@@ -452,6 +452,9 @@ class ProcessClass extends Document {
   public curPredsDirMetrics(this: ProcessClass): Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined {
     return this.currentStep.predsDirMetrics?.reduce(
       (map, obj) => {
+        if (!obj.branchFactor || !obj.seedPosRatio) {
+          return map;
+        }
         map.set(obj.url, {
           // TODO should this return decomposed metrics instead of ratio?
           bf: obj.branchFactor,
