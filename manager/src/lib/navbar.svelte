@@ -13,7 +13,7 @@
 		Badge
 	} from '@sveltestrap/sveltestrap';
 	import { Icon } from 'svelte-icons-pack';
-	import { BsCardList, BsPlusSquare, BsBookHalf } from 'svelte-icons-pack/bs';
+	import { BsCardList, BsPlusSquare, BsBookHalf, BsGlobe } from 'svelte-icons-pack/bs';
 	import { FiCloudLightning } from 'svelte-icons-pack/fi';
 
 	let isOpen = false;
@@ -36,6 +36,9 @@
 		<Nav navbar>
 			<NavItem>
 				<NavLink href="/processes"><Icon src={BsCardList} /> Processes</NavLink>
+			</NavItem>
+			<NavItem>
+				<NavLink href="/domains"><Icon src={BsGlobe} /> Domains</NavLink>
 			</NavItem>
 			<NavItem>
 				<NavLink href="/processes/new"><Icon src={BsPlusSquare} /> Add new</NavLink>
