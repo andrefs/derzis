@@ -293,7 +293,7 @@ export class Worker extends EventEmitter {
 			const res = await axios.get(url, opts);
 			return { status: 'ok' as const, res: res as MinimalAxiosResponse };
 		} catch (err) {
-			return { status: 'not_ok' as const, url, err: new AxiosError(err) };
+			return handleHttpError(url, err);
 		}
 	};
 
