@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Col, Row, Spinner, Button } from '@sveltestrap/sveltestrap';
+	import { Col, Row, Spinner, Button, Input, Label, FormGroup } from '@sveltestrap/sveltestrap';
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
 	export let data;
@@ -11,6 +11,9 @@
 	let isLoading = true;
 	let renderer: any = null;
 	let _dlAsImg: any = null;
+	let allPredicates: string[] = [];
+	let selectedPredicate = 'all';
+	let isInitialLoad = true;
 
 	async function loadData() {
 		const response = await fetch(`/api/processes/${data.proc.pid}/triples.json.gz`);
@@ -37,15 +40,49 @@
 		}
 	});
 
+	// Reactive statement to rebuild graph when predicate changes
+	$: if (typeof window !== 'undefined' && selectedPredicate !== undefined) {
+		rebuildGraph();
+	}
+
+	async function rebuildGraph() {
+		// Clean up existing renderer
+		if (renderer) {
+			renderer.kill();
+			renderer = null;
+		}
+		// Clear container
+		if (container) {
+			container.innerHTML = '';
+		}
+		// Load new graph
+		await loadGraphData();
+	}
+
 	async function loadGraphData() {
 		try {
 			isLoading = true;
 			const triples = await loadData();
 
+			// Extract unique predicates for dropdown
+			allPredicates = [...new Set(triples.map((t) => t.predicate.valueOf()))].sort();
+
+			// Set default selected predicate to the first one only on initial load
+			if (allPredicates.length > 0 && selectedPredicate === 'all' && isInitialLoad) {
+				selectedPredicate = allPredicates[0];
+				isInitialLoad = false;
+			}
+
+			// Filter triples by selected predicate
+			const filteredTriples =
+				selectedPredicate === 'all'
+					? triples
+					: triples.filter((t) => t.predicate.valueOf() === selectedPredicate);
+
 			// build graph
 			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
 
-			for (const t of triples) {
+			for (const t of filteredTriples) {
 				const subjIsSeed = data.proc.currentStep.seeds.includes(t.subject.valueOf());
 				const objIsSeed = data.proc.currentStep.seeds.includes(t.object.valueOf());
 
@@ -63,12 +100,12 @@
 					label: objIsSeed ? t.object.valueOf() : '',
 					color: objIsSeed ? 'red' : 'blue'
 				});
-				// increase size logarithmically based on degree
+				// scale size based on degree with minimum base size
 				graph.updateNodeAttribute(t.subject.valueOf(), 'size', (size) =>
-					size ? Math.log(size + 1) * 5 : 1
+					size ? Math.max(8, Math.sqrt(size) * 4) : 8
 				);
 				graph.updateNodeAttribute(t.object.valueOf(), 'size', (size) =>
-					size ? Math.log(size + 1) * 5 : 1
+					size ? Math.max(8, Math.sqrt(size) * 4) : 8
 				);
 				graph.addDirectedEdge(t.subject.valueOf(), t.object.valueOf(), {
 					type: 'arrow',
@@ -197,11 +234,24 @@
 
 <div class="page-container">
 	<header class="page-header">
-		<h2>
-			Process <a href="/processes/{data.proc.pid}"
-				><span style="font-style: italic;">{data.proc.pid}</span></a
-			>
-		</h2>
+		<div class="header-content">
+			<h2>
+				Process <a href="/processes/{data.proc.pid}"
+					><span style="font-style: italic;">{data.proc.pid}</span></a
+				>
+			</h2>
+			{#if allPredicates.length > 0}
+				<FormGroup class="predicate-filter">
+					<Label for="predicate-select">Filter by predicate:</Label>
+					<Input type="select" id="predicate-select" bind:value={selectedPredicate}>
+						<option value="all">All predicates</option>
+						{#each allPredicates as predicate}
+							<option value={predicate}>{predicate}</option>
+						{/each}
+					</Input>
+				</FormGroup>
+			{/if}
+		</div>
 	</header>
 
 	<main class="page-main">
@@ -244,11 +294,35 @@
 		line-height: 1; /* Reduce line height to minimize space */
 	}
 
+	.header-content {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
+	}
+
 	.page-header h2 {
 		margin: 0;
 		margin-bottom: 0;
 		padding: 0;
 		line-height: 1.2;
+	}
+
+	.predicate-filter {
+		margin: 0;
+		min-width: 300px;
+	}
+
+	.predicate-filter :global(.form-label) {
+		margin-bottom: 0.25rem;
+		font-weight: 500;
+		font-size: 0.9rem;
+	}
+
+	.predicate-filter :global(.form-select) {
+		font-size: 0.9rem;
+		padding: 0.25rem 0.5rem;
 	}
 
 	.page-main {
