@@ -4,8 +4,6 @@
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
 	export let data;
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
 	import Graph from 'graphology';
 	import type { NodeDisplayData, EdgeDisplayData } from 'sigma/types';
 
@@ -16,23 +14,7 @@
 	let tooltip: HTMLDivElement;
 	let allPredicates: string[] = [];
 	let selectedPredicate = 'all';
-
-	onMount(() => {
-		const urlPredicate = $page.url.searchParams.get('predicate');
-		if (urlPredicate && urlPredicate !== selectedPredicate) {
-			selectedPredicate = urlPredicate;
-		}
-	});
-
-	$: if (typeof window !== 'undefined') {
-		if (selectedPredicate === 'all') {
-			goto(window.location.pathname, { replaceState: true });
-		} else {
-			goto(`${window.location.pathname}?predicate=${encodeURIComponent(selectedPredicate)}`, {
-				replaceState: true
-			});
-		}
-	}
+	let isInitialLoad = true;
 	let predicateColors: Map<string, string> = new Map();
 	let state: { hoveredNode?: string; hoveredNeighbors?: Set<string> } = {};
 
@@ -46,21 +28,28 @@
 
 	// Generate consistent colors for predicates
 	function getPredicateColor(predicate: string): string {
-		const colors = [
-			'#FF6B6B',
-			'#4ECDC4',
-			'#45B7D1',
-			'#96CEB4',
-			'#FFEAA7',
-			'#DDA0DD',
-			'#98D8C8',
-			'#F7DC6F',
-			'#BB8FCE',
-			'#85C1E9'
-		];
 		if (!predicateColors.has(predicate)) {
-			const index = predicateColors.size % colors.length;
-			predicateColors.set(predicate, colors[index]);
+			// Simple color palette for consistent colors (15 distinct colors)
+			const colors = [
+				"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7",
+				"#DDA0DD", "#98D8C8", "#F7DC6F", "#BB8FCE", "#85C1E9",
+				"#F8C471", "#82E0AA", "#F1948A", "#A569BD", "#D7BDE2"
+			];
+
+			// Use a simple hash function to ensure consistency
+			let hash = 0;
+			for (let i = 0; i < predicate.length; i++) {
+				hash += predicate.charCodeAt(i);
+			}
+
+			const colorIndex = hash % colors.length;
+			predicateColors.set(predicate, colors[colorIndex]);
+		}
+		return predicateColors.get(predicate)!;
+	}
+
+			const colorIndex = Math.abs(hash) % colors.length;
+			predicateColors.set(predicate, colors[colorIndex]);
 		}
 		return predicateColors.get(predicate)!;
 	}
@@ -116,6 +105,12 @@
 
 			// Extract unique predicates for dropdown
 			allPredicates = [...new Set(triples.map((t) => t.predicate.valueOf()))].sort();
+
+			// Set default selected predicate to the first one only on initial load
+			if (allPredicates.length > 0 && selectedPredicate === 'all' && isInitialLoad) {
+				selectedPredicate = allPredicates[0];
+				isInitialLoad = false;
+			}
 
 			// Filter triples by selected predicate
 			const filteredTriples =
@@ -266,9 +261,12 @@
 					} else {
 						res.hidden = false;
 						const predicate = (data as any).fullPredicate || '';
-						//res.label = (data as any).displayLabel || '';
+						res.label = (data as any).displayLabel || '';
+						// Labels are black by default
+						// Color edges based on their predicate
 						res.size = 3; // Make edges thicker when visible
-						res.color = getPredicateColor(predicate);
+						// red
+						res.color = '#00ff00';
 					}
 				} else {
 					// Default edge styling when not hovering
@@ -356,10 +354,10 @@
 									<div class="legend-item">
 										<div
 											class="color-box"
-											style="background-color: {getPredicateColor(predicate as string)}"
+											style="background-color: {getPredicateColor(predicate)}"
 										></div>
-										<span class="predicate-text" title={predicate as string}>
-											{predicate as string}
+										<span class="predicate-text" title={predicate}>
+											{predicate.length > 30 ? predicate.substring(0, 27) + '...' : predicate}
 										</span>
 									</div>
 								{/each}
