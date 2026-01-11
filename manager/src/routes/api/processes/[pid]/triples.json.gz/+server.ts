@@ -2,7 +2,7 @@ import { Process } from '@derzis/models';
 import { error } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 
-export async function GET({ params }: RequestEvent) {
+export async function GET({ params, url }: RequestEvent) {
 	const p = await Process.findOne({ pid: params.pid });
 	if (!p) {
 		throw error(404, {
@@ -10,7 +10,8 @@ export async function GET({ params }: RequestEvent) {
 		});
 	}
 
-	const iter = p?.getTriplesJson();
+	const includeCreatedAt = url.searchParams.get('includeCreatedAt') === 'true';
+	const iter = p?.getTriplesJson(includeCreatedAt);
 
 	//const readable = (ReadableStream as ReadableStreamExt).from(iter);
 	const readable = new ReadableStream({

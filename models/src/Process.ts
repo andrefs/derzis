@@ -239,18 +239,26 @@ class ProcessClass extends Document {
 			yield {
 				subject: triple.subject,
 				predicate: triple.predicate,
-				object: triple.object
+				object: triple.object,
+				createdAt: (procTriple as any).createdAt
 			};
 		}
 	}
 
 	/**
 	 * Get triples as a stream of JSON strings
+	 * @param includeCreatedAt - Whether to include createdAt timestamp
 	 * @returns {AsyncGenerator<string>} - JSON strings of triples
 	 */
-	public async *getTriplesJson(this: ProcessClass): AsyncGenerator<string> {
+	public async *getTriplesJson(
+		this: ProcessClass,
+		includeCreatedAt: boolean = false
+	): AsyncGenerator<string> {
 		for await (const t of this.getTriples()) {
-			yield JSON.stringify(t);
+			const obj = includeCreatedAt
+				? t
+				: { subject: t.subject, predicate: t.predicate, object: t.object };
+			yield JSON.stringify(obj);
 		}
 	}
 
