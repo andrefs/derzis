@@ -106,7 +106,7 @@
 			<h4>Previous steps</h4>
 			<Table>
 				<tbody>
-					{#each data.proc.steps as step, i}
+					{#each data.proc.steps.slice(0, -1) as step, i}
 						<tr><th scope="row">Max path length</th><td>{step.maxPathLength}</td></tr>
 						<tr><th scope="row">Max path props</th><td>{step.maxPathProps}</td></tr>
 						<tr>
