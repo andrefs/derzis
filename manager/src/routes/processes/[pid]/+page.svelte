@@ -43,6 +43,11 @@
 							<p>
 								<a href="/processes/{data.proc.pid}/draw"> Draw <Icon src={BiNetworkChart} /></a>
 							</p>
+							<p>
+								<a href="/processes/{data.proc.pid}/newest"
+									>Newest Triples Chart <Icon src={BiNetworkChart} /></a
+								>
+							</p>
 						</td>
 					</tr>
 					<tr>
