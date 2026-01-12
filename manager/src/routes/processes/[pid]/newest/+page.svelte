@@ -99,7 +99,7 @@
 	$: if (
 		typeof window !== 'undefined' &&
 		selectedPredicate !== undefined &&
-		numTriples !== undefined
+		sliderValue !== undefined
 	) {
 		rebuildGraph();
 	}
@@ -173,46 +173,58 @@
 			minDateLabel = minFormatted;
 			maxDateLabel = maxFormatted;
 
-			// Function to get color based on recency (continuous scale)
+			// Function to get color based on recency (blue to dark yellow to green)
 			function getNodeColor(date: Date): string {
 				if (maxDate.getTime() === minDate.getTime()) {
 					return '#0000ff'; // Blue for all nodes if all have same age
 				}
 				const ratio =
 					(date.getTime() - minDate.getTime()) / (maxDate.getTime() - minDate.getTime());
-				// From blue (old) to red (new)
-				const r = Math.floor(255 * ratio);
-				const g = 0;
-				const b = Math.floor(255 * (1 - ratio));
+				let r, g, b;
+				if (ratio < 0.5) {
+					// Blue to dark yellow: increase red and green, keep blue
+					r = Math.floor(200 * ratio * 2);
+					g = Math.floor(200 * ratio * 2);
+					b = 255;
+				} else {
+					// Dark yellow to green: decrease red, keep green, decrease blue
+					r = Math.floor(200 * (2 - ratio * 2));
+					g = 200;
+					b = Math.floor(255 * (2 - ratio * 2));
+				}
 				return `rgb(${r}, ${g}, ${b})`;
 			}
 
 			// build graph
 			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
 
+			// Collect all unique nodes, sorted with non-seed first, then seed
+			const allNodes = new Set<string>();
 			for (const t of filteredTriples) {
-				const subjIsSeed = data.proc.currentStep.seeds.includes(t.subject.valueOf());
-				const objIsSeed = data.proc.currentStep.seeds.includes(t.object.valueOf());
+				allNodes.add(t.subject.valueOf());
+				allNodes.add(t.object.valueOf());
+			}
+			const sortedNodes = Array.from(allNodes).sort((a, b) => {
+				const aSeed = data.proc.currentStep.seeds.includes(a);
+				const bSeed = data.proc.currentStep.seeds.includes(b);
+				if (aSeed && !bSeed) return 1;
+				if (!aSeed && bSeed) return -1;
+				return a.localeCompare(b);
+			});
 
-				graph.mergeNode(t.subject.valueOf(), {
+			// Add nodes in sorted order (non-seed first, seed last so rendered on top)
+			for (const node of sortedNodes) {
+				const isSeed = data.proc.currentStep.seeds.includes(node);
+				graph.addNode(node, {
 					x: Math.random(),
 					y: Math.random(),
-					displayLabel: t.subject.valueOf(),
-					label: subjIsSeed ? t.subject.valueOf() : ''
+					displayLabel: node,
+					label: isSeed ? node : ''
 				});
-				graph.mergeNode(t.object.valueOf(), {
-					x: Math.random(),
-					y: Math.random(),
-					displayLabel: t.object.valueOf(),
-					label: objIsSeed ? t.object.valueOf() : ''
-				});
-				// scale size based on degree with minimum base size
-				graph.updateNodeAttribute(t.subject.valueOf(), 'size', (size) =>
-					size ? Math.max(8, Math.sqrt(size) * 4) : 8
-				);
-				graph.updateNodeAttribute(t.object.valueOf(), 'size', (size) =>
-					size ? Math.max(8, Math.sqrt(size) * 4) : 8
-				);
+			}
+
+			// Add edges
+			for (const t of filteredTriples) {
 				const predicateInfo = getPredicateDisplayInfo(t.predicate.valueOf());
 				graph.addDirectedEdge(t.subject.valueOf(), t.object.valueOf(), {
 					type: 'arrow',
@@ -221,10 +233,18 @@
 				});
 			}
 
+			// Scale sizes based on degree
+			for (const node of graph.nodes()) {
+				graph.updateNodeAttribute(node, 'size', (size) =>
+					size ? Math.max(8, Math.sqrt(size) * 4) : 8
+				);
+			}
+
 			// Set node colors based on recency
 			for (const node of graph.nodes()) {
 				const date = nodeMaxCreatedAt.get(node) || minDate;
-				graph.setNodeAttribute(node, 'color', getNodeColor(date));
+				const isSeed = data.proc.currentStep.seeds.includes(node);
+				graph.setNodeAttribute(node, 'color', isSeed ? '#ff0000' : getNodeColor(date));
 			}
 
 			graphData = graph;
@@ -765,7 +785,7 @@
 	.color-bar {
 		flex: 1;
 		height: 15px;
-		background: linear-gradient(to right, #0000ff, #ff0000);
+		background: linear-gradient(to right, #0000ff, #c8c800, #00c800);
 		border-radius: 3px;
 	}
 

@@ -83,12 +83,6 @@
 
 	let graphData: any = null;
 
-	onMount(() => {
-		if (typeof window !== 'undefined') {
-			loadGraphData();
-		}
-	});
-
 	// Reactive statement to rebuild graph when predicate changes
 	$: if (typeof window !== 'undefined' && selectedPredicate !== undefined) {
 		rebuildGraph();
@@ -127,37 +121,47 @@
 			// build graph
 			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
 
+			// Collect all unique nodes, sorted with non-seed first, then seed
+			const allNodes = new Set<string>();
 			for (const t of filteredTriples) {
-				const subjIsSeed = data.proc.currentStep.seeds.includes(t.subject.valueOf());
-				const objIsSeed = data.proc.currentStep.seeds.includes(t.object.valueOf());
+				allNodes.add(t.subject.valueOf());
+				allNodes.add(t.object.valueOf());
+			}
+			const sortedNodes = Array.from(allNodes).sort((a, b) => {
+				const aSeed = data.proc.currentStep.seeds.includes(a);
+				const bSeed = data.proc.currentStep.seeds.includes(b);
+				if (aSeed && !bSeed) return 1;
+				if (!aSeed && bSeed) return -1;
+				return a.localeCompare(b);
+			});
 
-				graph.mergeNode(t.subject.valueOf(), {
+			// Add nodes in sorted order (non-seed first, seed last so rendered on top)
+			for (const node of sortedNodes) {
+				const isSeed = data.proc.currentStep.seeds.includes(node);
+				graph.addNode(node, {
 					x: Math.random(),
 					y: Math.random(),
-					displayLabel: t.subject.valueOf(),
-					label: subjIsSeed ? t.subject.valueOf() : '',
-					color: subjIsSeed ? 'red' : 'blue'
+					displayLabel: node,
+					label: isSeed ? node : '',
+					color: isSeed ? 'red' : 'blue'
 				});
-				graph.mergeNode(t.object.valueOf(), {
-					x: Math.random(),
-					y: Math.random(),
-					displayLabel: t.object.valueOf(),
-					label: objIsSeed ? t.object.valueOf() : '',
-					color: objIsSeed ? 'red' : 'blue'
-				});
-				// scale size based on degree with minimum base size
-				graph.updateNodeAttribute(t.subject.valueOf(), 'size', (size) =>
-					size ? Math.max(8, Math.sqrt(size) * 4) : 8
-				);
-				graph.updateNodeAttribute(t.object.valueOf(), 'size', (size) =>
-					size ? Math.max(8, Math.sqrt(size) * 4) : 8
-				);
+			}
+
+			// Add edges
+			for (const t of filteredTriples) {
 				const predicateInfo = getPredicateDisplayInfo(t.predicate.valueOf());
 				graph.addDirectedEdge(t.subject.valueOf(), t.object.valueOf(), {
 					type: 'arrow',
 					displayLabel: predicateInfo.display,
 					fullPredicate: predicateInfo.full
 				});
+			}
+
+			// Scale sizes based on degree
+			for (const node of graph.nodes()) {
+				graph.updateNodeAttribute(node, 'size', (size) =>
+					size ? Math.max(8, Math.sqrt(size) * 4) : 8
+				);
 			}
 
 			graphData = graph;
