@@ -16,6 +16,7 @@
 	let tooltip: HTMLDivElement;
 	let allPredicates: string[] = [];
 	let selectedPredicate = 'all';
+	let allTriples: Array<{ subject: string; predicate: string; object: string }> = [];
 
 	onMount(() => {
 		const urlPredicate = $page.url.searchParams.get('predicate');
@@ -66,20 +67,18 @@
 	}
 
 	async function loadData() {
-		const response = await fetch(`/api/processes/${data.proc.pid}/triples.json.gz`);
-		if (!response.ok) {
-			throw new Error(`Failed to fetch triples: ${response.statusText}`);
+		if (allTriples.length === 0) {
+			const response = await fetch(`/api/processes/${data.proc.pid}/triples.json.gz`);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch triples: ${response.statusText}`);
+			}
+			// uncompress gzipped response
+			const decompStream = new DecompressionStream('gzip');
+			const decompressedResponse = response.body!.pipeThrough(decompStream);
+			const text = await new Response(decompressedResponse).text();
+			allTriples = JSON.parse(text);
 		}
-		// uncompress gzipped response
-		const decompStream = new DecompressionStream('gzip');
-		const decompressedResponse = response.body!.pipeThrough(decompStream);
-		const text = await new Response(decompressedResponse).text();
-		const triples = JSON.parse(text);
-		return triples as Array<{
-			subject: string;
-			predicate: string;
-			object: string;
-		}>;
+		return allTriples;
 	}
 
 	let graphData: any = null;
@@ -114,8 +113,10 @@
 			isLoading = true;
 			const triples = await loadData();
 
-			// Extract unique predicates for dropdown
-			allPredicates = [...new Set(triples.map((t) => t.predicate.valueOf()))].sort();
+			// Extract unique predicates for dropdown (only once)
+			if (allPredicates.length === 0) {
+				allPredicates = [...new Set(triples.map((t) => t.predicate.valueOf()))].sort();
+			}
 
 			// Filter triples by selected predicate
 			const filteredTriples =

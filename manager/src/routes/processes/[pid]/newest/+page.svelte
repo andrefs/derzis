@@ -21,6 +21,8 @@
 	let minDateLabel: { date: string; time: string } | '' = '';
 	let maxDateLabel: { date: string; time: string } | '' = '';
 	let pendingTimeout: ReturnType<typeof setTimeout> | undefined;
+	let allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }> =
+		[];
 
 	onMount(() => {
 		const urlPredicate = $page.url.searchParams.get('predicate');
@@ -71,27 +73,24 @@
 	}
 
 	async function loadData() {
-		const response = await fetch(
-			`/api/processes/${data.proc.pid}/triples.json.gz?includeCreatedAt=true`
-		);
-		if (!response.ok) {
-			throw new Error(`Failed to fetch triples: ${response.statusText}`);
+		if (allTriples.length === 0) {
+			const response = await fetch(
+				`/api/processes/${data.proc.pid}/triples.json.gz?includeCreatedAt=true`
+			);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch triples: ${response.statusText}`);
+			}
+			// Decompress gzipped response
+			const decompStream = new DecompressionStream('gzip');
+			const decompressedResponse = response.body!.pipeThrough(decompStream);
+			const text = await new Response(decompressedResponse).text();
+			allTriples = JSON.parse(text);
 		}
-		// Decompress gzipped response
-		const decompStream = new DecompressionStream('gzip');
-		const decompressedResponse = response.body!.pipeThrough(decompStream);
-		const text = await new Response(decompressedResponse).text();
-		const allTriples = JSON.parse(text) as Array<{
-			subject: string;
-			predicate: string;
-			object: string;
-			createdAt: string;
-		}>;
 		// Sort by createdAt descending and take first numTriples
 		const sortedTriples = allTriples.sort(
 			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
 		);
-		return sortedTriples.slice(0, numTriples);
+		return sortedTriples.slice(0, sliderValue);
 	}
 
 	let graphData: any = null;
