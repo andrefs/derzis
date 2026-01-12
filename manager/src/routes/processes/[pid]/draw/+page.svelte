@@ -606,7 +606,13 @@
 					</div>
 				{:else}
 					<div class="graph-wrapper">
-						<div bind:this={container} class="graph-container"></div>
+						<div bind:this={container} class="graph-container">
+							{#if !state.locked}
+								<p class="tip">Click a node to further investigate its neighbors.</p>
+							{:else}
+								<p class="tip">Press arrow right/left to expand/reduce the highlighted area.</p>
+							{/if}
+						</div>
 						{#if renderer}
 							<Button color="primary" size="sm" class="download-btn" on:click={downloadGraph}>
 								📷 PNG
@@ -909,6 +915,21 @@
 		border-radius: 4px;
 		box-sizing: border-box;
 		flex: 1;
+		position: relative;
+	}
+
+	.tip {
+		position: absolute;
+		bottom: 10px;
+		left: 10px;
+		background: rgba(0, 0, 0, 0.8);
+		color: white;
+		padding: 5px 10px;
+		border-radius: 5px;
+		font-size: 14px;
+		pointer-events: none;
+		text-align: center;
+		z-index: 1000;
 	}
 
 	.loading-container {
