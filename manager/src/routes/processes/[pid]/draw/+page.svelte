@@ -820,13 +820,13 @@
 	.predicate-legend {
 		position: fixed;
 		top: 20px;
-		right: 20px;
+		left: 20px;
 		background: rgba(255, 255, 255, 0.95);
 		border: 1px solid #ddd;
 		border-radius: 8px;
 		padding: 12px;
 		max-width: 300px;
-		max-height: 60vh;
+		max-height: 80vh;
 		overflow-y: auto;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 		z-index: 1000;
