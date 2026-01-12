@@ -279,8 +279,6 @@ export class Worker extends EventEmitter {
 			'User-Agent': config.http.userAgent,
 			Accept: this.accept
 		};
-		await delay();
-		this.emitHttpDebugEvent(url);
 		const opts = {
 			headers,
 			// prevent axios of parsing [ld+]json
@@ -289,11 +287,21 @@ export class Worker extends EventEmitter {
 			timeout,
 			maxRedirects
 		};
-		try {
-			const res = await axios.get(url, opts);
-			return { status: 'ok' as const, res: res as MinimalAxiosResponse };
-		} catch (err) {
-			return handleHttpError(url, err);
+
+		const maxRetries = 3;
+		for (let attempt = 0; attempt <= maxRetries; attempt++) {
+			await delay(); // Respect domain crawl delay for each attempt
+			this.emitHttpDebugEvent(url);
+			try {
+				const res = await axios.get(url, opts);
+				return { status: 'ok' as const, res: res as MinimalAxiosResponse };
+			} catch (err) {
+				if (attempt < maxRetries) {
+					log.debug(`Retry ${attempt + 1}/${maxRetries} for ${url}: ${err.message}`);
+					continue;
+				}
+				return handleHttpError(url, err);
+			}
 		}
 	};
 
