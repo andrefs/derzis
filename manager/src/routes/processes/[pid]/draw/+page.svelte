@@ -580,7 +580,16 @@
 				</AccordionItem>
 			</Accordion>
 		</div>
-		{#if minDateLabel && maxDateLabel}
+		{#if state.locked && state.addedLevels}
+			<div class="node-color-legend">
+				<h6>Node Distance</h6>
+				<div class="legend-row">
+					<span class="min-label">closest</span>
+					<div class="color-bar"></div>
+					<span class="max-label">farthest</span>
+				</div>
+			</div>
+		{:else if minDateLabel && maxDateLabel}
 			<div class="node-color-legend">
 				<h6>Node Age</h6>
 				<div class="legend-row">
@@ -606,7 +615,7 @@
 				{:else}
 					<Tooltip target="graph-container">
 						{state.locked
-							? 'Press arrow right/left to expand/reduce the highlighted area.'
+							? 'Press arrow right/left to expand/reduce the highlighted area. Click anywhere to unlock.'
 							: 'Click a node to further investigate its neighbors.'}
 					</Tooltip>
 					<div class="graph-wrapper">
@@ -673,33 +682,6 @@
 				<div bind:this={tooltip} class="predicate-tooltip" style="display: none;"></div>
 			</div>
 		</div>
-
-		<!-- Legend for node colors -->
-		{#if minDateLabel && maxDateLabel && !state.locked}
-			<div class="node-color-legend">
-				<h6>Node Age</h6>
-				<div class="legend-row">
-					<span class="min-label">
-						<span class="date">{minDateLabel.date}</span>
-						<span class="time">{minDateLabel.time}</span>
-					</span>
-					<div class="color-bar"></div>
-					<span class="max-label">
-						<span class="date">{maxDateLabel.date}</span>
-						<span class="time">{maxDateLabel.time}</span>
-					</span>
-				</div>
-			</div>
-		{:else if state.locked && state.addedLevels}
-			<div class="node-color-legend">
-				<h6>Node Distance</h6>
-				<div class="legend-row">
-					<span class="min-label">closest</span>
-					<div class="color-bar"></div>
-					<span class="max-label">farthest</span>
-				</div>
-			</div>
-		{/if}
 	</main>
 </div>
 
