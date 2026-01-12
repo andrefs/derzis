@@ -1,6 +1,6 @@
 <script>
 	import { version } from '$app/environment';
-	import NavigationBar from '$lib/navbar.svelte';
+	import NavigationBar from '$lib/components/layout/navbar.svelte';
 	import { Container, Styles } from '@sveltestrap/sveltestrap';
 	import { PUBLIC_MODE_TAG } from '$env/static/public';
 	let modeTag = PUBLIC_MODE_TAG || '';

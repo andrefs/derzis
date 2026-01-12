@@ -11,6 +11,7 @@
 	} from '@sveltestrap/sveltestrap';
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
+	import Legend from '$lib/components/ui/Legend.svelte';
 	export let data;
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -600,31 +601,14 @@
 				</AccordionItem>
 			</Accordion>
 		</div>
-		{#if state.locked && state.addedLevels}
-			<div class="node-color-legend">
-				<h6>Node Distance</h6>
-				<div class="legend-row">
-					<span class="min-label">closest</span>
-					<div class="color-bar"></div>
-					<span class="max-label">farthest</span>
-				</div>
-			</div>
-		{:else if minDateLabel && maxDateLabel}
-			<div class="node-color-legend">
-				<h6>Node Age</h6>
-				<div class="legend-row">
-					<span class="min-label">
-						<span class="date">{minDateLabel.date}</span>
-						<span class="time">{minDateLabel.time}</span>
-					</span>
-					<div class="color-bar"></div>
-					<span class="max-label">
-						<span class="date">{maxDateLabel.date}</span>
-						<span class="time">{maxDateLabel.time}</span>
-					</span>
-				</div>
-			</div>
-		{/if}
+		<Legend
+			{state}
+			{minDateLabel}
+			{maxDateLabel}
+			{graphData}
+			{selectedPredicate}
+			{getPredicateColor}
+		/>
 		<div class="row">
 			<div class="col h-100">
 				{#if isLoading}
@@ -646,54 +630,6 @@
 							</Button>
 						{/if}
 					</div>
-				{/if}
-
-				<!-- Legend for predicate colors (shown when hovering nodes) -->
-				{#if (state?.highlightedNodes || state?.hoveredNode) && graphData}
-					{@const connectedPredicates = Array.from(
-						new Set(
-							graphData
-								.edges()
-								.filter((edge: string) => {
-									const extremities = graphData.extremities(edge);
-									if (state.locked && state.highlightedNodes) {
-										return extremities.every((n: string) => state.highlightedNodes!.has(n));
-									} else {
-										return (
-											extremities.includes(state.hoveredNode!) ||
-											graphData.areNeighbors(extremities[0], state.hoveredNode!) ||
-											graphData.areNeighbors(extremities[1], state.hoveredNode!)
-										);
-									}
-								})
-								.map(
-									(edge: string) =>
-										(graphData.getEdgeAttributes(edge) as any).fullPredicate as string
-								)
-								.filter(
-									(predicate: string) =>
-										selectedPredicate === 'all' || predicate === selectedPredicate
-								)
-						)
-					)}
-					{#if connectedPredicates.length > 0}
-						<div class="predicate-legend">
-							<h6>Connected Predicates</h6>
-							<div class="legend-items">
-								{#each connectedPredicates as predicate}
-									<div class="legend-item">
-										<div
-											class="color-box"
-											style="background-color: {getPredicateColor(predicate as string)}"
-										></div>
-										<span class="predicate-text" title={predicate as string}>
-											{predicate as string}
-										</span>
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/if}
 				{/if}
 
 				<!-- Tooltip for full predicate names -->
@@ -823,61 +759,6 @@
 		color: #666;
 	}
 
-	.node-color-legend {
-		position: fixed;
-		bottom: 20px;
-		right: 20px;
-		background: rgba(255, 255, 255, 0.95);
-		border: 1px solid #ddd;
-		border-radius: 8px;
-		padding: 8px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-		font-size: 12px;
-		width: 220px;
-		z-index: 1000;
-	}
-
-	.node-color-legend h6 {
-		margin: 0 0 4px 0;
-		font-size: 13px;
-		font-weight: 600;
-		color: #333;
-		text-align: center;
-	}
-
-	.legend-row {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-	}
-
-	.color-bar {
-		flex: 1;
-		height: 15px;
-		background: linear-gradient(to right, #0000ff, #c8c800, #00c800);
-		border-radius: 3px;
-	}
-
-	.min-label,
-	.max-label {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		font-size: 10px;
-		color: #555;
-		white-space: nowrap;
-		line-height: 1.2;
-	}
-
-	.date {
-		font-weight: 500;
-	}
-
-	.time {
-		font-size: 9px;
-		color: #777;
-	}
-
 	.predicate-filter {
 		margin: 0;
 		min-width: 300px;
@@ -965,68 +846,6 @@
 
 	.graph-wrapper :global(.download-btn):hover {
 		opacity: 1;
-	}
-
-	.predicate-legend {
-		position: fixed;
-		top: 20px;
-		left: 20px;
-		background: rgba(255, 255, 255, 0.95);
-		border: 1px solid #ddd;
-		border-radius: 8px;
-		padding: 12px;
-		max-width: 300px;
-		max-height: 80vh;
-		overflow-y: auto;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-		z-index: 1000;
-		font-size: 13px;
-	}
-
-	.predicate-legend h6 {
-		margin: 0 0 8px 0;
-		font-size: 14px;
-		font-weight: 600;
-		color: #333;
-	}
-
-	.legend-items {
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
-	.legend-item {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		min-height: 20px;
-	}
-
-	.color-box {
-		width: 12px;
-		height: 12px;
-		border-radius: 2px;
-		flex-shrink: 0;
-		border: 1px solid rgba(0, 0, 0, 0.2);
-	}
-
-	.predicate-text {
-		font-family: monospace;
-		font-size: 11px;
-		color: #555;
-		line-height: 1.2;
-		flex: 1;
-		min-width: 0;
-		word-break: break-all;
-		cursor: help;
-	}
-
-	.more-text {
-		font-style: italic;
-		color: #888;
-		font-size: 11px;
-		padding-left: 20px;
 	}
 
 	.predicate-tooltip {
