@@ -26,7 +26,7 @@
 	let tooltip: HTMLDivElement;
 	let allPredicates: string[] = [];
 	let selectedPredicate = 'all';
-	let numTriples = 100;
+	let numTriples = 0;
 	let totalTriples = 100;
 	let allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }> =
 		[];
@@ -34,6 +34,7 @@
 	let maxDateLabel: { date: string; time: string } | '' = '';
 	let pendingTimeout: ReturnType<typeof setTimeout> | undefined;
 	let skipRebuild = false;
+	let sliderEnabled = false;
 
 	onMount(() => {
 		const urlPredicate = $page.url.searchParams.get('predicate');
@@ -97,11 +98,12 @@
 			const text = await new Response(decompressedResponse).text();
 			allTriples = JSON.parse(text);
 		}
-		// Sort by createdAt descending and take first numTriples
+		// Sort by createdAt descending and take first numTriples (or all if numTriples is 0)
 		const sortedTriples = allTriples.sort(
 			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
 		);
-		return sortedTriples.slice(0, numTriples);
+		const limit = numTriples || allTriples.length;
+		return sortedTriples.slice(0, limit);
 	}
 
 	let graphData: any = null;
@@ -142,6 +144,7 @@
 			totalTriples = allTriples.length;
 			skipRebuild = true;
 			numTriples = totalTriples;
+			sliderEnabled = true;
 
 			// Extract unique predicates for dropdown (only once)
 			if (allPredicates.length === 0) {
@@ -425,6 +428,7 @@
 								min="1"
 								max={totalTriples}
 								bind:value={numTriples}
+								disabled={!sliderEnabled}
 							/>
 							<div class="slider-labels">
 								<span>1</span>
