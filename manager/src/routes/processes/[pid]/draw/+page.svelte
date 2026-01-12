@@ -399,35 +399,37 @@
 	</header>
 
 	<main class="page-main">
-		<div>
+		<div class="controls-container">
 			<Accordion>
 				<AccordionItem header="Options">
-					<FormGroup class="predicate-filter">
-						<Label for="predicate-select">Filter by predicate:</Label>
-						<Input
-							type="select"
-							id="predicate-select"
-							bind:value={selectedPredicate}
-							disabled={allPredicates.length === 0}
-						>
-							<option value="all">All predicates</option>
-							{#each allPredicates as predicate}
-								<option value={predicate}>{predicate}</option>
-							{/each}
-						</Input>
-					</FormGroup>
-					<div class="num-triples-control">
-						<label for="num-triples-slider">Number of triples: {numTriples}</label>
-						<input
-							type="range"
-							id="num-triples-slider"
-							min="1"
-							max={totalTriples}
-							bind:value={numTriples}
-						/>
-						<div class="slider-labels">
-							<span>1</span>
-							<span>{totalTriples}</span>
+					<div class="options-row">
+						<FormGroup class="predicate-filter">
+							<Label for="predicate-select">Filter by predicate:</Label>
+							<Input
+								type="select"
+								id="predicate-select"
+								bind:value={selectedPredicate}
+								disabled={allPredicates.length === 0}
+							>
+								<option value="all">All predicates</option>
+								{#each allPredicates as predicate}
+									<option value={predicate}>{predicate}</option>
+								{/each}
+							</Input>
+						</FormGroup>
+						<div class="num-triples-control">
+							<label for="num-triples-slider">Number of triples: {numTriples}</label>
+							<input
+								type="range"
+								id="num-triples-slider"
+								min="1"
+								max={totalTriples}
+								bind:value={numTriples}
+							/>
+							<div class="slider-labels">
+								<span>1</span>
+								<span>{totalTriples}</span>
+							</div>
 						</div>
 					</div>
 				</AccordionItem>
@@ -568,6 +570,17 @@
 		margin-bottom: 0;
 		padding: 0;
 		line-height: 1.2;
+	}
+
+	.controls-container {
+		margin-bottom: 1rem;
+	}
+
+	.options-row {
+		display: flex;
+		gap: 1rem;
+		align-items: start;
+		flex-wrap: wrap;
 	}
 
 	.page-main .controls {
