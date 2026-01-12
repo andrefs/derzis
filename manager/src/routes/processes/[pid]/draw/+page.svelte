@@ -677,7 +677,7 @@
 		</div>
 
 		<!-- Legend for node colors -->
-		{#if minDateLabel && maxDateLabel}
+		{#if minDateLabel && maxDateLabel && !state.locked}
 			<div class="node-color-legend">
 				<h6>Node Age</h6>
 				<div class="legend-row">
@@ -690,6 +690,15 @@
 						<span class="date">{maxDateLabel.date}</span>
 						<span class="time">{maxDateLabel.time}</span>
 					</span>
+				</div>
+			</div>
+		{:else if state.locked && state.addedLevels}
+			<div class="node-color-legend">
+				<h6>Node Distance</h6>
+				<div class="legend-row">
+					<span class="min-label">closest</span>
+					<div class="color-bar"></div>
+					<span class="max-label">farthest</span>
 				</div>
 			</div>
 		{/if}
