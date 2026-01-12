@@ -1,14 +1,13 @@
 <script lang="ts">
 	import {
-		Col,
-		Row,
-		Spinner,
-		Button,
-		Input,
-		Label,
-		FormGroup,
 		Accordion,
-		AccordionItem
+		AccordionItem,
+		Tooltip,
+		FormGroup,
+		Label,
+		Input,
+		Spinner,
+		Button
 	} from '@sveltestrap/sveltestrap';
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
@@ -605,14 +604,13 @@
 						<p class="loading-text">Loading graph data...</p>
 					</div>
 				{:else}
+					<Tooltip target="graph-container">
+						{state.locked
+							? 'Press arrow right/left to expand/reduce the highlighted area.'
+							: 'Click a node to further investigate its neighbors.'}
+					</Tooltip>
 					<div class="graph-wrapper">
-						<div bind:this={container} class="graph-container">
-							{#if !state.locked}
-								<p class="tip">Click a node to further investigate its neighbors.</p>
-							{:else}
-								<p class="tip">Press arrow right/left to expand/reduce the highlighted area.</p>
-							{/if}
-						</div>
+						<div bind:this={container} class="graph-container" id="graph-container"></div>
 						{#if renderer}
 							<Button color="primary" size="sm" class="download-btn" on:click={downloadGraph}>
 								📷 PNG
@@ -925,20 +923,6 @@
 		box-sizing: border-box;
 		flex: 1;
 		position: relative;
-	}
-
-	.tip {
-		position: absolute;
-		bottom: 10px;
-		left: 10px;
-		background: rgba(0, 0, 0, 0.8);
-		color: white;
-		padding: 5px 10px;
-		border-radius: 5px;
-		font-size: 14px;
-		pointer-events: none;
-		text-align: center;
-		z-index: 1000;
 	}
 
 	.loading-container {
