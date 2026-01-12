@@ -1,5 +1,15 @@
 <script lang="ts">
-	import { Col, Row, Spinner, Button, Input, Label, FormGroup } from '@sveltestrap/sveltestrap';
+	import {
+		Col,
+		Row,
+		Spinner,
+		Button,
+		Input,
+		Label,
+		FormGroup,
+		Accordion,
+		AccordionItem
+	} from '@sveltestrap/sveltestrap';
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
 	export let data;
@@ -16,7 +26,14 @@
 	let tooltip: HTMLDivElement;
 	let allPredicates: string[] = [];
 	let selectedPredicate = 'all';
-	let allTriples: Array<{ subject: string; predicate: string; object: string }> = [];
+	let numTriples = 100;
+	let totalTriples = 100;
+	let allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }> =
+		[];
+	let minDateLabel: { date: string; time: string } | '' = '';
+	let maxDateLabel: { date: string; time: string } | '' = '';
+	let pendingTimeout: ReturnType<typeof setTimeout> | undefined;
+	let skipRebuild = false;
 
 	onMount(() => {
 		const urlPredicate = $page.url.searchParams.get('predicate');
@@ -68,7 +85,9 @@
 
 	async function loadData() {
 		if (allTriples.length === 0) {
-			const response = await fetch(`/api/processes/${data.proc.pid}/triples.json.gz`);
+			const response = await fetch(
+				`/api/processes/${data.proc.pid}/triples.json.gz?includeCreatedAt=true`
+			);
 			if (!response.ok) {
 				throw new Error(`Failed to fetch triples: ${response.statusText}`);
 			}
@@ -78,14 +97,26 @@
 			const text = await new Response(decompressedResponse).text();
 			allTriples = JSON.parse(text);
 		}
-		return allTriples;
+		// Sort by createdAt descending and take first numTriples
+		const sortedTriples = allTriples.sort(
+			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+		);
+		return sortedTriples.slice(0, numTriples);
 	}
 
 	let graphData: any = null;
 
-	// Reactive statement to rebuild graph when predicate changes
-	$: if (typeof window !== 'undefined' && selectedPredicate !== undefined) {
-		rebuildGraph();
+	// Reactive statement to rebuild graph when predicate or numTriples changes
+	$: if (
+		typeof window !== 'undefined' &&
+		selectedPredicate !== undefined &&
+		numTriples !== undefined
+	) {
+		if (skipRebuild) {
+			skipRebuild = false;
+		} else {
+			rebuildGraph();
+		}
 	}
 
 	async function rebuildGraph() {
@@ -107,9 +138,14 @@
 			isLoading = true;
 			const triples = await loadData();
 
+			// Set total and default numTriples
+			totalTriples = allTriples.length;
+			skipRebuild = true;
+			numTriples = totalTriples;
+
 			// Extract unique predicates for dropdown (only once)
 			if (allPredicates.length === 0) {
-				allPredicates = [...new Set(triples.map((t) => t.predicate.valueOf()))].sort();
+				allPredicates = [...new Set(allTriples.map((t) => t.predicate.valueOf()))].sort();
 			}
 
 			// Filter triples by selected predicate
@@ -117,6 +153,40 @@
 				selectedPredicate === 'all'
 					? triples
 					: triples.filter((t) => t.predicate.valueOf() === selectedPredicate);
+
+			// Compute max createdAt for each node
+			const nodeMaxCreatedAt = new Map<string, Date>();
+			for (const t of filteredTriples) {
+				const subj = t.subject.valueOf();
+				const obj = t.object.valueOf();
+				const date = new Date(t.createdAt);
+				if (!nodeMaxCreatedAt.has(subj) || nodeMaxCreatedAt.get(subj)! < date) {
+					nodeMaxCreatedAt.set(subj, date);
+				}
+				if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
+					nodeMaxCreatedAt.set(obj, date);
+				}
+			}
+
+			// Find min and max dates
+			const dates = Array.from(nodeMaxCreatedAt.values());
+			const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+			const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+			const formatDate = (date: Date) => {
+				const day = date.getDate().toString().padStart(2, '0');
+				const month = (date.getMonth() + 1).toString().padStart(2, '0');
+				const year = date.getFullYear();
+				const hour = date.getHours().toString().padStart(2, '0');
+				const min = date.getMinutes().toString().padStart(2, '0');
+				return {
+					date: `${day}-${month}-${year}`,
+					time: `${hour}:${min}`
+				};
+			};
+			const minFormatted = formatDate(minDate);
+			const maxFormatted = formatDate(maxDate);
+			minDateLabel = minFormatted;
+			maxDateLabel = maxFormatted;
 
 			// build graph
 			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
@@ -135,15 +205,37 @@
 				return a.localeCompare(b);
 			});
 
+			// Function to get color based on recency (blue to dark yellow to green)
+			function getNodeColor(date: Date): string {
+				if (maxDate.getTime() === minDate.getTime()) {
+					return '#0000ff'; // Blue for all nodes if all have same age
+				}
+				const ratio =
+					(date.getTime() - minDate.getTime()) / (maxDate.getTime() - minDate.getTime());
+				let r, g, b;
+				if (ratio < 0.5) {
+					// Blue to dark yellow: increase red and green, keep blue
+					r = Math.floor(200 * ratio * 2);
+					g = Math.floor(200 * ratio * 2);
+					b = 255;
+				} else {
+					// Dark yellow to green: decrease red, keep green, decrease blue
+					r = Math.floor(200 * (2 - ratio * 2));
+					g = 200;
+					b = Math.floor(255 * (2 - ratio * 2));
+				}
+				return `rgb(${r}, ${g}, ${b})`;
+			}
+
 			// Add nodes in sorted order (non-seed first, seed last so rendered on top)
 			for (const node of sortedNodes) {
 				const isSeed = data.proc.currentStep.seeds.includes(node);
+				const date = nodeMaxCreatedAt.get(node) || minDate;
 				graph.addNode(node, {
 					x: Math.random(),
 					y: Math.random(),
 					displayLabel: node,
-					label: isSeed ? node : '',
-					color: isSeed ? 'red' : 'blue'
+					label: isSeed ? node : ''
 				});
 			}
 
@@ -162,6 +254,13 @@
 				graph.updateNodeAttribute(node, 'size', (size) =>
 					size ? Math.max(8, Math.sqrt(size) * 4) : 8
 				);
+			}
+
+			// Set node colors based on recency
+			for (const node of graph.nodes()) {
+				const date = nodeMaxCreatedAt.get(node) || minDate;
+				const isSeed = data.proc.currentStep.seeds.includes(node);
+				graph.setNodeAttribute(node, 'color', isSeed ? '#ff0000' : getNodeColor(date));
 			}
 
 			graphData = graph;
@@ -296,23 +395,62 @@
 					><span style="font-style: italic;">{data.proc.pid}</span></a
 				>
 			</h2>
-			{#if allPredicates.length > 0}
-				<FormGroup class="predicate-filter">
-					<Label for="predicate-select">Filter by predicate:</Label>
-					<Input type="select" id="predicate-select" bind:value={selectedPredicate}>
-						<option value="all">All predicates</option>
-						{#each allPredicates as predicate}
-							<option value={predicate}>{predicate}</option>
-						{/each}
-					</Input>
-				</FormGroup>
-			{/if}
 		</div>
 	</header>
 
 	<main class="page-main">
-		<Row class="h-100">
-			<Col class="h-100">
+		<div>
+			<Accordion>
+				<AccordionItem header="Options">
+					<FormGroup class="predicate-filter">
+						<Label for="predicate-select">Filter by predicate:</Label>
+						<Input
+							type="select"
+							id="predicate-select"
+							bind:value={selectedPredicate}
+							disabled={allPredicates.length === 0}
+						>
+							<option value="all">All predicates</option>
+							{#each allPredicates as predicate}
+								<option value={predicate}>{predicate}</option>
+							{/each}
+						</Input>
+					</FormGroup>
+					<div class="num-triples-control">
+						<label for="num-triples-slider">Number of triples: {numTriples}</label>
+						<input
+							type="range"
+							id="num-triples-slider"
+							min="1"
+							max={totalTriples}
+							bind:value={numTriples}
+						/>
+						<div class="slider-labels">
+							<span>1</span>
+							<span>{totalTriples}</span>
+						</div>
+					</div>
+				</AccordionItem>
+			</Accordion>
+		</div>
+		{#if minDateLabel && maxDateLabel}
+			<div class="node-color-legend">
+				<h6>Node Age</h6>
+				<div class="legend-row">
+					<span class="min-label">
+						<span class="date">{minDateLabel.date}</span>
+						<span class="time">{minDateLabel.time}</span>
+					</span>
+					<div class="color-bar"></div>
+					<span class="max-label">
+						<span class="date">{maxDateLabel.date}</span>
+						<span class="time">{maxDateLabel.time}</span>
+					</span>
+				</div>
+			</div>
+		{/if}
+		<div class="row">
+			<div class="col h-100">
 				{#if isLoading}
 					<div class="loading-container">
 						<Spinner color="primary" />
@@ -375,8 +513,28 @@
 
 				<!-- Tooltip for full predicate names -->
 				<div bind:this={tooltip} class="predicate-tooltip" style="display: none;"></div>
-			</Col>
-		</Row>
+				<!-- Tooltip for full predicate names -->
+				<div bind:this={tooltip} class="predicate-tooltip" style="display: none;"></div>
+			</div>
+		</div>
+
+		<!-- Legend for node colors -->
+		{#if minDateLabel && maxDateLabel}
+			<div class="node-color-legend">
+				<h6>Node Age</h6>
+				<div class="legend-row">
+					<span class="min-label">
+						<span class="date">{minDateLabel.date}</span>
+						<span class="time">{minDateLabel.time}</span>
+					</span>
+					<div class="color-bar"></div>
+					<span class="max-label">
+						<span class="date">{maxDateLabel.date}</span>
+						<span class="time">{maxDateLabel.time}</span>
+					</span>
+				</div>
+			</div>
+		{/if}
 	</main>
 </div>
 
@@ -412,6 +570,136 @@
 		line-height: 1.2;
 	}
 
+	.page-main .controls {
+		display: flex;
+		justify-content: flex-start;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
+		padding: 0.5rem 0;
+	}
+
+	.predicate-filter {
+		margin: 0;
+		min-width: 250px;
+		flex: 1;
+	}
+
+	.predicate-filter :global(.form-label) {
+		margin-bottom: 0.1rem;
+		font-weight: 500;
+		font-size: 0.85rem;
+		line-height: 1.2;
+	}
+
+	.predicate-filter :global(.form-select) {
+		font-size: 0.85rem;
+		padding: 0.2rem 0.4rem;
+		margin: 0;
+	}
+
+	.num-triples-control {
+		margin: 0;
+		min-width: 150px;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.num-triples-control label {
+		font-weight: 500;
+		font-size: 0.85rem;
+		margin: 0;
+		line-height: 1.2;
+	}
+
+	.num-triples-control input[type='range'] {
+		width: 100%;
+		margin: 0;
+	}
+
+	.slider-labels {
+		display: flex;
+		justify-content: space-between;
+		width: 100%;
+		font-size: 0.75rem;
+		color: #666;
+		line-height: 1.2;
+	}
+
+	.num-triples-control label {
+		font-weight: 500;
+		font-size: 0.9rem;
+	}
+
+	.num-triples-control input[type='range'] {
+		width: 100%;
+	}
+
+	.slider-labels {
+		display: flex;
+		justify-content: space-between;
+		width: 100%;
+		font-size: 0.8rem;
+		color: #666;
+	}
+
+	.node-color-legend {
+		position: fixed;
+		bottom: 20px;
+		right: 20px;
+		background: rgba(255, 255, 255, 0.95);
+		border: 1px solid #ddd;
+		border-radius: 8px;
+		padding: 8px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		font-size: 12px;
+		width: 220px;
+		z-index: 1000;
+	}
+
+	.node-color-legend h6 {
+		margin: 0 0 4px 0;
+		font-size: 13px;
+		font-weight: 600;
+		color: #333;
+		text-align: center;
+	}
+
+	.legend-row {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.color-bar {
+		flex: 1;
+		height: 15px;
+		background: linear-gradient(to right, #0000ff, #c8c800, #00c800);
+		border-radius: 3px;
+	}
+
+	.min-label,
+	.max-label {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		font-size: 10px;
+		color: #555;
+		white-space: nowrap;
+		line-height: 1.2;
+	}
+
+	.date {
+		font-weight: 500;
+	}
+
+	.time {
+		font-size: 9px;
+		color: #777;
+	}
+
 	.predicate-filter {
 		margin: 0;
 		min-width: 300px;
@@ -441,6 +729,7 @@
 		margin: 0 !important;
 		flex: 1;
 		display: flex !important;
+		height: 100% !important;
 	}
 
 	.page-main :global(.col) {
