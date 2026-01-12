@@ -265,10 +265,10 @@ export class Worker extends EventEmitter {
 
 	getHttpContent = async (url: string, redirect = 0): Promise<HttpRequestResult> => {
 		const resp = await this.makeHttpRequest(url);
-		if (resp.status === 'not_ok') {
+		if (resp?.status === 'not_ok') {
 			return resp;
 		}
-		const res = await this.handleHttpResponse(resp.res, redirect, url);
+		const res = await this.handleHttpResponse(resp!.res, redirect, url);
 		return res?.status === 'ok' ? res : handleHttpError(url, res.err);
 	};
 
@@ -295,7 +295,7 @@ export class Worker extends EventEmitter {
 			try {
 				const res = await axios.get(url, opts);
 				return { status: 'ok' as const, res: res as MinimalAxiosResponse };
-			} catch (err) {
+			} catch (err: any) {
 				if (attempt < maxRetries) {
 					log.debug(`Retry ${attempt + 1}/${maxRetries} for ${url}: ${err.message}`);
 					continue;
