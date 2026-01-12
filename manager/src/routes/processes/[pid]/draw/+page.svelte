@@ -314,6 +314,7 @@
 				fa2Layout.stop();
 			}, 10 * 1000);
 
+			container.innerHTML = '';
 			renderer = new Sigma(graphData, container, {
 				minCameraRatio: 0.08,
 				maxCameraRatio: 3,
@@ -347,12 +348,24 @@
 			}
 			// Bind graph interactions:
 			renderer.on('enterNode', ({ node }: { node: string }) => {
+				console.log('XXXXXXXXXXXXXXXx 1');
 				if (state.locked) {
-					state.labelHoveredNode = node;
-					renderer.refresh({ skipIndexation: true });
+					console.log('XXXXXXXXXXXXXXXx 2');
+					if (state.highlightedNodes!.has(node)) {
+						console.log('XXXXXXXXXXXXXXXx 3');
+						state.labelHoveredNode = node;
+						renderer.refresh({ skipIndexation: true });
+					} else {
+						console.log('XXXXXXXXXXXXXXXx 3.1');
+						state.labelHoveredNode = undefined;
+					}
+					console.log('XXXXXXXXXXXXXXXx 4');
 				} else {
+					console.log('XXXXXXXXXXXXXXXx 5');
 					setHoveredNode(node);
+					console.log('XXXXXXXXXXXXXXXx 6');
 				}
+				console.log('XXXXXXXXXXXXXXXx 7');
 			});
 			renderer.on('leaveNode', () => {
 				if (state.locked) {
@@ -437,7 +450,11 @@
 							res.label = (nodeData as any).displayLabel || '';
 						}
 						if (state.hoveredNode === node) {
-							res.color = '#FFA500'; // orange for hovered node
+							if (seeds.includes(node)) {
+								res.color = '#ff0000'; // bright red for seed
+							} else {
+								res.color = '#FFA500'; // orange for non-seed
+							}
 						} else {
 							// Find level
 							let level = 0;
@@ -475,20 +492,23 @@
 						res.zIndex = 2;
 						res.label = (nodeData as any).displayLabel || '';
 						if (state.hoveredNode === node) {
-							res.color = '#FFA500';
+							if (seeds.includes(node)) {
+								res.color = '#ff0000'; // bright red for seed
+							} else {
+								res.color = '#FFA500';
+							}
 						}
 					} else if (seeds.includes(node)) {
 						res.zIndex = 1;
 						res.label = (nodeData as any).displayLabel || '';
 						res.color = '#ffcccc';
 					} else {
-						res.zIndex = 0;
+						res.zIndex = 0; // Other nodes at bottom
 						res.label = '';
 						res.color = '#f6f6f6';
 					}
-				} else {
-					res.zIndex = seeds.includes(node) ? 1 : 0;
 				}
+				(res as any).hoverable = !state.locked || state.highlightedNodes?.has(node);
 				return res;
 			});
 

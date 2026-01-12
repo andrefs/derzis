@@ -16,7 +16,7 @@ export default {
       debug: true
     },
     email: {
-     doNotSend: true 
+      doNotSend: true
     }
   },
   worker: {
@@ -62,10 +62,10 @@ export default {
       maxRedirects: 5
     },
     resourceCrawl: {
-      timeouts: 10 * 1000
+      timeouts: 15 * 1000
     },
     domainCrawl: {
-      timeouts: 10 * 1000,
+      timeouts: 35 * 1000,
       maxRedirects: 5
     },
     userAgent: `FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/${version}`,
