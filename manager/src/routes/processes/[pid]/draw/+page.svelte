@@ -53,7 +53,7 @@
 		}
 	}
 	let predicateColors: Map<string, string> = new Map();
-	let state: { hoveredNode?: string; hoveredNeighbors?: Set<string> } = {};
+	let state: { hoveredNode?: string; hoveredNeighbors?: Set<string>; locked?: boolean } = {};
 
 	// Helper function to provide full predicate names (no abbreviation)
 	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
@@ -324,20 +324,20 @@
 			// Reset state when loading new graph
 			state = {};
 			function setHoveredNode(node?: string) {
-				if (node) {
-					state.hoveredNode = node;
-					state.hoveredNeighbors = new Set(graphData.neighbors(node));
-				}
+				if (!state.locked) {
+					if (node) {
+						state.hoveredNode = node;
+						state.hoveredNeighbors = new Set(graphData.neighbors(node));
+					} else {
+						state.hoveredNode = undefined;
+						state.hoveredNeighbors = undefined;
+					}
 
-				if (!node) {
-					state.hoveredNode = undefined;
-					state.hoveredNeighbors = undefined;
+					// Refresh rendering
+					renderer.refresh({
+						skipIndexation: true
+					});
 				}
-
-				// Refresh rendering
-				renderer.refresh({
-					skipIndexation: true
-				});
 			}
 			// Bind graph interactions:
 			renderer.on('enterNode', ({ node }: { node: string }) => {
@@ -345,6 +345,29 @@
 			});
 			renderer.on('leaveNode', () => {
 				setHoveredNode(undefined);
+			});
+			renderer.on('clickNode', ({ node }: { node: string }) => {
+				if (state.hoveredNode && !state.locked) {
+					state.locked = true;
+				} else if (state.locked) {
+					state.locked = false;
+					state.hoveredNode = undefined;
+					state.hoveredNeighbors = undefined;
+				}
+				// Refresh rendering
+				renderer.refresh({
+					skipIndexation: true
+				});
+			});
+			renderer.on('clickStage', () => {
+				if (state.locked) {
+					state.locked = false;
+					state.hoveredNode = undefined;
+					state.hoveredNeighbors = undefined;
+					renderer.refresh({
+						skipIndexation: true
+					});
+				}
 			});
 
 			// Render nodes accordingly to the internal state:
@@ -354,6 +377,9 @@
 					if (state.hoveredNode === node || state.hoveredNeighbors.has(node)) {
 						res.zIndex = 2; // Neighbors and hovered node on top
 						res.label = (nodeData as any).displayLabel || '';
+						if (state.hoveredNode === node) {
+							res.color = '#FFA500'; // orange for hovered node
+						}
 					} else if (seeds.includes(node)) {
 						res.zIndex = 1; // Seeds in middle
 						res.label = (nodeData as any).displayLabel || '';
