@@ -634,8 +634,6 @@
 
 				<!-- Tooltip for full predicate names -->
 				<div bind:this={tooltip} class="predicate-tooltip" style="display: none;"></div>
-				<!-- Tooltip for full predicate names -->
-				<div bind:this={tooltip} class="predicate-tooltip" style="display: none;"></div>
 			</div>
 		</div>
 	</main>
