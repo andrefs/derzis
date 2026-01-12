@@ -315,6 +315,8 @@
 				enableEdgeEvents: true
 			});
 
+			const seeds = data.proc.currentStep.seeds;
+
 			/***********************
 			 * Hover effect
 			 ***********************/
@@ -345,14 +347,20 @@
 			});
 
 			// Render nodes accordingly to the internal state:
-			renderer.setSetting('nodeReducer', (node: string, data: NodeDisplayData) => {
-				const res: Partial<NodeDisplayData> = { ...data };
+			renderer.setSetting('nodeReducer', (node: string, nodeData: NodeDisplayData) => {
+				const res: Partial<NodeDisplayData> = { ...nodeData };
 				if (state.hoveredNeighbors) {
 					if (!state.hoveredNeighbors.has(node) && state.hoveredNode !== node) {
-						res.label = '';
-						res.color = '#f6f6f6';
+						const isSeed = seeds.includes(node);
+						if (isSeed) {
+							res.label = (nodeData as any).displayLabel || '';
+							res.color = '#ffcccc'; // Keep seed nodes visible in pale red
+						} else {
+							res.label = '';
+							res.color = '#f6f6f6';
+						}
 					} else {
-						res.label = (data as any).displayLabel || '';
+						res.label = (nodeData as any).displayLabel || '';
 					}
 				}
 				return res;
