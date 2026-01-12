@@ -59,6 +59,7 @@
 		locked?: boolean;
 		highlightedNodes?: Set<string>;
 		addedLevels?: Set<string>[];
+		labelHoveredNode?: string;
 	} = {};
 
 	// Helper function to provide full predicate names (no abbreviation)
@@ -347,10 +348,20 @@
 			}
 			// Bind graph interactions:
 			renderer.on('enterNode', ({ node }: { node: string }) => {
-				setHoveredNode(node);
+				if (state.locked) {
+					state.labelHoveredNode = node;
+					renderer.refresh({ skipIndexation: true });
+				} else {
+					setHoveredNode(node);
+				}
 			});
 			renderer.on('leaveNode', () => {
-				setHoveredNode(undefined);
+				if (state.locked) {
+					state.labelHoveredNode = undefined;
+					renderer.refresh({ skipIndexation: true });
+				} else {
+					setHoveredNode(undefined);
+				}
 			});
 			renderer.on('clickNode', ({ node }: { node: string }) => {
 				if (state.hoveredNode && !state.locked) {
@@ -363,6 +374,7 @@
 					state.hoveredNeighbors = undefined;
 					state.highlightedNodes = undefined;
 					state.addedLevels = undefined;
+					state.labelHoveredNode = undefined;
 				}
 				// Refresh rendering
 				renderer.refresh({
@@ -376,6 +388,7 @@
 					state.hoveredNeighbors = undefined;
 					state.highlightedNodes = undefined;
 					state.addedLevels = undefined;
+					state.labelHoveredNode = undefined;
 					renderer.refresh({
 						skipIndexation: true
 					});
@@ -421,7 +434,9 @@
 				if (state.locked && state.highlightedNodes) {
 					if (state.highlightedNodes.has(node)) {
 						res.zIndex = 2;
-						res.label = (nodeData as any).displayLabel || '';
+						if (state.hoveredNode === node || state.labelHoveredNode === node) {
+							res.label = (nodeData as any).displayLabel || '';
+						}
 						if (state.hoveredNode === node) {
 							res.color = '#FFA500'; // orange for hovered node
 						} else {
