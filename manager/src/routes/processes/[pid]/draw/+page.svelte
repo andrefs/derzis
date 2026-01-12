@@ -312,7 +312,8 @@
 				minCameraRatio: 0.08,
 				maxCameraRatio: 3,
 				renderEdgeLabels: true,
-				enableEdgeEvents: true
+				enableEdgeEvents: true,
+				zIndex: true
 			});
 
 			const seeds = data.proc.currentStep.seeds;
@@ -350,18 +351,21 @@
 			renderer.setSetting('nodeReducer', (node: string, nodeData: NodeDisplayData) => {
 				const res: Partial<NodeDisplayData> = { ...nodeData };
 				if (state.hoveredNeighbors) {
-					if (!state.hoveredNeighbors.has(node) && state.hoveredNode !== node) {
-						const isSeed = seeds.includes(node);
-						if (isSeed) {
-							res.label = (nodeData as any).displayLabel || '';
-							res.color = '#ffcccc'; // Keep seed nodes visible in pale red
-						} else {
-							res.label = '';
-							res.color = '#f6f6f6';
-						}
-					} else {
+					if (state.hoveredNode === node || state.hoveredNeighbors.has(node)) {
+						res.zIndex = 2; // Neighbors and hovered node on top
 						res.label = (nodeData as any).displayLabel || '';
+					} else if (seeds.includes(node)) {
+						res.zIndex = 1; // Seeds in middle
+						res.label = (nodeData as any).displayLabel || '';
+						res.color = '#ffcccc'; // Pale red for seeds
+					} else {
+						res.zIndex = 0; // Other nodes at bottom
+						res.label = '';
+						res.color = '#f6f6f6';
 					}
+				} else {
+					// Default zIndex when not hovering
+					res.zIndex = seeds.includes(node) ? 1 : 0;
 				}
 				return res;
 			});
