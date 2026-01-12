@@ -366,6 +366,17 @@
 				>
 			</h2>
 			<div class="controls">
+				{#if allPredicates.length > 0}
+					<FormGroup class="predicate-filter">
+						<Label for="predicate-select">Filter by predicate:</Label>
+						<Input type="select" id="predicate-select" bind:value={selectedPredicate}>
+							<option value="all">All predicates</option>
+							{#each allPredicates as predicate}
+								<option value={predicate}>{predicate}</option>
+							{/each}
+						</Input>
+					</FormGroup>
+				{/if}
 				<div class="num-triples-control">
 					<label for="num-triples-slider">Number of triples: {sliderValue}</label>
 					<input
@@ -384,24 +395,17 @@
 				{#if minDateLabel && maxDateLabel}
 					<div class="node-color-legend">
 						<h6>Node Age</h6>
-						{#if minDateLabel.date === maxDateLabel.date && minDateLabel.time === maxDateLabel.time}
-							<div class="single-date">
+						<div class="legend-row">
+							<span class="min-label">
 								<span class="date">{minDateLabel.date}</span>
 								<span class="time">{minDateLabel.time}</span>
-							</div>
-						{:else}
-							<div class="legend-row">
-								<span class="min-label">
-									<span class="date">{minDateLabel.date}</span>
-									<span class="time">{minDateLabel.time}</span>
-								</span>
-								<div class="color-bar"></div>
-								<span class="max-label">
-									<span class="date">{maxDateLabel.date}</span>
-									<span class="time">{maxDateLabel.time}</span>
-								</span>
-							</div>
-						{/if}
+							</span>
+							<div class="color-bar"></div>
+							<span class="max-label">
+								<span class="date">{maxDateLabel.date}</span>
+								<span class="time">{maxDateLabel.time}</span>
+							</span>
+						</div>
 					</div>
 				{/if}
 			</div>
@@ -516,6 +520,38 @@
 		margin-bottom: 0;
 		padding: 0;
 		line-height: 1.2;
+	}
+
+	.controls {
+		display: flex;
+		justify-content: flex-start;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
+		flex: 1;
+	}
+
+	.predicate-filter {
+		margin: 0;
+		min-width: 250px;
+		flex: 1;
+	}
+
+	.predicate-filter :global(.form-label) {
+		margin-bottom: 0.25rem;
+		font-weight: 500;
+		font-size: 0.9rem;
+	}
+
+	.predicate-filter :global(.form-select) {
+		font-size: 0.9rem;
+		padding: 0.25rem 0.5rem;
+	}
+
+	.num-triples-control {
+		margin: 0;
+		min-width: 150px;
+		flex: 1;
 	}
 
 	.num-triples-control {
@@ -708,7 +744,8 @@
 		padding: 8px;
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 		font-size: 12px;
-		width: 280px;
+		width: 220px;
+		flex-shrink: 0;
 	}
 
 	.node-color-legend h6 {
