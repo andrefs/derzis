@@ -53,7 +53,13 @@
 		}
 	}
 	let predicateColors: Map<string, string> = new Map();
-	let state: { hoveredNode?: string; hoveredNeighbors?: Set<string>; locked?: boolean } = {};
+	let state: {
+		hoveredNode?: string;
+		hoveredNeighbors?: Set<string>;
+		locked?: boolean;
+		highlightedNodes?: Set<string>;
+		addedLevels?: Set<string>[];
+	} = {};
 
 	// Helper function to provide full predicate names (no abbreviation)
 	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
@@ -349,10 +355,14 @@
 			renderer.on('clickNode', ({ node }: { node: string }) => {
 				if (state.hoveredNode && !state.locked) {
 					state.locked = true;
+					state.highlightedNodes = new Set([state.hoveredNode, ...state.hoveredNeighbors!]);
+					state.addedLevels = [state.highlightedNodes];
 				} else if (state.locked) {
 					state.locked = false;
 					state.hoveredNode = undefined;
 					state.hoveredNeighbors = undefined;
+					state.highlightedNodes = undefined;
+					state.addedLevels = undefined;
 				}
 				// Refresh rendering
 				renderer.refresh({
@@ -364,33 +374,105 @@
 					state.locked = false;
 					state.hoveredNode = undefined;
 					state.hoveredNeighbors = undefined;
+					state.highlightedNodes = undefined;
+					state.addedLevels = undefined;
 					renderer.refresh({
 						skipIndexation: true
 					});
 				}
 			});
 
+			document.addEventListener('keydown', (e) => {
+				if (state.locked && state.highlightedNodes && state.addedLevels) {
+					if (e.key === 'ArrowRight') {
+						const currentNodes = new Set(state.highlightedNodes);
+						const newNodes = new Set<string>();
+						for (const n of currentNodes) {
+							for (const neigh of graphData.neighbors(n)) {
+								if (!state.highlightedNodes.has(neigh)) {
+									newNodes.add(neigh);
+								}
+							}
+						}
+						if (newNodes.size > 0) {
+							state.highlightedNodes = new Set([...state.highlightedNodes, ...newNodes]);
+							state.addedLevels.push(newNodes);
+							renderer.refresh({
+								skipIndexation: true
+							});
+						}
+					} else if (e.key === 'ArrowLeft') {
+						if (state.addedLevels.length > 1) {
+							const lastAdded = state.addedLevels.pop();
+							for (const n of lastAdded!) {
+								state.highlightedNodes.delete(n);
+							}
+							renderer.refresh({
+								skipIndexation: true
+							});
+						}
+					}
+				}
+			});
+
 			// Render nodes accordingly to the internal state:
 			renderer.setSetting('nodeReducer', (node: string, nodeData: NodeDisplayData) => {
 				const res: Partial<NodeDisplayData> = { ...nodeData };
-				if (state.hoveredNeighbors) {
-					if (state.hoveredNode === node || state.hoveredNeighbors.has(node)) {
-						res.zIndex = 2; // Neighbors and hovered node on top
+				if (state.locked && state.highlightedNodes) {
+					if (state.highlightedNodes.has(node)) {
+						res.zIndex = 2;
 						res.label = (nodeData as any).displayLabel || '';
 						if (state.hoveredNode === node) {
 							res.color = '#FFA500'; // orange for hovered node
+						} else {
+							// Find level
+							let level = 0;
+							for (let i = 0; i < state.addedLevels!.length; i++) {
+								if (state.addedLevels![i].has(node)) {
+									level = i;
+									break;
+								}
+							}
+							const numLevels = state.addedLevels!.length;
+							let ratio = level / (numLevels + 2);
+							let r, g, b;
+							if (ratio < 0.5) {
+								r = Math.floor(200 * ratio * 2);
+								g = Math.floor(200 * ratio * 2);
+								b = 255;
+							} else {
+								r = Math.floor(200 * (2 - ratio * 2));
+								g = 200;
+								b = Math.floor(255 * (2 - ratio * 2));
+							}
+							res.color = `rgb(${r}, ${g}, ${b})`;
 						}
 					} else if (seeds.includes(node)) {
-						res.zIndex = 1; // Seeds in middle
+						res.zIndex = 1;
 						res.label = (nodeData as any).displayLabel || '';
-						res.color = '#ffcccc'; // Pale red for seeds
+						res.color = '#ffcccc';
 					} else {
-						res.zIndex = 0; // Other nodes at bottom
+						res.zIndex = 0;
+						res.label = '';
+						res.color = '#f6f6f6';
+					}
+				} else if (state.hoveredNeighbors) {
+					if (state.hoveredNode === node || state.hoveredNeighbors.has(node)) {
+						res.zIndex = 2;
+						res.label = (nodeData as any).displayLabel || '';
+						if (state.hoveredNode === node) {
+							res.color = '#FFA500';
+						}
+					} else if (seeds.includes(node)) {
+						res.zIndex = 1;
+						res.label = (nodeData as any).displayLabel || '';
+						res.color = '#ffcccc';
+					} else {
+						res.zIndex = 0;
 						res.label = '';
 						res.color = '#f6f6f6';
 					}
 				} else {
-					// Default zIndex when not hovering
 					res.zIndex = seeds.includes(node) ? 1 : 0;
 				}
 				return res;
@@ -398,7 +480,16 @@
 
 			renderer.setSetting('edgeReducer', (edge: string, data: EdgeDisplayData) => {
 				const res: Partial<EdgeDisplayData> = { ...data };
-				if (state.hoveredNode) {
+				if (state.locked && state.highlightedNodes) {
+					if (graphData.extremities(edge).every((n: string) => state.highlightedNodes!.has(n))) {
+						res.hidden = false;
+						const predicate = (data as any).fullPredicate || '';
+						res.size = 3;
+						res.color = getPredicateColor(predicate);
+					} else {
+						res.hidden = true;
+					}
+				} else if (state.hoveredNode) {
 					if (
 						!graphData
 							.extremities(edge)
@@ -411,12 +502,10 @@
 					} else {
 						res.hidden = false;
 						const predicate = (data as any).fullPredicate || '';
-						//res.label = (data as any).displayLabel || '';
-						res.size = 3; // Make edges thicker when visible
+						res.size = 3;
 						res.color = getPredicateColor(predicate);
 					}
 				} else {
-					// Default edge styling when not hovering
 					res.color = '#ccc';
 					res.size = 1;
 				}
@@ -512,18 +601,22 @@
 				{/if}
 
 				<!-- Legend for predicate colors (shown when hovering nodes) -->
-				{#if state?.hoveredNode && graphData}
+				{#if (state?.highlightedNodes || state?.hoveredNode) && graphData}
 					{@const connectedPredicates = Array.from(
 						new Set(
 							graphData
 								.edges()
 								.filter((edge: string) => {
 									const extremities = graphData.extremities(edge);
-									return (
-										extremities.includes(state.hoveredNode!) ||
-										graphData.areNeighbors(extremities[0], state.hoveredNode!) ||
-										graphData.areNeighbors(extremities[1], state.hoveredNode!)
-									);
+									if (state.locked && state.highlightedNodes) {
+										return extremities.every((n: string) => state.highlightedNodes!.has(n));
+									} else {
+										return (
+											extremities.includes(state.hoveredNode!) ||
+											graphData.areNeighbors(extremities[0], state.hoveredNode!) ||
+											graphData.areNeighbors(extremities[1], state.hoveredNode!)
+										);
+									}
 								})
 								.map(
 									(edge: string) =>
