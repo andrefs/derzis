@@ -243,6 +243,7 @@
 						seeds={data.proc.currentStep.seeds}
 						bind:locked={graphLocked}
 						bind:addedLevels={graphAddedLevels}
+						bind:state
 						{minDate}
 						{maxDate}
 						{nodeMaxCreatedAt}

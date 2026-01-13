@@ -55,3 +55,67 @@
 		</div>
 	{/if}
 {/if}
+
+<style>
+	.predicate-legend {
+		position: fixed;
+		top: 20px;
+		left: 20px;
+		background: rgba(255, 255, 255, 0.95);
+		border: 1px solid #ddd;
+		border-radius: 8px;
+		padding: 12px;
+		max-width: 300px;
+		max-height: 80vh;
+		overflow-y: auto;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		z-index: 1000;
+		font-size: 13px;
+	}
+
+	.predicate-legend h6 {
+		margin: 0 0 8px 0;
+		font-size: 14px;
+		font-weight: 600;
+		color: #333;
+	}
+
+	.legend-items {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.legend-item {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 20px;
+	}
+
+	.color-box {
+		width: 12px;
+		height: 12px;
+		border-radius: 2px;
+		flex-shrink: 0;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+	}
+
+	.predicate-text {
+		font-family: monospace;
+		font-size: 11px;
+		color: #555;
+		line-height: 1.2;
+		flex: 1;
+		min-width: 0;
+		word-break: break-all;
+		cursor: help;
+	}
+
+	.more-text {
+		font-style: italic;
+		color: #888;
+		font-size: 11px;
+		padding-left: 20px;
+	}
+</style>

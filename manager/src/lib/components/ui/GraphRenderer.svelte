@@ -15,6 +15,14 @@
 	export let seeds: string[];
 	export let locked: boolean = false;
 	export let addedLevels: Set<string>[] | undefined = undefined;
+	export let state: {
+		hoveredNode?: string;
+		hoveredNeighbors?: Set<string>;
+		locked?: boolean;
+		highlightedNodes?: Set<string>;
+		addedLevels?: Set<string>[];
+		labelHoveredNode?: string;
+	} = {};
 	import Graph from 'graphology';
 	import type { NodeDisplayData, EdgeDisplayData } from 'sigma/types';
 	import { onMount } from 'svelte';
@@ -25,17 +33,6 @@
 	let _dlAsImg: any = null;
 
 	let predicateColors: Map<string, string> = new Map();
-	let state: {
-		hoveredNode?: string;
-		hoveredNeighbors?: Set<string>;
-		locked?: boolean;
-		highlightedNodes?: Set<string>;
-		addedLevels?: Set<string>[];
-		labelHoveredNode?: string;
-	} = {
-		locked,
-		addedLevels
-	};
 
 	// Helper function to provide full predicate names (no abbreviation)
 	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
@@ -210,7 +207,7 @@
 			 * Hover effect
 			 ***********************/
 			// Reset state when loading new graph
-			state = {};
+			state = { locked, addedLevels };
 			function setHoveredNode(node?: string) {
 				if (!state.locked) {
 					if (node) {
