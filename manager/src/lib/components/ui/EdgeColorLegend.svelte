@@ -109,11 +109,4 @@
 		word-break: break-all;
 		cursor: help;
 	}
-
-	.more-text {
-		font-style: italic;
-		color: #888;
-		font-size: 11px;
-		padding-left: 20px;
-	}
 </style>

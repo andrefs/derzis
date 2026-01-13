@@ -20,7 +20,7 @@
 	let graphAddedLevels: Set<string>[] = [];
 
 	let isLoading = true;
-	let allPredicates: string[] = [];
+	let allPredicates: Array<{ predicate: string; count: number }> = [];
 	let selectedPredicate = 'all';
 	let numTriples = 100;
 	let totalTriples = 100;
@@ -55,7 +55,14 @@
 		totalTriples = allTriples.length;
 		numTriples = totalTriples;
 		sliderEnabled = true;
-		allPredicates = [...new Set(allTriples.map((t) => t.predicate.valueOf()))].sort();
+		const counts = new Map<string, number>();
+		for (const t of allTriples) {
+			const p = t.predicate.valueOf();
+			counts.set(p, (counts.get(p) || 0) + 1);
+		}
+		allPredicates = Array.from(counts.entries())
+			.map(([predicate, count]) => ({ predicate, count }))
+			.sort((a, b) => b.count - a.count);
 	});
 
 	$: if (typeof window !== 'undefined') {
@@ -169,8 +176,8 @@
 								disabled={allPredicates.length === 0}
 							>
 								<option value="all">All predicates</option>
-								{#each allPredicates as predicate}
-									<option value={predicate}>{predicate}</option>
+								{#each allPredicates as item}
+									<option value={item.predicate}>{item.predicate} ({item.count})</option>
 								{/each}
 							</Input>
 						</FormGroup>
