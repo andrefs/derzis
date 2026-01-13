@@ -36,7 +36,6 @@ export const actions: { [name: string]: Action } = {
 			.filter((s: string) => !s.match(/^\s*$/));
 		const followDirection = data.get('followDirection') === 'true';
 
-
 		const procParams = {
 			seeds,
 			maxPathLength,

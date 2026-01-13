@@ -42,7 +42,7 @@ export async function POST({ request }: RequestEvent) {
 	const process = {
 		steps: [pskel.step],
 		currentStep: pskel.step,
-		notification: pskel.notification,
+		notification: pskel.notification
 	};
 
 	try {

@@ -95,28 +95,28 @@ export default class RunningJobs extends EventEmitter {
 		const customUpdate: UpdateQuery<DomainClass> =
 			jobType === 'robotsCheck'
 				? {
-					$set: {
-						'robots.status': 'error'
-					},
-					$push: {
-						lastWarnings: {
-							$each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
-							$slice: -10
+						$set: {
+							'robots.status': 'error'
+						},
+						$push: {
+							lastWarnings: {
+								$each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
+								$slice: -10
+							}
+						},
+						$inc: {
+							'warnings.E_ROBOTS_TIMEOUT': 1
 						}
-					},
-					$inc: {
-						'warnings.E_ROBOTS_TIMEOUT': 1
 					}
-				}
 				: {
-					$push: {
-						lastWarnings: {
-							$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
-							$slice: -10
-						}
-					},
-					$inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
-				};
+						$push: {
+							lastWarnings: {
+								$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
+								$slice: -10
+							}
+						},
+						$inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
+					};
 		return this.cleanJob(origin, jobType, customUpdate);
 	}
 
@@ -148,8 +148,8 @@ export default class RunningJobs extends EventEmitter {
 	}
 
 	/**
-	* Cleanup all running jobs, setting their status back to unvisited/ready
-	*/
+	 * Cleanup all running jobs, setting their status back to unvisited/ready
+	 */
 	async cancelAllJobs() {
 		log.info(`Cleaning outstanding jobs`);
 		log.debug('Deregistering running jobs');
@@ -224,7 +224,8 @@ export default class RunningJobs extends EventEmitter {
 		if (this._running[origin]) {
 			const jobId = this._running[origin].jobId;
 			log.warn(
-				`Job #${jobId} ${jobType} for domain ${origin} timed out (${timeout / 1000
+				`Job #${jobId} ${jobType} for domain ${origin} timed out (${
+					timeout / 1000
 				}s started at ${ts.toISOString()})`
 			);
 		}

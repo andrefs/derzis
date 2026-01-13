@@ -18,7 +18,12 @@ import {
 } from '@derzis/common';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
-import type { JobCapacity, JobRequest, ResourceCrawlJobRequest, SimpleTriple } from '@derzis/common';
+import type {
+	JobCapacity,
+	JobRequest,
+	ResourceCrawlJobRequest,
+	SimpleTriple
+} from '@derzis/common';
 import { ObjectId } from 'bson';
 
 export default class Manager {
@@ -125,11 +130,11 @@ export default class Manager {
 	}
 
 	/**
-	* Process new triples found when crawling a resource
-	* Adds new resources and triples to the database, and updates process paths accordingly
-	* @param sourceUrl URL of the resource from which the triples were obtained
-	* @param triples Array of triples to process
-	*/
+	 * Process new triples found when crawling a resource
+	 * Adds new resources and triples to the database, and updates process paths accordingly
+	 * @param sourceUrl URL of the resource from which the triples were obtained
+	 * @param triples Array of triples to process
+	 */
 	async processNewTriples(sourceUrl: string, triples: SimpleTriple[]) {
 		log.silly('Triples:', triples);
 
@@ -173,10 +178,10 @@ export default class Manager {
 	}
 
 	/**
-	* Update all paths that have the given source URL as head
-	* @param sourceUrl URL of the resource that is the head of the paths to update
-	* @param triplesByNode Object mapping node URLs to arrays of triples connected to them
-	*/
+	 * Update all paths that have the given source URL as head
+	 * @param sourceUrl URL of the resource that is the head of the paths to update
+	 * @param triplesByNode Object mapping node URLs to arrays of triples connected to them
+	 */
 	async updateAllPathsWithHead(sourceUrl: string, triplesByNode: { [url: string]: TripleClass[] }) {
 		const pids = await Path.distinct('processId', {
 			'head.url': sourceUrl
@@ -231,7 +236,7 @@ export default class Manager {
 		return;
 	}
 
-	async * assignJobs(
+	async *assignJobs(
 		workerId: string,
 		workerAvail: JobCapacity
 	): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>> {

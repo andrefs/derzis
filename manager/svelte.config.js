@@ -25,7 +25,7 @@ const config = {
 			'@derzis/common': '../common/src',
 			'@derzis/config': '../config/src',
 			'@derzis/manager': './src/lib'
-		},
+		}
 	}
 };
 

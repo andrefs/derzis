@@ -29,7 +29,7 @@ export const actions: { [name: string]: Action } = {
 
 				limPredicates: (data.get('pred-list') as string)
 					?.split(/\s*[\n]\s*/)
-					.filter((s: string) => !s.match(/^\s*$/)),
+					.filter((s: string) => !s.match(/^\s*$/))
 			},
 			seeds: uniqueSeeds
 		};
@@ -40,7 +40,7 @@ export const actions: { [name: string]: Action } = {
 			notification: {
 				email: data.get('email') as string,
 				webhook: data.get('webhook') as string
-			},
+			}
 		};
 		const proc = await newProcess(p);
 

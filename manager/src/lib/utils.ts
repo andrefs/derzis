@@ -24,6 +24,4 @@ export const secondsToString = (seconds: number) => {
 	return res.join(' ');
 };
 
-
-export type MakeOptional<T, K extends keyof T> =
-	Omit<T, K> & { [P in K]?: T[P] };
+export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [P in K]?: T[P] };

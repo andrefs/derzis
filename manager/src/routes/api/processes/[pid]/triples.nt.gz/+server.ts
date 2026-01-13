@@ -22,7 +22,7 @@ export async function GET({ params, setHeaders }: RequestEvent) {
 
 	const transformStream = new Readable({
 		objectMode: true,
-		read() { }
+		read() {}
 	});
 
 	readableStream.on('data', (quad) => {

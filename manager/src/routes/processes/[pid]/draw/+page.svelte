@@ -2,45 +2,59 @@
 	import {
 		Accordion,
 		AccordionItem,
-		Tooltip,
 		FormGroup,
 		Label,
 		Input,
-		Spinner,
-		Button
+		Spinner
 	} from '@sveltestrap/sveltestrap';
-	import forceAtlas2 from 'graphology-layout-forceatlas2';
-	import FA2Layout from 'graphology-layout-forceatlas2/worker';
-	import Legend from '$lib/components/ui/Legend.svelte';
+	import NodeColorLegend from '$lib/components/ui/NodeColorLegend.svelte';
 	export let data;
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import Graph from 'graphology';
-	import type { NodeDisplayData, EdgeDisplayData } from 'sigma/types';
+	import GraphRenderer from '$lib/components/ui/GraphRenderer.svelte';
+	import EdgeColorLegend from '$lib/components/ui/EdgeColorLegend.svelte';
 
-	let container: HTMLDivElement;
+	let graphLocked = false;
+	let graphAddedLevels: Set<string>[] = [];
+
 	let isLoading = true;
-	let renderer: any = null;
-	let _dlAsImg: any = null;
-	let tooltip: HTMLDivElement;
 	let allPredicates: string[] = [];
 	let selectedPredicate = 'all';
-	let numTriples = 0;
+	let numTriples = 100;
 	let totalTriples = 100;
 	let allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }> =
 		[];
+	let limitedTriples: Array<{
+		subject: string;
+		predicate: string;
+		object: string;
+		createdAt: string;
+	}> = [];
+	let filteredTriples: Array<{
+		subject: string;
+		predicate: string;
+		object: string;
+		createdAt: string;
+	}> = [];
+	let nodeMaxCreatedAt: Map<string, Date> = new Map();
+	let minDate: Date = new Date();
+	let maxDate: Date = new Date();
 	let minDateLabel: { date: string; time: string } | '' = '';
 	let maxDateLabel: { date: string; time: string } | '' = '';
-	let pendingTimeout: ReturnType<typeof setTimeout> | undefined;
 	let skipRebuild = false;
 	let sliderEnabled = false;
 
-	onMount(() => {
+	onMount(async () => {
 		const urlPredicate = $page.url.searchParams.get('predicate');
 		if (urlPredicate && urlPredicate !== selectedPredicate) {
 			selectedPredicate = urlPredicate;
 		}
+		await loadAllTriples();
+		totalTriples = allTriples.length;
+		numTriples = totalTriples;
+		sliderEnabled = true;
+		allPredicates = [...new Set(allTriples.map((t) => t.predicate.valueOf()))].sort();
 	});
 
 	$: if (typeof window !== 'undefined') {
@@ -53,6 +67,7 @@
 		}
 	}
 	let predicateColors: Map<string, string> = new Map();
+	let graphData: any = null;
 	let state: {
 		hoveredNode?: string;
 		hoveredNeighbors?: Set<string>;
@@ -91,7 +106,7 @@
 		return predicateColors.get(predicate)!;
 	}
 
-	async function loadData() {
+	async function loadAllTriples() {
 		if (allTriples.length === 0) {
 			const response = await fetch(
 				`/api/processes/${data.proc.pid}/triples.json.gz?includeCreatedAt=true`
@@ -105,83 +120,41 @@
 			const text = await new Response(decompressedResponse).text();
 			allTriples = JSON.parse(text);
 		}
-		// Sort by createdAt descending and take first numTriples (or all if numTriples is 0)
+	}
+
+	// Reactive statement to compute filtered triples and dates when predicate or numTriples changes
+	$: if (allTriples.length > 0 && selectedPredicate !== undefined && numTriples > 0) {
+		// Sort by createdAt descending and take first numTriples
 		const sortedTriples = allTriples.sort(
 			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
 		);
-		const limit = numTriples || allTriples.length;
-		return sortedTriples.slice(0, limit);
-	}
+		limitedTriples = sortedTriples.slice(0, numTriples);
 
-	let graphData: any = null;
+		// Filter triples by selected predicate
+		filteredTriples =
+			selectedPredicate === 'all'
+				? limitedTriples
+				: limitedTriples.filter((t) => t.predicate.valueOf() === selectedPredicate);
 
-	// Reactive statement to rebuild graph when predicate or numTriples changes
-	$: if (
-		typeof window !== 'undefined' &&
-		selectedPredicate !== undefined &&
-		numTriples !== undefined
-	) {
-		if (skipRebuild) {
-			skipRebuild = false;
-		} else {
-			rebuildGraph();
-		}
-	}
-
-	async function rebuildGraph() {
-		// Clean up existing renderer
-		if (renderer) {
-			renderer.kill();
-			renderer = null;
-		}
-		// Clear container
-		if (container) {
-			container.innerHTML = '';
-		}
-		// Load new graph
-		await loadGraphData();
-	}
-
-	async function loadGraphData() {
-		try {
-			isLoading = true;
-			const triples = await loadData();
-
-			// Set total and default numTriples
-			totalTriples = allTriples.length;
-			skipRebuild = true;
-			numTriples = totalTriples;
-			sliderEnabled = true;
-
-			// Extract unique predicates for dropdown (only once)
-			if (allPredicates.length === 0) {
-				allPredicates = [...new Set(allTriples.map((t) => t.predicate.valueOf()))].sort();
+		// Compute max createdAt for each node
+		nodeMaxCreatedAt = new Map<string, Date>();
+		for (const t of filteredTriples) {
+			const subj = t.subject.valueOf();
+			const obj = t.object.valueOf();
+			const date = new Date(t.createdAt);
+			if (!nodeMaxCreatedAt.has(subj) || nodeMaxCreatedAt.get(subj)! < date) {
+				nodeMaxCreatedAt.set(subj, date);
 			}
-
-			// Filter triples by selected predicate
-			const filteredTriples =
-				selectedPredicate === 'all'
-					? triples
-					: triples.filter((t) => t.predicate.valueOf() === selectedPredicate);
-
-			// Compute max createdAt for each node
-			const nodeMaxCreatedAt = new Map<string, Date>();
-			for (const t of filteredTriples) {
-				const subj = t.subject.valueOf();
-				const obj = t.object.valueOf();
-				const date = new Date(t.createdAt);
-				if (!nodeMaxCreatedAt.has(subj) || nodeMaxCreatedAt.get(subj)! < date) {
-					nodeMaxCreatedAt.set(subj, date);
-				}
-				if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
-					nodeMaxCreatedAt.set(obj, date);
-				}
+			if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
+				nodeMaxCreatedAt.set(obj, date);
 			}
+		}
 
-			// Find min and max dates
-			const dates = Array.from(nodeMaxCreatedAt.values());
-			const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-			const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+		// Find min and max dates
+		const dates = Array.from(nodeMaxCreatedAt.values());
+		if (dates.length > 0) {
+			minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+			maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
 			const formatDate = (date: Date) => {
 				const day = date.getDate().toString().padStart(2, '0');
 				const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -193,362 +166,10 @@
 					time: `${hour}:${min}`
 				};
 			};
-			const minFormatted = formatDate(minDate);
-			const maxFormatted = formatDate(maxDate);
-			minDateLabel = minFormatted;
-			maxDateLabel = maxFormatted;
-
-			// build graph
-			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
-
-			// Collect all unique nodes, sorted with non-seed first, then seed
-			const allNodes = new Set<string>();
-			for (const t of filteredTriples) {
-				allNodes.add(t.subject.valueOf());
-				allNodes.add(t.object.valueOf());
-			}
-			const sortedNodes = Array.from(allNodes).sort((a, b) => {
-				const aSeed = data.proc.currentStep.seeds.includes(a);
-				const bSeed = data.proc.currentStep.seeds.includes(b);
-				if (aSeed && !bSeed) return 1;
-				if (!aSeed && bSeed) return -1;
-				return a.localeCompare(b);
-			});
-
-			// Function to get color based on recency (blue to dark yellow to green)
-			function getNodeColor(date: Date): string {
-				if (maxDate.getTime() === minDate.getTime()) {
-					return '#0000ff'; // Blue for all nodes if all have same age
-				}
-				const ratio =
-					(date.getTime() - minDate.getTime()) / (maxDate.getTime() - minDate.getTime());
-				let r, g, b;
-				if (ratio < 0.5) {
-					// Blue to dark yellow: increase red and green, keep blue
-					r = Math.floor(200 * ratio * 2);
-					g = Math.floor(200 * ratio * 2);
-					b = 255;
-				} else {
-					// Dark yellow to green: decrease red, keep green, decrease blue
-					r = Math.floor(200 * (2 - ratio * 2));
-					g = 200;
-					b = Math.floor(255 * (2 - ratio * 2));
-				}
-				return `rgb(${r}, ${g}, ${b})`;
-			}
-
-			// Add nodes in sorted order (non-seed first, seed last so rendered on top)
-			for (const node of sortedNodes) {
-				const isSeed = data.proc.currentStep.seeds.includes(node);
-				const date = nodeMaxCreatedAt.get(node) || minDate;
-				graph.addNode(node, {
-					x: Math.random(),
-					y: Math.random(),
-					displayLabel: node,
-					label: isSeed ? node : ''
-				});
-			}
-
-			// Add edges
-			for (const t of filteredTriples) {
-				const predicateInfo = getPredicateDisplayInfo(t.predicate.valueOf());
-				graph.addDirectedEdge(t.subject.valueOf(), t.object.valueOf(), {
-					type: 'arrow',
-					displayLabel: predicateInfo.display,
-					fullPredicate: predicateInfo.full
-				});
-			}
-
-			// Scale sizes based on degree
-			for (const node of graph.nodes()) {
-				graph.updateNodeAttribute(node, 'size', (size) =>
-					size ? Math.max(8, Math.sqrt(size) * 4) : 8
-				);
-			}
-
-			// Set node colors based on recency
-			for (const node of graph.nodes()) {
-				const date = nodeMaxCreatedAt.get(node) || minDate;
-				const isSeed = data.proc.currentStep.seeds.includes(node);
-				graph.setNodeAttribute(node, 'color', isSeed ? '#ff0000' : getNodeColor(date));
-			}
-
-			graphData = graph;
-			isLoading = false;
-
-			// Initialize the graph after DOM update
-			setTimeout(initializeGraph, 0);
-		} catch (error) {
-			console.error('Error loading graph data:', error);
-			isLoading = false;
+			minDateLabel = formatDate(minDate);
+			maxDateLabel = formatDate(maxDate);
 		}
-	}
-
-	function downloadGraph() {
-		if (renderer) {
-			_dlAsImg(renderer, { fileName: 'graph' });
-		}
-	}
-
-	async function initializeGraph() {
-		if (!container || !graphData) return;
-
-		try {
-			const { default: Sigma } = await import('sigma');
-			const { downloadAsImage } = await import('@sigma/export-image');
-			_dlAsImg = downloadAsImage;
-
-			const sensibleSettings = forceAtlas2.inferSettings(graphData);
-			const fa2Layout = new FA2Layout(graphData, {
-				settings: sensibleSettings
-			});
-
-			const cancelCurrentAnimation: (() => void) | null = null;
-			function startFA2() {
-				if (cancelCurrentAnimation) cancelCurrentAnimation();
-				fa2Layout.start();
-			}
-
-			// Start FA2
-			startFA2();
-			setTimeout(() => {
-				fa2Layout.stop();
-			}, 10 * 1000);
-
-			container.innerHTML = '';
-			renderer = new Sigma(graphData, container, {
-				minCameraRatio: 0.08,
-				maxCameraRatio: 3,
-				renderEdgeLabels: true,
-				enableEdgeEvents: true,
-				zIndex: true
-			});
-
-			const seeds = data.proc.currentStep.seeds;
-
-			/***********************
-			 * Hover effect
-			 ***********************/
-			// Reset state when loading new graph
-			state = {};
-			function setHoveredNode(node?: string) {
-				if (!state.locked) {
-					if (node) {
-						state.hoveredNode = node;
-						state.hoveredNeighbors = new Set(graphData.neighbors(node));
-					} else {
-						state.hoveredNode = undefined;
-						state.hoveredNeighbors = undefined;
-					}
-
-					// Refresh rendering
-					renderer.refresh({
-						skipIndexation: true
-					});
-				}
-			}
-			// Bind graph interactions:
-			renderer.on('enterNode', ({ node }: { node: string }) => {
-				console.log('XXXXXXXXXXXXXXXx 1');
-				if (state.locked) {
-					console.log('XXXXXXXXXXXXXXXx 2');
-					if (state.highlightedNodes!.has(node)) {
-						console.log('XXXXXXXXXXXXXXXx 3');
-						state.labelHoveredNode = node;
-						renderer.refresh({ skipIndexation: true });
-					} else {
-						console.log('XXXXXXXXXXXXXXXx 3.1');
-						state.labelHoveredNode = undefined;
-					}
-					console.log('XXXXXXXXXXXXXXXx 4');
-				} else {
-					console.log('XXXXXXXXXXXXXXXx 5');
-					setHoveredNode(node);
-					console.log('XXXXXXXXXXXXXXXx 6');
-				}
-				console.log('XXXXXXXXXXXXXXXx 7');
-			});
-			renderer.on('leaveNode', () => {
-				if (state.locked) {
-					state.labelHoveredNode = undefined;
-					renderer.refresh({ skipIndexation: true });
-				} else {
-					setHoveredNode(undefined);
-				}
-			});
-			renderer.on('clickNode', ({ node }: { node: string }) => {
-				if (state.hoveredNode && !state.locked) {
-					state.locked = true;
-					state.highlightedNodes = new Set([state.hoveredNode, ...state.hoveredNeighbors!]);
-					state.addedLevels = [state.highlightedNodes];
-				} else if (state.locked) {
-					state.locked = false;
-					state.hoveredNode = undefined;
-					state.hoveredNeighbors = undefined;
-					state.highlightedNodes = undefined;
-					state.addedLevels = undefined;
-					state.labelHoveredNode = undefined;
-				}
-				// Refresh rendering
-				renderer.refresh({
-					skipIndexation: true
-				});
-			});
-			renderer.on('clickStage', () => {
-				if (state.locked) {
-					state.locked = false;
-					state.hoveredNode = undefined;
-					state.hoveredNeighbors = undefined;
-					state.highlightedNodes = undefined;
-					state.addedLevels = undefined;
-					state.labelHoveredNode = undefined;
-					renderer.refresh({
-						skipIndexation: true
-					});
-				}
-			});
-
-			document.addEventListener('keydown', (e) => {
-				if (state.locked && state.highlightedNodes && state.addedLevels) {
-					if (e.key === 'ArrowRight') {
-						const currentNodes = new Set(state.highlightedNodes);
-						const newNodes = new Set<string>();
-						for (const n of currentNodes) {
-							for (const neigh of graphData.neighbors(n)) {
-								if (!state.highlightedNodes.has(neigh)) {
-									newNodes.add(neigh);
-								}
-							}
-						}
-						if (newNodes.size > 0) {
-							state.highlightedNodes = new Set([...state.highlightedNodes, ...newNodes]);
-							state.addedLevels.push(newNodes);
-							renderer.refresh({
-								skipIndexation: true
-							});
-						}
-					} else if (e.key === 'ArrowLeft') {
-						if (state.addedLevels.length > 1) {
-							const lastAdded = state.addedLevels.pop();
-							for (const n of lastAdded!) {
-								state.highlightedNodes.delete(n);
-							}
-							renderer.refresh({
-								skipIndexation: true
-							});
-						}
-					}
-				}
-			});
-
-			// Render nodes accordingly to the internal state:
-			renderer.setSetting('nodeReducer', (node: string, nodeData: NodeDisplayData) => {
-				const res: Partial<NodeDisplayData> = { ...nodeData };
-				if (state.locked && state.highlightedNodes) {
-					if (state.highlightedNodes.has(node)) {
-						res.zIndex = 2;
-						if (state.hoveredNode === node || state.labelHoveredNode === node) {
-							res.label = (nodeData as any).displayLabel || '';
-						}
-						if (state.hoveredNode === node) {
-							if (seeds.includes(node)) {
-								res.color = '#ff0000'; // bright red for seed
-							} else {
-								res.color = '#FFA500'; // orange for non-seed
-							}
-						} else {
-							// Find level
-							let level = 0;
-							for (let i = 0; i < state.addedLevels!.length; i++) {
-								if (state.addedLevels![i].has(node)) {
-									level = i;
-									break;
-								}
-							}
-							const numLevels = state.addedLevels!.length;
-							let ratio = level / (numLevels + 2);
-							let r, g, b;
-							if (ratio < 0.5) {
-								r = Math.floor(200 * ratio * 2);
-								g = Math.floor(200 * ratio * 2);
-								b = 255;
-							} else {
-								r = Math.floor(200 * (2 - ratio * 2));
-								g = 200;
-								b = Math.floor(255 * (2 - ratio * 2));
-							}
-							res.color = `rgb(${r}, ${g}, ${b})`;
-						}
-					} else if (seeds.includes(node)) {
-						res.zIndex = 1;
-						res.label = (nodeData as any).displayLabel || '';
-						res.color = '#ffcccc';
-					} else {
-						res.zIndex = 0;
-						res.label = '';
-						res.color = '#f6f6f6';
-					}
-				} else if (state.hoveredNeighbors) {
-					if (state.hoveredNode === node || state.hoveredNeighbors.has(node)) {
-						res.zIndex = 2;
-						res.label = (nodeData as any).displayLabel || '';
-						if (state.hoveredNode === node) {
-							if (seeds.includes(node)) {
-								res.color = '#ff0000'; // bright red for seed
-							} else {
-								res.color = '#FFA500';
-							}
-						}
-					} else if (seeds.includes(node)) {
-						res.zIndex = 1;
-						res.label = (nodeData as any).displayLabel || '';
-						res.color = '#ffcccc';
-					} else {
-						res.zIndex = 0; // Other nodes at bottom
-						res.label = '';
-						res.color = '#f6f6f6';
-					}
-				}
-				(res as any).hoverable = !state.locked || state.highlightedNodes?.has(node);
-				return res;
-			});
-
-			renderer.setSetting('edgeReducer', (edge: string, data: EdgeDisplayData) => {
-				const res: Partial<EdgeDisplayData> = { ...data };
-				if (state.locked && state.highlightedNodes) {
-					if (graphData.extremities(edge).every((n: string) => state.highlightedNodes!.has(n))) {
-						res.hidden = false;
-						const predicate = (data as any).fullPredicate || '';
-						res.size = 3;
-						res.color = getPredicateColor(predicate);
-					} else {
-						res.hidden = true;
-					}
-				} else if (state.hoveredNode) {
-					if (
-						!graphData
-							.extremities(edge)
-							.every(
-								(n: string) =>
-									n === state.hoveredNode || graphData.areNeighbors(n, state.hoveredNode!)
-							)
-					) {
-						res.hidden = true;
-					} else {
-						res.hidden = false;
-						const predicate = (data as any).fullPredicate || '';
-						res.size = 3;
-						res.color = getPredicateColor(predicate);
-					}
-				} else {
-					res.color = '#ccc';
-					res.size = 1;
-				}
-				return res;
-			});
-		} catch (error) {
-			console.error('Error initializing graph:', error);
-		}
+		isLoading = false;
 	}
 </script>
 
@@ -601,14 +222,13 @@
 				</AccordionItem>
 			</Accordion>
 		</div>
-		<Legend
-			{state}
+		<NodeColorLegend
+			locked={graphLocked}
+			addedLevels={graphAddedLevels}
 			{minDateLabel}
 			{maxDateLabel}
-			{graphData}
-			{selectedPredicate}
-			{getPredicateColor}
 		/>
+		<EdgeColorLegend {state} {graphData} {selectedPredicate} {getPredicateColor} />
 		<div class="row">
 			<div class="col h-100">
 				{#if isLoading}
@@ -617,23 +237,17 @@
 						<p class="loading-text">Loading graph data...</p>
 					</div>
 				{:else}
-					<Tooltip target="graph-container">
-						{state.locked
-							? 'Press arrow right/left to expand/reduce the highlighted area. Click anywhere to unlock.'
-							: 'Click a node to further investigate its neighbors.'}
-					</Tooltip>
-					<div class="graph-wrapper">
-						<div bind:this={container} class="graph-container" id="graph-container"></div>
-						{#if renderer}
-							<Button color="primary" size="sm" class="download-btn" on:click={downloadGraph}>
-								📷 PNG
-							</Button>
-						{/if}
-					</div>
+					<GraphRenderer
+						bind:graphData
+						triples={filteredTriples}
+						seeds={data.proc.currentStep.seeds}
+						locked={graphLocked}
+						addedLevels={graphAddedLevels}
+						{minDate}
+						{maxDate}
+						{nodeMaxCreatedAt}
+					/>
 				{/if}
-
-				<!-- Tooltip for full predicate names -->
-				<div bind:this={tooltip} class="predicate-tooltip" style="display: none;"></div>
 			</div>
 		</div>
 	</main>
@@ -682,35 +296,6 @@
 		flex-wrap: wrap;
 	}
 
-	.page-main .controls {
-		display: flex;
-		justify-content: flex-start;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-bottom: 0.5rem;
-		padding: 0.5rem 0;
-	}
-
-	.predicate-filter {
-		margin: 0;
-		min-width: 250px;
-		flex: 1;
-	}
-
-	.predicate-filter :global(.form-label) {
-		margin-bottom: 0.1rem;
-		font-weight: 500;
-		font-size: 0.85rem;
-		line-height: 1.2;
-	}
-
-	.predicate-filter :global(.form-select) {
-		font-size: 0.85rem;
-		padding: 0.2rem 0.4rem;
-		margin: 0;
-	}
-
 	.num-triples-control {
 		margin: 0;
 		min-width: 150px;
@@ -757,22 +342,6 @@
 		color: #666;
 	}
 
-	.predicate-filter {
-		margin: 0;
-		min-width: 300px;
-	}
-
-	.predicate-filter :global(.form-label) {
-		margin-bottom: 0.25rem;
-		font-weight: 500;
-		font-size: 0.9rem;
-	}
-
-	.predicate-filter :global(.form-select) {
-		font-size: 0.9rem;
-		padding: 0.25rem 0.5rem;
-	}
-
 	.page-main {
 		flex: 1;
 		min-height: 0;
@@ -796,16 +365,6 @@
 		flex-direction: column !important;
 	}
 
-	.graph-container {
-		height: 100%;
-		width: 100%;
-		border: 1px solid #ccc;
-		border-radius: 4px;
-		box-sizing: border-box;
-		flex: 1;
-		position: relative;
-	}
-
 	.loading-container {
 		height: 100%;
 		width: 100%;
@@ -825,39 +384,5 @@
 		margin: 0;
 		color: #6c757d;
 		font-size: 1.1rem;
-	}
-
-	.graph-wrapper {
-		position: relative;
-		height: 100%;
-		width: 100%;
-		flex: 1;
-	}
-
-	.graph-wrapper :global(.download-btn) {
-		position: absolute;
-		top: 10px;
-		right: 10px;
-		z-index: 1000;
-		opacity: 0.9;
-	}
-
-	.graph-wrapper :global(.download-btn):hover {
-		opacity: 1;
-	}
-
-	.predicate-tooltip {
-		position: fixed;
-		background: rgba(0, 0, 0, 0.8);
-		color: white;
-		padding: 8px 12px;
-		border-radius: 4px;
-		font-size: 12px;
-		font-family: monospace;
-		pointer-events: none;
-		z-index: 10000;
-		max-width: 400px;
-		word-break: break-all;
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 	}
 </style>
