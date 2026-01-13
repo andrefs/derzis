@@ -2,8 +2,10 @@
 	import { Tooltip, Button } from '@sveltestrap/sveltestrap';
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
-	export let graphData: any = null;
 	import { getPredicateColor } from '$lib/utils';
+	import { drawDiscNodeHover } from '$lib/sigma-draw';
+
+	export let graphData: any = null;
 	export let triples: Array<{
 		subject: string;
 		predicate: string;
@@ -177,7 +179,12 @@
 				maxCameraRatio: 3,
 				renderEdgeLabels: true,
 				enableEdgeEvents: true,
-				zIndex: true
+				zIndex: true,
+				defaultDrawNodeHover: (context, data, settings) => {
+					if (!state.locked || state.highlightedNodes?.has(data.key)) {
+						drawDiscNodeHover(context, data, settings);
+					}
+				}
 			});
 
 			/***********************
