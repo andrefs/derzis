@@ -3,6 +3,7 @@
 	import forceAtlas2 from 'graphology-layout-forceatlas2';
 	import FA2Layout from 'graphology-layout-forceatlas2/worker';
 	export let graphData: any = null;
+	import { getPredicateColor } from '$lib/utils';
 	export let triples: Array<{
 		subject: string;
 		predicate: string;
@@ -32,35 +33,12 @@
 	let renderer: any = null;
 	let _dlAsImg: any = null;
 
-	let predicateColors: Map<string, string> = new Map();
-
 	// Helper function to provide full predicate names (no abbreviation)
 	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
 		if (!predicate) return { display: '', full: '' };
 
 		// Display the full predicate name without any abbreviation
 		return { display: predicate, full: predicate };
-	}
-
-	// Generate consistent colors for predicates
-	function getPredicateColor(predicate: string): string {
-		const colors = [
-			'#FF6B6B',
-			'#4ECDC4',
-			'#45B7D1',
-			'#96CEB4',
-			'#FFEAA7',
-			'#DDA0DD',
-			'#98D8C8',
-			'#F7DC6F',
-			'#BB8FCE',
-			'#85C1E9'
-		];
-		if (!predicateColors.has(predicate)) {
-			const index = predicateColors.size % colors.length;
-			predicateColors.set(predicate, colors[index]);
-		}
-		return predicateColors.get(predicate)!;
 	}
 
 	onMount(() => {
@@ -292,6 +270,7 @@
 			});
 
 			document.addEventListener('keydown', (e) => {
+				if (!graphData) return;
 				if (state.locked && state.highlightedNodes && state.addedLevels) {
 					if (e.key === 'ArrowRight') {
 						const currentNodes = new Set(state.highlightedNodes);
@@ -400,6 +379,7 @@
 
 			renderer.setSetting('edgeReducer', (edge: string, data: EdgeDisplayData) => {
 				const res: Partial<EdgeDisplayData> = { ...data };
+				if (!graphData) return res;
 				if (state.locked && state.highlightedNodes) {
 					if (graphData.extremities(edge).every((n: string) => state.highlightedNodes!.has(n))) {
 						res.hidden = false;

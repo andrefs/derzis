@@ -8,12 +8,13 @@
 		Spinner
 	} from '@sveltestrap/sveltestrap';
 	import NodeColorLegend from '$lib/components/ui/NodeColorLegend.svelte';
+	import GraphRenderer from '$lib/components/ui/GraphRenderer.svelte';
+	import EdgeColorLegend from '$lib/components/ui/EdgeColorLegend.svelte';
+	import { isPredicateSelected, formatDateLabel } from '$lib/utils';
 	export let data;
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import GraphRenderer from '$lib/components/ui/GraphRenderer.svelte';
-	import EdgeColorLegend from '$lib/components/ui/EdgeColorLegend.svelte';
 
 	let graphLocked = false;
 	let graphAddedLevels: Set<string>[] = [];
@@ -85,27 +86,6 @@
 		return { display: predicate, full: predicate };
 	}
 
-	// Generate consistent colors for predicates
-	function getPredicateColor(predicate: string): string {
-		const colors = [
-			'#FF6B6B',
-			'#4ECDC4',
-			'#45B7D1',
-			'#96CEB4',
-			'#FFEAA7',
-			'#DDA0DD',
-			'#98D8C8',
-			'#F7DC6F',
-			'#BB8FCE',
-			'#85C1E9'
-		];
-		if (!predicateColors.has(predicate)) {
-			const index = predicateColors.size % colors.length;
-			predicateColors.set(predicate, colors[index]);
-		}
-		return predicateColors.get(predicate)!;
-	}
-
 	async function loadAllTriples() {
 		if (allTriples.length === 0) {
 			const response = await fetch(
@@ -134,7 +114,9 @@
 		filteredTriples =
 			selectedPredicate === 'all'
 				? limitedTriples
-				: limitedTriples.filter((t) => t.predicate.valueOf() === selectedPredicate);
+				: limitedTriples.filter((t) =>
+						isPredicateSelected(t.predicate.valueOf(), selectedPredicate)
+					);
 
 		// Compute max createdAt for each node
 		nodeMaxCreatedAt = new Map<string, Date>();
@@ -155,19 +137,8 @@
 		if (dates.length > 0) {
 			minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
 			maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
-			const formatDate = (date: Date) => {
-				const day = date.getDate().toString().padStart(2, '0');
-				const month = (date.getMonth() + 1).toString().padStart(2, '0');
-				const year = date.getFullYear();
-				const hour = date.getHours().toString().padStart(2, '0');
-				const min = date.getMinutes().toString().padStart(2, '0');
-				return {
-					date: `${day}-${month}-${year}`,
-					time: `${hour}:${min}`
-				};
-			};
-			minDateLabel = formatDate(minDate);
-			maxDateLabel = formatDate(maxDate);
+			minDateLabel = formatDateLabel(minDate);
+			maxDateLabel = formatDateLabel(maxDate);
 		}
 		isLoading = false;
 	}
@@ -228,7 +199,7 @@
 			{minDateLabel}
 			{maxDateLabel}
 		/>
-		<EdgeColorLegend {state} {graphData} {selectedPredicate} {getPredicateColor} />
+		<EdgeColorLegend {state} {graphData} {selectedPredicate} />
 		<div class="row">
 			<div class="col h-100">
 				{#if isLoading}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getPredicateColor, isPredicateSelected } from '$lib/utils';
 	export let graphData: any = null;
 	export let selectedPredicate: string = 'all';
 	export let state: {
@@ -9,7 +10,6 @@
 		addedLevels?: Set<string>[];
 		labelHoveredNode?: string;
 	};
-	export let getPredicateColor: (predicate: string) => string;
 </script>
 
 <!-- Legend for predicate colors (shown when hovering nodes) -->
@@ -31,9 +31,7 @@
 					}
 				})
 				.map((edge: string) => (graphData.getEdgeAttributes(edge) as any).fullPredicate as string)
-				.filter(
-					(predicate: string) => selectedPredicate === 'all' || predicate === selectedPredicate
-				)
+				.filter((predicate: string) => isPredicateSelected(predicate, selectedPredicate))
 		)
 	)}
 	{#if connectedPredicates.length > 0}
