@@ -259,14 +259,18 @@
 			renderer.on('clickNode', ({ node }: { node: string }) => {
 				if (state.hoveredNode && !state.locked) {
 					state.locked = true;
+					locked = true;
 					state.highlightedNodes = new Set([state.hoveredNode, ...state.hoveredNeighbors!]);
 					state.addedLevels = [state.highlightedNodes];
+					addedLevels = state.addedLevels;
 				} else if (state.locked) {
 					state.locked = false;
+					locked = false;
 					state.hoveredNode = undefined;
 					state.hoveredNeighbors = undefined;
 					state.highlightedNodes = undefined;
 					state.addedLevels = undefined;
+					addedLevels = undefined;
 					state.labelHoveredNode = undefined;
 				}
 				// Refresh rendering
@@ -277,10 +281,12 @@
 			renderer.on('clickStage', () => {
 				if (state.locked) {
 					state.locked = false;
+					locked = false;
 					state.hoveredNode = undefined;
 					state.hoveredNeighbors = undefined;
 					state.highlightedNodes = undefined;
 					state.addedLevels = undefined;
+					addedLevels = undefined;
 					state.labelHoveredNode = undefined;
 					renderer.refresh({
 						skipIndexation: true
@@ -303,6 +309,7 @@
 						if (newNodes.size > 0) {
 							state.highlightedNodes = new Set([...state.highlightedNodes, ...newNodes]);
 							state.addedLevels.push(newNodes);
+							addedLevels = state.addedLevels;
 							renderer.refresh({
 								skipIndexation: true
 							});
@@ -313,6 +320,7 @@
 							for (const n of lastAdded!) {
 								state.highlightedNodes.delete(n);
 							}
+							addedLevels = state.addedLevels;
 							renderer.refresh({
 								skipIndexation: true
 							});

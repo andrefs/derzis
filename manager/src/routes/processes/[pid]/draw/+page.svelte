@@ -241,8 +241,8 @@
 						bind:graphData
 						triples={filteredTriples}
 						seeds={data.proc.currentStep.seeds}
-						locked={graphLocked}
-						addedLevels={graphAddedLevels}
+						bind:locked={graphLocked}
+						bind:addedLevels={graphAddedLevels}
 						{minDate}
 						{maxDate}
 						{nodeMaxCreatedAt}
