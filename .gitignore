@@ -16,3 +16,4 @@ data/db
 coverage
 manager/build
 .aider*
+test-results/
