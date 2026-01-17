@@ -43,6 +43,11 @@
 							<p>
 								<a href="/processes/{data.proc.pid}/draw"> Draw <Icon src={BiNetworkChart} /></a>
 							</p>
+							<p>
+								<a href="/processes/{data.proc.pid}/latest-triples?count=100"
+									>Latest triples <Icon src={HiSolidMagnifyingGlass} /></a
+								>
+							</p>
 						</td>
 					</tr>
 					<tr>
