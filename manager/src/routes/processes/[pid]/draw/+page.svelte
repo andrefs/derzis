@@ -85,11 +85,9 @@
 		labelHoveredNode?: string;
 	} = {};
 
-	// Helper function to provide full predicate names (no abbreviation)
 	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
 		if (!predicate) return { display: '', full: '' };
 
-		// Display the full predicate name without any abbreviation
 		return { display: predicate, full: predicate };
 	}
 
@@ -101,7 +99,6 @@
 			if (!response.ok) {
 				throw new Error(`Failed to fetch triples: ${response.statusText}`);
 			}
-			// uncompress gzipped response
 			const decompStream = new DecompressionStream('gzip');
 			const decompressedResponse = response.body!.pipeThrough(decompStream);
 			const text = await new Response(decompressedResponse).text();
@@ -109,15 +106,12 @@
 		}
 	}
 
-	// Reactive statement to compute filtered triples and dates when predicate or numTriples changes
 	$: if (allTriples.length > 0 && selectedPredicate !== undefined && numTriples > 0) {
-		// Sort by createdAt descending and take first numTriples
 		const sortedTriples = allTriples.sort(
 			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
 		);
 		limitedTriples = sortedTriples.slice(0, numTriples);
 
-		// Filter triples by selected predicate
 		filteredTriples =
 			selectedPredicate === 'all'
 				? limitedTriples
@@ -125,7 +119,6 @@
 						isPredicateSelected(t.predicate.valueOf(), selectedPredicate)
 					);
 
-		// Compute max createdAt for each node
 		nodeMaxCreatedAt = new Map<string, Date>();
 		for (const t of filteredTriples) {
 			const subj = t.subject.valueOf();
@@ -139,7 +132,6 @@
 			}
 		}
 
-		// Find min and max dates
 		const dates = Array.from(nodeMaxCreatedAt.values());
 		if (dates.length > 0) {
 			minDate = new Date(Math.min(...dates.map((d) => d.getTime())));

@@ -35,11 +35,8 @@
 	let renderer: any = null;
 	let _dlAsImg: any = null;
 
-	// Helper function to provide full predicate names (no abbreviation)
 	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
 		if (!predicate) return { display: '', full: '' };
-
-		// Display the full predicate name without any abbreviation
 		return { display: predicate, full: predicate };
 	}
 
@@ -57,10 +54,8 @@
 				renderer = null;
 			}
 
-			// build graph
 			const graph = new Graph({ type: 'directed', multi: true, allowSelfLoops: true });
 
-			// Collect all unique nodes, sorted with non-seed first, then seed
 			const allNodes = new Set<string>();
 			for (const t of triples) {
 				allNodes.add(t.subject.valueOf());
@@ -74,7 +69,6 @@
 				return a.localeCompare(b);
 			});
 
-			// Function to get color based on recency (blue to dark yellow to green)
 			function getNodeColor(date: Date): string {
 				if (maxDate.getTime() === minDate.getTime()) {
 					return '#0000ff'; // Blue for all nodes if all have same age
@@ -83,12 +77,10 @@
 					(date.getTime() - minDate.getTime()) / (maxDate.getTime() - minDate.getTime());
 				let r, g, b;
 				if (ratio < 0.5) {
-					// Blue to dark yellow: increase red and green, keep blue
 					r = Math.floor(200 * ratio * 2);
 					g = Math.floor(200 * ratio * 2);
 					b = 255;
 				} else {
-					// Dark yellow to green: decrease red, keep green, decrease blue
 					r = Math.floor(200 * (2 - ratio * 2));
 					g = 200;
 					b = Math.floor(255 * (2 - ratio * 2));
@@ -96,7 +88,6 @@
 				return `rgb(${r}, ${g}, ${b})`;
 			}
 
-			// Add nodes in sorted order (non-seed first, seed last so rendered on top)
 			for (const node of sortedNodes) {
 				const isSeed = seeds.includes(node);
 				graph.addNode(node, {
@@ -107,7 +98,6 @@
 				});
 			}
 
-			// Add edges
 			for (const t of triples) {
 				const predicateInfo = getPredicateDisplayInfo(t.predicate.valueOf());
 				graph.addDirectedEdge(t.subject.valueOf(), t.object.valueOf(), {
@@ -117,14 +107,12 @@
 				});
 			}
 
-			// Scale sizes based on degree
 			for (const node of graph.nodes()) {
 				graph.updateNodeAttribute(node, 'size', (size) =>
 					size ? Math.max(8, Math.sqrt(size) * 4) : 8
 				);
 			}
 
-			// Set node colors based on recency
 			for (const node of graph.nodes()) {
 				const date = nodeMaxCreatedAt.get(node) || minDate;
 				const isSeed = seeds.includes(node);
@@ -134,7 +122,6 @@
 			graphData = graph;
 			isLoading = false;
 
-			// Initialize the graph after DOM update
 			setTimeout(initializeGraph, 0);
 		} catch (error) {
 			console.error('Error loading graph data:', error);

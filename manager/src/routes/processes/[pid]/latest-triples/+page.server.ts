@@ -18,7 +18,6 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		});
 	}
 
-	// Get the latest N triples efficiently using MongoDB sort and limit
 	const procTriples = await ProcessTriple.find({ processId: params.pid })
 		.sort({ createdAt: -1 }) // Most recent first
 		.limit(count)

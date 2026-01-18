@@ -12,7 +12,6 @@
 	};
 </script>
 
-<!-- Legend for predicate colors (shown when hovering nodes) -->
 {#if (state?.highlightedNodes || state?.hoveredNode) && graphData}
 	{@const connectedPredicates = Array.from(
 		new Set(
