@@ -136,49 +136,78 @@ class TripleClass {
 
 		const bf = predsDirMetrics.get(this.predicate)!.bf!;
 		const bfRatio = bf.subj / bf.obj;
-		const sp = predsDirMetrics.get(this.predicate)!.spr!;
-		const spRatio = sp.subj / sp.obj;
+		//const sp = predsDirMetrics.get(this.predicate)!.spr!;
+		//const spRatio = sp.subj / sp.obj;
 
 		const bfDir = bfRatio >= 1 ? 'subj->obj' : 'obj->subj';
-		const sprDir = spRatio >= 1 ? 'subj->obj' : 'obj->subj';
+		//	const sprDir = spRatio >= 1 ? 'subj->obj' : 'obj->subj';
 
-		if (bfDir === sprDir) {
-			// bf and spr agree on direction
-			if (headUrl === this.subject && bfDir === 'subj->obj') {
-				log.silly(`XXXXXXXXXXdir Direction ok for triple
+		if (headUrl === this.subject && bfDir === 'subj->obj') {
+			log.silly(`XXXXXXXXXXdir Direction ok for triple
 \t${this.subject}
 \t${this.predicate}
 \t${this.object}
 \tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
-\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
 \theadUrl: ${headUrl}`);
-				return true;
-			}
-
-			if (headUrl === this.object && bfDir === 'obj->subj') {
-				log.silly(`XXXXXXXXXXdir Direction ok for triple
-\t${this.subject}
-\t${this.predicate}
-\t${this.object}
-\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
-\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
-\theadUrl: ${headUrl}`);
-				return true;
-			}
+			return true;
 		}
 
-		// FIXME what to do when bf and spr disagree on direction?
-		// for now, we consider direction not ok
+		if (headUrl === this.object && bfDir === 'obj->subj') {
+			log.silly(`XXXXXXXXXXdir Direction ok for triple
+\t${this.subject}
+\t${this.predicate}
+\t${this.object}
+\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
+\theadUrl: ${headUrl}`);
+			return true;
+		}
 
 		log.silly(`XXXXXXXXXXdir Direction not ok for triple
 \t${this.subject}
 \t${this.predicate}
 \t${this.object}
 \tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
-\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
 \theadUrl: ${headUrl}`);
 		return false;
 	}
+
+	//		if (bfDir === sprDir) {
+	//			// bf and spr agree on direction
+	//			if (headUrl === this.subject && bfDir === 'subj->obj') {
+	//				log.silly(`XXXXXXXXXXdir Direction ok for triple
+	//\t${this.subject}
+	//\t${this.predicate}
+	//\t${this.object}
+	//\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
+	//\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
+	//\theadUrl: ${headUrl}`);
+	//				return true;
+	//			}
+	//
+	//			if (headUrl === this.object && bfDir === 'obj->subj') {
+	//				log.silly(`XXXXXXXXXXdir Direction ok for triple
+	//\t${this.subject}
+	//\t${this.predicate}
+	//\t${this.object}
+	//\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
+	//\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
+	//\theadUrl: ${headUrl}`);
+	//				return true;
+	//			}
+	//		}
+
+	// 	// FIXME what to do when bf and spr disagree on direction?
+	// 	// for now, we consider direction not ok
+
+	// 	log.silly(`XXXXXXXXXXdir Direction not ok for triple
+	//\t${this.subject}
+	//\t${this.predicate}
+	//\t${this.object}
+	//\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
+	//\tseed position ratio: ${spRatio} ${sprDir} (total ${sp.subj + sp.obj})
+	//\theadUrl: ${headUrl}`);
+	// 	return false;
+	// }
 }
 const Triple = getModelForClass(TripleClass, {
 	schemaOptions: { timestamps: true, collection: 'triples' }
