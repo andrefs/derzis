@@ -39,6 +39,7 @@
 	let skipRebuild = false;
 	let sliderEnabled = false;
 	let predicateInput = '';
+	let isDataLoading = true;
 
 	function addPredicate(predicate: string) {
 		if (predicate && !selectedPredicates.includes(predicate)) {
@@ -68,6 +69,7 @@
 		allPredicates = Array.from(counts.entries())
 			.map(([predicate, count]) => ({ predicate, count }))
 			.sort((a, b) => b.count - a.count);
+		isDataLoading = false;
 	});
 
 	$: if (typeof window !== 'undefined') {
@@ -161,112 +163,118 @@
 	</header>
 
 	<main class="page-main">
-		<div class="controls-container">
-			<div class="options-row">
-				<FormGroup class="predicate-filter">
-					<Input
-						type="text"
-						id="predicate-input"
-						placeholder="Select one or more predicates to visualize the graph..."
-						disabled={allPredicates.length === 0}
-						bind:value={predicateInput}
-						list="predicates-datalist"
-						on:keydown={(e) => {
-							if (e.key === 'Enter' && predicateInput.trim()) {
-								e.preventDefault();
-								addPredicate(predicateInput.trim());
-							}
-						}}
-						on:change={() => {
-							if (predicateInput.trim()) {
-								addPredicate(predicateInput.trim());
-							}
-						}}
-					/>
-					<datalist id="predicates-datalist">
-						{#each allPredicates as item}
-							<option value={item.predicate}>{item.predicate} ({item.count})</option>
-						{/each}
-					</datalist>
-					{#if selectedPredicates.length > 0}
-						<div class="selected-predicates">
-							{#each selectedPredicates as predicate}
-								<span
-									class="predicate-badge"
-									style="background-color: {getPredicateColor(predicate)}"
-								>
-									{predicate}
-									<button
-										type="button"
-										class="badge-remove"
-										on:click={() => removePredicate(predicate)}>&times;</button
-									>
-								</span>
-							{/each}
-						</div>
-					{/if}
-				</FormGroup>
-				<div class="num-triples-control">
-					<label for="num-triples-slider">Number of triples: {numTriples}</label>
-					<input
-						type="range"
-						id="num-triples-slider"
-						min="1"
-						max={totalTriples}
-						bind:value={numTriples}
-						disabled={!sliderEnabled}
-					/>
-					<div class="slider-labels">
-						<span>1</span>
-						<span>{totalTriples}</span>
-					</div>
-				</div>
-			</div>
-		</div>
-		{#if selectedPredicates.length > 0}
-			<NodeColorLegend
-				locked={graphLocked}
-				addedLevels={graphAddedLevels}
-				{minDateLabel}
-				{maxDateLabel}
-			/>
-			<EdgeColorLegend {state} {graphData} {selectedPredicates} />
+		{#if isDataLoading}
 			<div class="row">
 				<div class="col h-100">
-					{#if isLoading}
-						<div class="loading-container">
-							<Spinner color="primary" />
-							<p class="loading-text">Loading graph data...</p>
-						</div>
-					{:else}
-						<GraphRenderer
-							bind:graphData
-							triples={filteredTriples}
-							seeds={data.proc.currentStep.seeds}
-							bind:locked={graphLocked}
-							bind:addedLevels={graphAddedLevels}
-							bind:state
-							{minDate}
-							{maxDate}
-							{nodeMaxCreatedAt}
-						/>
-					{/if}
+					<div class="loading-container">
+						<Spinner color="primary" />
+						<p class="loading-text">Loading process data...</p>
+					</div>
 				</div>
 			</div>
 		{:else}
-			<div class="row">
-				<div class="col h-100">
-					<div class="no-selection-container">
-						<div class="no-selection-message">
-							<h4>Select Predicates to Visualize</h4>
-							<p>
-								Use the filter above to choose one or more predicates and start exploring the
-								knowledge graph.
-							</p>
+			<div class="controls-container">
+				<div class="options-row">
+					<FormGroup class="predicate-filter">
+						<Label for="predicate-input">Filter by predicate:</Label>
+						<Input
+							type="text"
+							id="predicate-input"
+							placeholder="Select one or more predicates to visualize the graph..."
+							disabled={allPredicates.length === 0}
+							bind:value={predicateInput}
+							list="predicates-datalist"
+							on:keydown={(e) => {
+								if (e.key === 'Enter' && predicateInput.trim()) {
+									e.preventDefault();
+									addPredicate(predicateInput.trim());
+								}
+							}}
+							on:change={() => {
+								if (predicateInput.trim()) {
+									addPredicate(predicateInput.trim());
+								}
+							}}
+						/>
+						<datalist id="predicates-datalist">
+							{#each allPredicates as item}
+								<option value={item.predicate}>{item.predicate} ({item.count})</option>
+							{/each}
+						</datalist>
+						{#if selectedPredicates.length > 0}
+							<div class="selected-predicates">
+								{#each selectedPredicates as predicate}
+									<span class="predicate-badge" style="background-color: {getPredicateColor(predicate)}">
+										{predicate}
+										<button
+											type="button"
+											class="badge-remove"
+											on:click={() => removePredicate(predicate)}
+										>&times;</button>
+									</span>
+								{/each}
+							</div>
+						{/if}
+					</FormGroup>
+					<div class="num-triples-control">
+						<label for="num-triples-slider">Number of triples: {numTriples}</label>
+						<input
+							type="range"
+							id="num-triples-slider"
+							min="1"
+							max={totalTriples}
+							bind:value={numTriples}
+							disabled={!sliderEnabled}
+						/>
+						<div class="slider-labels">
+							<span>1</span>
+							<span>{totalTriples}</span>
 						</div>
 					</div>
 				</div>
 			</div>
+			{#if selectedPredicates.length > 0}
+				<NodeColorLegend
+					locked={graphLocked}
+					addedLevels={graphAddedLevels}
+					{minDateLabel}
+					{maxDateLabel}
+				/>
+				<EdgeColorLegend {state} {graphData} {selectedPredicates} />
+				<div class="row">
+					<div class="col h-100">
+						{#if isLoading}
+							<div class="loading-container">
+								<Spinner color="primary" />
+								<p class="loading-text">Loading graph data...</p>
+							</div>
+						{:else}
+							<GraphRenderer
+								bind:graphData
+								triples={filteredTriples}
+								seeds={data.proc.currentStep.seeds}
+								bind:locked={graphLocked}
+								bind:addedLevels={graphAddedLevels}
+								bind:state
+								{minDate}
+								{maxDate}
+								{nodeMaxCreatedAt}
+							/>
+						{/if}
+					</div>
+				</div>
+			{:else}
+				<div class="row">
+					<div class="col h-100">
+						<div class="no-selection-container">
+							<div class="no-selection-message">
+								<h4>Select Predicates to Visualize</h4>
+								<p>Use the filter above to choose one or more predicates and start exploring the knowledge graph.</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			{/if}
 		{/if}
 	</main>
 </div>
