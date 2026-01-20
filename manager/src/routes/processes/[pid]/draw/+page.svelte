@@ -1,7 +1,5 @@
 <script lang="ts">
 	import {
-		Accordion,
-		AccordionItem,
 		FormGroup,
 		Label,
 		Input,
@@ -156,41 +154,37 @@
 
 	<main class="page-main">
 		<div class="controls-container">
-			<Accordion>
-				<AccordionItem header="Options">
-					<div class="options-row">
-						<FormGroup class="predicate-filter">
-							<Label for="predicate-select">Filter by predicate:</Label>
-							<Input
-								type="select"
-								id="predicate-select"
-								bind:value={selectedPredicate}
-								disabled={allPredicates.length === 0}
-							>
-								<option value="all">All predicates</option>
-								{#each allPredicates as item}
-									<option value={item.predicate}>{item.predicate} ({item.count})</option>
-								{/each}
-							</Input>
-						</FormGroup>
-						<div class="num-triples-control">
-							<label for="num-triples-slider">Number of triples: {numTriples}</label>
-							<input
-								type="range"
-								id="num-triples-slider"
-								min="1"
-								max={totalTriples}
-								bind:value={numTriples}
-								disabled={!sliderEnabled}
-							/>
-							<div class="slider-labels">
-								<span>1</span>
-								<span>{totalTriples}</span>
-							</div>
-						</div>
+			<div class="options-row">
+				<FormGroup class="predicate-filter">
+					<Label for="predicate-select">Filter by predicate:</Label>
+					<Input
+						type="select"
+						id="predicate-select"
+						bind:value={selectedPredicate}
+						disabled={allPredicates.length === 0}
+					>
+						<option value="all">All predicates</option>
+						{#each allPredicates as item}
+							<option value={item.predicate}>{item.predicate} ({item.count})</option>
+						{/each}
+					</Input>
+				</FormGroup>
+				<div class="num-triples-control">
+					<label for="num-triples-slider">Number of triples: {numTriples}</label>
+					<input
+						type="range"
+						id="num-triples-slider"
+						min="1"
+						max={totalTriples}
+						bind:value={numTriples}
+						disabled={!sliderEnabled}
+					/>
+					<div class="slider-labels">
+						<span>1</span>
+						<span>{totalTriples}</span>
 					</div>
-				</AccordionItem>
-			</Accordion>
+				</div>
+			</div>
 		</div>
 		<NodeColorLegend
 			locked={graphLocked}
