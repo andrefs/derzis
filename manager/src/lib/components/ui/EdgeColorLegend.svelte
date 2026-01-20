@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getPredicateColor, isPredicateSelected } from '$lib/utils';
 	export let graphData: any = null;
-	export let selectedPredicate: string = 'all';
+	export let selectedPredicates: string[] = [];
 	export let state: {
 		hoveredNode?: string;
 		hoveredNeighbors?: Set<string>;
@@ -30,7 +30,7 @@
 					}
 				})
 				.map((edge: string) => (graphData.getEdgeAttributes(edge) as any).fullPredicate as string)
-				.filter((predicate: string) => isPredicateSelected(predicate, selectedPredicate))
+				.filter((predicate: string) => selectedPredicates.length === 0 || selectedPredicates.includes(predicate))
 		)
 	)}
 	{#if connectedPredicates.length > 0}

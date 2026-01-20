@@ -1,14 +1,9 @@
 <script lang="ts">
-	import {
-		FormGroup,
-		Label,
-		Input,
-		Spinner
-	} from '@sveltestrap/sveltestrap';
+	import { FormGroup, Label, Input, Spinner } from '@sveltestrap/sveltestrap';
 	import NodeColorLegend from '$lib/components/ui/NodeColorLegend.svelte';
 	import GraphRenderer from '$lib/components/ui/GraphRenderer.svelte';
 	import EdgeColorLegend from '$lib/components/ui/EdgeColorLegend.svelte';
-	import { isPredicateSelected, formatDateLabel } from '$lib/utils';
+	import { isPredicateSelected, formatDateLabel, getPredicateColor } from '$lib/utils';
 	export let data;
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -19,7 +14,7 @@
 
 	let isLoading = true;
 	let allPredicates: Array<{ predicate: string; count: number }> = [];
-	let selectedPredicate = 'all';
+	let selectedPredicates: string[] = [];
 	let numTriples = 100;
 	let totalTriples = 100;
 	let allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }> =
@@ -43,11 +38,23 @@
 	let maxDateLabel: { date: string; time: string } | '' = '';
 	let skipRebuild = false;
 	let sliderEnabled = false;
+	let predicateInput = '';
+
+	function addPredicate(predicate: string) {
+		if (predicate && !selectedPredicates.includes(predicate)) {
+			selectedPredicates = [...selectedPredicates, predicate];
+			predicateInput = '';
+		}
+	}
+
+	function removePredicate(predicate: string) {
+		selectedPredicates = selectedPredicates.filter((p) => p !== predicate);
+	}
 
 	onMount(async () => {
-		const urlPredicate = $page.url.searchParams.get('predicate');
-		if (urlPredicate && urlPredicate !== selectedPredicate) {
-			selectedPredicate = urlPredicate;
+		const urlPredicates = $page.url.searchParams.get('predicates');
+		if (urlPredicates) {
+			selectedPredicates = urlPredicates.split(',').filter((p) => p.trim() !== '');
 		}
 		await loadAllTriples();
 		totalTriples = allTriples.length;
@@ -64,12 +71,15 @@
 	});
 
 	$: if (typeof window !== 'undefined') {
-		if (selectedPredicate === 'all') {
+		if (selectedPredicates.length === 0) {
 			goto(window.location.pathname, { replaceState: true });
 		} else {
-			goto(`${window.location.pathname}?predicate=${encodeURIComponent(selectedPredicate)}`, {
-				replaceState: true
-			});
+			goto(
+				`${window.location.pathname}?predicates=${encodeURIComponent(selectedPredicates.join(','))}`,
+				{
+					replaceState: true
+				}
+			);
 		}
 	}
 	let predicateColors: Map<string, string> = new Map();
@@ -104,18 +114,16 @@
 		}
 	}
 
-	$: if (allTriples.length > 0 && selectedPredicate !== undefined && numTriples > 0) {
+	$: if (allTriples.length > 0 && numTriples > 0) {
 		const sortedTriples = allTriples.sort(
 			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
 		);
 		limitedTriples = sortedTriples.slice(0, numTriples);
 
 		filteredTriples =
-			selectedPredicate === 'all'
+			selectedPredicates.length === 0
 				? limitedTriples
-				: limitedTriples.filter((t) =>
-						isPredicateSelected(t.predicate.valueOf(), selectedPredicate)
-					);
+				: limitedTriples.filter((t) => selectedPredicates.includes(t.predicate.valueOf()));
 
 		nodeMaxCreatedAt = new Map<string, Date>();
 		for (const t of filteredTriples) {
@@ -156,18 +164,47 @@
 		<div class="controls-container">
 			<div class="options-row">
 				<FormGroup class="predicate-filter">
-					<Label for="predicate-select">Filter by predicate:</Label>
 					<Input
-						type="select"
-						id="predicate-select"
-						bind:value={selectedPredicate}
+						type="text"
+						id="predicate-input"
+						placeholder="Select one or more predicates to visualize the graph..."
 						disabled={allPredicates.length === 0}
-					>
-						<option value="all">All predicates</option>
+						bind:value={predicateInput}
+						list="predicates-datalist"
+						on:keydown={(e) => {
+							if (e.key === 'Enter' && predicateInput.trim()) {
+								e.preventDefault();
+								addPredicate(predicateInput.trim());
+							}
+						}}
+						on:change={() => {
+							if (predicateInput.trim()) {
+								addPredicate(predicateInput.trim());
+							}
+						}}
+					/>
+					<datalist id="predicates-datalist">
 						{#each allPredicates as item}
 							<option value={item.predicate}>{item.predicate} ({item.count})</option>
 						{/each}
-					</Input>
+					</datalist>
+					{#if selectedPredicates.length > 0}
+						<div class="selected-predicates">
+							{#each selectedPredicates as predicate}
+								<span
+									class="predicate-badge"
+									style="background-color: {getPredicateColor(predicate)}"
+								>
+									{predicate}
+									<button
+										type="button"
+										class="badge-remove"
+										on:click={() => removePredicate(predicate)}>&times;</button
+									>
+								</span>
+							{/each}
+						</div>
+					{/if}
 				</FormGroup>
 				<div class="num-triples-control">
 					<label for="num-triples-slider">Number of triples: {numTriples}</label>
@@ -186,35 +223,51 @@
 				</div>
 			</div>
 		</div>
-		<NodeColorLegend
-			locked={graphLocked}
-			addedLevels={graphAddedLevels}
-			{minDateLabel}
-			{maxDateLabel}
-		/>
-		<EdgeColorLegend {state} {graphData} {selectedPredicate} />
-		<div class="row">
-			<div class="col h-100">
-				{#if isLoading}
-					<div class="loading-container">
-						<Spinner color="primary" />
-						<p class="loading-text">Loading graph data...</p>
-					</div>
-				{:else}
-					<GraphRenderer
-						bind:graphData
-						triples={filteredTriples}
-						seeds={data.proc.currentStep.seeds}
-						bind:locked={graphLocked}
-						bind:addedLevels={graphAddedLevels}
-						bind:state
-						{minDate}
-						{maxDate}
-						{nodeMaxCreatedAt}
-					/>
-				{/if}
+		{#if selectedPredicates.length > 0}
+			<NodeColorLegend
+				locked={graphLocked}
+				addedLevels={graphAddedLevels}
+				{minDateLabel}
+				{maxDateLabel}
+			/>
+			<EdgeColorLegend {state} {graphData} {selectedPredicates} />
+			<div class="row">
+				<div class="col h-100">
+					{#if isLoading}
+						<div class="loading-container">
+							<Spinner color="primary" />
+							<p class="loading-text">Loading graph data...</p>
+						</div>
+					{:else}
+						<GraphRenderer
+							bind:graphData
+							triples={filteredTriples}
+							seeds={data.proc.currentStep.seeds}
+							bind:locked={graphLocked}
+							bind:addedLevels={graphAddedLevels}
+							bind:state
+							{minDate}
+							{maxDate}
+							{nodeMaxCreatedAt}
+						/>
+					{/if}
+				</div>
 			</div>
-		</div>
+		{:else}
+			<div class="row">
+				<div class="col h-100">
+					<div class="no-selection-container">
+						<div class="no-selection-message">
+							<h4>Select Predicates to Visualize</h4>
+							<p>
+								Use the filter above to choose one or more predicates and start exploring the
+								knowledge graph.
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		{/if}
 	</main>
 </div>
 
@@ -305,6 +358,73 @@
 		width: 100%;
 		font-size: 0.8rem;
 		color: #666;
+	}
+
+	.selected-predicates {
+		margin-top: 0.5rem;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.predicate-badge {
+		display: inline-flex;
+		align-items: center;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+		border-radius: 0.25rem;
+		padding: 0.25rem 0.5rem;
+		font-size: 0.875rem;
+		color: #fff;
+		font-weight: 500;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+	}
+
+	.badge-remove {
+		background: none;
+		border: none;
+		color: rgba(255, 255, 255, 0.8);
+		cursor: pointer;
+		margin-left: 0.5rem;
+		font-size: 1.2em;
+		line-height: 1;
+		padding: 0;
+		font-weight: bold;
+	}
+
+	.badge-remove:hover {
+		color: #fff;
+	}
+
+	.no-selection-container {
+		height: 100%;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		border: 2px dashed #dee2e6;
+		border-radius: 8px;
+		background-color: #f8f9fa;
+		box-sizing: border-box;
+		flex: 1;
+	}
+
+	.no-selection-message {
+		text-align: center;
+		max-width: 400px;
+		padding: 2rem;
+	}
+
+	.no-selection-message h4 {
+		color: #6c757d;
+		margin-bottom: 1rem;
+		font-weight: 600;
+	}
+
+	.no-selection-message p {
+		color: #8e9297;
+		margin: 0;
+		line-height: 1.5;
 	}
 
 	.page-main {
