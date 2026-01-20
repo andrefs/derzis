@@ -216,16 +216,16 @@ class ProcessClass extends Document {
 		// process is not done
 		log.info(
 			`Process ${this.pid} is not done yet: ` +
-				JSON.stringify(
-					{
-						pathsToCrawl,
-						pathsToCheck,
-						hasPathsChecking,
-						hasPathsCrawling
-					},
-					null,
-					2
-				)
+			JSON.stringify(
+				{
+					pathsToCrawl,
+					pathsToCheck,
+					hasPathsChecking,
+					hasPathsCrawling
+				},
+				null,
+				2
+			)
 		);
 		return false;
 	}
@@ -447,7 +447,11 @@ class ProcessClass extends Document {
 
 		// add proc-triple associations
 		await ProcessTriple.insertMany(
-			[...procTriples].map((tId) => ({ processId: this.pid, triple: tId }))
+			[...procTriples].map((tId) => ({
+				processId: this.pid,
+				triple: tId,
+				processStep: this.steps.length
+			}))
 		);
 
 		// create new paths
@@ -690,16 +694,16 @@ class ProcessClass extends Document {
 		}).lean();
 		const avgPathLength = totalPaths
 			? await Path.aggregate([
-					{ $match: { 'seed.url': { $in: this.currentStep.seeds } } },
-					{ $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-				]).then((res) => res[0]?.avgLength || 0)
+				{ $match: { 'seed.url': { $in: this.currentStep.seeds } } },
+				{ $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+			]).then((res) => res[0]?.avgLength || 0)
 			: 0;
 
 		const avgPathProps = totalPaths
 			? await Path.aggregate([
-					{ $match: { 'seed.url': { $in: this.currentStep.seeds } } },
-					{ $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-				]).then((res) => res[0]?.avgProps || 0)
+				{ $match: { 'seed.url': { $in: this.currentStep.seeds } } },
+				{ $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+			]).then((res) => res[0]?.avgProps || 0)
 			: 0;
 
 		const timeToLastResource = lastResource
@@ -1000,10 +1004,10 @@ type StepStartedNotification = BaseProcNotification & {
 type ProcessNotification = {
 	ok: boolean;
 	data:
-		| StepStartedNotification
-		| StepFinishedNotification
-		| ProcStartNotification
-		| ProcCreatedNotification;
+	| StepStartedNotification
+	| StepFinishedNotification
+	| ProcStartNotification
+	| ProcCreatedNotification;
 };
 
 const matchesOne = (str: string, patterns: string[]) => {

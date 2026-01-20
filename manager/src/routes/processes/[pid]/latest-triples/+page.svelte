@@ -19,6 +19,7 @@
 				<Table striped hover>
 					<thead>
 						<tr>
+							<th scope="col">Step</th>
 							<th scope="col">Subject</th>
 							<th scope="col">Predicate</th>
 							<th scope="col">Object</th>
@@ -27,6 +28,7 @@
 					<tbody>
 						{#each data.triples as triple}
 							<tr>
+								<td>{triple.processStep}</td>
 								<td><a href={triple.subject} target="_blank">{triple.subject}</a></td>
 								<td><a href={triple.predicate} target="_blank">{triple.predicate}</a></td>
 								<td>

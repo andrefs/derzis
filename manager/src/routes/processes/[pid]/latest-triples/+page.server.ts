@@ -24,12 +24,15 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		.populate('triple')
 		.lean();
 
-	const latestTriples = procTriples.map((procTriple) => ({
-		subject: procTriple.triple.subject,
-		predicate: procTriple.triple.predicate,
-		object: procTriple.triple.object,
-		createdAt: (procTriple as any).createdAt?.toISOString()
-	}));
+	const latestTriples = procTriples
+		.sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime())
+		.map((procTriple) => ({
+			processStep: procTriple.processStep,
+			subject: procTriple.triple.subject,
+			predicate: procTriple.triple.predicate,
+			object: procTriple.triple.object,
+			createdAt: procTriple.createdAt?.toISOString()
+		}));
 
 	return {
 		proc,
