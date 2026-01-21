@@ -3,197 +3,85 @@
 	import NodeColorLegend from '$lib/components/ui/NodeColorLegend.svelte';
 	import SeedGraphRenderer from '$lib/components/ui/SeedGraphRenderer.svelte';
 	import EdgeColorLegend from '$lib/components/ui/EdgeColorLegend.svelte';
-	import { formatDateLabel, getPredicateColor } from '$lib/utils';
-	import { directionOk } from '@derzis/common';
-	export let data;
+	import { getPredicateColor } from '$lib/utils';
+	import {
+		graphLocked,
+		graphAddedLevels,
+		isLoading,
+		allPredicates,
+		selectedPredicates,
+		currentHop,
+		allTriples,
+		filteredTriples,
+		nodeHops,
+		nodeMaxCreatedAt,
+		minDate,
+		maxDate,
+		minDateLabel,
+		maxDateLabel,
+		predicateInput,
+		isDataLoading,
+		nodeCount,
+		maxHop,
+		seeds,
+		branchFactors,
+		addPredicate as storeAddPredicate,
+		removePredicate as storeRemovePredicate,
+		getPredicateDisplayInfo as storeGetPredicateDisplayInfo,
+		loadAllTriples as storeLoadAllTriples,
+		processTriplesData as storeProcessTriplesData
+	} from '$lib/stores/draw-seeds-store';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	let graphLocked = false;
-	let graphAddedLevels: Set<string>[] = [];
-
-	let isLoading = true;
-	let allPredicates: Array<{ predicate: string; count: number }> = [];
-	let selectedPredicates: string[] = [];
-	let currentHop = 0;
-	let allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }> =
-		[];
-	let filteredTriples: Array<{
-		subject: string;
-		predicate: string;
-		object: string;
-		createdAt: string;
-	}> = [];
-	let nodeHops = new Map<string, number>();
-	let nodeMaxCreatedAt: Map<string, Date> = new Map();
-	let minDate: Date = new Date();
-	let maxDate: Date = new Date();
-	let minDateLabel: { date: string; time: string } | '' = '';
-	let maxDateLabel: { date: string; time: string } | '' = '';
-	let predicateInput = '';
-	let isDataLoading = true;
-	let nodeCount = 0;
-	let maxHop: number = 0;
-
-	function addPredicate(predicate: string) {
-		if (predicate && !selectedPredicates.includes(predicate)) {
-			selectedPredicates = [...selectedPredicates, predicate];
-			predicateInput = '';
-		}
-	}
-
-	function removePredicate(predicate: string) {
-		selectedPredicates = selectedPredicates.filter((p) => p !== predicate);
-	}
-
-	function getTriplesWithinHops(
-		allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }>,
-		seeds: string[],
-		selectedPredicates: string[],
-		maxHops: number,
-		predBranchingFactors: Map<string, number>
-	): {
-		triples: Array<{ subject: string; predicate: string; object: string; createdAt: string }>;
-		nodeHops: Map<string, number>;
-	} {
-		// If no hop expansion requested, return empty list (only seed nodes visible)
-		if (maxHops === 0) {
-			const nodeHops = new Map<string, number>();
-			seeds.forEach((seed) => nodeHops.set(seed, 0));
-			return { triples: [], nodeHops };
-		}
-
-		const result = new Set<string>();
-		const visitedNodes = new Set<string>();
-		const nodeHops = new Map<string, number>();
-		const queue: Array<{ node: string; hops: number }> = [];
-
-		// Start with seed nodes at hop 0
-		seeds.forEach((seed) => {
-			visitedNodes.add(seed);
-			nodeHops.set(seed, 0);
-			queue.push({ node: seed, hops: 0 });
-		});
-
-		// BFS to find all nodes within maxHops
-		while (queue.length > 0) {
-			const { node, hops } = queue.shift()!;
-
-			if (hops > maxHops) continue;
-
-			// Find all triples connected to this node with selected predicates
-			for (const triple of allTriples) {
-				const predicate = triple.predicate.valueOf();
-				if (!selectedPredicates.includes(predicate)) continue;
-
-				const branchingFactor = predBranchingFactors.get(predicate);
-				if (branchingFactor === undefined) continue; // Skip predicates without branching factor
-
-				let connectedNode: string | null = null;
-				let tripleKey: string | null = null;
-
-				if (triple.subject.valueOf() === node) {
-					connectedNode = triple.object.valueOf();
-					tripleKey = `${triple.subject}-${triple.predicate}-${triple.object}`;
-				} else if (triple.object.valueOf() === node) {
-					connectedNode = triple.subject.valueOf();
-					tripleKey = `${triple.subject}-${triple.predicate}-${triple.object}`;
-				}
-
-				// Check if the direction is allowed by the branching factor
-				let directionAllowed = false;
-				if (connectedNode && tripleKey) {
-					const simpleTriple = {
-						subject: triple.subject.valueOf(),
-						predicate: triple.predicate.valueOf(),
-						object: triple.object.valueOf()
-					};
-					directionAllowed = directionOk(simpleTriple, node, branchingFactor);
-				}
-
-				if (directionAllowed && !result.has(tripleKey!)) {
-					result.add(tripleKey!);
-
-					// Add connected node to queue if not visited and within hop limit
-					if (!visitedNodes.has(connectedNode!) && hops < maxHops) {
-						visitedNodes.add(connectedNode!);
-						nodeHops.set(connectedNode!, hops + 1);
-						queue.push({ node: connectedNode!, hops: hops + 1 });
-					}
-				}
-			}
-		}
-
-		// Convert triple keys back to actual triples and filter to only include frontier triples
-		const triples = allTriples.filter((triple) => {
-			const tripleKey = `${triple.subject}-${triple.predicate}-${triple.object}`;
-			if (!result.has(tripleKey)) return false;
-
-			// Only include triples that connect consecutive hop levels
-			const subjectHop = nodeHops.get(triple.subject.valueOf());
-			const objectHop = nodeHops.get(triple.object.valueOf());
-
-			if (subjectHop === undefined || objectHop === undefined) return false;
-
-			// Include triple if hop difference is exactly 1
-			return Math.abs(subjectHop - objectHop) === 1;
-		});
-
-		return { triples, nodeHops };
-	}
+	export let data;
 
 	onMount(() => {
+		// Set initial data from page data
+		seeds.set(data.proc.currentStep.seeds);
+		branchFactors.set(data.proc.currentStep.branchFactors);
+
+		// Load predicates from URL
 		const urlPredicates = $page.url.searchParams.get('predicates');
 		if (urlPredicates) {
-			selectedPredicates = urlPredicates.split(',').filter((p) => p.trim() !== '');
+			selectedPredicates.set(urlPredicates.split(',').filter((p) => p.trim() !== ''));
 		}
 
-		// Load data asynchronously
-		loadAllTriples().then(() => {
-			const counts = new Map<string, number>();
-			for (const t of allTriples) {
-				const p = t.predicate.valueOf();
-				counts.set(p, (counts.get(p) || 0) + 1);
-			}
-			allPredicates = Array.from(counts.entries())
-				.map(([predicate, count]) => ({ predicate, count }))
-				.sort((a, b) => b.count - a.count);
-
-			isDataLoading = false;
+		// Load and process triples
+		storeLoadAllTriples(data.proc.pid).then(() => {
+			storeProcessTriplesData();
 		});
 
-		// Add keyboard event listener for hop navigation
+		// Keyboard navigation
 		const handleKeyDown = (event: KeyboardEvent) => {
-			if (selectedPredicates.length > 0) {
-				if (event.key === 'ArrowRight') {
-					currentHop += 1;
-				} else if (event.key === 'ArrowLeft' && currentHop > 0) {
-					currentHop -= 1;
+			selectedPredicates.subscribe(($selected) => {
+				if ($selected.length > 0) {
+					if (event.key === 'ArrowRight') {
+						currentHop.update(c => c + 1);
+					} else if (event.key === 'ArrowLeft') {
+						currentHop.update(c => c - 1);
+					}
 				}
-			}
+			})();
 		};
-
 		window.addEventListener('keydown', handleKeyDown);
-
-		// Cleanup function
-		return () => {
-			window.removeEventListener('keydown', handleKeyDown);
-		};
+		return () => window.removeEventListener('keydown', handleKeyDown);
 	});
 
 	$: if (typeof window !== 'undefined') {
-		if (selectedPredicates.length === 0) {
-			goto(window.location.pathname, { replaceState: true });
-		} else {
-			goto(
-				`${window.location.pathname}?predicates=${encodeURIComponent(selectedPredicates.join(','))}`,
-				{
-					replaceState: true
-				}
-			);
-		}
+		selectedPredicates.subscribe(($selected) => {
+			if ($selected.length === 0) {
+				goto(window.location.pathname, { replaceState: true });
+			} else {
+				goto(
+					`${window.location.pathname}?predicates=${encodeURIComponent($selected.join(','))}`,
+					{ replaceState: true }
+				);
+			}
+		});
 	}
+
 	let predicateColors: Map<string, string> = new Map();
 	let graphData: any = null;
 	let state: {
@@ -206,72 +94,16 @@
 	} = {};
 
 	$: if (graphData) {
-		nodeCount = graphData.nodes().length;
+		nodeCount.set(graphData.nodes().length);
 	}
 
+	/**
+	 * Gets display information for a predicate.
+	 * @param predicate - The predicate string.
+	 * @returns Object with display and full strings.
+	 */
 	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
-		if (!predicate) return { display: '', full: '' };
-
-		return { display: predicate, full: predicate };
-	}
-
-	async function loadAllTriples() {
-		if (allTriples.length === 0) {
-			const response = await fetch(
-				`/api/processes/${data.proc.pid}/triples.json.gz?includeCreatedAt=true`
-			);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch triples: ${response.statusText}`);
-			}
-			const decompStream = new DecompressionStream('gzip');
-			const decompressedResponse = response.body!.pipeThrough(decompStream);
-			const text = await new Response(decompressedResponse).text();
-			allTriples = JSON.parse(text);
-		}
-	}
-
-	$: if (allTriples.length > 0) {
-		const sortedTriples = allTriples.sort(
-			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-		);
-
-		// Get triples within current hop distance from seeds
-		// Only show triples when hop count is at least 1
-		const effectiveHop = selectedPredicates.length > 0 && currentHop >= 1 ? currentHop : 0;
-		const result = getTriplesWithinHops(
-			sortedTriples,
-			data.proc.currentStep.seeds,
-			selectedPredicates,
-			effectiveHop,
-			data.proc.currentStep.branchFactors
-		);
-		filteredTriples = result.triples;
-		nodeHops = result.nodeHops;
-
-		nodeMaxCreatedAt = new Map<string, Date>();
-		for (const t of filteredTriples) {
-			const subj = t.subject.valueOf();
-			const obj = t.object.valueOf();
-			const date = new Date(t.createdAt);
-			if (!nodeMaxCreatedAt.has(subj) || nodeMaxCreatedAt.get(subj)! < date) {
-				nodeMaxCreatedAt.set(subj, date);
-			}
-			if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
-				nodeMaxCreatedAt.set(obj, date);
-			}
-		}
-
-		const dates = Array.from(nodeMaxCreatedAt.values());
-		if (dates.length > 0) {
-			minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
-			maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
-			minDateLabel = formatDateLabel(minDate);
-			maxDateLabel = formatDateLabel(maxDate);
-		}
-
-		const hops = Array.from(nodeHops.values());
-		maxHop = hops.length > 0 ? Math.max(...hops) : 0;
-		isLoading = false;
+		return storeGetPredicateDisplayInfo(predicate);
 	}
 </script>
 
@@ -287,7 +119,7 @@
 	</header>
 
 	<main class="page-main">
-		{#if isDataLoading}
+		{#if $isDataLoading}
 			<div class="row">
 				<div class="col h-100">
 					<div class="loading-container">
@@ -305,29 +137,29 @@
 							type="text"
 							id="predicate-input"
 							placeholder="Select one or more predicates"
-							disabled={allPredicates.length === 0}
-							bind:value={predicateInput}
+							disabled={$allPredicates.length === 0}
+							bind:value={$predicateInput}
 							list="predicates-datalist"
 							on:keydown={(e) => {
-								if (e.key === 'Enter' && predicateInput.trim()) {
+								if (e.key === 'Enter' && $predicateInput.trim()) {
 									e.preventDefault();
-									addPredicate(predicateInput.trim());
+									storeAddPredicate($predicateInput.trim());
 								}
 							}}
 							on:change={() => {
-								if (predicateInput.trim()) {
-									addPredicate(predicateInput.trim());
+								if ($predicateInput.trim()) {
+									storeAddPredicate($predicateInput.trim());
 								}
 							}}
 						/>
 						<datalist id="predicates-datalist">
-							{#each allPredicates as item}
+							{#each $allPredicates as item}
 								<option value={item.predicate}>{item.predicate} ({item.count})</option>
 							{/each}
 						</datalist>
-						{#if selectedPredicates.length > 0}
+						{#if $selectedPredicates.length > 0}
 							<div class="selected-predicates">
-								{#each selectedPredicates as predicate}
+								{#each $selectedPredicates as predicate}
 									<span
 										class="predicate-badge"
 										style="background-color: {getPredicateColor(predicate)}"
@@ -336,7 +168,7 @@
 										<button
 											type="button"
 											class="badge-remove"
-											on:click={() => removePredicate(predicate)}>&times;</button
+											on:click={() => storeRemovePredicate(predicate)}>&times;</button
 										>
 									</span>
 								{/each}
@@ -346,16 +178,16 @@
 				</div>
 			</div>
 			<NodeColorLegend
-				locked={graphLocked}
-				addedLevels={graphAddedLevels}
-				{maxHop}
+				locked={$graphLocked}
+				addedLevels={$graphAddedLevels}
+				maxHop={$maxHop}
 			/>
-			{#if selectedPredicates.length > 0}
-				<EdgeColorLegend {state} {graphData} {selectedPredicates} />
+			{#if $selectedPredicates.length > 0}
+				<EdgeColorLegend {state} {graphData} selectedPredicates={$selectedPredicates} />
 			{/if}
 			<div class="row">
 				<div class="col h-100">
-					{#if isLoading}
+					{#if $isLoading}
 						<div class="loading-container">
 							<Spinner color="primary" />
 							<p class="loading-text">Loading graph data...</p>
@@ -364,20 +196,20 @@
 						<div class="graph-container">
 							<SeedGraphRenderer
 								bind:graphData
-								triples={filteredTriples}
+								triples={$filteredTriples}
 								seeds={data.proc.currentStep.seeds}
-								{nodeHops}
-								bind:locked={graphLocked}
-								bind:addedLevels={graphAddedLevels}
+								nodeHops={$nodeHops}
+								bind:locked={$graphLocked}
+								bind:addedLevels={$graphAddedLevels}
 								bind:state
 								enableNodeClick={false}
 							/>
-							{#if selectedPredicates.length > 0}
+							{#if $selectedPredicates.length > 0}
 								<div class="hop-counter">
-									Hop: {currentHop}
+									Hop: {$currentHop}
 								</div>
 								<div class="node-counter">
-									Nodes: {nodeCount}
+									Nodes: {$nodeCount}
 								</div>
 							{/if}
 						</div>
