@@ -16,6 +16,8 @@ const levels = {
   silly: 5
 };
 
+const levelNames = Object.fromEntries(Object.entries(levels).map(([k, v]) => [v, k]));
+
 const levelColors: Record<number, (s: string) => string> = {
   50: colorette.red, // error
   40: colorette.yellow, // warn
@@ -36,10 +38,9 @@ const customTransport = new Writable({
     try {
       const log = JSON.parse(chunk.toString());
       const levelColor = getColor(log.level);
-      const time = new Date(log.time).toISOString().slice(11, 23); // HH:MM:SS.mmm
       const name = log.name || '';
-      const levelName = Object.keys(levels).find(key => levels[key as keyof typeof levels] === log.level) || 'unknown';
-      const formatted = `[${time}] ${levelColor(levelName.toUpperCase())} (${name}/${process.pid}): ${levelColor(log.msg)}`;
+      const levelName = levelNames[log.level] || 'unknown';
+      const formatted = `${colorette.gray(log.time)} ${colorette.white(`[${name}]`)} ${levelColor(`${levelName.toUpperCase()}: ${log.msg}`)}`;
       console.log(formatted);
     } catch (err) {
       console.error('Error in custom transport:', err);
@@ -51,6 +52,7 @@ const customTransport = new Writable({
 const logger = pino(
   {
     customLevels: levels,
+    useOnlyCustomLevels: true,
     level: config.logLevel || 'debug',
     timestamp: pino.stdTimeFunctions.isoTime
   },
@@ -74,7 +76,7 @@ const formatArgs = (msg: string, ...args: any[]) => {
 };
 
 export const createLogger = (name: string): MonkeyPatchedLogger => {
-  const child = logger.child({ name });
+  const child = logger.child({ name }) as any;
   return {
     error: (msg: string, ...args: any[]) => child.error(formatArgs(msg, ...args)),
     warn: (msg: string, ...args: any[]) => child.warn(formatArgs(msg, ...args)),
