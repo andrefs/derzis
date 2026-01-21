@@ -1,7 +1,7 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
 import http from 'http';
 import https from 'https';
-import type { MonkeyPatchedLogger } from '@derzis/common';
+import type { MonkeyPatchedLogger } from '@derzis/common/server';
 
 type MonkeyPatchedAxiosRequestConfig = InternalAxiosRequestConfig & {
   tsStart: number;

@@ -1,5 +1,5 @@
 import { WorkerError } from '@derzis/common';
-import { jest } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
   fetchRobots,
@@ -9,7 +9,9 @@ import {
   handleHttpError,
 } from './worker-utils';
 
-jest.useFakeTimers();
+beforeEach(() => {
+  vi.useFakeTimers();
+});
 
 describe('findUrlInLinkHeader', () => {
   it('returns undefined if there are no alternate links', () => {
@@ -116,7 +118,7 @@ describe('findRedirectUrl', () => {
 });
 
 describe('fetchRobots', () => {
-  const mockAxios = { get: jest.fn<() => Promise<any>>() };
+  const mockAxios = { get: vi.fn<() => Promise<any>>() };
 
   it('returns error if axios throws', async () => {
     // const mock = {get : () => { return Promise.reject('error') }} as

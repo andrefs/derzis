@@ -20,3 +20,4 @@ coverage
 manager/build
 .aider*
 test-results/
+manager/.server.pid

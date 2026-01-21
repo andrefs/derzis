@@ -12,10 +12,9 @@ let axios: AxiosInstance;
 import contentType from 'content-type';
 import parseRdf from './parse-rdf';
 let log: MonkeyPatchedLogger;
+import { createLogger, type MonkeyPatchedLogger } from '@derzis/common/server';
 import {
-	createLogger,
 	JobTimeoutError,
-	type MonkeyPatchedLogger,
 	MimeTypeError,
 	RobotsForbiddenError,
 	TooManyRedirectsError,

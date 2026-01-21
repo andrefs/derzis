@@ -1,5 +1,7 @@
 import parseRdf from './parse-rdf';
 
+import { describe, it, expect } from 'vitest';
+
 describe('parse', () => {
   it.skip('returns expected number of items', async () => {
     const rdf = `PREFIX c: <http://example.org/cartoons#>

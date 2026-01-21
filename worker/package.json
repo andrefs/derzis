@@ -6,8 +6,8 @@
   "license": "MIT",
   "types": "index.d.ts",
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules npx jest ",
-    "test:watch": "NODE_OPTIONS=--experimental-vm-modules npx jest --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "tsc --project tsconfig.json && tsconfig-replace-paths --project tsconfig.json",
     "postbuild": "cp package.json dist/package.json && cp package-lock.json dist/package-lock.json && cd dist && npm install",
     "typecheck": "tsc -b tsconfig.json",
@@ -16,56 +16,6 @@
     "//worker:dev": "node --experimental-specifier-resolution=node --loader ts-node/esm ./src/worker/bin/worker.ts",
     "dev": "ts-node ./src/bin/worker.ts",
     "preview": "node dist/src/worker/bin/worker"
-  },
-  "jest": {
-    "preset": "ts-jest/presets/default-esm",
-    "extensionsToTreatAsEsm": [
-      ".ts"
-    ],
-    "modulePathIgnorePatterns": [
-      "<rootDir>/dist/"
-    ],
-    "transform": {
-      "^.+\\.tsx?$": [
-        "ts-jest",
-        {
-          "useESM": true
-        }
-      ]
-    },
-    "testEnvironment": "node",
-    "moduleNameMapper": {
-      "@derzis/common": "<rootDir>/src/common/",
-      "@derzis/config": "<rootDir>/src/config/",
-      "@derzis/worker": "<rootDir>/src/worker/",
-      "@derzis/models": "<rootDir>/src/models/",
-      "@derzis/manager": "<rootDir>/src/manager/"
-    }
-  },
-  "//jest": {
-    "extensionsToTreatAsEsm": [
-      ".ts"
-    ],
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1",
-      "@derzis/common": "<rootDir>/src/common/",
-      "@derzis/config": "<rootDir>/src/config/",
-      "@derzis/worker": "<rootDir>/src/worker/",
-      "@derzis/models": "<rootDir>/src/models/",
-      "@derzis/manager": "<rootDir>/src/manager/"
-    },
-    "transform": {
-      "^.+\\.tsx?$": [
-        "ts-jest",
-        {
-          "useESM": true
-        }
-      ]
-    },
-    "modulePathIgnorePatterns": [
-      "<rootDir>/dist/"
-    ],
-    "testEnvironment": "node"
   },
   "dependencies": {
     "@typegoose/typegoose": "12.10.1",

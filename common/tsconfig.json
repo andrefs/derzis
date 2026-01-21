@@ -19,5 +19,8 @@
 		{
 			"path": "../config"
 		}
+	],
+	"exclude": [
+		"vitest.config.ts"
 	]
 }

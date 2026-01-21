@@ -8,10 +8,10 @@ import { Worker } from './Worker';
 import { createLogger } from '@derzis/common/server';
 import type {
 	Message,
-	MonkeyPatchedLogger,
 	JobRequest,
 	ResourceCrawlJobRequest
 } from '@derzis/common';
+import type { MonkeyPatchedLogger } from '@derzis/common/server';
 let log: MonkeyPatchedLogger;
 
 export class WorkerPubSub {

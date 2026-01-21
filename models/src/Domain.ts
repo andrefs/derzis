@@ -14,7 +14,7 @@ import {
   PropType,
   post
 } from '@typegoose/typegoose';
-import { DomainCrawlJobInfo } from '@derzis/common';
+import type { DomainCrawlJobInfo } from '@derzis/common';
 
 const log = createLogger('Domain');
 

@@ -39,6 +39,9 @@
 			"@derzis/common": [
 				"../common/src"
 			],
+			"@derzis/common/server": [
+				"../common/src/server"
+			],
 			"@derzis/config": [
 				"../config/src"
 			],
@@ -65,5 +68,9 @@
 		{
 			"path": "../common/"
 		}
+	],
+	"exclude": [
+		"**/vitest.config.*",
+		"**/node_modules"
 	]
 }
