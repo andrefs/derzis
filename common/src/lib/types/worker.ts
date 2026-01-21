@@ -1,5 +1,9 @@
 import { type JobResult, type JobType } from '.';
-import { type DomainCrawlJobInfo } from '@derzis/models';
+
+export interface DomainCrawlJobInfo {
+  domain: Record<string, any>;
+  resources: { url: string }[];
+}
 
 export interface JobCapacity {
   domainCrawl: { capacity: number; resourcesPerDomain: number };

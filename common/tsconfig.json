@@ -1,24 +1,23 @@
 {
 	"compilerOptions": {
+		"target": "esnext",
+		"lib": ["esnext"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
 		"rootDir": "./src",
 		"outDir": "./dist",
 		"esModuleInterop": true,
 		"composite": true,
+		"skipLibCheck": true,
 		"paths": {
 			"@derzis/config": [
 				"../config/src"
-			],
-			"@derzis/models": [
-				"../models/src"
 			]
 		}
 	},
 	"references": [
 		{
 			"path": "../config"
-		},
-		{
-			"path": "../models"
 		}
 	]
 }
