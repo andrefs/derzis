@@ -18,6 +18,7 @@
 	export let seeds: string[];
 	export let nodeHops: Map<string, number>;
 	export let locked: boolean = false;
+	export let enableNodeClick: boolean = true;
 	export let addedLevels: Set<string>[] | undefined = undefined;
 	export let state: {
 		hoveredNode?: string;
@@ -156,10 +157,14 @@
 
 			const nodeReducer = (node: string, data: NodeDisplayData): NodeDisplayData => {
 				const res: NodeDisplayData = { ...data };
+				const isSeed = seeds.includes(node);
 
 				if (state.hoveredNeighbors && !state.hoveredNeighbors.has(node) && state.hoveredNode !== node) {
 					res.label = '';
 					res.color = '#f6f6f6';
+				} else if (state.hoveredNode === node || (state.hoveredNeighbors && state.hoveredNeighbors.has(node))) {
+					// Show label for hovered nodes (both seeds and non-seeds)
+					res.label = data.displayLabel || node;
 				}
 
 				if (state.highlightedNodes && state.highlightedNodes.has(node)) {
@@ -170,6 +175,7 @@
 					for (let i = 0; i < addedLevels.length; i++) {
 						if (addedLevels[i].has(node)) {
 							res.forceLabel = true;
+							res.label = data.displayLabel || node;
 							break;
 						}
 					}
@@ -208,30 +214,32 @@
 			const camera = renderer.getCamera();
 
 			// Handle node clicks
-			renderer.on('clickNode', ({ node }: { node: string }) => {
-				if (!locked) {
-					const currentState = state.locked;
-					state.locked = !currentState;
-					locked = !currentState;
+			if (enableNodeClick) {
+				renderer.on('clickNode', ({ node }: { node: string }) => {
+					if (!locked) {
+						const currentState = state.locked;
+						state.locked = !currentState;
+						locked = !currentState;
 
-					if (!currentState) {
-						// Locking: center on the node
-						const nodePosition = renderer.graph.getNodeAttribute(node, 'x') || 0;
-						const nodePositionY = renderer.graph.getNodeAttribute(node, 'y') || 0;
-						const ratio = camera.getState().ratio;
-						const angle = camera.getState().angle;
-						const x = nodePosition * ratio * Math.cos(-angle) - nodePositionY * ratio * Math.sin(-angle);
-						const y = nodePosition * ratio * Math.sin(-angle) + nodePositionY * ratio * Math.cos(-angle);
+						if (!currentState) {
+							// Locking: center on the node
+							const nodePosition = renderer.graph.getNodeAttribute(node, 'x') || 0;
+							const nodePositionY = renderer.graph.getNodeAttribute(node, 'y') || 0;
+							const ratio = camera.getState().ratio;
+							const angle = camera.getState().angle;
+							const x = nodePosition * ratio * Math.cos(-angle) - nodePositionY * ratio * Math.sin(-angle);
+							const y = nodePosition * ratio * Math.sin(-angle) + nodePositionY * ratio * Math.cos(-angle);
 
-						renderer.getCamera().setState({
-							x: x,
-							y: y,
-							ratio: ratio,
-							angle: angle
-						});
+							renderer.getCamera().setState({
+								x: x,
+								y: y,
+								ratio: ratio,
+								angle: angle
+							});
+						}
 					}
-				}
-			});
+				});
+			}
 
 			// Handle edge clicks
 			renderer.on('clickEdge', ({ edge }: { edge: string }) => {

@@ -51,7 +51,7 @@
 	</div>
 {:else if maxHop !== undefined}
 	<div class="node-color-legend">
-		<h6>Hop Number</h6>
+		<h6>Hop<br>Number</h6>
 		<div class="discrete-legend">
 			{#each Array(Math.min(maxHop + 1, 9)) as _, i}
 				<div class="hop-item">
@@ -80,7 +80,7 @@
 		padding: 8px;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 		font-size: 12px;
-		width: 220px;
+		width: 140px;
 		z-index: 1000;
 	}
 
@@ -128,26 +128,29 @@
 	.discrete-legend {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: 1px;
 	}
 
 	.hop-item {
 		display: flex;
 		align-items: center;
-		gap: 4px;
-		font-size: 10px;
+		gap: 3px;
+		font-size: 9px;
 		color: #555;
+		line-height: 1;
 	}
 
 	.hop-color {
-		width: 12px;
-		height: 12px;
+		width: 10px;
+		height: 10px;
 		border-radius: 2px;
 		border: 1px solid rgba(0, 0, 0, 0.2);
+		flex-shrink: 0;
 	}
 
 	.hop-label {
-		min-width: 20px;
+		min-width: 18px;
 		text-align: left;
+		font-size: 9px;
 	}
 </style>

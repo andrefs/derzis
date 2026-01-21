@@ -370,6 +370,7 @@
 								bind:locked={graphLocked}
 								bind:addedLevels={graphAddedLevels}
 								bind:state
+								enableNodeClick={false}
 							/>
 							{#if selectedPredicates.length > 0}
 								<div class="hop-counter">
