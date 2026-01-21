@@ -6,73 +6,21 @@
 	export let data;
 
 	let turtleParts: { parts: { type: string; content: string }[]; inProcess: boolean }[] = [];
+	let triples: any[] = [];
 	let urlInput = data.url || '';
+	$: resourceMap = (data as any).resourceMap || new Map();
+	$: urlInput = data.url || '';
+	$: currentResourceUrl = data.url;
 
-	// Reactive statement to generate turtle when data changes
+	// Reactive statement to sort triples when data changes
 	$: if (data.triples && data.triples.length > 0) {
-		generateTurtle();
-	} else {
-		turtleParts = [];
-	}
-
-	function generateTurtle() {
-		if (!data.triples || data.triples.length === 0) {
-			turtleParts = [];
-			return;
-		}
-
-		turtleParts = [];
-
-		// Manually format as N-Triples and sort by inProcess (true first)
-		const formattedParts = data.triples.map(triple => {
-			const tripleText = `<${triple.subject}> <${triple.predicate}> <${triple.object}> .`;
-
-			// Parse URLs from the triple text
-			const urlRegex = /<([^>]+)>/g;
-			const parts = [];
-			let lastIndex = 0;
-			let match;
-
-			while ((match = urlRegex.exec(tripleText)) !== null) {
-				// Add text before the URL
-				if (match.index > lastIndex) {
-					parts.push({
-						type: 'text',
-						content: tripleText.slice(lastIndex, match.index)
-					});
-				}
-
-				// Add the URL as a link
-				parts.push({
-					type: 'url',
-					content: match[1] // The URL without angle brackets
-				});
-
-				lastIndex = match.index + match[0].length;
-			}
-
-			// Add remaining text
-			if (lastIndex < tripleText.length) {
-				parts.push({
-					type: 'text',
-					content: tripleText.slice(lastIndex)
-				});
-			}
-
-			return {
-				parts,
-				inProcess: triple.inProcess
-			};
-		});
-
-		// Sort: inProcess triples first, then non-inProcess triples
-		formattedParts.sort((a, b) => {
+		triples = data.triples.sort((a, b) => {
 			if (a.inProcess && !b.inProcess) return -1;
 			if (!a.inProcess && b.inProcess) return 1;
 			return 0;
 		});
-
-		turtleParts = formattedParts;
+	} else {
+		triples = [];
 	}
 
 	function handleSubmit(event: Event) {
@@ -83,12 +31,16 @@
 			goto(`/processes/${data.process.pid}/resource?url=${encodeURIComponent(newUrl)}`);
 		}
 	}
+
+	function isCurrentResource(url: string): boolean {
+		return url === currentResourceUrl;
+	}
 </script>
 
 <main>
 	<h2>Resource Triples for Process {data.process.pid}</h2>
 
-	<form on:submit={handleSubmit} style="margin-bottom: 2rem;">
+	<form on:submit={handleSubmit} class="resource-form">
 		<label for="url">Resource URL:</label>
 		<input
 			type="text"
@@ -96,45 +48,115 @@
 			name="url"
 			bind:value={urlInput}
 			placeholder="Enter resource URL"
-			style="width: 70%; margin-right: 1rem;"
+			class="resource-input"
 		/>
 		<button type="submit">Find</button>
 	</form>
 
-	{#if data.triples && data.triples.length > 0}
+	{#if triples?.length}
 		<div>
 			<h3>Triples ({data.triples.length})</h3>
 			<p><em>Triples in grey are not found in this process's ProcessTriple collection.</em></p>
-			<div
-				style="background-color: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto; white-space: nowrap; font-family: monospace; width: max-content; min-width: 100%;"
-			>
-				{#each turtleParts as part, i}
-					{#if part.inProcess}
-						<div style="color: black; margin-bottom: 0.5rem;">
-							{#each part.parts as partItem}
-								{#if partItem.type === 'url'}
-									<a href="/processes/{data.process.pid}/resource?url={encodeURIComponent(partItem.content)}" style="color: inherit; text-decoration: none;">
-										&lt;{partItem.content}&gt;
-									</a>
-								{:else}
-									{partItem.content}
-								{/if}
-							{/each}
+			<div class="triples-container">
+				{#each triples as t, i}
+					{#if t.inProcess}
+						<div class="triple in-process">
+							{#if resourceMap.has(t.subject)}
+								<a
+									href="/processes/{data.process.pid}/resource?url={encodeURIComponent(t.subject)}"
+									class="resource-link {isCurrentResource(t.subject) ? 'current-resource' : ''}"
+								>
+									&lt;{t.subject}&gt;
+								</a>
+							{:else}
+								<Tooltip target="subject-{i}" placement="top">
+									This resource has not been visited.
+								</Tooltip>
+								<span id="subject-{i}" class="unvisited-resource {isCurrentResource(t.subject) ? 'current-resource' : ''}">
+									&lt;{t.subject}&gt;
+								</span>
+							{/if}
+							{#if resourceMap.has(t.predicate)}
+								<a
+									href="/processes/{data.process.pid}/resource?url={encodeURIComponent(t.predicate)}"
+									class="resource-link {isCurrentResource(t.predicate) ? 'current-resource' : ''}"
+								>
+									&lt;{t.predicate}&gt;
+								</a>
+							{:else}
+								<Tooltip target="predicate-{i}" placement="top">
+									This resource has not been visited.
+								</Tooltip>
+								<span id="predicate-{i}" class="unvisited-resource {isCurrentResource(t.predicate) ? 'current-resource' : ''}">
+									&lt;{t.predicate}&gt;
+								</span>
+							{/if}
+							{#if resourceMap.has(t.object)}
+								<a
+									href="/processes/{data.process.pid}/resource?url={encodeURIComponent(t.object)}"
+									class="resource-link {isCurrentResource(t.object) ? 'current-resource' : ''}"
+								>
+									&lt;{t.object}&gt;
+								</a>
+							{:else}
+								<Tooltip target="object-{i}" placement="top">
+									This resource has not been visited.
+								</Tooltip>
+								<span id="object-{i}" class="unvisited-resource {isCurrentResource(t.object) ? 'current-resource' : ''}">
+									&lt;{t.object}&gt;
+								</span>
+							{/if}
 						</div>
 					{:else}
 						<Tooltip target="triple-{i}" placement="top">
 							This triple does not belong to this process' graph.
 						</Tooltip>
-						<div id="triple-{i}" style="color: grey; margin-bottom: 0.5rem;">
-							{#each part.parts as partItem}
-								{#if partItem.type === 'url'}
-									<a href="/processes/{data.process.pid}/resource?url={encodeURIComponent(partItem.content)}" style="color: inherit; text-decoration: none;">
-										&lt;{partItem.content}&gt;
-									</a>
-								{:else}
-									{partItem.content}
-								{/if}
-							{/each}
+						<div id="triple-{i}" class="triple out-of-process">
+							{#if resourceMap.has(t.subject)}
+								<a
+									href="/processes/{data.process.pid}/resource?url={encodeURIComponent(t.subject)}"
+									class="resource-link {isCurrentResource(t.subject) ? 'current-resource' : ''}"
+								>
+									&lt;{t.subject}&gt;
+								</a>
+							{:else}
+								<Tooltip target="grey-subject-{i}" placement="top">
+									This resource has not been visited.
+								</Tooltip>
+								<span id="grey-subject-{i}" class="unvisited-resource {isCurrentResource(t.subject) ? 'current-resource' : ''}">
+									&lt;{t.subject}&gt;
+								</span>
+							{/if}
+							{#if resourceMap.has(t.predicate)}
+								<a
+									href="/processes/{data.process.pid}/resource?url={encodeURIComponent(t.predicate)}"
+									class="resource-link {isCurrentResource(t.predicate) ? 'current-resource' : ''}"
+								>
+									&lt;{t.predicate}&gt;
+								</a>
+							{:else}
+								<Tooltip target="grey-predicate-{i}" placement="top">
+									This resource has not been visited.
+								</Tooltip>
+								<span id="grey-predicate-{i}" class="unvisited-resource {isCurrentResource(t.predicate) ? 'current-resource' : ''}">
+									&lt;{t.predicate}&gt;
+								</span>
+							{/if}
+							{#if resourceMap.has(t.object)}
+								<a
+									href="/processes/{data.process.pid}/resource?url={encodeURIComponent(t.object)}"
+									class="resource-link {isCurrentResource(t.object) ? 'current-resource' : ''}"
+								>
+									&lt;{t.object}&gt;
+								</a>
+							{:else}
+								<Tooltip target="grey-object-{i}" placement="top">
+									This resource has not been visited.
+								</Tooltip>
+								<span id="grey-object-{i}" class="unvisited-resource {isCurrentResource(t.object) ? 'current-resource' : ''}">
+									&lt;{t.object}&gt;
+								</span>
+							{/if}
 						</div>
 					{/if}
 				{/each}
@@ -146,3 +168,53 @@
 		<p>Enter a resource URL above to view its triples.</p>
 	{/if}
 </main>
+
+<style>
+	.resource-form {
+		margin-bottom: 2rem;
+	}
+
+	.resource-input {
+		width: 70%;
+		margin-right: 1rem;
+	}
+
+	.triples-container {
+		background-color: #f8f9fa;
+		padding: 1rem;
+		border-radius: 4px;
+		overflow-x: auto;
+		white-space: nowrap;
+		font-family: monospace;
+		width: max-content;
+		min-width: 100%;
+		font-size: 0.9rem;
+	}
+
+	.triple {
+		margin-bottom: 0.5rem;
+	}
+
+	.triple.in-process {
+		color: black;
+	}
+
+	.triple.out-of-process {
+		color: grey;
+	}
+
+	.resource-link {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.unvisited-resource {
+		color: grey;
+	}
+
+	.current-resource {
+		background-color: #fff3cd;
+		border-radius: 3px;
+		padding: 2px 4px;
+	}
+</style>
