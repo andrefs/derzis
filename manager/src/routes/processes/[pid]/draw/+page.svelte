@@ -180,7 +180,7 @@
 						<Input
 							type="text"
 							id="predicate-input"
-							placeholder="Select one or more predicates to visualize the graph..."
+							placeholder="Select one or more predicates"
 							disabled={allPredicates.length === 0}
 							bind:value={predicateInput}
 							list="predicates-datalist"
@@ -204,13 +204,16 @@
 						{#if selectedPredicates.length > 0}
 							<div class="selected-predicates">
 								{#each selectedPredicates as predicate}
-									<span class="predicate-badge" style="background-color: {getPredicateColor(predicate)}">
+									<span
+										class="predicate-badge"
+										style="background-color: {getPredicateColor(predicate)}"
+									>
 										{predicate}
 										<button
 											type="button"
 											class="badge-remove"
-											on:click={() => removePredicate(predicate)}
-										>&times;</button>
+											on:click={() => removePredicate(predicate)}>&times;</button
+										>
 									</span>
 								{/each}
 							</div>
@@ -269,7 +272,10 @@
 						<div class="no-selection-container">
 							<div class="no-selection-message">
 								<h4>Select Predicates to Visualize</h4>
-								<p>Use the filter above to choose one or more predicates and start exploring the knowledge graph.</p>
+								<p>
+									Use the filter above to choose one or more predicates and start exploring the
+									knowledge graph.
+								</p>
 							</div>
 						</div>
 					</div>

@@ -3,7 +3,8 @@
 	import NodeColorLegend from '$lib/components/ui/NodeColorLegend.svelte';
 	import SeedGraphRenderer from '$lib/components/ui/SeedGraphRenderer.svelte';
 	import EdgeColorLegend from '$lib/components/ui/EdgeColorLegend.svelte';
-	import { isPredicateSelected, formatDateLabel, getPredicateColor } from '$lib/utils';
+	import { formatDateLabel, getPredicateColor } from '$lib/utils';
+	import { directionOk } from '@derzis/common';
 	export let data;
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -16,6 +17,7 @@
 	let allPredicates: Array<{ predicate: string; count: number }> = [];
 	let selectedPredicates: string[] = [];
 	let currentHop = 0;
+	let predBranchingFactors = new Map<string, number>();
 	let allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }> =
 		[];
 	let filteredTriples: Array<{
@@ -50,12 +52,16 @@
 		allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }>,
 		seeds: string[],
 		selectedPredicates: string[],
-		maxHops: number
-	): { triples: Array<{ subject: string; predicate: string; object: string; createdAt: string }>; nodeHops: Map<string, number> } {
+		maxHops: number,
+		predBranchingFactors: Map<string, number>
+	): {
+		triples: Array<{ subject: string; predicate: string; object: string; createdAt: string }>;
+		nodeHops: Map<string, number>;
+	} {
 		// If no hop expansion requested, return empty list (only seed nodes visible)
 		if (maxHops === 0) {
 			const nodeHops = new Map<string, number>();
-			seeds.forEach(seed => nodeHops.set(seed, 0));
+			seeds.forEach((seed) => nodeHops.set(seed, 0));
 			return { triples: [], nodeHops };
 		}
 
@@ -65,7 +71,7 @@
 		const queue: Array<{ node: string; hops: number }> = [];
 
 		// Start with seed nodes at hop 0
-		seeds.forEach(seed => {
+		seeds.forEach((seed) => {
 			visitedNodes.add(seed);
 			nodeHops.set(seed, 0);
 			queue.push({ node: seed, hops: 0 });
@@ -82,6 +88,9 @@
 				const predicate = triple.predicate.valueOf();
 				if (!selectedPredicates.includes(predicate)) continue;
 
+				const branchingFactor = predBranchingFactors.get(predicate);
+				if (branchingFactor === undefined) continue; // Skip predicates without branching factor
+
 				let connectedNode: string | null = null;
 				let tripleKey: string | null = null;
 
@@ -93,7 +102,18 @@
 					tripleKey = `${triple.subject}-${triple.predicate}-${triple.object}`;
 				}
 
-				if (connectedNode && tripleKey && !result.has(tripleKey)) {
+				// Check if the direction is allowed by the branching factor
+				let directionAllowed = false;
+				if (connectedNode && tripleKey) {
+					const simpleTriple = {
+						subject: triple.subject.valueOf(),
+						predicate: triple.predicate.valueOf(),
+						object: triple.object.valueOf()
+					};
+					directionAllowed = directionOk(simpleTriple, node, branchingFactor);
+				}
+
+				if (directionAllowed && !result.has(tripleKey)) {
 					result.add(tripleKey);
 
 					// Add connected node to queue if not visited and within hop limit
@@ -107,7 +127,7 @@
 		}
 
 		// Convert triple keys back to actual triples and filter to only include frontier triples
-		const triples = allTriples.filter(triple => {
+		const triples = allTriples.filter((triple) => {
 			const tripleKey = `${triple.subject}-${triple.predicate}-${triple.object}`;
 			if (!result.has(tripleKey)) return false;
 
@@ -140,6 +160,20 @@
 			allPredicates = Array.from(counts.entries())
 				.map(([predicate, count]) => ({ predicate, count }))
 				.sort((a, b) => b.count - a.count);
+
+			// Initialize branching factors
+			const predsDirMetrics = (data.proc.currentStep as any).predsDirMetrics;
+			if (predsDirMetrics) {
+				predsDirMetrics.forEach((metrics: any, predUrl: string) => {
+					if (metrics.bf && typeof metrics.bf.obj === 'number' && metrics.bf.obj > 0) {
+						predBranchingFactors.set(predUrl, metrics.bf.subj / metrics.bf.obj);
+					} else if (metrics.bf && metrics.bf.obj === 0) {
+						// Handle division by zero - set to Infinity
+						predBranchingFactors.set(predUrl, Infinity);
+					}
+				});
+			}
+
 			isDataLoading = false;
 		});
 
@@ -214,7 +248,13 @@
 		// Get triples within current hop distance from seeds
 		// Only show triples when hop count is at least 1
 		const effectiveHop = selectedPredicates.length > 0 && currentHop >= 1 ? currentHop : 0;
-		const result = getTriplesWithinHops(sortedTriples, data.proc.currentStep.seeds, selectedPredicates, effectiveHop);
+		const result = getTriplesWithinHops(
+			sortedTriples,
+			data.proc.currentStep.seeds,
+			selectedPredicates,
+			effectiveHop,
+			predBranchingFactors
+		);
 		filteredTriples = result.triples;
 		nodeHops = result.nodeHops;
 
@@ -271,7 +311,7 @@
 						<Input
 							type="text"
 							id="predicate-input"
-							placeholder="Select one or more predicates to visualize the graph..."
+							placeholder="Select one or more predicates"
 							disabled={allPredicates.length === 0}
 							bind:value={predicateInput}
 							list="predicates-datalist"
@@ -295,13 +335,16 @@
 						{#if selectedPredicates.length > 0}
 							<div class="selected-predicates">
 								{#each selectedPredicates as predicate}
-									<span class="predicate-badge" style="background-color: {getPredicateColor(predicate)}">
+									<span
+										class="predicate-badge"
+										style="background-color: {getPredicateColor(predicate)}"
+									>
 										{predicate}
 										<button
 											type="button"
 											class="badge-remove"
-											on:click={() => removePredicate(predicate)}
-										>&times;</button>
+											on:click={() => removePredicate(predicate)}>&times;</button
+										>
 									</span>
 								{/each}
 							</div>
@@ -394,8 +437,6 @@
 		align-items: start;
 		flex-wrap: wrap;
 	}
-
-
 
 	.selected-predicates {
 		margin-top: 0.5rem;
@@ -513,8 +554,6 @@
 		width: 100%;
 		height: 100%;
 	}
-
-
 
 	.hop-counter {
 		position: absolute;

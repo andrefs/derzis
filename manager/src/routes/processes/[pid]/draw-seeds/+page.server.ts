@@ -1,5 +1,4 @@
 import { error } from '@sveltejs/kit';
-import * as processHelper from '$lib/process-helper';
 import type { PageServerLoad } from './$types';
 import { Process } from '@derzis/models';
 
@@ -11,11 +10,18 @@ export const load: PageServerLoad = async ({ params }) => {
 		});
 	}
 
+	if (!p.currentStep?.predsDirMetrics) {
+		throw error(400, {
+			message: 'No predsDirMetrics found for current step'
+		});
+	}
+
 	return {
 		proc: {
 			pid: p.pid,
 			currentStep: {
-				seeds: p.currentStep.seeds
+				seeds: p.currentStep.seeds,
+				predsDirMetrics: p.currentStep.predsDirMetrics
 			}
 		}
 	};
