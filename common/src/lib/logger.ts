@@ -1,34 +1,88 @@
-// Simple logger implementation using console
-// Custom levels enum to match winston
-enum LogLevels {
-  ERROR = 'error',
-  WARN = 'warn',
-  INFO = 'info',
-  HTTP = 'http',
-  PUBSUB = 'pubsub',
-  VERBOSE = 'verbose',
-  DEBUG = 'debug',
-  SILLY = 'silly'
-}
+import pino from 'pino';
+import { Writable } from 'stream';
+import * as colorette from 'colorette';
+import config from '@derzis/config';
+import util from 'util';
 
-export type MonkeyPatchedLogger = {
-  [level in LogLevels]: (msg: string, ...args: any[]) => void;
+// Custom levels to match winston
+const levels = {
+  error: 50,
+  warn: 40,
+  info: 30,
+  http: 25,
+  pubsub: 20,
+  verbose: 15,
+  debug: 10,
+  silly: 5
 };
 
-// Create a simple logger that uses console
-export const createLogger = (name: string): MonkeyPatchedLogger => {
-  const log = (level: string, msg: string, ...args: any[]) => {
-    console.log(`[${new Date().toISOString()}] [${name}] ${level}: ${msg}`, ...args);
-  };
+const levelColors: Record<number, (s: string) => string> = {
+  50: colorette.red, // error
+  40: colorette.yellow, // warn
+  30: colorette.blue, // info
+  25: colorette.magenta, // http
+  20: colorette.cyan, // pubsub
+  15: colorette.gray, // verbose
+  10: colorette.gray, // debug
+  5: colorette.gray // silly
+};
 
+const getColor = (level: number) => {
+  return levelColors[level] || colorette.white;
+};
+
+const customTransport = new Writable({
+  write(chunk, enc, cb) {
+    try {
+      const log = JSON.parse(chunk.toString());
+      const levelColor = getColor(log.level);
+      const time = new Date(log.time).toISOString().slice(11, 23); // HH:MM:SS.mmm
+      const name = log.name || '';
+      const levelName = Object.keys(levels).find(key => levels[key as keyof typeof levels] === log.level) || 'unknown';
+      const formatted = `[${time}] ${levelColor(levelName.toUpperCase())} (${name}/${process.pid}): ${levelColor(log.msg)}`;
+      console.log(formatted);
+    } catch (err) {
+      console.error('Error in custom transport:', err);
+    }
+    cb();
+  }
+});
+
+const logger = pino(
+  {
+    customLevels: levels,
+    level: config.logLevel || 'debug',
+    timestamp: pino.stdTimeFunctions.isoTime
+  },
+  customTransport
+);
+
+export type MonkeyPatchedLogger = {
+  error: (msg: string, ...args: any[]) => void;
+  warn: (msg: string, ...args: any[]) => void;
+  info: (msg: string, ...args: any[]) => void;
+  http: (msg: string, ...args: any[]) => void;
+  pubsub: (msg: string, ...args: any[]) => void;
+  verbose: (msg: string, ...args: any[]) => void;
+  debug: (msg: string, ...args: any[]) => void;
+  silly: (msg: string, ...args: any[]) => void;
+};
+
+const formatArgs = (msg: string, ...args: any[]) => {
+  if (args.length === 0) return msg;
+  return msg + ' ' + args.map(a => util.inspect(a)).join(' ');
+};
+
+export const createLogger = (name: string): MonkeyPatchedLogger => {
+  const child = logger.child({ name });
   return {
-    error: (msg: string, ...args: any[]) => log('ERROR', msg, ...args),
-    warn: (msg: string, ...args: any[]) => log('WARN', msg, ...args),
-    info: (msg: string, ...args: any[]) => log('INFO', msg, ...args),
-    http: (msg: string, ...args: any[]) => log('HTTP', msg, ...args),
-    pubsub: (msg: string, ...args: any[]) => log('PUBSUB', msg, ...args),
-    verbose: (msg: string, ...args: any[]) => log('VERBOSE', msg, ...args),
-    debug: (msg: string, ...args: any[]) => log('DEBUG', msg, ...args),
-    silly: (msg: string, ...args: any[]) => log('SILLY', msg, ...args),
+    error: (msg: string, ...args: any[]) => child.error(formatArgs(msg, ...args)),
+    warn: (msg: string, ...args: any[]) => child.warn(formatArgs(msg, ...args)),
+    info: (msg: string, ...args: any[]) => child.info(formatArgs(msg, ...args)),
+    http: (msg: string, ...args: any[]) => child.http(formatArgs(msg, ...args)),
+    pubsub: (msg: string, ...args: any[]) => child.pubsub(formatArgs(msg, ...args)),
+    verbose: (msg: string, ...args: any[]) => child.verbose(formatArgs(msg, ...args)),
+    debug: (msg: string, ...args: any[]) => child.debug(formatArgs(msg, ...args)),
+    silly: (msg: string, ...args: any[]) => child.silly(formatArgs(msg, ...args))
   };
 };
