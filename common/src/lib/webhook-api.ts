@@ -1,4 +1,4 @@
-import { createLogger } from './logger.js';
+import { createLogger } from './logger';
 const log = createLogger('WebHook-API');
 
 export async function webhookPost(uri: string, body: object) {

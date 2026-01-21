@@ -3,7 +3,7 @@ import { config as dotenvConfig } from 'dotenv';
 dotenvConfig({ path: '../.env' });
 import Nodemailer, { type SendMailOptions } from 'nodemailer';
 import { MailtrapTransport } from 'mailtrap';
-import { createLogger } from './logger.js';
+import { createLogger } from './logger';
 const log = createLogger('Mailtrap-API');
 
 export const MAILTRAP_API_TOKEN = process.env.MAILTRAP_API_TOKEN || '';
