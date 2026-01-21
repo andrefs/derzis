@@ -12,6 +12,9 @@ dist
 tsconfig.tsbuildinfo
 .svelte-kit
 *.log.gz
+# Generated config files
+vitest.config.js
+vitest.config.d.ts
 data/db
 coverage
 manager/build
