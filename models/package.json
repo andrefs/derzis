@@ -1,5 +1,5 @@
 {
-  "name": "derzis-models",
+  "name": "@derzis/models",
   "version": "0.1.0",
   "scripts": {
     "typecheck": "tsc -b tsconfig.json",

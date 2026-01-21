@@ -1,4 +1,5 @@
 {
+	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"target": "esnext",
 		"lib": ["esnext"],
@@ -8,12 +9,7 @@
 		"outDir": "./dist",
 		"esModuleInterop": true,
 		"composite": true,
-		"skipLibCheck": true,
-		"paths": {
-			"@derzis/config": [
-				"../config/src"
-			]
-		}
+		"skipLibCheck": true
 	},
 	"references": [
 		{
@@ -21,6 +17,7 @@
 		}
 	],
 	"exclude": [
+		"dist/**",
 		"vitest.config.ts"
 	]
 }

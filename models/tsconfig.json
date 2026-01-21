@@ -1,4 +1,5 @@
 {
+	"extends": "../tsconfig.json",
 	"compilerOptions": {
 		"target": "esnext",
 		"lib": ["esnext"],
@@ -10,15 +11,7 @@
 		"composite": true,
 		"skipLibCheck": true,
 		"emitDecoratorMetadata": true,
-		"experimentalDecorators": true,
-		"paths": {
-			"@derzis/common": [
-				"../common/src"
-			],
-			"@derzis/config": [
-				"../config/src"
-			]
-		}
+		"experimentalDecorators": true
 	},
 	"references": [
 		{
@@ -27,5 +20,9 @@
 		{
 			"path": "../config"
 		}
+	],
+	"exclude": [
+		"dist/**",
+		"vitest.config.ts"
 	]
 }

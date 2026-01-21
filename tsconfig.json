@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"target": "esnext",
+		"lib": ["esnext"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"paths": {
+			"@derzis/common": [
+				"./common/src"
+			],
+			"@derzis/config": [
+				"./config/src"
+			],
+			"@derzis/models": [
+				"./models/src"
+			]
+		}
+	},
+	"files": []
+}
