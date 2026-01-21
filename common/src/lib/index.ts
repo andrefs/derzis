@@ -5,4 +5,4 @@ export * from './mongoose-validators';
 export * from './types';
 export * from './mail';
 export * from './webhook-api';
-export * from './triple';
+export * from './sanitize';

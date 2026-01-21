@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "",
   "scripts": {
+    "typecheck": "tsc -b tsconfig.json",
     "test": "vitest run"
   },
   "keywords": [],

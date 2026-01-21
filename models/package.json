@@ -1,9 +1,16 @@
 {
+  "name": "derzis-models",
+  "version": "0.1.0",
+  "scripts": {
+    "typecheck": "tsc -b tsconfig.json",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@rdfjs/types": "2.0.1",
     "@typegoose/typegoose": "12.10.1",
     "cheerio": "1.0.0",
     "eslint": "9.19.0",
-    "humanize-digest": "1.0.0"
+    "humanize-digest": "1.0.0",
+    "vitest": "4.0.17"
   }
 }

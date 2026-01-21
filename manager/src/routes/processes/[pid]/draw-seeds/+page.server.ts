@@ -16,13 +16,26 @@ export const load: PageServerLoad = async ({ params }) => {
 		});
 	}
 
+	console.log('XXXXXXXXXXXXX', p.currentStep.predsDirMetrics);
+
 	return {
 		proc: {
 			pid: p.pid,
 			currentStep: {
 				seeds: p.currentStep.seeds,
-				predsDirMetrics: p.currentStep.predsDirMetrics
+				branchFactors: p.currentStep.predsDirMetrics.reduce((acc, metric) => {
+					if (!metric.branchFactor) {
+						return acc;
+					}
+					if (metric.branchFactor.obj === 0) {
+						acc.set(metric.url, Infinity);
+						return acc;
+					}
+					acc.set(metric.url, metric.branchFactor?.subj / metric.branchFactor?.obj);
+					return acc;
+				}, new Map<string, number>())
 			}
 		}
 	};
-};
+}
+

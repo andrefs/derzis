@@ -17,7 +17,6 @@
 	let allPredicates: Array<{ predicate: string; count: number }> = [];
 	let selectedPredicates: string[] = [];
 	let currentHop = 0;
-	let predBranchingFactors = new Map<string, number>();
 	let allTriples: Array<{ subject: string; predicate: string; object: string; createdAt: string }> =
 		[];
 	let filteredTriples: Array<{
@@ -32,8 +31,6 @@
 	let maxDate: Date = new Date();
 	let minDateLabel: { date: string; time: string } | '' = '';
 	let maxDateLabel: { date: string; time: string } | '' = '';
-	let skipRebuild = false;
-	let sliderEnabled = false;
 	let predicateInput = '';
 	let isDataLoading = true;
 
@@ -113,14 +110,14 @@
 					directionAllowed = directionOk(simpleTriple, node, branchingFactor);
 				}
 
-				if (directionAllowed && !result.has(tripleKey)) {
-					result.add(tripleKey);
+				if (directionAllowed && !result.has(tripleKey!)) {
+					result.add(tripleKey!);
 
 					// Add connected node to queue if not visited and within hop limit
-					if (!visitedNodes.has(connectedNode) && hops < maxHops) {
-						visitedNodes.add(connectedNode);
-						nodeHops.set(connectedNode, hops + 1);
-						queue.push({ node: connectedNode, hops: hops + 1 });
+					if (!visitedNodes.has(connectedNode!) && hops < maxHops) {
+						visitedNodes.add(connectedNode!);
+						nodeHops.set(connectedNode!, hops + 1);
+						queue.push({ node: connectedNode!, hops: hops + 1 });
 					}
 				}
 			}
@@ -160,19 +157,6 @@
 			allPredicates = Array.from(counts.entries())
 				.map(([predicate, count]) => ({ predicate, count }))
 				.sort((a, b) => b.count - a.count);
-
-			// Initialize branching factors
-			const predsDirMetrics = (data.proc.currentStep as any).predsDirMetrics;
-			if (predsDirMetrics) {
-				predsDirMetrics.forEach((metrics: any, predUrl: string) => {
-					if (metrics.bf && typeof metrics.bf.obj === 'number' && metrics.bf.obj > 0) {
-						predBranchingFactors.set(predUrl, metrics.bf.subj / metrics.bf.obj);
-					} else if (metrics.bf && metrics.bf.obj === 0) {
-						// Handle division by zero - set to Infinity
-						predBranchingFactors.set(predUrl, Infinity);
-					}
-				});
-			}
 
 			isDataLoading = false;
 		});
@@ -253,7 +237,7 @@
 			data.proc.currentStep.seeds,
 			selectedPredicates,
 			effectiveHop,
-			predBranchingFactors
+			data.proc.currentStep.branchFactors
 		);
 		filteredTriples = result.triples;
 		nodeHops = result.nodeHops;
@@ -471,38 +455,6 @@
 
 	.badge-remove:hover {
 		color: #fff;
-	}
-
-	.no-selection-container {
-		height: 100%;
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		border: 2px dashed #dee2e6;
-		border-radius: 8px;
-		background-color: #f8f9fa;
-		box-sizing: border-box;
-		flex: 1;
-	}
-
-	.no-selection-message {
-		text-align: center;
-		max-width: 400px;
-		padding: 2rem;
-	}
-
-	.no-selection-message h4 {
-		color: #6c757d;
-		margin-bottom: 1rem;
-		font-weight: 600;
-	}
-
-	.no-selection-message p {
-		color: #8e9297;
-		margin: 0;
-		line-height: 1.5;
 	}
 
 	.page-main {

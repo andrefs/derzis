@@ -1,7 +1,6 @@
 import type { BulkWriteResult } from 'mongodb';
-import { createLogger, directionOk } from '@derzis/common';
+import { createLogger, urlValidator, SimpleTriple } from '@derzis/common';
 const log = createLogger('Triple');
-import { urlValidator, } from '@derzis/common';
 import type { ResourceClass } from './Resource';
 import type { Types } from 'mongoose';
 import {
@@ -150,6 +149,28 @@ class TripleClass {
 }
 
 
+/**
+ * Check if the direction of the triple is acceptable based on the position of head URL in the triple and branch factor.
+ * If branch factor (bf) > 1 the predicate converges from subject to object.
+ * If branch factor (bf) < 1 the predicate converges from object to subject.
+ * @param triple The triple to check.
+ * @param headUrl The URL of the head resource.
+ * @param bf The branch factor of the predicate.
+ * @returns True if the direction is acceptable, false otherwise.
+ */
+export function directionOk(triple: SimpleTriple, headUrl: string, bf: number): boolean {
+	if (bf === 1) {
+		// no directionality
+		return true;
+	}
+	if (bf > 1) {
+		// converging from subject to object
+		return headUrl === triple.subject;
+	} else {
+		// converging from object to subject
+		return headUrl === triple.object;
+	}
+}
 
 const Triple = getModelForClass(TripleClass, {
 	schemaOptions: { timestamps: true, collection: 'triples' }

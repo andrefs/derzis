@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { directionOk } from './triple';
-import type { SimpleTriple } from './types';
+import { directionOk } from './Triple';
+import { SimpleTriple } from '@derzis/common';
 
 describe('directionOk', () => {
   const triple: SimpleTriple = {
