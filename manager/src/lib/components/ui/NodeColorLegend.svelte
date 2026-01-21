@@ -1,8 +1,28 @@
-<script lang="ts">
+ <script lang="ts">
 	export let locked: boolean | undefined;
 	export let addedLevels: Set<string>[] | undefined;
 	export let minDateLabel: { date: string; time: string } | '' = '';
 	export let maxDateLabel: { date: string; time: string } | '' = '';
+	export let maxHop: number | undefined = undefined;
+
+	const hopColors = [
+		'#ff0000', // Hop 0: Red (seeds)
+		'#0000ff', // Hop 1: Blue
+		'#00c800', // Hop 2: Green
+		'#ffff00', // Hop 3: Yellow
+		'#800080', // Hop 4: Purple
+		'#ffa500', // Hop 5: Orange
+		'#00ffff', // Hop 6: Cyan
+		'#ff00ff', // Hop 7: Magenta
+		'#808080'  // Hop 8+: Gray
+	];
+
+	function getHopColor(hop: number): string {
+		if (hop < hopColors.length) {
+			return hopColors[hop];
+		}
+		return hopColors[hopColors.length - 1]; // Gray for higher hops
+	}
 </script>
 
 {#if locked && addedLevels}
@@ -27,6 +47,24 @@
 				<span class="date">{maxDateLabel.date}</span>
 				<span class="time">{maxDateLabel.time}</span>
 			</span>
+		</div>
+	</div>
+{:else if maxHop !== undefined}
+	<div class="node-color-legend">
+		<h6>Hop Number</h6>
+		<div class="discrete-legend">
+			{#each Array(Math.min(maxHop + 1, 9)) as _, i}
+				<div class="hop-item">
+					<div class="hop-color" style="background-color: {getHopColor(i)}"></div>
+					<span class="hop-label">{i}</span>
+				</div>
+			{/each}
+			{#if maxHop >= 8}
+				<div class="hop-item">
+					<div class="hop-color" style="background-color: #808080"></div>
+					<span class="hop-label">8+</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -85,5 +123,31 @@
 	.time {
 		font-size: 9px;
 		color: #777;
+	}
+
+	.discrete-legend {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.hop-item {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 10px;
+		color: #555;
+	}
+
+	.hop-color {
+		width: 12px;
+		height: 12px;
+		border-radius: 2px;
+		border: 1px solid rgba(0, 0, 0, 0.2);
+	}
+
+	.hop-label {
+		min-width: 20px;
+		text-align: left;
 	}
 </style>

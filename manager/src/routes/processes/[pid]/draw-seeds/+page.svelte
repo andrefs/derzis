@@ -31,6 +31,7 @@
 	let maxDate: Date = new Date();
 	let minDateLabel: { date: string; time: string } | '' = '';
 	let maxDateLabel: { date: string; time: string } | '' = '';
+	let maxHop: number = 0;
 	let predicateInput = '';
 	let isDataLoading = true;
 
@@ -262,6 +263,9 @@
 			minDateLabel = formatDateLabel(minDate);
 			maxDateLabel = formatDateLabel(maxDate);
 		}
+
+		const hops = Array.from(nodeHops.values());
+		maxHop = hops.length > 0 ? Math.max(...hops) : 0;
 		isLoading = false;
 	}
 </script>
@@ -339,8 +343,7 @@
 			<NodeColorLegend
 				locked={graphLocked}
 				addedLevels={graphAddedLevels}
-				{minDateLabel}
-				{maxDateLabel}
+				{maxHop}
 			/>
 			{#if selectedPredicates.length > 0}
 				<EdgeColorLegend {state} {graphData} {selectedPredicates} />
@@ -362,9 +365,6 @@
 								bind:locked={graphLocked}
 								bind:addedLevels={graphAddedLevels}
 								bind:state
-								{minDate}
-								{maxDate}
-								{nodeMaxCreatedAt}
 							/>
 							{#if selectedPredicates.length > 0}
 								<div class="hop-counter">

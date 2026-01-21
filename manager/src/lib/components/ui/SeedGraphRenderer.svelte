@@ -12,9 +12,9 @@
 		object: string;
 		createdAt: string;
 	}> = [];
-	export let nodeMaxCreatedAt: Map<string, Date>;
-	export let minDate: Date;
-	export let maxDate: Date;
+	export let nodeMaxCreatedAt: Map<string, Date> = new Map();
+	export let minDate: Date = new Date();
+	export let maxDate: Date = new Date();
 	export let seeds: string[];
 	export let nodeHops: Map<string, number>;
 	export let locked: boolean = false;
@@ -76,23 +76,23 @@
 				return a.localeCompare(b);
 			});
 
-			function getNodeColor(date: Date): string {
-				if (maxDate.getTime() === minDate.getTime()) {
-					return '#0000ff'; // Blue for all nodes if all have same age
+			const hopColors = [
+				'#ff0000', // Hop 0: Red (seeds)
+				'#0000ff', // Hop 1: Blue
+				'#00c800', // Hop 2: Green
+				'#ffff00', // Hop 3: Yellow
+				'#800080', // Hop 4: Purple
+				'#ffa500', // Hop 5: Orange
+				'#00ffff', // Hop 6: Cyan
+				'#ff00ff', // Hop 7: Magenta
+				'#808080'  // Hop 8+: Gray
+			];
+
+			function getHopColor(hop: number): string {
+				if (hop < hopColors.length) {
+					return hopColors[hop];
 				}
-				const ratio =
-					(date.getTime() - minDate.getTime()) / (maxDate.getTime() - minDate.getTime());
-				let r, g, b;
-				if (ratio < 0.5) {
-					r = Math.floor(200 * ratio * 2);
-					g = Math.floor(200 * ratio * 2);
-					b = 255;
-				} else {
-					r = Math.floor(200 * (2 - ratio * 2));
-					g = 200;
-					b = Math.floor(255 * (2 - ratio * 2));
-				}
-				return `rgb(${r}, ${g}, ${b})`;
+				return hopColors[hopColors.length - 1]; // Gray for higher hops
 			}
 
 			for (const node of sortedNodes) {
@@ -121,13 +121,8 @@
 			}
 
 			for (const node of graph.nodes()) {
-				const isSeed = seeds.includes(node);
-				if (isSeed) {
-					graph.setNodeAttribute(node, 'color', '#ff0000'); // Red for seeds
-				} else {
-					const date = nodeMaxCreatedAt.get(node) || minDate;
-					graph.setNodeAttribute(node, 'color', getNodeColor(date));
-				}
+				const hop = nodeHops.get(node) ?? 0;
+				graph.setNodeAttribute(node, 'color', getHopColor(hop));
 			}
 
 			graphData = graph;
