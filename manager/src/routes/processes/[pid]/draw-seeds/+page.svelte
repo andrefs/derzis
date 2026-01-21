@@ -11,14 +11,8 @@
 		allPredicates,
 		selectedPredicates,
 		currentHop,
-		allTriples,
 		filteredTriples,
 		nodeHops,
-		nodeMaxCreatedAt,
-		minDate,
-		maxDate,
-		minDateLabel,
-		maxDateLabel,
 		predicateInput,
 		isDataLoading,
 		nodeCount,
@@ -27,7 +21,6 @@
 		branchFactors,
 		addPredicate as storeAddPredicate,
 		removePredicate as storeRemovePredicate,
-		getPredicateDisplayInfo as storeGetPredicateDisplayInfo,
 		loadAllTriples as storeLoadAllTriples,
 		processTriplesData as storeProcessTriplesData
 	} from '$lib/stores/draw-seeds-store';
@@ -58,9 +51,9 @@
 			selectedPredicates.subscribe(($selected) => {
 				if ($selected.length > 0) {
 					if (event.key === 'ArrowRight') {
-						currentHop.update(c => c + 1);
+						currentHop.update((c) => c + 1);
 					} else if (event.key === 'ArrowLeft') {
-						currentHop.update(c => c - 1);
+						currentHop.update((c) => c - 1);
 					}
 				}
 			})();
@@ -74,15 +67,13 @@
 			if ($selected.length === 0) {
 				goto(window.location.pathname, { replaceState: true });
 			} else {
-				goto(
-					`${window.location.pathname}?predicates=${encodeURIComponent($selected.join(','))}`,
-					{ replaceState: true }
-				);
+				goto(`${window.location.pathname}?predicates=${encodeURIComponent($selected.join(','))}`, {
+					replaceState: true
+				});
 			}
 		});
 	}
 
-	let predicateColors: Map<string, string> = new Map();
 	let graphData: any = null;
 	let state: {
 		hoveredNode?: string;
@@ -95,15 +86,6 @@
 
 	$: if (graphData) {
 		nodeCount.set(graphData.nodes().length);
-	}
-
-	/**
-	 * Gets display information for a predicate.
-	 * @param predicate - The predicate string.
-	 * @returns Object with display and full strings.
-	 */
-	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
-		return storeGetPredicateDisplayInfo(predicate);
 	}
 </script>
 
@@ -177,11 +159,7 @@
 					</FormGroup>
 				</div>
 			</div>
-			<NodeColorLegend
-				locked={$graphLocked}
-				addedLevels={$graphAddedLevels}
-				maxHop={$maxHop}
-			/>
+			<NodeColorLegend locked={$graphLocked} addedLevels={$graphAddedLevels} maxHop={$maxHop} />
 			{#if $selectedPredicates.length > 0}
 				<EdgeColorLegend {state} {graphData} selectedPredicates={$selectedPredicates} />
 			{/if}

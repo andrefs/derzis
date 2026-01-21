@@ -494,7 +494,11 @@ class ProcessClass extends Document {
 		for await (const path of paths) {
 			const { newPaths, procTriples } = await path.extendWithExistingTriples(this);
 			await ProcessTriple.insertMany(
-				[...procTriples].map((tId) => ({ processId: this.pid, triple: tId }))
+				[...procTriples].map((tId) => ({
+					processId: this.pid,
+					triple: tId,
+					processStep: this.steps.length
+				}))
 			);
 			await Path.create(newPaths);
 		}
