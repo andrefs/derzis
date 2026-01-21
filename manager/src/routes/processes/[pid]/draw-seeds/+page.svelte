@@ -31,9 +31,10 @@
 	let maxDate: Date = new Date();
 	let minDateLabel: { date: string; time: string } | '' = '';
 	let maxDateLabel: { date: string; time: string } | '' = '';
-	let maxHop: number = 0;
 	let predicateInput = '';
 	let isDataLoading = true;
+	let nodeCount = 0;
+	let maxHop: number = 0;
 
 	function addPredicate(predicate: string) {
 		if (predicate && !selectedPredicates.includes(predicate)) {
@@ -204,6 +205,10 @@
 		labelHoveredNode?: string;
 	} = {};
 
+	$: if (graphData) {
+		nodeCount = graphData.nodes().length;
+	}
+
 	function getPredicateDisplayInfo(predicate: string): { display: string; full: string } {
 		if (!predicate) return { display: '', full: '' };
 
@@ -370,6 +375,9 @@
 								<div class="hop-counter">
 									Hop: {currentHop}
 								</div>
+								<div class="node-counter">
+									Nodes: {nodeCount}
+								</div>
 							{/if}
 						</div>
 					{/if}
@@ -510,6 +518,21 @@
 	.hop-counter {
 		position: absolute;
 		top: 10px;
+		right: 10px;
+		background: rgba(255, 255, 255, 0.9);
+		border: 1px solid #dee2e6;
+		border-radius: 4px;
+		padding: 4px 8px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: #495057;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		z-index: 10;
+	}
+
+	.node-counter {
+		position: absolute;
+		top: 45px;
 		right: 10px;
 		background: rgba(255, 255, 255, 0.9);
 		border: 1px solid #dee2e6;

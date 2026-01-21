@@ -56,7 +56,7 @@
 			{#each Array(Math.min(maxHop + 1, 9)) as _, i}
 				<div class="hop-item">
 					<div class="hop-color" style="background-color: {getHopColor(i)}"></div>
-					<span class="hop-label">{i}</span>
+					<span class="hop-label">{i === 0 ? 'Seeds' : i}</span>
 				</div>
 			{/each}
 			{#if maxHop >= 8}
