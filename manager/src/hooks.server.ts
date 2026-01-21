@@ -2,7 +2,7 @@ import { building } from '$app/environment';
 import { db } from '@derzis/models';
 import ManagerPubSub from './lib/ManagerPubSub';
 import type { Handle } from '@sveltejs/kit';
-import { createLogger } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 const mps = new ManagerPubSub();
 import { DERZIS_MNG_DB_NAME, MONGO_HOST, MONGO_PORT } from '$env/static/private';
 import muri from 'mongodb-uri';

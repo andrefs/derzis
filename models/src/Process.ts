@@ -4,7 +4,8 @@ import { Triple, TripleClass } from './Triple';
 import { humanize } from 'humanize-digest';
 import { Path, type PathSkeleton, type PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
-import { createLogger, webhookPost } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
+import { webhookPost } from '@derzis/common/server';
 const log = createLogger('Process');
 import {
 	prop,
@@ -15,7 +16,7 @@ import {
 	PropType,
 	type DocumentType
 } from '@typegoose/typegoose';
-import { sendEmail } from '@derzis/common';
+import { sendEmail } from '@derzis/common/server';
 
 export class BranchFactorClass {
 	@prop({ type: Number })

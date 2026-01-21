@@ -1,7 +1,8 @@
 import EventEmitter from 'events';
 import { Domain, DomainClass, Resource, Path } from '@derzis/models';
 import config from '@derzis/config';
-import { createLogger, type JobType, type OngoingJobs } from '@derzis/common';
+import { type JobType, type OngoingJobs } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 import type { UpdateQuery } from 'mongoose';
 const log = createLogger('Manager');
 

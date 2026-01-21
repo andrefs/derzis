@@ -1,7 +1,8 @@
 import { StepClass, Process, ProcessClass, Resource, Triple, Path } from '@derzis/models';
-import { type RecursivePartial, sendInitEmail } from '@derzis/common';
+import { type RecursivePartial } from '@derzis/common';
+import { sendInitEmail } from '@derzis/common/server';
 import { secondsToString, type MakeOptional } from './utils';
-import { createLogger } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 const log = createLogger('process-helper');
 
 export async function newProcess(p: RecursivePartial<ProcessClass>) {

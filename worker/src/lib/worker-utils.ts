@@ -12,7 +12,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import contentType from 'content-type';
 import LinkHeader from 'http-link-header';
-import { createLogger } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 const log = createLogger('Axios');
 
 const acceptedMimeTypes = config.http.acceptedMimeTypes;

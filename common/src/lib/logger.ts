@@ -1,54 +1,5 @@
-import winston, { format, Logger, transports } from 'winston';
-import type { LeveledLogMethod } from 'winston';
-const { combine, timestamp, printf, colorize } = format;
-const color = colorize().colorize;
-import util from 'util';
-import config from '@derzis/config';
-
-const myCustomLevels = {
-  levels: {
-    error: 0,
-    warn: 1,
-    info: 2,
-    http: 3,
-    pubsub: 4,
-    verbose: 5,
-    debug: 6,
-    silly: 7
-  },
-  colors: {
-    error: 'red',
-    warn: 'yellow',
-    info: 'blue',
-    http: 'magenta',
-    pubsub: 'cyan',
-    verbose: 'gray',
-    debug: 'grey',
-    silly: 'grey'
-  }
-};
-
-winston.addColors(myCustomLevels.colors);
-
-const formatMeta = (meta: { [x: string]: string }) => {
-  const sbl: any = Symbol.for('splat');
-  // You can format the splat yourself
-  const splat = meta[sbl];
-  if (splat && splat.length) {
-    return splat.length === 1 ? util.inspect(splat[0]) : util.inspect(splat);
-  }
-  return '';
-};
-
-const customFormat = printf(
-  ({ timestamp, level, message, moduleName, ...meta }) =>
-    color('debug', timestamp as string) +
-    ` [${moduleName}] ` +
-    color(level, `${level}: ${message} ${formatMeta(meta as { [x: string]: string })}`)
-);
-
-//}) => colorize().colorize(level, `${timestamp} [${moduleName}] ${level}: ${message} ${formatMeta(meta)}`));
-
+// Simple logger implementation using console
+// Custom levels enum to match winston
 enum LogLevels {
   ERROR = 'error',
   WARN = 'warn',
@@ -61,24 +12,23 @@ enum LogLevels {
 }
 
 export type MonkeyPatchedLogger = {
-  [level in LogLevels]: LeveledLogMethod;
-} & Logger;
+  [level in LogLevels]: (msg: string, ...args: any[]) => void;
+};
 
-const logger = winston.createLogger({
-  levels: myCustomLevels.levels,
-  transports: [
-    new transports.Console({
-      level: config.logLevel || 'debug',
-      format: combine(
-        //colorize({all: true}),
-        timestamp(),
-        customFormat
-      )
-    })
-  ]
-});
-
+// Create a simple logger that uses console
 export const createLogger = (name: string): MonkeyPatchedLogger => {
-  // set the default moduleName of the child
-  return logger.child({ moduleName: name }) as MonkeyPatchedLogger;
+  const log = (level: string, msg: string, ...args: any[]) => {
+    console.log(`[${new Date().toISOString()}] [${name}] ${level}: ${msg}`, ...args);
+  };
+
+  return {
+    error: (msg: string, ...args: any[]) => log('ERROR', msg, ...args),
+    warn: (msg: string, ...args: any[]) => log('WARN', msg, ...args),
+    info: (msg: string, ...args: any[]) => log('INFO', msg, ...args),
+    http: (msg: string, ...args: any[]) => log('HTTP', msg, ...args),
+    pubsub: (msg: string, ...args: any[]) => log('PUBSUB', msg, ...args),
+    verbose: (msg: string, ...args: any[]) => log('VERBOSE', msg, ...args),
+    debug: (msg: string, ...args: any[]) => log('DEBUG', msg, ...args),
+    silly: (msg: string, ...args: any[]) => log('SILLY', msg, ...args),
+  };
 };

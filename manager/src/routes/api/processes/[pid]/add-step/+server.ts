@@ -1,7 +1,7 @@
 import { addStep } from '$lib/process-helper';
 import { PredDirMetrics, Process } from '@derzis/models';
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { createLogger } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 const log = createLogger('API');
 
 interface NewStepReqBody {

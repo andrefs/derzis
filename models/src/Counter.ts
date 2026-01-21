@@ -1,4 +1,4 @@
-import { createLogger } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 const log = createLogger('Counter');
 import { type ReturnModelType, getModelForClass, index, prop } from '@typegoose/typegoose';
 

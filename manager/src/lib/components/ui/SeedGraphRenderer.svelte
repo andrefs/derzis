@@ -50,6 +50,7 @@
 	async function buildGraph() {
 		try {
 			isLoading = true;
+			if (!container) return; // Wait for container to be mounted
 			if (renderer) {
 				renderer.kill();
 				renderer = null;

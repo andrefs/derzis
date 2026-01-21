@@ -1,6 +1,7 @@
 import { createClient } from 'redis';
 import config from '@derzis/config';
-import { createLogger, MAILTRAP_API_TOKEN } from '@derzis/common';
+import { MAILTRAP_API_TOKEN } from '@derzis/common/server';
+import { createLogger } from '@derzis/common/lib/logger';
 const log = createLogger('Manager');
 import Manager from './Manager';
 import process from 'process';

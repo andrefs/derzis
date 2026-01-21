@@ -11,11 +11,11 @@ import {
 	PathClass
 } from '@derzis/models';
 import {
-	createLogger,
 	type JobResult,
 	type RobotsCheckResult,
 	type CrawlResourceResult
 } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
 import type {

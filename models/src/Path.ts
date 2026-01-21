@@ -3,8 +3,8 @@ import {
 	urlListValidator,
 	urlValidator,
 	type RecursivePartial,
-	createLogger,
 } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 import {
 	prop,
 	index,

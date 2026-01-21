@@ -5,7 +5,7 @@ const redisOpts = {
 	url: `redis://${config.pubsub.host}:${config.pubsub.port}`
 };
 import { Worker } from './Worker';
-import { createLogger } from '@derzis/common';
+import { createLogger } from '@derzis/common/server';
 import type {
 	Message,
 	MonkeyPatchedLogger,
