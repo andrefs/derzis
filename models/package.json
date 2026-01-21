@@ -12,5 +12,8 @@
     "eslint": "9.19.0",
     "humanize-digest": "1.0.0",
     "vitest": "4.0.17"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
   }
 }

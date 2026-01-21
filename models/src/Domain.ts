@@ -13,12 +13,9 @@ import {
   PropType,
   post
 } from '@typegoose/typegoose';
-const log = createLogger('Domain');
+import { DomainCrawlJobInfo } from '@derzis/common';
 
-export interface DomainCrawlJobInfo {
-  domain: DomainClass;
-  resources: { url: string }[];
-}
+const log = createLogger('Domain');
 
 type DomainErrorType =
   | 'E_ROBOTS_TIMEOUT'
