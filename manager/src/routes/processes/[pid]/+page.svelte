@@ -48,6 +48,11 @@
 									>Latest triples <Icon src={HiSolidMagnifyingGlass} /></a
 								>
 							</p>
+							<p>
+								<a href="/processes/{data.proc.pid}/resource"
+									>Triples by resource <Icon src={HiSolidMagnifyingGlass} /></a
+								>
+							</p>
 						</td>
 					</tr>
 					<tr>
