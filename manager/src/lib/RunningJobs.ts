@@ -277,6 +277,10 @@ export default class RunningJobs extends EventEmitter {
 	}
 
 	async cancelJob(origin: string, jobType: JobType) {
+		if (!this._running[origin]) {
+			log.warn(`Attempted to cancel job ${jobType} on ${origin} but no running job found`);
+			return;
+		}
 		const jobId = this._running[origin].jobId;
 		log.info(`Canceling job ${jobId} ${jobType} on ${origin}`);
 		this.deregisterJob(origin);
