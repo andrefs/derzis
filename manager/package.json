@@ -71,11 +71,11 @@
 		"swagger-ui-express": "^5.0.1",
 		"uuid": "^11.0.5",
 		"vite": "6.0.11",
-    "vitest": "3.0.4",
-    "pino": "^8.17.2",
-    "pino-pretty": "^10.3.1",
-    "colorette": "^2.0.20",
-    "yazl": "3.3.1"
+		"vitest": "3.0.4",
+		"pino": "^8.17.2",
+		"pino-pretty": "^10.3.1",
+		"colorette": "^2.0.20",
+		"yazl": "3.3.1"
 	},
 	"devDependencies": {
 		"@types/bluebird": "3.5.42",

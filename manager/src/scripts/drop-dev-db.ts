@@ -46,7 +46,7 @@ async function dropDevDatabases() {
 			}
 		}
 
-		console.log('🎉 Database drop operation completed');
+		console.log('🎉 Database drop completed');
 	} catch (error) {
 		console.error('❌ Error dropping databases:', error);
 		process.exit(1);
