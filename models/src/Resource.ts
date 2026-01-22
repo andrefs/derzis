@@ -23,11 +23,12 @@ class CrawlId {
 
 @index({ url: 1, status: 1 })
 @index({ domain: 1, status: 1 })
+@index({ url: 1 }, { unique: true })
 class ResourceClass {
 	createdAt!: Date;
 	updatedAt!: Date;
 
-	@prop({ required: true, unique: true, index: true, validate: urlValidator, type: String })
+	@prop({ required: true, index: true, validate: urlValidator, type: String })
 	public url!: string;
 
 	@prop({ required: true, validate: urlValidator, type: String })
@@ -93,6 +94,13 @@ class ResourceClass {
 		);
 	}
 
+	/**
+	* Marks a resource as crawled, updating its status and related domain/path stats.
+	* @param url - The URL of the resource to mark as crawled.
+	* @param details - Details about the crawl result.
+	* @param error - Optional error information if the crawl failed.
+	* @returns An object containing updated domain crawl information.
+	*/
 	public static async markAsCrawled(
 		this: ReturnModelType<typeof ResourceClass>,
 		url: string,
@@ -194,7 +202,8 @@ class ResourceClass {
 		}));
 
 		const res = await this.bulkWrite(upserts);
-		await Domain.upsertMany(urls.map((u: string) => new URL(u).origin));
+		const domains = new Set<string>(urls.map((u: string) => new URL(u).origin));
+		await Domain.upsertMany(Array.from(domains));
 		const seedResources = await this.find({ url: { $in: urls } })
 			.select('url domain status')
 			.lean();
