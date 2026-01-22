@@ -232,11 +232,18 @@ class DomainClass {
     return this.bulkWrite(Object.values(domains).map((d) => ({ updateOne: d })));
   }
 
+  /**
+   * Locks domains for robots.txt checking
+   * Also updates the status of associated path head origins to 'checking'
+   * @param wId - The worker ID
+   * @param origins - The origins to lock
+   * @returns {Promise<DomainClass[]>} - The locked domains
+   */
   public static async lockForRobotsCheck(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     origins: string[]
-  ) {
+  ): Promise<DomainClass[]> {
     const jobId = await Counter.genId('jobs');
     const query = {
       origin: { $in: origins },
@@ -254,14 +261,28 @@ class DomainClass {
       fields: 'origin jobId'
     };
     await this.findOneAndUpdate(query, update, options);
-    return this.find({ jobId }).lean();
+    const domains = await this.find({ jobId }).lean();
+    if (domains.length) {
+      await Path.updateMany(
+        { 'head.domain.origin': { $in: domains.map((d) => d.origin) } },
+        { $set: { 'head.domain.status': 'checking' } }
+      );
+    }
+    return domains;
   }
 
+  /**
+   * Locks domains for crawling
+   * Also updates the status of associated path head origins to 'crawling'
+   * @param wId - The worker ID
+   * @param origins - The origins to lock
+   * @returns {Promise<DomainClass[]>} - The locked domains
+   */
   public static async lockForCrawl(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     origins: string[]
-  ) {
+  ): Promise<DomainClass[]> {
     const jobId = await Counter.genId('jobs');
     const query = {
       origin: { $in: origins },
@@ -280,7 +301,15 @@ class DomainClass {
       fields: 'origin jobId'
     };
     await this.findOneAndUpdate(query, update, options);
-    return this.find({ jobId }).lean();
+    const domains = this.find({ jobId }).lean();
+    if (domains.length) {
+      await Path.updateMany(
+        { 'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) } },
+        { $set: { 'head.domain.status': 'crawling' } }
+      );
+    }
+
+    return domains;
   }
 
   public static async *domainsToCheck(
@@ -413,6 +442,8 @@ class DomainClass {
           continue PATHS_LOOP;
         }
 
+        log.info(`Preparing to lock for crawl domains from the following origins`,
+          Array.from(new Set(unvisHeads.map((h) => h.domain.origin))));
         const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
 

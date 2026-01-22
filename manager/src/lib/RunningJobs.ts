@@ -96,55 +96,70 @@ export default class RunningJobs extends EventEmitter {
 		const customUpdate: UpdateQuery<DomainClass> =
 			jobType === 'robotsCheck'
 				? {
-						$set: {
-							'robots.status': 'error'
-						},
-						$push: {
-							lastWarnings: {
-								$each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
-								$slice: -10
-							}
-						},
-						$inc: {
-							'warnings.E_ROBOTS_TIMEOUT': 1
+					$set: {
+						'robots.status': 'error'
+					},
+					$push: {
+						lastWarnings: {
+							$each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
+							$slice: -10
 						}
+					},
+					$inc: {
+						'warnings.E_ROBOTS_TIMEOUT': 1
 					}
+				}
 				: {
-						$push: {
-							lastWarnings: {
-								$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
-								$slice: -10
-							}
-						},
-						$inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
-					};
+					$push: {
+						lastWarnings: {
+							$each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
+							$slice: -10
+						}
+					},
+					$inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
+				};
 		return this.cleanJob(origin, jobType, customUpdate);
 	}
 
 	async cleanJob(origin: string, jobType: JobType, customUpdate?: UpdateQuery<DomainClass>) {
 		log.info(`Cleaning job ${jobType} from domain ${origin}`);
 		if (jobType === 'robotsCheck') {
+			// update domain
 			const update = customUpdate || {};
 			update['$set'] = update['$set'] || {};
 			update['$set']['status'] = 'unvisited';
 			update['$unset'] = update['$unset'] || {};
 			update['$unset']['workerId'] = '';
 			update['$unset']['jobId'] = '';
-
 			await Domain.updateMany({ origin }, update);
-			await Path.updateMany({ 'head.domain.origin': origin }, { $set: { status: 'unvisited' } });
+
+			// update paths with head belonging to this domain
+			await Path.updateMany(
+				{ 'head.domain.origin': origin },
+				{ $set: { status: 'unvisited', 'head.domain.status': 'unvisited' } }
+			);
 		}
 		if (jobType === 'domainCrawl') {
-			await Resource.updateMany({ origin, status: 'crawling' }, { status: 'unvisited' });
+			// update resources being crawled for this domain
+			await Resource.updateMany(
+				{ origin, status: 'crawling' },
+				{ status: 'unvisited' }
+			);
+
+			// update domain
 			const update = customUpdate || {};
 			update['$set'] = update['$set'] || {};
 			update['status'] = 'ready';
 			update['$unset'] = update['$unset'] || {};
 			update['$unset']['workerId'] = '';
 			update['$unset']['jobId'] = '';
-
 			const res = await Domain.updateMany({ origin }, update);
-			await Path.updateMany({ 'head.domain.origin': origin }, { $set: { status: 'ready' } });
+
+			// update paths with head belonging to this domain
+			await Path.updateMany(
+				{ 'head.domain.origin': origin },
+				{ $set: { status: 'ready', 'head.domain.status': 'ready' } }
+			);
 		}
 	}
 
@@ -225,8 +240,7 @@ export default class RunningJobs extends EventEmitter {
 		if (this._running[origin]) {
 			const jobId = this._running[origin].jobId;
 			log.warn(
-				`Job #${jobId} ${jobType} for domain ${origin} timed out (${
-					timeout / 1000
+				`Job #${jobId} ${jobType} for domain ${origin} timed out (${timeout / 1000
 				}s started at ${ts.toISOString()})`
 			);
 		}
