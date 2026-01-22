@@ -144,7 +144,13 @@ export default class RunningJobs extends EventEmitter {
 			// update paths with head belonging to this domain
 			await Path.updateMany(
 				{ 'head.domain.origin': origin },
-				{ $set: { status: 'unvisited', 'head.domain.status': 'unvisited' } }
+				{
+					$set: {
+						'head.status': 'unvisited',
+						'head.domain.status':
+							'unvisited'
+					}
+				}
 			);
 		}
 		if (jobType === 'domainCrawl') {
@@ -166,8 +172,15 @@ export default class RunningJobs extends EventEmitter {
 			// update paths with head belonging to this domain
 			await Path.updateMany(
 				{ 'head.domain.origin': origin },
-				{ $set: { status: 'ready', 'head.domain.status': 'ready' } }
+				{
+					$set: {
+						'head.status': 'ready',
+						'head.domain.status': 'ready'
+					}
+				}
 			);
+
+
 		}
 	}
 
@@ -285,7 +298,7 @@ export default class RunningJobs extends EventEmitter {
 				timeout: setTimeout(async () => {
 					if (this.beingSavedByDomain[domain]) {
 						const jobId = this._running[domain].jobId;
-						throw `Job #${jobId} ${jobType} for domain ${domain} timedout while being saved`; // TODO proper handling
+						log.warn(`Job #${jobId} ${jobType} for domain ${domain} timed out while being saved - proceeding with cleanup`);
 					}
 					await this.timeoutJob(domain, jobType, timeout, ts);
 				}, timeout),

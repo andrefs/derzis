@@ -76,6 +76,12 @@ export default class Manager {
 						e
 					);
 					log.info(JSON.stringify(jobResult, null, 2));
+					// Reset statuses to prevent stuck state
+					await Resource.markAsCrawled(jobResult.url, jobResult.details, {
+						errorType: 'database_error',
+						name: 'Save Error',
+						message: (e as Error).message
+					});
 				} finally {
 					this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
 					log.debug(

@@ -11,6 +11,7 @@ type ErrorType =
   | 'unsupported_mime_type'
   | 'axios_error'
   | 'parsing'
+  | 'database_error'
   | 'unknown_worker_error';
 export class WorkerError extends Error {
   errorType: ErrorType = 'unknown_worker_error';
