@@ -814,6 +814,8 @@ class ProcessClass extends Document {
 				await process.notifyStart();
 				return true;
 			}
+			log.info('No queued processes to start');
+			return false;
 		}
 		log.info('There are already running processes, not starting a new one');
 		return false;

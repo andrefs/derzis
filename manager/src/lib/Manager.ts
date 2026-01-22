@@ -309,7 +309,11 @@ export default class Manager {
 		//FIXME
 		if (this.finished > 5) {
 			log.info('No current processes running, starting new process');
-			await Process.startNext();
+			const res = await Process.startNext();
+			if (res) {
+				this.finished = 0;
+				return;
+			}
 			console.log(
 				'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!',
 				this.finished,
