@@ -1,28 +1,69 @@
 {
-	"extends": "../tsconfig.json",
 	"compilerOptions": {
-		"target": "esnext",
-		"lib": ["esnext"],
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext",
-		"rootDir": "./src",
 		"outDir": "./dist",
-		"esModuleInterop": true,
-		"composite": true,
-		"skipLibCheck": true,
+		"allowJs": true,
+		"checkJs": true,
 		"emitDecoratorMetadata": true,
-		"experimentalDecorators": true
+		"esModuleInterop": true,
+		"experimentalDecorators": true,
+		"forceConsistentCasingInFileNames": true,
+		"incremental": true,
+		"isolatedModules": true,
+		"jsx": "preserve",
+		"lib": [
+			"DOM",
+			"DOM.Iterable",
+			"ESNext",
+			"ESNext.AsyncIterable"
+		],
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"noEmit": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"strictPropertyInitialization": false,
+		"target": "ES2020",
+		"paths": {
+			"$lib": [
+				"./manager/src/lib"
+			],
+			"$lib/*": [
+				"./manager/src/lib/*"
+			],
+			"@derzis/common": [
+				"../common/src"
+			],
+			"@derzis/common/server": [
+				"../common/src/server"
+			],
+			"@derzis/config": [
+				"../config/src"
+			],
+			"@derzis/worker": [
+				"./worker/"
+			],
+			"@derzis/manager": [
+				"../manager/lib"
+			]
+		}
+	},
+	"ts-node": {
+		"require": [
+			"tsconfig-paths/register"
+		]
 	},
 	"references": [
 		{
-			"path": "../common"
+			"path": "../config"
 		},
 		{
-			"path": "../config"
+			"path": "../common/"
 		}
 	],
 	"exclude": [
-		"dist/**",
-		"vitest.config.ts"
+		"**/vitest.config.*",
+		"**/node_modules"
 	]
 }
