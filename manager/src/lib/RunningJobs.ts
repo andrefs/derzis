@@ -53,9 +53,17 @@ export default class RunningJobs extends EventEmitter {
 		}
 	}
 
+	toObject() {
+		return {
+			running: Object.keys(this._running),
+			beingSaved: this.beingSaved,
+			beingSavedByDomain: this.beingSavedByDomain
+		};
+	}
+
 	toString() {
 		return (
-			`Running: ${Object.keys(this._running).join(', ')}, ` +
+			`running: ${Object.keys(this._running).join(', ')}, ` +
 			`beingSaved: ${JSON.stringify(this.beingSaved)}, ` +
 			`beingSavedByDomain: ${JSON.stringify(this.beingSavedByDomain)}`
 		);

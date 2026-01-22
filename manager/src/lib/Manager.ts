@@ -295,7 +295,7 @@ export default class Manager {
 		if (!assignedCheck && !assignedCrawl && !this.jobs.count() && !this.jobs.beingSaved.count()) {
 			log.info(
 				'Could not find any domains to check or crawl *right now* and there are no outstanding jobs',
-				this.jobs
+				this.jobs.toObject()
 			);
 
 			this.finished++;
