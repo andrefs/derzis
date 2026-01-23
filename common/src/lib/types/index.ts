@@ -56,8 +56,14 @@ export interface JobResultOk extends BaseJobResult {
   details: object;
 }
 
+export type CrawlDomainResultDetails = {
+  crawledResources?: string[];
+  nonCrawledResources?: string[];
+};
+
 export type BaseCrawlDomainResult = {
   jobType: 'domainCrawl';
+  details: CrawlDomainResultDetails;
 } & BaseJobResult;
 export type BaseCrawlDomainResultOk = BaseCrawlDomainResult & JobResultOk;
 export type BaseCrawlDomainResultError = BaseCrawlDomainResult & JobResultError;

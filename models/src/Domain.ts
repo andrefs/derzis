@@ -406,15 +406,25 @@ class DomainClass {
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
   }
 
+  /**
+   * Generator function to get domains to crawl
+   * @param wId - The worker ID
+   * @param domLimit - The maximum number of domains to crawl
+   * @param resLimit - The maximum number of resources per domain
+   * @returns {AsyncGenerator<DomainCrawlJobInfo>}
+   */
   public static async *domainsToCrawl2(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     domLimit: number,
     resLimit: number
-  ) {
+  ): AsyncGenerator<DomainCrawlJobInfo> {
+    log.info(`Starting domain crawl locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`);
     let domainsFound = 0;
     let procSkip = 0;
     let pathLimit = 20; // TODO get from config
+
+    let skipDomains: { [origin: string]: Date } = {}
 
     // iterate over processes
     PROCESS_LOOP: while (domainsFound < domLimit) {
@@ -430,7 +440,20 @@ class DomainClass {
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
-        const paths = await proc.getPathsForDomainCrawl(pathSkip, pathLimit);
+        // determine which domains to skip based on their crawl.nextAllowed time
+        const now = new Date();
+        const blDomains = [];
+        for (const d in skipDomains) {
+          if (skipDomains[d] <= now) {
+            delete skipDomains[d];
+          } else {
+            blDomains.push(d);
+          }
+        }
+        log.info(`Skipping domains: ${Object.keys(skipDomains)} because they cannot be crawled yet.`);
+
+        // get paths for this process
+        const paths = await proc.getPathsForDomainCrawl(blDomains, pathSkip, pathLimit);
         pathSkip += pathLimit;
         if (!paths.length) {
           continue PROCESS_LOOP;
@@ -442,16 +465,20 @@ class DomainClass {
           continue PATHS_LOOP;
         }
 
-        log.info(`Preparing to lock for crawl domains from the following origins`,
-          Array.from(new Set(unvisHeads.map((h) => h.domain.origin))));
+        log.info(`Preparing to lock for crawl domains from the following resources`,
+          Array.from(new Set(unvisHeads.map((h) => h.url))));
         const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
-          const domains = await this.find({ origin: { $in: Array.from(origins) } }).select('origin crawl').lean();
+          const domains = await this
+            .find({ origin: { $in: Array.from(origins) } })
+            .select('origin crawl')
+            .lean();
           for (const d of domains) {
             if (d.crawl.nextAllowed > new Date()) {
+              skipDomains[d.origin] = d.crawl.nextAllowed;
               log.info(`Domain ${d.origin} cannot be crawled yet, next allowed at ${d.crawl.nextAllowed}`);
             }
           }

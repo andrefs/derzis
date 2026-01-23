@@ -337,7 +337,7 @@ class ProcessClass extends Document {
 	 * @returns {Promise<PathDocument[]>} - paths
 	 * @memberof ProcessClass
 	 */
-	public async getPathsForDomainCrawl(skip = 0, limit = 20): Promise<PathDocument[]> {
+	public async getPathsForDomainCrawl(domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<PathDocument[]> {
 		const predLimFilter =
 			this.currentStep.predLimit.limType === 'whitelist'
 				? { 'predicates.elems': { $in: this.currentStep.predLimit.limPredicates } }
@@ -345,6 +345,7 @@ class ProcessClass extends Document {
 		const paths = await Path.find({
 			processId: this.pid,
 			'head.domain.status': 'ready',
+			'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
 			'head.status': 'unvisited',
 			'nodes.count': { $lt: this.currentStep.maxPathLength },
 			'predicates.count': { $lte: this.currentStep.maxPathProps },

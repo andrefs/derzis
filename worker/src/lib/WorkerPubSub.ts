@@ -9,7 +9,8 @@ import { createLogger } from '@derzis/common/server';
 import type {
 	Message,
 	JobRequest,
-	ResourceCrawlJobRequest
+	ResourceCrawlJobRequest,
+	CrawlDomainResult
 } from '@derzis/common';
 import type { MonkeyPatchedLogger } from '@derzis/common/server';
 let log: MonkeyPatchedLogger;
@@ -129,6 +130,7 @@ export class WorkerPubSub {
 
 	async doJob(job: Exclude<JobRequest, ResourceCrawlJobRequest>) {
 		const origin = job.type === 'domainCrawl' ? job.domain.origin : job.origin;
+		// Check if job can be done
 		if (this.w.alreadyBeingDone(origin, job.type)) {
 			log.error(
 				`Job ${job.type} on ${origin} already being done, so job #${job.jobId} was refused.`
@@ -139,6 +141,8 @@ export class WorkerPubSub {
 			});
 			return;
 		}
+
+		// Check capacity
 		if (!this.w.hasCapacity(job.type)) {
 			log.error(`No capacity for job ${job.type} on ${origin}, so job #${job.jobId} was refused.`);
 			this.pub({
@@ -148,6 +152,8 @@ export class WorkerPubSub {
 			return;
 		}
 
+		// Do the job
+		log.info(`Starting job ${job.type} on ${origin} (job #${job.jobId})`);
 		if (job.type === 'robotsCheck') {
 			const res = await this.w.checkRobots(job.jobId, job.origin);
 			this.pub({ type: 'jobDone', payload: res });
@@ -156,22 +162,32 @@ export class WorkerPubSub {
 		}
 		if (job.type === 'domainCrawl') {
 			const total = job.resources.length;
+			const resourcesToDo = new Set<string>(job.resources.map((r) => r.url));
+			const resourcesDone = new Set<string>();
 			let i = 0;
 			for await (const x of this.w.crawlDomain(job)) {
 				log.info(
 					`Finished resourceCrawl ${++i}/${total} of ${job.domain.origin} (job #${job.jobId})`
 				);
+				if (x.status === 'ok') {
+					resourcesToDo.delete(x.url);
+					resourcesDone.add(x.url);
+				}
 				this.pub({ type: 'jobDone', payload: x });
 			}
+			const jobResult: CrawlDomainResult = {
+				jobId: job.jobId,
+				status: 'ok' as const,
+				jobType: 'domainCrawl' as const,
+				origin: job.domain.origin,
+				details: {
+					crawledResources: Array.from(resourcesDone),
+					nonCrawledResources: Array.from(resourcesToDo)
+				}
+			};
 			this.pub({
 				type: 'jobDone',
-				payload: {
-					jobId: job.jobId,
-					status: 'ok' as const,
-					jobType: 'domainCrawl',
-					origin: job.domain.origin,
-					details: {}
-				}
+				payload: jobResult
 			});
 			// this.reportCurrentCapacity();
 			return;

@@ -115,6 +115,9 @@ export default class Manager {
 				}
 			}
 		}
+		if (jobResult.jobType === 'domainCrawl') {
+			log.warn(`Received completion of domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}:`, jobResult.details);
+		}
 	}
 
 	async saveCrawl2(jobResult: CrawlResourceResult) {

@@ -28,7 +28,7 @@ class ResourceClass {
 	createdAt!: Date;
 	updatedAt!: Date;
 
-	@prop({ required: true, index: true, validate: urlValidator, type: String })
+	@prop({ required: true, index: true, unique: true, validate: urlValidator, type: String })
 	public url!: string;
 
 	@prop({ required: true, validate: urlValidator, type: String })
@@ -70,12 +70,18 @@ class ResourceClass {
 			});
 
 		if (insertedDocs.length) {
-			await Domain.upsertMany(resources.map((r) => r.domain));
+			const domainsSet = new Set<string>(resources.map((r) => r.domain));
+			await Domain.upsertMany(Array.from(domainsSet));
 		}
 
 		return insertedDocs;
 	}
 
+	/**
+	 * Adds resources from an array of triples by extracting unique subjects and objects.
+	 * @param triples - An array of TripleSkeleton objects containing subject and object URLs.
+	 * @returns A promise that resolves to the added resources.
+	 */
 	public static async addFromTriples(
 		this: ReturnModelType<typeof ResourceClass>,
 		triples: TripleSkeleton[]
