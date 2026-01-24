@@ -191,7 +191,7 @@ class ProcessClass extends Document {
 			return true;
 		}
 
-		const pathsToCrawl = await this.getPathsForDomainCrawl(0, 1);
+		const pathsToCrawl = await this.getPathsForDomainCrawl([], 0, 1);
 		const pathsToCheck = await this.getPathsForRobotsChecking(0, 1);
 		const hasPathsChecking = await this.hasPathsDomainRobotsChecking();
 		const hasPathsCrawling = await this.hasPathsHeadBeingCrawled();

@@ -450,7 +450,9 @@ class DomainClass {
             blDomains.push(d);
           }
         }
-        log.info(`Skipping domains: ${Object.keys(skipDomains)} because they cannot be crawled yet.`);
+        if (Object.keys(skipDomains).length) {
+          log.info(`Skipping domains: ${Object.keys(skipDomains)} because they cannot be crawled yet.`);
+        }
 
         // get paths for this process
         const paths = await proc.getPathsForDomainCrawl(blDomains, pathSkip, pathLimit);

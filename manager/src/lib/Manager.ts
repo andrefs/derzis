@@ -257,28 +257,9 @@ export default class Manager {
 		}
 		let assignedCheck = 0;
 		let assignedCrawl = 0;
-		// robotsCheck jobs
-		if (workerAvail.robotsCheck.capacity) {
-			log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
-			for await (const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)) {
-				if (await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')) {
-					log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning robotsCheck', {
-						workerId,
-						workerAvail,
-						check
-					});
-					assignedCheck++;
-					yield {
-						type: 'robotsCheck',
-						jobId: check.jobId,
-						origin: check.origin
-					};
-				}
-			}
-		}
 
-		// domainCrawl jobs
 		if (workerAvail.domainCrawl) {
+			// domainCrawl jobs
 			log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
 			//for await (const crawl of this.domainsToCrawl(
 			for await (const crawl of Domain.domainsToCrawl2(
@@ -301,6 +282,26 @@ export default class Manager {
 				}
 			}
 		}
+		if (!assignedCrawl && workerAvail.robotsCheck.capacity) {
+			// robotsCheck jobs
+			log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
+			for await (const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)) {
+				if (await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')) {
+					log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning robotsCheck', {
+						workerId,
+						workerAvail,
+						check
+					});
+					assignedCheck++;
+					yield {
+						type: 'robotsCheck',
+						jobId: check.jobId,
+						origin: check.origin
+					};
+				}
+			}
+		}
+
 		if (!assignedCheck && !assignedCrawl && !this.jobs.count() && !this.jobs.beingSaved.count()) {
 			log.info(
 				'Could not find any domains to check or crawl *right now* and there are no outstanding jobs',
