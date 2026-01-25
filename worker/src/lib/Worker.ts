@@ -126,9 +126,14 @@ export class Worker extends EventEmitter {
 		this.currentJobs.robotsCheck[origin] = true;
 
 		const url = origin + '/robots.txt';
-		const res = await fetchRobots(url, axios);
-		delete this.currentJobs.robotsCheck[origin];
-		return { ...res, url, jobId, origin, jobType: 'robotsCheck' };
+		try {
+			const res = await fetchRobots(url, axios);
+			delete this.currentJobs.robotsCheck[origin];
+			return { ...res, url, jobId, origin, jobType: 'robotsCheck' };
+		} catch (err) {
+			delete this.currentJobs.robotsCheck[origin];
+			throw err;
+		}
 	}
 
 	async *crawlDomain({ jobId, domain, resources }: DomainCrawlJobRequest) {
@@ -145,14 +150,18 @@ export class Worker extends EventEmitter {
 		});
 		delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
 
-		for (const r of resources) {
-			const res = await this.crawlResource(jobId, domain.origin, r.url, robots);
-			if (!res) {
-				break;
+		try {
+			for (const r of resources) {
+				const res = await this.crawlResource(jobId, domain.origin, r.url, robots);
+				if (!res) {
+					break;
+				}
+				yield res;
 			}
-			yield res;
+			delete this.currentJobs.domainCrawl[domain.origin];
+		} catch (err) {
+			delete this.currentJobs.domainCrawl[domain.origin];
 		}
-		delete this.currentJobs.domainCrawl[domain.origin];
 	}
 
 	async getResourceFromCache(url: string) {

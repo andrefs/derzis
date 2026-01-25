@@ -80,6 +80,12 @@ export const handleHttpError = (url: string, err: any): HttpRequestResultError =
 
 export type AxiosGet = Pick<AxiosInstance, 'get'>;
 
+/**
+ * Fetch robots.txt from a given URL
+ * @param url The URL to fetch robots.txt from
+ * @param axios An Axios instance to use for the request
+ * @returns An object containing the fetch details and status
+ */
 export const fetchRobots = async (url: string, axios: AxiosGet) => {
 	const timeout = config.http.robotsCheck.timeouts || 10 * 1000;
 	const maxRedirects = config.http.robotsCheck.maxRedirects || 5;
