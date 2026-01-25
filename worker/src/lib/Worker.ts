@@ -18,7 +18,6 @@ import {
 	MimeTypeError,
 	RobotsForbiddenError,
 	TooManyRedirectsError,
-	AxiosError,
 	type JobType,
 	type RobotsCheckResult,
 	type CrawlResourceResult,
@@ -48,13 +47,46 @@ interface JobsTimedOut {
 }
 
 export class Worker extends EventEmitter {
+	/**
+	 * Unique Worker ID
+	 */
 	wId: string;
+
+	/**
+	 * Short Worker ID
+	 */
 	wShortId: string;
+
+
+	/**
+	 * Job capacity
+	 */
 	jobCapacity: JobCapacity;
+
+	/**
+	 * Currently ongoing jobs
+	 */
 	currentJobs: OngoingJobs;
+
+	/**
+	 * Accept header value
+	 */
 	accept: string;
+
+	/**
+	 * Jobs that have timed out
+	 */
 	jobsTimedout: JobsTimedOut;
+
+	/**
+	* Crawl timestamp
+	*/
 	crawlTs!: Date;
+
+	/*configuration*
+	 * Crawl counter
+	 * This guarantees unique resource crawl IDs within a domain crawl
+	 */
 	crawlCounter!: number;
 
 	async connect() {

@@ -198,19 +198,14 @@ export class WorkerPubSub {
 	* Report current capacity to Manager
 	*/
 	reportCurrentCapacity() {
-		const jc = this.w.jobCapacity;
+		const jc = this.w.currentCapacity();
 		const cj = this.w.currentJobs;
-		jc.domainCrawl.capacity = Math.max(
-			0,
-			jc.domainCrawl.capacity - Object.keys(cj.domainCrawl).length
-		);
-		jc.robotsCheck.capacity = Math.max(0, jc.robotsCheck.capacity - Object.keys(cj.robotsCheck).length);
-
+		log.silly('Reporting current capacity', { jobCapacity: jc, currentJobs: cj });
 		this.pub({ type: 'repCurCap', payload: jc });
 	}
 
 	askJobs() {
-		const jc = this.w.jobCapacity;
+		const jc = this.w.currentCapacity();
 		this.pub({ type: 'askJobs', payload: jc });
 	}
 }
