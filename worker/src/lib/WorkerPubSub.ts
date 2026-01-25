@@ -194,8 +194,18 @@ export class WorkerPubSub {
 		}
 	}
 
+	/**
+	* Report current capacity to Manager
+	*/
 	reportCurrentCapacity() {
 		const jc = this.w.jobCapacity;
+		const cj = this.w.currentJobs;
+		jc.domainCrawl.capacity = Math.max(
+			0,
+			jc.domainCrawl.capacity - Object.keys(cj.domainCrawl).length
+		);
+		jc.robotsCheck.capacity = Math.max(0, jc.robotsCheck.capacity - Object.keys(cj.robotsCheck).length);
+
 		this.pub({ type: 'repCurCap', payload: jc });
 	}
 
