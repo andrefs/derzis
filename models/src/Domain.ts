@@ -487,6 +487,13 @@ class DomainClass {
           continue PATHS_LOOP;
         }
 
+        // throw away domains over the limit
+        if (domainsFound + domains.length > domLimit) {
+          const allowed = domLimit - domainsFound;
+          log.info(`Domain limit reached, only processing ${allowed} out of ${domains.length} locked domains.`);
+          domains.splice(allowed);
+        }
+
         domainsFound += domains.length;
 
         const domainInfo: { [origin: string]: DomainCrawlJobInfo } = {};
