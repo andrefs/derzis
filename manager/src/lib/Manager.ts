@@ -35,6 +35,8 @@ export default class Manager {
 		this.finished = 0;
 	}
 
+	
+
 	async updateJobResults(jobResult: JobResult) {
 		log.debug('updateJobResults', {
 			finished: this.finished,

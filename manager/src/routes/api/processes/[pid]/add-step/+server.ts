@@ -1,7 +1,8 @@
 import { addStep } from '$lib/process-helper';
-import { PredDirMetrics, Process } from '@derzis/models';
+import { PredDirMetrics, Process, StepClass } from '@derzis/models';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
+import type { MakeOptional } from '$lib/utils';
 const log = createLogger('API');
 
 interface NewStepReqBody {
@@ -16,6 +17,7 @@ interface NewStepReqBody {
 		};
 		followDirection: boolean;
 		predsDirMetrics?: PredDirMetrics[];
+		resetErrors: boolean;
 	};
 }
 
@@ -28,13 +30,14 @@ export const POST: RequestHandler = async ({ request, params }) => {
 
 	console.log('XXXXXXXXXXXXXXX add-step server 3', JSON.stringify(resp.data, null, 2));
 
-	const procParams = {
+	const procParams: MakeOptional<StepClass, 'seeds'> = {
 		seeds: resp.data.newSeeds,
 		maxPathLength: resp.data.maxPathLength,
 		maxPathProps: resp.data.maxPathProps,
 		predLimit: resp.data.predLimit,
 		followDirection: resp.data.followDirection,
-		predsDirMetrics: resp.data.predsDirMetrics
+		predsDirMetrics: resp.data.predsDirMetrics,
+		resetErrors: resp.data.resetErrors
 	};
 
 	const proc = await Process.findOne({ pid: params.pid });
