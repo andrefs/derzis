@@ -85,14 +85,14 @@ class CrawlClass {
   public nextAllowed!: Date;
 }
 
-@post<DomainClass>('findOneAndUpdate', async function (doc) {
-  if (doc) {
-    await Path.updateMany(
-      { 'head.domain.origin': doc.origin },
-      { $set: { 'head.domain.status': doc.status } }
-    );
-  }
-})
+  @post<DomainClass>('findOneAndUpdate', async function (doc) {
+    if (doc) {
+      await Path.updateMany(
+        { 'head.domain.origin': doc.origin, status: 'active' },
+        { $set: { 'head.domain.status': doc.status } }
+      );
+    }
+  })
 @index({
   status: 1,
   'crawl.pathHeads': 1,
@@ -264,7 +264,7 @@ class DomainClass {
     const domains = await this.find({ jobId }).lean();
     if (domains.length) {
       await Path.updateMany(
-        { 'head.domain.origin': { $in: domains.map((d) => d.origin) } },
+        { 'head.domain.origin': { $in: domains.map((d) => d.origin) }, status: 'active' },
         { $set: { 'head.domain.status': 'checking' } }
       );
     }
@@ -304,7 +304,7 @@ class DomainClass {
     const domains = this.find({ jobId }).lean();
     if (domains.length) {
       await Path.updateMany(
-        { 'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) } },
+        { 'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) }, status: 'active' },
         { $set: { 'head.domain.status': 'crawling' } }
       );
     }
@@ -400,7 +400,7 @@ class DomainClass {
       { status: 'crawling', jobId }
     ).lean();
     await Path.updateMany(
-      { 'head.url': { $in: resources.map((r) => r.url) } },
+      { 'head.url': { $in: resources.map((r) => r.url) }, status: 'active' },
       { $set: { 'head.status': 'crawling' } }
     ).lean();
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });

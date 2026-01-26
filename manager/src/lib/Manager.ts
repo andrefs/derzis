@@ -103,12 +103,12 @@ export default class Manager {
 							}
 						}
 					);
-					await Path.updateMany(
-						{ 'head.domain.origin': jobResult.origin },
-						{
-							$set: { 'head.domain.status': 'ready' }
-						}
-					);
+                await Path.updateMany(
+                    { 'head.domain.origin': jobResult.origin, status: 'active' },
+                    {
+                        $set: { 'head.domain.status': 'ready' }
+                    }
+                );
 
 					if (res.acknowledged && res.modifiedCount) {
 						this.jobs.deregisterJob(jobResult.origin);

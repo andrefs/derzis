@@ -373,26 +373,28 @@ class ProcessClass extends Document {
 	 * @returns {Promise<boolean>} - true if there are paths
 	 * @memberof ProcessClass
 	 */
-	public async hasPathsDomainRobotsChecking(): Promise<boolean> {
-		const paths = await Path.find({
-			processId: this.pid,
-			'head.domain.status': 'checking'
-		});
-		return !!paths.length;
-	}
+    public async hasPathsDomainRobotsChecking(): Promise<boolean> {
+        const paths = await Path.find({
+            processId: this.pid,
+            status: 'active',
+            'head.domain.status': 'checking'
+        });
+        return !!paths.length;
+    }
 
 	/**
 	 * Check if process has paths whose head's url is currently being crawled
 	 * @returns {Promise<boolean>} - true if there are paths
 	 * @memberof ProcessClass
 	 */
-	public async hasPathsHeadBeingCrawled(): Promise<boolean> {
-		const paths = await Path.find({
-			processId: this.pid,
-			'head.status': 'crawling'
-		});
-		return !!paths.length;
-	}
+    public async hasPathsHeadBeingCrawled(): Promise<boolean> {
+        const paths = await Path.find({
+            processId: this.pid,
+            status: 'active',
+            'head.status': 'crawling'
+        });
+        return !!paths.length;
+    }
 
 	/**
 	 * Recursively extend paths with existing triples
@@ -417,8 +419,8 @@ class ProcessClass extends Document {
 				// create new paths
 				const newPaths = await Path.create(newPathObjs);
 
-				// delete old paths
-				await Path.deleteMany({ _id: { $in: Array.from(toDelete) } });
+                // mark old paths as deleted
+                await Path.updateMany({ _id: { $in: Array.from(toDelete) } }, { $set: { status: 'deleted' } });
 
 				await this.extendPathsWithExistingTriples(newPaths);
 			}
@@ -428,10 +430,11 @@ class ProcessClass extends Document {
 	public async extendProcessPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
 		const newHeads = Object.keys(triplesByNode);
 		log.silly('New heads:', newHeads);
-		const paths = await Path.find({
-			processId: this.pid,
-			'head.url': newHeads.length === 1 ? newHeads[0] : { $in: Object.keys(triplesByNode) }
-		});
+        const paths = await Path.find({
+            processId: this.pid,
+            status: 'active',
+            'head.url': newHeads.length === 1 ? newHeads[0] : { $in: Object.keys(triplesByNode) }
+        });
 		log.silly('Paths:', paths);
 
 		const pathsToDelete = new Set();
@@ -468,8 +471,8 @@ class ProcessClass extends Document {
 		// create new paths
 		const newPaths = await Path.create(newPathObjs);
 
-		// delete old paths
-		await Path.deleteMany({ _id: { $in: Array.from(toDelete) } });
+        // mark old paths as deleted
+        await Path.updateMany({ _id: { $in: Array.from(toDelete) } }, { $set: { status: 'deleted' } });
 
 		// add existing heads
 		await this.extendPathsWithExistingTriples(newPaths);
@@ -985,15 +988,15 @@ class ProcessClass extends Document {
 						$unset: { workerId: '', jobId: '' }
 					}
 				),
-				Path.updateMany(
-					{ processId: this.pid, 'head.status': 'error', 'head.url': { $in: Array.from(headUrls) } },
-					{
-						$set: {
-							'head.status': 'unvisited',
-							'head.domain.status': 'ready'
-						}
-					}
-				)
+                Path.updateMany(
+                    { processId: this.pid, status: 'active', 'head.status': 'error', 'head.url': { $in: Array.from(headUrls) } },
+                    {
+                        $set: {
+                            'head.status': 'unvisited',
+                            'head.domain.status': 'ready'
+                        }
+                    }
+                )
 			]);
 
 			summary.resources += resourceRes.modifiedCount ?? resourceRes.matchedCount ?? 0;

@@ -124,14 +124,14 @@ class ResourceClass {
 		);
 
 		// Path
-		await Path.updateMany(
-			{ 'head.url': url },
-			{
-				$set: {
-					'head.status': error ? 'error' : 'done'
-				}
-			}
-		);
+        await Path.updateMany(
+            { 'head.url': url, status: 'active' },
+            {
+                $set: {
+                    'head.status': error ? 'error' : 'done'
+                }
+            }
+        );
 
 		// Domain
 		const baseFilter = { origin: new URL(url).origin };
