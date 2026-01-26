@@ -194,9 +194,10 @@ export default class Manager {
 	 * @param triplesByNode Object mapping node URLs to arrays of triples connected to them
 	 */
 	async updateAllPathsWithHead(sourceUrl: string, triplesByNode: { [url: string]: TripleClass[] }) {
-		const pids = await Path.distinct('processId', {
-			'head.url': sourceUrl
-		});
+        const pids = await Path.distinct('processId', {
+            'head.url': sourceUrl,
+            status: 'active'
+        });
 		for (const pid of pids) {
 			const proc = await Process.findOne({ pid });
 			await proc?.extendProcessPaths(triplesByNode);
