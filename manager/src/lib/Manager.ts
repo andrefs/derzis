@@ -35,7 +35,7 @@ export default class Manager {
 		this.finished = 0;
 	}
 
-	
+
 
 	async updateJobResults(jobResult: JobResult) {
 		log.debug('updateJobResults', {
@@ -260,8 +260,8 @@ export default class Manager {
 		let assignedCheck = 0;
 		let assignedCrawl = 0;
 
+		// domainCrawl jobs
 		if (workerAvail.domainCrawl) {
-			// domainCrawl jobs
 			if (!workerAvail.domainCrawl.capacity) {
 				log.warn(`Worker ${workerId} has no capacity for domainCrawl jobs`);
 			} else {
@@ -288,8 +288,8 @@ export default class Manager {
 				}
 			}
 		}
+		// robotsCheck jobs
 		if (!assignedCrawl && workerAvail.robotsCheck) {
-			// robotsCheck jobs
 			if (!workerAvail.robotsCheck.capacity) {
 				log.warn(`Worker ${workerId} has no capacity for robotsCheck jobs`);
 			} else {
