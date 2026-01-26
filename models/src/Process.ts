@@ -17,6 +17,7 @@ import {
 	type DocumentType
 } from '@typegoose/typegoose';
 import { sendEmail } from '@derzis/common/server';
+import { Domain } from './Domain';
 
 export class BranchFactorClass {
 	@prop({ type: Number })
@@ -114,6 +115,12 @@ export class StepClass {
 	 */
 	@prop({ type: Boolean, default: false, required: true })
 	public followDirection: boolean = false;
+
+	/**
+	 * Whether to reset error statuses of resources, domains, and paths at the start of this step
+	 */
+	@prop({ type: Boolean, default: false, required: true })
+	public resetErrors: boolean = false;
 }
 
 @index({ status: 1 })
@@ -484,25 +491,6 @@ class ProcessClass extends Document {
 			});
 			return map;
 		}, new Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>());
-	}
-
-	public async updateLimits(this: ProcessClass) {
-		const paths = Path.find({
-			processId: this.pid,
-			outOfBounds: { $exists: true }
-		});
-
-		for await (const path of paths) {
-			const { newPaths, procTriples } = await path.extendWithExistingTriples(this);
-			await ProcessTriple.insertMany(
-				[...procTriples].map((tId) => ({
-					processId: this.pid,
-					triple: tId,
-					processStep: this.steps.length
-				}))
-			);
-			await Path.create(newPaths);
-		}
 	}
 
 	public async getResourceCount(this: ProcessClass) {
@@ -952,6 +940,82 @@ class ProcessClass extends Document {
 			await notifyWebhook(this.notification.webhook, notif);
 		}
 	}
+
+
+	/**
+		 * Reset resources, domains and paths that are stuck in an error state for this process so they can be crawled again.
+		 * Processes entities in batches to avoid large in-memory sets.
+		 * @param batchSize - Number of paths to process per batch (default: 1000)
+		 * @return Summary of reset entities
+		 */
+	public async resetErroredStates(this: ProcessClass, batchSize = 1000) {
+		log.warn(`Resetting errored resources, domains and paths for process ${this.pid}`);
+
+		let summary = {
+			resources: 0,
+			domains: 0,
+			paths: 0
+		};
+		let skip = 0;
+		let hasMore = true;
+
+		while (hasMore) {
+			// Fetch a batch of paths for this process
+			const paths = await Path.find({ processId: this.pid })
+				.skip(skip)
+				.limit(batchSize)
+				.select('head.url head.domain.origin')
+				.lean();
+
+			if (paths.length === 0) {
+				hasMore = false;
+				continue;
+			}
+
+			const headUrls = new Set(paths.map(p => p.head.url));
+			const origins = new Set(paths.map(p => p.head.domain.origin));
+
+			const [resourceRes, domainRes, pathRes] = await Promise.all([
+				Resource.updateMany(
+					{ status: 'error', url: { $in: Array.from(headUrls) } },
+					{
+						$set: { status: 'unvisited' },
+						$unset: { jobId: '', crawlId: '' }
+					}
+				),
+				Domain.updateMany(
+					{ status: 'error', origin: { $in: Array.from(origins) } },
+					{
+						$set: {
+							status: 'ready',
+							error: false,
+							'crawl.ongoing': 0,
+						},
+						$unset: { workerId: '', jobId: '' }
+					}
+				),
+				Path.updateMany(
+					{ processId: this.pid, 'head.status': 'error', 'head.url': { $in: Array.from(headUrls) } },
+					{
+						$set: {
+							'head.status': 'unvisited',
+							'head.domain.status': 'ready'
+						}
+					}
+				)
+			]);
+
+			summary.resources += resourceRes.modifiedCount ?? resourceRes.matchedCount ?? 0;
+			summary.domains += domainRes.modifiedCount ?? domainRes.matchedCount ?? 0;
+			summary.paths += pathRes.modifiedCount ?? pathRes.matchedCount ?? 0;
+
+			skip += paths.length;
+			log.debug(`Processed batch ${Math.ceil(skip / batchSize)}: ${paths.length} paths, ${skip} total`);
+		}
+
+		log.info(`Errored entities reset for process ${this.pid}`, summary);
+		return summary;
+	}
 }
 
 const notifyEmail = async (email: string, notif: ProcessNotification) => {
@@ -1058,6 +1122,7 @@ async function updateNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> 
 	resources.forEach((r) => (resourceMap[r.url] = r.status));
 	newPaths.forEach((p) => (p.head.status = resourceMap[p.head.url] || 'unvisited'));
 }
+
 
 const Process = getModelForClass(ProcessClass, {
 	schemaOptions: { timestamps: true, collection: 'processes' }

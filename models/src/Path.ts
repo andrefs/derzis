@@ -114,9 +114,6 @@ class PathClass {
 	@prop({ type: ResourceCount })
 	public nodes!: ResourceCount;
 
-	@prop({ ref: 'Triple' })
-	public outOfBounds?: Types.ObjectId;
-
 	@prop({ required: true, ref: 'Triple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
 	public triples!: Types.ObjectId[];
 
@@ -133,11 +130,6 @@ class PathClass {
 		}
 
 		const newHeadUrl: string = t.subject === this.head.url ? t.object : t.subject;
-
-		// path already has outOfBounds triple
-		if (!!this.outOfBounds) {
-			return false;
-		}
 
 		// new head already contained in path
 		if (this.nodes.elems.includes(newHeadUrl)) {
@@ -165,49 +157,6 @@ class PathClass {
 		newPaths: PathSkeleton[];
 		procTriples: Types.ObjectId[];
 	}> {
-		// if path has outOfBounds triple, try to extend with that
-		if (!!this.outOfBounds) {
-			const t: TripleClass | null = await Triple.findById(this.outOfBounds);
-			const predsDirMetrics = process.curPredsDirMetrics();
-			const followDirection = process!.currentStep.followDirection;
-
-			// triple is not out of bounds and is allowed by white/black lists
-			if (
-				t
-				&& !this.tripleIsOutOfBounds(t, process!)
-				&& process?.whiteBlackListsAllow(t!)
-				&& t.directionOk(this.head.url, followDirection, predsDirMetrics)
-			) {
-				log.silly('Extending path with existing outOfBounds triple', t);
-				const newHeadUrl: string = t!.subject === this.head.url ? t!.object : t!.subject;
-				const newHead = await Resource.findOne({ url: newHeadUrl }).select('url status').lean();
-
-				// new head not already contained in path
-				if (!this.nodes.elems.includes(newHeadUrl)) {
-					const prop = t!.predicate;
-
-					// create new path from current path, set new head, add predicate and node
-					const np = this.copy();
-					np.head.url = newHeadUrl;
-					np.head.status = newHead?.status || 'unvisited';
-					np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
-					np.nodes.elems.push(newHeadUrl);
-					np.triples = [...this.triples, t._id];
-
-					// insert ProcessTriple, create new path, delete old one
-					await ProcessTriple.findOneAndUpdate(
-						{ processId: this.processId, triple: t },
-						{},
-						{ upsert: true }
-					);
-					const path = await Path.create(np);
-					await Path.deleteOne({ _id: this._id });
-
-					// existing triples might be able to further extend the new path
-					return path.extendWithExistingTriples(process);
-				}
-			}
-		}
 		// find triples which include the head but dont belong to the path yet
 		let triples: TripleDocument[] = await Triple.find({
 			nodes: this.head.url,
@@ -261,21 +210,16 @@ class PathClass {
 
 			newPaths[prop] = newPaths[prop] || {};
 			// avoid extending the same path twice with the same triple
-			if (!newPaths[prop][newHeadUrl]) {
+			// and check if triple is out of bounds
+			if (!newPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
 				const np = this.copy();
 				np.head.url = newHeadUrl;
 				np.head.status = 'unvisited'; // to be redefined later
 				np.triples = [...this.triples, t._id];
+				np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
+				np.nodes.elems.push(newHeadUrl);
 
-				// check if triple is out of bounds
-				if (this.tripleIsOutOfBounds(t, process!)) {
-					// mark triple as out of bounds for the path
-					np.outOfBounds = t._id;
-				} else {
-					procTriples.push(t._id);
-					np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
-					np.nodes.elems.push(newHeadUrl);
-				}
+				procTriples.push(t._id);
 				log.silly('New path', np);
 				newPaths[prop][newHeadUrl] = np;
 			}
