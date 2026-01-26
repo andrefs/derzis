@@ -190,7 +190,8 @@ class PathClass {
 				domain: { origin: this.head.domain.origin, status: this.head.domain.status }
 			},
 			predicates: { elems: [...this.predicates.elems] },
-			nodes: { elems: [...this.nodes.elems] }
+			nodes: { elems: [...this.nodes.elems] },
+			status: this.status
 		};
 		return copy;
 	}
@@ -230,6 +231,7 @@ class PathClass {
 				np.triples = [...this.triples, t._id];
 				np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
 				np.nodes.elems.push(newHeadUrl);
+				np.status = 'active';
 
 				procTriples.push(t._id);
 				log.silly('New path', np);

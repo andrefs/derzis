@@ -214,14 +214,15 @@ class ResourceClass {
 			.select('url domain status')
 			.lean();
 
-		const paths = seedResources.map((s) => ({
-			processId: pid,
-			seed: { url: s.url },
-			head: { url: s.url, status: s.status },
-			nodes: { elems: [s.url] },
-			predicates: { elems: [] },
-			triples: []
-		}));
+        const paths = seedResources.map((s) => ({
+            processId: pid,
+            seed: { url: s.url },
+            head: { url: s.url, status: s.status },
+            nodes: { elems: [s.url] },
+            predicates: { elems: [] },
+            triples: [],
+            status: 'active'
+        }));
 
 		const insPaths = await Path.create(paths);
 		return this.addPaths(insPaths);
