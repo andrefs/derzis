@@ -286,6 +286,7 @@ class ProcessClass extends Document {
 	public async getPathsForRobotsChecking(skip = 0, limit = 20) {
 		const paths = await Path.find({
 			processId: this.pid,
+			status: 'active',
 			'head.domain.status': 'unvisited',
 			'nodes.count': { $lt: this.currentStep.maxPathLength },
 			'predicates.count': { $lte: this.currentStep.maxPathProps }
@@ -351,6 +352,7 @@ class ProcessClass extends Document {
 				: { 'predicates.elems': { $nin: this.currentStep.predLimit.limPredicates } };
 		const paths = await Path.find({
 			processId: this.pid,
+			status: 'active',
 			'head.domain.status': 'ready',
 			'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
 			'head.status': 'unvisited',
@@ -676,7 +678,7 @@ class ProcessClass extends Document {
 		const baseFilter = { processId: this.pid };
 		const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
 		const lastTriple = await Triple.findOne().sort({ updatedAt: -1 });
-		const lastPath = await Path.findOne().sort({ updatedAt: -1 });
+		const lastPath = await Path.findOne({ status: 'active' }).sort({ updatedAt: -1 });
 		const last = Math.max(
 			lastResource?.updatedAt.getTime() || 0,
 			lastTriple?.updatedAt.getTime() || 0,
@@ -684,18 +686,19 @@ class ProcessClass extends Document {
 		);
 
 		const totalPaths = await Path.countDocuments({
-			'seed.url': { $in: this.currentStep.seeds }
+			'seed.url': { $in: this.currentStep.seeds },
+			status: 'active'
 		}).lean();
 		const avgPathLength = totalPaths
 			? await Path.aggregate([
-				{ $match: { 'seed.url': { $in: this.currentStep.seeds } } },
+				{ $match: { 'seed.url': { $in: this.currentStep.seeds }, status: 'active' } },
 				{ $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
 			]).then((res) => res[0]?.avgLength || 0)
 			: 0;
 
 		const avgPathProps = totalPaths
 			? await Path.aggregate([
-				{ $match: { 'seed.url': { $in: this.currentStep.seeds } } },
+				{ $match: { 'seed.url': { $in: this.currentStep.seeds }, status: 'active' } },
 				{ $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
 			]).then((res) => res[0]?.avgProps || 0)
 			: 0;
@@ -750,15 +753,11 @@ class ProcessClass extends Document {
 			},
 			paths: {
 				total: await Path.countDocuments({
-					'seed.url': { $in: this.currentStep.seeds }
+					'seed.url': { $in: this.currentStep.seeds },
 				}).lean(),
-				finished: await Path.countDocuments({
+				deleted: await Path.countDocuments({
 					'seed.url': { $in: this.currentStep.seeds },
-					status: 'finished'
-				}).lean(), // TODO add index
-				disabled: await Path.countDocuments({
-					'seed.url': { $in: this.currentStep.seeds },
-					status: 'disabled'
+					status: 'deleted'
 				}).lean(), // TODO add index
 				active: await Path.countDocuments({
 					'seed.url': { $in: this.currentStep.seeds },
@@ -767,15 +766,7 @@ class ProcessClass extends Document {
 				avgPathLength,
 				avgPathProps
 			},
-			// TODO remove allPaths
-			allPaths: {
-				total: await Path.countDocuments().lean(),
-				finished: await Path.countDocuments({ status: 'finished' }).lean(), // TODO add index
-				disabled: await Path.countDocuments({ status: 'disabled' }).lean(), // TODO add index
-				active: await Path.countDocuments({ status: 'active' }).lean() // TODO add index
-			},
 			createdAt: this.createdAt,
-
 			timeToLastResource: timeToLastResource || '',
 			timeRunning: timeRunning || '',
 			currentStep: this.currentStep,
@@ -961,7 +952,7 @@ class ProcessClass extends Document {
 
 		while (hasMore) {
 			// Fetch a batch of paths for this process
-			const paths = await Path.find({ processId: this.pid })
+			const paths = await Path.find({ processId: this.pid, status: 'active' })
 				.skip(skip)
 				.limit(batchSize)
 				.select('head.url head.domain.origin')

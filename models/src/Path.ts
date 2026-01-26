@@ -117,6 +117,17 @@ class PathClass {
 	@prop({ required: true, ref: 'Triple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
 	public triples!: Types.ObjectId[];
 
+	/**
+	 * Path status: 'active' or 'deleted'
+	 * 'deleted' paths are ignored in processing but kept for record-keeping
+	 */
+	@prop({
+		enum: ['active', 'deleted'],
+		default: 'active',
+		type: String
+	})
+	public status!: 'active' | 'deleted';
+
 	public shouldCreateNewPath(this: PathClass, t: TripleClass): boolean {
 		//console.log('XXXXXXXXXXXXXX shouldCreateNewPath', { t, _this: this });
 		// triple is reflexive

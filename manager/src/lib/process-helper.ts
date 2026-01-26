@@ -85,7 +85,7 @@ export async function info(pid: string) {
 
 	const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO this should be process specific
 	const lastTriple = await Triple.findOne().sort({ updatedAt: -1 });
-	const lastPath = await Path.findOne().sort({ updatedAt: -1 });
+	const lastPath = await Path.findOne({ status: 'active' }).sort({ updatedAt: -1 });
 	const last = Math.max(
 		lastResource?.updatedAt.getTime() || 0,
 		lastTriple?.updatedAt.getTime() || 0,
