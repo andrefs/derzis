@@ -119,8 +119,11 @@ export async function extendExistingPaths(pid: string) {
 	});
 	
 	let processedPaths = 0;
+	const startTime = Date.now();
 	
 	while (hasMore) {
+		const batchStartTime = Date.now();
+		
 		// find a batch of active paths that can be extended
 		const paths = await Path.find({
 			processId: process.pid,
@@ -138,11 +141,20 @@ export async function extendExistingPaths(pid: string) {
 		
 		processedPaths += paths.length;
 		const percentage = Math.round((processedPaths / totalPaths) * 100);
+		const elapsedTime = (Date.now() - startTime) / 1000;
+		
 		log.info(`Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${totalPaths} - ${percentage}%)`);
+		
 		await extendPathsWithExistingTriples(process, paths);
+		
+		const batchTime = (Date.now() - batchStartTime) / 1000;
+		log.info(`Batch completed in ${batchTime.toFixed(2)}s (Total elapsed: ${elapsedTime.toFixed(2)}s)`);
 		
 		skip += batchSize;
 	}
+	
+	const totalTime = (Date.now() - startTime) / 1000;
+	log.info(`Finished extending existing paths for process ${process.pid}. Total time: ${totalTime.toFixed(2)}s`);
 }
 
 export async function extendProcessPaths(process: ProcessClass, triplesByNode: { [headUrl: string]: any[] }) {
