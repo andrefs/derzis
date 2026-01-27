@@ -105,16 +105,44 @@ export async function extendExistingPaths(pid: string) {
 		return;
 	}
 
-	// find all active paths that can be extended
-	const paths = await Path.find({
+	// Process paths in batches to avoid using up too much memory
+	const batchSize = 100;
+	let skip = 0;
+	let hasMore = true;
+	
+	// Get total number of paths to process
+	const totalPaths = await Path.countDocuments({
 		processId: process.pid,
 		status: 'active',
 		'nodes.count': { $lt: process.currentStep.maxPathLength },
 		'predicates.count': { $lte: process.currentStep.maxPathProps }
 	});
-
-	log.info(`Extending ${paths.length} existing paths for process ${process.pid}`);
-	await extendPathsWithExistingTriples(process, paths);
+	
+	let processedPaths = 0;
+	
+	while (hasMore) {
+		// find a batch of active paths that can be extended
+		const paths = await Path.find({
+			processId: process.pid,
+			status: 'active',
+			'nodes.count': { $lt: process.currentStep.maxPathLength },
+			'predicates.count': { $lte: process.currentStep.maxPathProps }
+		})
+			.limit(batchSize)
+			.skip(skip);
+		
+		if (paths.length === 0) {
+			hasMore = false;
+			break;
+		}
+		
+		processedPaths += paths.length;
+		const percentage = Math.round((processedPaths / totalPaths) * 100);
+		log.info(`Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${totalPaths} - ${percentage}%)`);
+		await extendPathsWithExistingTriples(process, paths);
+		
+		skip += batchSize;
+	}
 }
 
 export async function extendProcessPaths(process: ProcessClass, triplesByNode: { [headUrl: string]: any[] }) {
