@@ -1,8 +1,8 @@
-import { Path, type PathSkeleton, type PathDocument } from './Path';
+import { Path, type PathSkeleton, type PathDocument } from '../Path';
 import { ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
-import { ProcessTriple } from './ProcessTriple';
-import { Resource } from './Resource';
+import { ProcessTriple } from '../ProcessTriple';
+import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 
 export async function getPathsForRobotsChecking(process: ProcessClass, skip = 0, limit = 20) {

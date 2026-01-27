@@ -1,9 +1,9 @@
 import { ProcessClass, BranchFactorClass, SeedPosRatioClass } from './Process';
-import { ProcessTriple } from './ProcessTriple';
-import { Resource } from './Resource';
-import { Path } from './Path';
-import { Domain } from './Domain';
-import { Triple } from './Triple';
+import { ProcessTriple } from '../ProcessTriple';
+import { Resource } from '../Resource';
+import { Path } from '../Path';
+import { Domain } from '../Domain';
+import { Triple } from '../Triple';
 
 export async function* getTriples(process: ProcessClass) {
 	const procTriples = ProcessTriple.find({

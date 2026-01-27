@@ -1,9 +1,9 @@
 import { Types, Document } from 'mongoose';
-import { Resource } from './Resource';
-import { Triple, TripleClass } from './Triple';
+import { Resource } from '../Resource';
+import { Triple, TripleClass } from '../Triple';
 import { humanize } from 'humanize-digest';
-import { Path, type PathSkeleton, type PathDocument } from './Path';
-import { ProcessTriple } from './ProcessTriple';
+import { Path, type PathSkeleton, type PathDocument } from '../Path';
+import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Process');
 import {
@@ -15,7 +15,7 @@ import {
 	PropType,
 	type DocumentType
 } from '@typegoose/typegoose';
-import { Domain } from './Domain';
+import { Domain } from '../Domain';
 import {
 	getPathsForRobotsChecking,
 	getPathsForDomainCrawl,
