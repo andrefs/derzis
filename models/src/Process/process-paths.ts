@@ -91,12 +91,19 @@ export async function extendPathsWithExistingTriples(process: ProcessClass, path
 }
 
 export async function extendExistingPaths(process: ProcessClass) {
+	if (process.status !== 'extending') {
+		log.warn(`Process ${process.pid} is not in 'extending' status. Skipping extendExistingPaths.`);
+		return;
+	}
+
+	// find all active paths that can be extended
 	const paths = await Path.find({
 		processId: process.pid,
 		status: 'active',
 		'nodes.count': { $lt: process.currentStep.maxPathLength },
 		'predicates.count': { $lte: process.currentStep.maxPathProps }
 	});
+
 	log.silly(`Extending ${paths.length} existing paths for process ${process.pid}`);
 	await extendPathsWithExistingTriples(process, paths);
 }

@@ -5,6 +5,10 @@ import { secondsToString, type MakeOptional } from './utils';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('process-helper');
 
+/**
+ * Create a new process and queue it for execution.
+ * @param p Process parameters
+ */
 export async function newProcess(p: RecursivePartial<ProcessClass>) {
 	const pathHeads: Map<string, number> = new Map();
 	for (const s of p.currentStep!.seeds!) {
@@ -22,13 +26,14 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
 
 	await Process.startNext();
 
-	//if (proc.notification?.email) {
-	//	await sendInitEmail(proc.notification.email, proc.pid);
-	//}
-
 	return proc;
 }
 
+/**
+ * Add a new step to a finished process and queue it for execution.
+ * @param pid Process ID
+ * @param params Step parameters
+ */
 export async function addStep(pid: string, params: MakeOptional<StepClass, 'seeds'>) {
 	const p = await Process.findOne({ pid, status: 'done' });
 
@@ -44,11 +49,9 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 
 	const oldSeeds = new Set(p.currentStep.seeds);
 	const newSeeds = (params.seeds || []).filter((s) => !oldSeeds.has(s));
-
 	const newMPL = Math.max(p.currentStep.maxPathLength, params.maxPathLength);
 	const newMPP = Math.max(p.currentStep.maxPathProps, params.maxPathProps);
 
-	console.log('XXXXXXXXXXXXXXX proc-helper 5', JSON.stringify({ params }, null, 2));
 	const newStep = {
 		seeds: [...oldSeeds, ...newSeeds],
 		maxPathLength: newMPL,
@@ -58,25 +61,50 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 		predsDirMetrics: params.predsDirMetrics
 	};
 
-	console.log('XXXXXXXXXXXXXXX proc-helper 6', JSON.stringify({ newStep }, null, 2));
-	await Process.updateOne(
-		{ pid, status: 'done' },
-		{
-			$push: { steps: newStep },
-			$set: {
-				currentStep: newStep,
-				status: 'queued'
-			}
+	try {
+		// Insert new seeds
+		if (newSeeds.length) {
+			await Resource.insertSeeds(newSeeds, pid);
+			log.info(`Inserted seeds for process ${pid}`);
 		}
-	);
-	log.info(`Added step to process ${pid}`);
 
-	if (newSeeds.length) {
-		await Resource.insertSeeds(newSeeds, pid);
-		log.info(`Inserted seeds for process ${pid}`);
+		// Add the new step
+		await Process.updateOne(
+			{ pid, status: 'done' },
+			{
+				$push: { steps: newStep },
+				$set: {
+					currentStep: newStep,
+				}
+			}
+		);
+		log.info(`Added step to process ${pid}`);
+
+		// Before queuing, extend existing paths according to new step limits
+		await p.extendExistingPaths();
+
+		// Set the process to queued
+		await Process.updateOne(
+			{ pid, status: 'done' },
+			{
+				$push: { steps: newStep },
+				$set: {
+					currentStep: newStep,
+					status: 'queued'
+				}
+			}
+		);
+		log.info(`Queued process ${pid} for next step`);
+	} catch (err) {
+		log.error(`Error adding step to process ${pid}: ${(err as Error).message}`);
+		throw err;
 	}
 }
 
+/**
+ * Get detailed info about a process.
+ * @param pid Process ID
+ */
 export async function info(pid: string) {
 	const _p: ProcessClass | null = await Process.findOne({ pid }).lean();
 	if (!_p) {

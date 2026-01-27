@@ -324,7 +324,33 @@ class ProcessClass extends Document {
 	}
 
 	public async extendExistingPaths() {
-		return extendExistingPaths(this);
+		if (this.status !== 'done') {
+			throw new Error(`Cannot extend existing paths for process ${this.pid} because it is not done yet.`);
+		}
+
+		try {
+			const res = await Process.findOneAndUpdate(
+				{ pid: this.pid, status: 'done' },
+				{ $set: { status: 'extending' } },
+				{ new: true }
+			);
+
+			await extendExistingPaths(this);
+		} catch (error) {
+			log.error(`Error updating process ${this.pid} status to 'extending':`, error);
+			throw error;
+		} finally {
+			// set status back to done
+			try {
+				await Process.findOneAndUpdate(
+					{ pid: this.pid, status: 'extending' },
+					{ $set: { status: 'done' } },
+					{ new: true }
+				);
+			} catch (error) {
+				log.error(`Error updating process ${this.pid} status back to 'done':`, error);
+			}
+		}
 	}
 
 	public async extendProcessPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
@@ -391,6 +417,9 @@ class ProcessClass extends Document {
 		return this.findOne({ status: 'running' }).sort({ createdAt: -1 }).skip(skip);
 	}
 
+	/**
+	 * Mark the process as done and notify
+	 */
 	public async done() {
 		if (this.status === 'done') {
 			log.warn(`Process ${this.pid} is already marked as done`);
@@ -403,17 +432,30 @@ class ProcessClass extends Document {
 		await this.notifyStepFinished();
 	}
 
+	/**
+	 * Notify that a step has started
+	 */
 	public async notifyStepStarted() {
 		return notifyStepStarted(this);
 	}
 
+	/**
+	 * Notify that the process has been created
+	 */
 	public async notifyProcessCreated() {
 		return notifyProcessCreated(this);
 	}
+
+	/**
+	 * Notify that a step has finished
+	 */
 	public async notifyStepFinished() {
 		return notifyStepFinished(this);
 	}
 
+	/**
+	 * Notify that the process has started
+	 */
 	public async notifyStart() {
 		return notifyStart(this);
 	}
