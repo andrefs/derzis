@@ -324,6 +324,8 @@ class ProcessClass extends Document {
 	}
 
 	public async extendExistingPaths() {
+		log.info(`Extending existing paths for process ${this.pid}`);
+
 		if (this.status !== 'done') {
 			throw new Error(`Cannot extend existing paths for process ${this.pid} because it is not done yet.`);
 		}
@@ -335,7 +337,7 @@ class ProcessClass extends Document {
 				{ new: true }
 			);
 
-			await extendExistingPaths(this);
+			await extendExistingPaths(this.pid);
 		} catch (error) {
 			log.error(`Error updating process ${this.pid} status to 'extending':`, error);
 			throw error;

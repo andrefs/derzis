@@ -1,5 +1,5 @@
 import { Path, type PathSkeleton, type PathDocument } from '../Path';
-import { ProcessClass } from './Process';
+import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
@@ -90,7 +90,16 @@ export async function extendPathsWithExistingTriples(process: ProcessClass, path
 	}
 }
 
-export async function extendExistingPaths(process: ProcessClass) {
+/**
+ * Extend existing active paths for a process according to its current step limits.
+ * @param pid Process ID
+ */
+export async function extendExistingPaths(pid: string) {
+	const process = await Process.findOne({ pid });
+	if (!process) {
+		log.warn(`Process ${pid} not found. Skipping extendExistingPaths.`);
+		return;
+	}
 	if (process.status !== 'extending') {
 		log.warn(`Process ${process.pid} is not in 'extending' status. Skipping extendExistingPaths.`);
 		return;
@@ -104,7 +113,7 @@ export async function extendExistingPaths(process: ProcessClass) {
 		'predicates.count': { $lte: process.currentStep.maxPathProps }
 	});
 
-	log.silly(`Extending ${paths.length} existing paths for process ${process.pid}`);
+	log.info(`Extending ${paths.length} existing paths for process ${process.pid}`);
 	await extendPathsWithExistingTriples(process, paths);
 }
 
