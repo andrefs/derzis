@@ -5,7 +5,6 @@ import { humanize } from 'humanize-digest';
 import { Path, type PathSkeleton, type PathDocument } from './Path';
 import { ProcessTriple } from './ProcessTriple';
 import { createLogger } from '@derzis/common/server';
-import { webhookPost } from '@derzis/common/server';
 const log = createLogger('Process');
 import {
 	prop,
@@ -16,8 +15,23 @@ import {
 	PropType,
 	type DocumentType
 } from '@typegoose/typegoose';
-import { sendEmail } from '@derzis/common/server';
 import { Domain } from './Domain';
+import {
+	getPathsForRobotsChecking,
+	getPathsForDomainCrawl,
+	hasPathsDomainRobotsChecking,
+	hasPathsHeadBeingCrawled,
+	extendPathsWithExistingTriples,
+	extendExistingPaths,
+	extendProcessPaths
+} from './process-paths';
+import {
+	notifyStepStarted,
+	notifyProcessCreated,
+	notifyStepFinished,
+	notifyStart
+} from './process-notifications';
+import { matchesOne } from './process-utils';
 
 export class BranchFactorClass {
 	@prop({ type: Number })
@@ -206,10 +220,10 @@ class ProcessClass extends Document {
 			return true;
 		}
 
-		const pathsToCrawl = await this.getPathsForDomainCrawl([], 0, 1);
-		const pathsToCheck = await this.getPathsForRobotsChecking(0, 1);
-		const hasPathsChecking = await this.hasPathsDomainRobotsChecking();
-		const hasPathsCrawling = await this.hasPathsHeadBeingCrawled();
+		const pathsToCrawl = await getPathsForDomainCrawl(this, [], 0, 1);
+		const pathsToCheck = await getPathsForRobotsChecking(this, 0, 1);
+		const hasPathsChecking = await hasPathsDomainRobotsChecking(this);
+		const hasPathsCrawling = await hasPathsHeadBeingCrawled(this);
 
 		// no more paths to crawl and no paths checking or crawling
 		if (!pathsToCrawl.length && !pathsToCheck.length && !hasPathsChecking && !hasPathsCrawling) {
@@ -292,212 +306,31 @@ class ProcessClass extends Document {
 	}
 
 	public async getPathsForRobotsChecking(skip = 0, limit = 20) {
-		const paths = await Path.find({
-			processId: this.pid,
-			status: 'active',
-			'head.domain.status': 'unvisited',
-			'nodes.count': { $lt: this.currentStep.maxPathLength },
-			'predicates.count': { $lte: this.currentStep.maxPathProps }
-		})
-			// shorter paths first
-			.sort({ 'nodes.count': 1 })
-			.limit(limit)
-			.skip(skip)
-			.select('head.domain head.url')
-			.lean();
-		return paths;
+		return getPathsForRobotsChecking(this, skip, limit);
 	}
 
-	/**
-	 * Check if process can follow path according to white/black lists
-	 * @param path - path to check
-	 * @returns {Promise<boolean>} - true if can follow path
-	 */
-	// DISABLED because it is already checked in getPathsForDomainCrawl
-	//public canFollowPath(path: PathDocument): boolean {
-	//  // no white/black lists
-	//  if (!this.currentStep.predLimit) {
-	//    return true;
-	//  }
-	//  // check all predicates in path againt the current step's white/black lists
-	//  for (const pred of path.predicates.elems) {
-	//    if (this.currentStep.predLimit.limType === 'whitelist') {
-	//      if (!matchesOne(pred, this.currentStep.predLimit.limPredicates)) {
-	//        log.debug(`Path ${path._id} cannot be followed because predicate ${pred} is not in whitelist`);
-	//        return false;
-	//      }
-	//    } else {
-	//      // blacklist
-	//      if (matchesOne(pred, this.currentStep.predLimit.limPredicates)) {
-	//        log.debug(`Path ${path._id} cannot be followed because predicate ${pred} is in blacklist`);
-	//        return false;
-	//      }
-	//    }
-	//  }
-	//  // Already checked in getPathsForDomainCrawl
-	//  // // check predicate count and path length
-	//  // if (
-	//  //   path.predicates.count > this.currentStep.maxPathProps ||
-	//  //   path.nodes.count > this.currentStep.maxPathLength
-	//  // ) {
-	//  //   log.debug(`Path ${path._id} cannot be followed because it exceeds limits`);
-	//  //   return false;
-	//  // }
-	//  return true;
-	//}
-
-	/**
-	 * Get paths that are ready to be crawled
-	 * @param skip - number of paths to skip
-	 * @param limit - number of paths to return
-	 * @returns {Promise<PathDocument[]>} - paths
-	 * @memberof ProcessClass
-	 */
 	public async getPathsForDomainCrawl(domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<PathDocument[]> {
-		const predLimFilter =
-			this.currentStep.predLimit.limType === 'whitelist'
-				? { 'predicates.elems': { $in: this.currentStep.predLimit.limPredicates } }
-				: { 'predicates.elems': { $nin: this.currentStep.predLimit.limPredicates } };
-		const paths = await Path.find({
-			processId: this.pid,
-			status: 'active',
-			'head.domain.status': 'ready',
-			'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
-			'head.status': 'unvisited',
-			'nodes.count': { $lt: this.currentStep.maxPathLength },
-			'predicates.count': { $lte: this.currentStep.maxPathProps },
-			...predLimFilter
-		})
-			// shorter paths first
-			.sort({ 'nodes.count': 1 })
-			.limit(limit)
-			.skip(skip)
-			.select('head.domain head.url head.status nodes.elems predicates.elems');
-		return paths;
+		return getPathsForDomainCrawl(this, domainBlacklist, skip, limit);
 	}
 
-	/**
-	 * Check if process has paths whose head's domain is currently being robots-checked
-	 * @returns {Promise<boolean>} - true if there are paths
-	 * @memberof ProcessClass
-	 */
 	public async hasPathsDomainRobotsChecking(): Promise<boolean> {
-		const paths = await Path.find({
-			processId: this.pid,
-			status: 'active',
-			'head.domain.status': 'checking'
-		});
-		return !!paths.length;
+		return hasPathsDomainRobotsChecking(this);
 	}
 
-	/**
-	 * Check if process has paths whose head's url is currently being crawled
-	 * @returns {Promise<boolean>} - true if there are paths
-	 * @memberof ProcessClass
-	 */
 	public async hasPathsHeadBeingCrawled(): Promise<boolean> {
-		const paths = await Path.find({
-			processId: this.pid,
-			status: 'active',
-			'head.status': 'crawling'
-		});
-		return !!paths.length;
+		return hasPathsHeadBeingCrawled(this);
 	}
 
-	/**
-	 * Recursively extend paths with existing triples
-	 * @param paths - paths to extend
-	 */
 	public async extendPathsWithExistingTriples(paths: PathDocument[]) {
-		for (const path of paths) {
-			const newPathObjs = [];
-			const toDelete = new Set();
-			const procTriples = new Set();
-
-			const { newPaths: nps, procTriples: pts } = await path.extendWithExistingTriples(this);
-
-			// if new paths were created
-			if (nps.length) {
-				toDelete.add(path._id);
-				newPathObjs.push(...nps);
-				for (const pt of pts) {
-					procTriples.add(pt);
-				}
-
-				// create new paths
-				const newPaths = await Path.create(newPathObjs);
-				// mark old paths as deleted
-				await Path.updateMany({ _id: { $in: Array.from(toDelete) } }, { $set: { status: 'deleted' } });
-
-				// extend newly created paths recursively
-				await this.extendPathsWithExistingTriples(newPaths);
-			}
-		}
+		return extendPathsWithExistingTriples(this, paths);
 	}
 
-	/**
-	 * Get existing paths which are under the current limits and extend them with existing triples
-	 */
 	public async extendExistingPaths() {
-		const paths = await Path.find({
-			processId: this.pid,
-			status: 'active',
-			'nodes.count': { $lt: this.currentStep.maxPathLength },
-			'predicates.count': { $lte: this.currentStep.maxPathProps }
-		});
-		log.silly(`Extending ${paths.length} existing paths for process ${this.pid}`);
-		await this.extendPathsWithExistingTriples(paths);
+		return extendExistingPaths(this);
 	}
 
 	public async extendProcessPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
-		const newHeads = Object.keys(triplesByNode);
-		log.silly('New heads:', newHeads);
-		const paths = await Path.find({
-			processId: this.pid,
-			status: 'active',
-			'head.url': newHeads.length === 1 ? newHeads[0] : { $in: Object.keys(triplesByNode) }
-		});
-		log.silly('Paths:', paths);
-
-		const pathsToDelete = new Set();
-		const newPathObjs = [];
-		const toDelete = new Set();
-		const procTriples = new Set();
-
-		for (const path of paths) {
-			const { newPaths: nps, procTriples: pts } = await path.extend(
-				triplesByNode[path.head.url],
-				this
-			);
-			log.silly('New paths:', nps);
-			if (nps.length) {
-				toDelete.add(path._id);
-				newPathObjs.push(...nps);
-				for (const pt of pts) {
-					procTriples.add(pt);
-				}
-			}
-		}
-
-		await updateNewPathHeadStatus(newPathObjs);
-
-		// add proc-triple associations
-		await ProcessTriple.insertMany(
-			[...procTriples].map((tId) => ({
-				processId: this.pid,
-				triple: tId,
-				processStep: this.steps.length
-			}))
-		);
-
-		// create new paths
-		const newPaths = await Path.create(newPathObjs);
-
-		// mark old paths as deleted
-		await Path.updateMany({ _id: { $in: Array.from(toDelete) } }, { $set: { status: 'deleted' } });
-
-		// recursively extend newly created paths
-		await this.extendPathsWithExistingTriples(newPaths);
+		return extendProcessPaths(this, triplesByNode);
 	}
 
 	/**
@@ -848,113 +681,18 @@ class ProcessClass extends Document {
 	}
 
 	public async notifyStepStarted() {
-		const notif = {
-			ok: true,
-			data: {
-				pid: this.pid,
-				messageType: 'OK_STEP_STARTED',
-				message: `Process ${this.pid} just started step #${this.steps.length}.`,
-				details: this.currentStep
-			} as StepStartedNotification
-		};
-
-		log.info(
-			`Notifying starting next step on project ${this.pid}`,
-			this.notification.email ?? '',
-			this.notification.webhook ?? ''
-		);
-
-		if (this.notification.email) {
-			await notifyEmail(this.notification.email, notif);
-		}
-		if (this.notification.webhook) {
-			await notifyWebhook(this.notification.webhook, notif);
-		}
+		return notifyStepStarted(this);
 	}
 
 	public async notifyProcessCreated() {
-		const notif = {
-			ok: true,
-			data: {
-				pid: this.pid,
-				messageType: 'OK_PROC_CREATED',
-				message: `Process ${this.pid} has been created.`,
-				details: {
-					pid: this.pid,
-					notification: this.notification,
-					steps: this.steps,
-					currentStep: this.currentStep,
-					status: this.status
-				}
-			} as ProcCreatedNotification
-		};
-
-		log.info(
-			`Notifying creation of project ${this.pid}`,
-			this.notification.email ?? '',
-			this.notification.webhook ?? ''
-		);
-
-		if (this.notification.email) {
-			await notifyEmail(this.notification.email, notif);
-		}
-		if (this.notification.webhook) {
-			await notifyWebhook(this.notification.webhook, notif);
-		}
+		return notifyProcessCreated(this);
 	}
 	public async notifyStepFinished() {
-		const notif = {
-			ok: true,
-			data: {
-				pid: this.pid,
-				messageType: 'OK_STEP_FINISHED',
-				message: `Process ${this.pid} just finished step #${this.steps.length}.`,
-				details: this.currentStep
-			} as StepFinishedNotification
-		};
-
-		log.info(
-			`Notifying step finished on project ${this.pid}`,
-			this.notification.email ?? '',
-			this.notification.webhook ?? ''
-		);
-		log.info('Notification details: ' + JSON.stringify(notif, null, 2));
-
-		if (this.notification.email) {
-			await notifyEmail(this.notification.email, notif);
-		}
-		if (this.notification.webhook) {
-			await notifyWebhook(this.notification.webhook, notif);
-		}
+		return notifyStepFinished(this);
 	}
 
 	public async notifyStart() {
-		const notif = {
-			ok: true,
-			data: {
-				pid: this.pid,
-				messageType: 'OK_STEP_STARTED',
-				message: `Step ${this.steps.length} of ${this.pid} has started.`,
-				details: this.currentStep
-			} as ProcStartNotification
-		};
-
-		log.info(
-			`Notifying starting project ${this.pid}`,
-			this.notification.email ?? '',
-			this.notification.webhook ?? ''
-		);
-
-		if (this.notification.email) {
-			try {
-				await notifyEmail(this.notification.email, notif);
-			} catch (e) {
-				log.error('Error sending email notification', e);
-			}
-		}
-		if (this.notification.webhook) {
-			await notifyWebhook(this.notification.webhook, notif);
-		}
+		return notifyStart(this);
 	}
 
 
@@ -1032,111 +770,6 @@ class ProcessClass extends Document {
 		log.info(`Errored entities reset for process ${this.pid}`, summary);
 		return summary;
 	}
-}
-
-const notifyEmail = async (email: string, notif: ProcessNotification) => {
-	try {
-		const res = await sendEmail({
-			to: email,
-			from: 'derzis@andrefs.com',
-			text: notif.data.message,
-			html: `<p>${notif.data.message}</p>`,
-			subject: 'Derzis - Event'
-		});
-		return res;
-	} catch (e) {
-		log.error('Error sending email notification', e);
-	}
-};
-const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
-	let retries = 0;
-	while (retries < 3) {
-		try {
-			const res = webhookPost(webhook, notif);
-			return res;
-		} catch (e) {
-			retries++;
-			if (retries === 3) {
-				log.error('Error sending webhook notification', e);
-			}
-		}
-	}
-};
-
-interface BaseProcNotification {
-	pid: string;
-	messageType: string;
-	message: string;
-	details: any;
-}
-
-type ProcCreatedNotification = BaseProcNotification & {
-	messageType: 'OK_PROC_CREATED';
-	message: string;
-};
-type ProcStartNotification = BaseProcNotification & {
-	messageType: 'OK_PROC_STARTED';
-	message: string;
-};
-
-type StepFinishedNotification = BaseProcNotification & {
-	details: StepClass;
-	messageType: 'OK_STEP_FINISHED';
-};
-
-type StepStartedNotification = BaseProcNotification & {
-	details: StepClass;
-	messageType: 'OK_STEP_STARTED';
-};
-
-type ProcessNotification = {
-	ok: boolean;
-	data:
-	| StepStartedNotification
-	| StepFinishedNotification
-	| ProcStartNotification
-	| ProcCreatedNotification;
-};
-
-const matchesOne = (str: string, patterns: string[]) => {
-	let matched = false;
-	for (const p of patterns) {
-		// pattern is a regex
-		if (/^\/(.*)\/$/.test(p)) {
-			const re = new RegExp(p);
-			if (re.test(str)) {
-				matched = true;
-				break;
-			}
-			continue;
-		}
-		// pattern is a URL prefix
-		try {
-			const url = new URL(p);
-			if (str.startsWith(p)) {
-				matched = true;
-				break;
-			}
-		} catch (e) {
-			continue;
-		}
-		// pattern is a string
-		if (str.includes(p)) {
-			matched = true;
-			break;
-		}
-	}
-	return matched;
-};
-
-async function updateNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
-	const headUrls = newPaths.map((p) => p.head.url);
-	const resources = await Resource.find({ url: { $in: headUrls } })
-		.select('url status')
-		.lean();
-	const resourceMap: { [url: string]: 'unvisited' | 'done' | 'crawling' | 'error' } = {};
-	resources.forEach((r) => (resourceMap[r.url] = r.status));
-	newPaths.forEach((p) => (p.head.status = resourceMap[p.head.url] || 'unvisited'));
 }
 
 
