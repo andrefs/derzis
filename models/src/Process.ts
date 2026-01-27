@@ -173,12 +173,20 @@ class ProcessClass extends Document {
 		type: { [key: string]: number };
 	};
 
+	/**
+	 * Process status
+	 * 'queued' - waiting to be started
+	 * 'running' - currently running
+	 * 'done' - finished successfully
+	 * 'error' - finished with errors
+	 * 'extending' - extending existing paths with existing triples
+	 */
 	@prop({
-		enum: ['queued', 'running', 'done', 'error'],
+		enum: ['queued', 'running', 'done', 'error', 'extending'],
 		default: 'queued',
 		type: String
 	})
-	public status!: 'queued' | 'running' | 'done' | 'error';
+	public status!: 'queued' | 'running' | 'done' | 'error' | 'extending';
 
 	public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
 		// triple predicate allowed by white/blacklist
@@ -425,6 +433,20 @@ class ProcessClass extends Document {
 				await this.extendPathsWithExistingTriples(newPaths);
 			}
 		}
+	}
+
+	/**
+	 * Get existing paths which are under the current limits and extend them with existing triples
+	 */
+	public async extendExistingPaths() {
+		const paths = await Path.find({
+			processId: this.pid,
+			status: 'active',
+			'nodes.count': { $lt: this.currentStep.maxPathLength },
+			'predicates.count': { $lte: this.currentStep.maxPathProps }
+		});
+		log.silly(`Extending ${paths.length} existing paths for process ${this.pid}`);
+		await this.extendPathsWithExistingTriples(paths);
 	}
 
 	public async extendProcessPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
