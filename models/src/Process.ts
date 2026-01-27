@@ -32,6 +32,17 @@ import {
 	notifyStart
 } from './process-notifications';
 import { matchesOne } from './process-utils';
+import {
+	getTriples,
+	getTriplesJson,
+	getDomainsJson,
+	getResourcesJson,
+	getResourceCount,
+	getAllResources,
+	getAllDomains,
+	getInfo,
+	curPredsDirMetrics
+} from './process-data';
 
 export class BranchFactorClass {
 	@prop({ type: Number })
@@ -214,6 +225,10 @@ class ProcessClass extends Document {
 		return !matchesOne(t.predicate, this.currentStep.predLimit.limPredicates);
 	}
 
+	/**
+	 * Check if the process is done
+	 * @returns {Promise<boolean>} - Whether the process is done
+	 */
 	public async isDone(this: ProcessClass) {
 		// process is done
 		if (['done', 'error'].includes(this.status)) {
@@ -260,19 +275,12 @@ class ProcessClass extends Document {
 		return false;
 	}
 
+	/**
+	 * Get triples as a stream
+	 * @returns {AsyncGenerator<TripleClass>} - Triples
+	 */
 	public async *getTriples(this: ProcessClass) {
-		const procTriples = ProcessTriple.find({
-			processId: this.pid
-		}).populate('triple');
-		for await (const procTriple of procTriples) {
-			const triple = procTriple.triple;
-			yield {
-				subject: triple.subject,
-				predicate: triple.predicate,
-				object: triple.object,
-				createdAt: (procTriple as any).createdAt
-			};
-		}
+		return yield* getTriples(this);
 	}
 
 	/**
@@ -284,25 +292,15 @@ class ProcessClass extends Document {
 		this: ProcessClass,
 		includeCreatedAt: boolean = false
 	): AsyncGenerator<string> {
-		for await (const t of this.getTriples()) {
-			const obj = includeCreatedAt
-				? t
-				: { subject: t.subject, predicate: t.predicate, object: t.object };
-			yield JSON.stringify(obj);
-		}
+		return yield* getTriplesJson(this, includeCreatedAt);
 	}
 
 	public async *getDomainsJson(this: ProcessClass) {
-		for await (const d of this.getAllDomains()) {
-			console.log('XXXXXXXXXXXX', d);
-			yield JSON.stringify(d.origin);
-		}
+		return yield* getDomainsJson(this);
 	}
 
 	public async *getResourcesJson(this: ProcessClass) {
-		for await (const r of this.getAllResources()) {
-			yield JSON.stringify(r._id);
-		}
+		return yield* getResourcesJson(this);
 	}
 
 	public async getPathsForRobotsChecking(skip = 0, limit = 20) {
@@ -340,298 +338,23 @@ class ProcessClass extends Document {
 	public curPredsDirMetrics(
 		this: ProcessClass
 	): Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined {
-		return this.currentStep.predsDirMetrics?.reduce((map, obj) => {
-			if (!obj.branchFactor || !obj.seedPosRatio) {
-				return map;
-			}
-			map.set(obj.url, {
-				// TODO should this return decomposed metrics instead of ratio?
-				bf: obj.branchFactor,
-				spr: obj.seedPosRatio
-			});
-			return map;
-		}, new Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>());
+		return curPredsDirMetrics(this);
 	}
 
 	public async getResourceCount(this: ProcessClass) {
-		const res = await ProcessTriple.aggregate(
-			[
-				{
-					$match: {
-						processId: this.pid
-					}
-				},
-				{ $group: { _id: '$triple' } },
-				{
-					$lookup: {
-						from: 'triples',
-						localField: '_id',
-						foreignField: '_id',
-						as: 'ts'
-					}
-				},
-				{
-					$unwind: {
-						path: '$ts',
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				{ $project: { sources: '$ts.sources' } },
-				{
-					$unwind: {
-						path: '$sources',
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				{ $group: { _id: '$sources' } },
-				{ $count: 'count' }
-			],
-			{ maxTimeMS: 60000, allowDiskUse: true }
-		);
-		return res.length > 0 ? res[0].count : 0;
+		return getResourceCount(this);
 	}
 
 	public async *getAllResources(this: ProcessClass) {
-		const res = ProcessTriple.aggregate(
-			[
-				// get all process triples matching this process
-				{
-					$match: {
-						processId: this.pid
-					}
-				},
-				// group by triple to avoid duplicates
-				{ $group: { _id: '$triple' } },
-				// get actual triples
-				{
-					$lookup: {
-						from: 'triples',
-						localField: '_id',
-						foreignField: '_id',
-						as: 'ts'
-					}
-				},
-				// flatten array
-				{
-					$unwind: {
-						path: '$ts',
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				// get sources (resources) from triples
-				{ $project: { sources: '$ts.sources' } },
-				// flatten sources array
-				{
-					$unwind: {
-						path: '$sources',
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				// group by source to avoid duplicates
-				{ $group: { _id: '$sources' } }
-			],
-			{ maxTimeMS: 60000, allowDiskUse: true }
-		).cursor({ batchSize: 100 });
-		for await (const r of res) {
-			yield r;
-		}
+		return yield* getAllResources(this);
 	}
 
 	public async *getAllDomains(this: ProcessClass) {
-		const res = ProcessTriple.aggregate(
-			[
-				{
-					$match: {
-						processId: this.pid
-					}
-				},
-				{
-					$group: {
-						_id: '$triple'
-					}
-				},
-				{
-					$lookup: {
-						from: 'triples',
-						localField: '_id',
-						foreignField: '_id',
-						as: 'ts'
-					}
-				},
-				{
-					$unwind: {
-						path: '$ts',
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				{
-					$project: {
-						sources: '$ts.sources'
-					}
-				},
-				{
-					$unwind: {
-						path: '$sources',
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				{
-					$group: {
-						_id: '$sources'
-					}
-				},
-				{
-					$lookup: {
-						from: 'resources',
-						localField: '_id',
-						foreignField: 'url',
-						as: 'rs'
-					}
-				},
-				{
-					$unwind: {
-						path: '$rs',
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				{
-					$group: {
-						_id: '$rs.url',
-						domain: {
-							$first: '$rs.domain'
-						}
-					}
-				},
-				{
-					$lookup: {
-						from: 'domains',
-						localField: 'domain',
-						foreignField: 'origin',
-						as: 'ds'
-					}
-				},
-				{
-					$unwind: {
-						path: '$ds',
-						preserveNullAndEmptyArrays: true
-					}
-				},
-				{
-					$group: {
-						_id: '$ds._id',
-						origin: {
-							$first: '$ds.origin'
-						}
-					}
-				}
-			],
-			{ maxTimeMS: 60000, allowDiskUse: true }
-		).cursor({ batchSize: 100 });
-		for await (const d of res) {
-			yield d;
-		}
+		return yield* getAllDomains(this);
 	}
 
 	public async getInfo(this: DocumentType<ProcessClass>) {
-		const baseFilter = { processId: this.pid };
-		const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
-		const lastTriple = await Triple.findOne().sort({ updatedAt: -1 });
-		const lastPath = await Path.findOne({ status: 'active' }).sort({ updatedAt: -1 });
-		const last = Math.max(
-			lastResource?.updatedAt.getTime() || 0,
-			lastTriple?.updatedAt.getTime() || 0,
-			lastPath?.updatedAt.getTime() || 0
-		);
-
-		const totalPaths = await Path.countDocuments({
-			'seed.url': { $in: this.currentStep.seeds },
-			status: 'active'
-		}).lean();
-		const avgPathLength = totalPaths
-			? await Path.aggregate([
-				{ $match: { 'seed.url': { $in: this.currentStep.seeds }, status: 'active' } },
-				{ $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-			]).then((res) => res[0]?.avgLength || 0)
-			: 0;
-
-		const avgPathProps = totalPaths
-			? await Path.aggregate([
-				{ $match: { 'seed.url': { $in: this.currentStep.seeds }, status: 'active' } },
-				{ $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-			]).then((res) => res[0]?.avgProps || 0)
-			: 0;
-
-		const timeToLastResource = lastResource
-			? (lastResource!.updatedAt.getTime() - this.createdAt!.getTime()) / 1000
-			: null;
-		const timeRunning = last ? (last - this.createdAt!.getTime()) / 1000 : null;
-
-		return {
-			resources: {
-				total: await this.getResourceCount(),
-				done: await Resource.countDocuments({
-					...baseFilter,
-					status: 'done'
-				}).lean(), // TODO add index
-				crawling: await Resource.countDocuments({
-					...baseFilter,
-					status: 'crawling'
-				}).lean(), // TODO add index
-				error: await Resource.countDocuments({
-					...baseFilter,
-					status: 'error'
-				}).lean() // TODO add index
-				//seed: await Resource.countDocuments({
-				//  ...baseFilter,
-				//  isSeed: true,
-				//}).lean(), // TODO add index
-			},
-			triples: {
-				total: await ProcessTriple.countDocuments(baseFilter).lean()
-			},
-			domains: {
-				total: (await Array.fromAsync(this.getAllDomains())).length
-				//beingCrawled: (
-				//  await Domain.find({ ...baseFilter, status: 'crawling' })
-				//    .select('origin')
-				//    .lean()
-				//).map((d) => d.origin),
-				//ready: await Domain.countDocuments({
-				//  ...baseFilter,
-				//  status: 'ready'
-				//}).lean(), // TODO add index
-				//crawling: await Domain.countDocuments({
-				//  ...baseFilter,
-				//  status: 'crawling'
-				//}).lean(), // TODO add index
-				//error: await Domain.countDocuments({
-				//  ...baseFilter,
-				//  status: 'error'
-				//}).lean() // TODO add index
-			},
-			paths: {
-				total: await Path.countDocuments({
-					'seed.url': { $in: this.currentStep.seeds },
-				}).lean(),
-				deleted: await Path.countDocuments({
-					'seed.url': { $in: this.currentStep.seeds },
-					status: 'deleted'
-				}).lean(), // TODO add index
-				active: await Path.countDocuments({
-					'seed.url': { $in: this.currentStep.seeds },
-					status: 'active'
-				}).lean(), // TODO add index
-				avgPathLength,
-				avgPathProps
-			},
-			createdAt: this.createdAt,
-			timeToLastResource: timeToLastResource || '',
-			timeRunning: timeRunning || '',
-			currentStep: this.currentStep,
-			steps: this.steps,
-			notification: this.notification,
-			status: this.status
-		};
+		return getInfo(this);
 	}
 
 	// TODO configurable number of simultaneous processes
