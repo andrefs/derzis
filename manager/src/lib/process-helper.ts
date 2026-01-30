@@ -87,9 +87,7 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 		await Process.updateOne(
 			{ pid, status: 'done' },
 			{
-				$push: { steps: newStep },
 				$set: {
-					currentStep: newStep,
 					status: 'queued'
 				}
 			}
