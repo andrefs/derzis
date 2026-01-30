@@ -80,19 +80,7 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 		);
 		log.info(`Added step to process ${pid}`);
 
-		// Before queuing, extend existing paths according to new step limits
-		await p.extendExistingPaths();
 
-		// Set the process to queued
-		await Process.updateOne(
-			{ pid, status: 'done' },
-			{
-				$set: {
-					status: 'queued'
-				}
-			}
-		);
-		log.info(`Queued process ${pid} for next step`);
 	} catch (err) {
 		log.error(`Error adding step to process ${pid}: ${(err as Error).message}`);
 		throw err;

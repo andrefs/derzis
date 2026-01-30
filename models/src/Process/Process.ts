@@ -331,12 +331,6 @@ class ProcessClass extends Document {
 		}
 
 		try {
-			const res = await Process.findOneAndUpdate(
-				{ pid: this.pid, status: 'done' },
-				{ $set: { status: 'extending' } },
-				{ new: true }
-			);
-
 			await extendExistingPaths(this.pid);
 		} catch (error) {
 			log.error(`Error updating process ${this.pid} status to 'extending':`, error);
@@ -385,6 +379,7 @@ class ProcessClass extends Document {
 		return getInfo(this);
 	}
 
+
 	// TODO configurable number of simultaneous processes
 	public static async startNext(this: ReturnModelType<typeof ProcessClass>) {
 		const runningProcs = await this.countDocuments({ status: 'running' });
@@ -393,10 +388,30 @@ class ProcessClass extends Document {
 			log.info('No running processes, starting next queued process');
 			const process = await this.findOneAndUpdate(
 				{ status: 'queued' },
-				{ $set: { status: 'running' } },
+				{ $set: { status: 'extending' } },
 				{ new: true }
 			);
 
+			if (!process) {
+				log.info('No queued processes to start');
+				return false;
+			}
+
+			const pid = process.pid;
+
+			// Before queuing, extend existing paths according to new step limits
+			process.extendExistingPaths();
+
+			// Set the process to queued
+			await Process.updateOne(
+				{ pid, status: 'extending' },
+				{
+					$set: {
+						status: 'queued'
+					}
+				}
+			);
+			log.info(`Queued process ${pid} for next step`);
 			if (process) {
 				log.info(`Process ${process.pid} is starting with seeds:`, process.currentStep.seeds);
 				await Resource.insertSeeds(process.currentStep.seeds, process.pid);
