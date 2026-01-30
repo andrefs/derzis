@@ -29,10 +29,10 @@
 						{#each data.triples as triple}
 							<tr>
 								<td>
-									<span id={triple._id}>{triple.processStep}></span>
-									<Tooltip target={triple._id} placement="right"
+									<Tooltip target={triple._id} placement="top"
 										>{JSON.stringify(triple.sources)}</Tooltip
 									>
+									<span id={triple._id}>{triple.processStep}</span>
 								</td>
 								<td
 									><a href={triple.subject} target="_blank">
