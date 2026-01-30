@@ -169,16 +169,44 @@ class PathClass {
 		newPaths: PathSkeleton[];
 		procTriples: Types.ObjectId[];
 	}> {
-		// paths can only be extended with triples that respect the predicate limit
-		const predLimit = process.currentStep.predLimit;
-		const predLimFilter =
-			predLimit.limType === 'whitelist'
-				? { predicate: { $in: predLimit.limPredicates } }
-				: { predicate: { $nin: predLimit.limPredicates } };
+
+		let predFilter;
+
+		// if path already at max props
+		if (this.predicates.count >= process.currentStep.maxPathProps) {
+			// and if there's a step whitelist only predicates on both lists allowed
+			if (process.currentStep.predLimit.limType === 'whitelist') {
+				const predWhiteList = [];
+				for (const p of this.predicates.elems) {
+					if (process.currentStep.predLimit.limPredicates.includes(p)) {
+						predWhiteList.push(p);
+					}
+				}
+				predFilter = { $in: predWhiteList };
+			}
+			// blacklist case, just use path predicates
+			else {
+				predFilter = {
+					// path at max props but step has blacklist, so just use path predicates
+					$in: this.predicates.elems,
+					// and exclude blacklisted predicates
+					'$nin': process.currentStep.predLimit.limPredicates
+				};
+			}
+		}
+		// path not at max props, use step whitelist/blacklist as is
+		else {
+			if (process.currentStep.predLimit.limType === 'whitelist') {
+				predFilter = { $in: process.currentStep.predLimit.limPredicates };
+			}
+			else {
+				predFilter = { $nin: process.currentStep.predLimit.limPredicates };
+			}
+		}
 
 		// find triples which include the head but dont belong to the path yet
 		let triples: TripleDocument[] = await Triple.find({
-			...predLimFilter,
+			predicate: predFilter,
 			nodes: this.head.url,
 			_id: { $nin: this.triples },
 		});
