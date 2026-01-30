@@ -326,10 +326,6 @@ class ProcessClass extends Document {
 	public async extendExistingPaths() {
 		log.info(`Extending existing paths for process ${this.pid}`);
 
-		if (this.status !== 'done') {
-			throw new Error(`Cannot extend existing paths for process ${this.pid} because it is not done yet.`);
-		}
-
 		try {
 			await extendExistingPaths(this.pid);
 		} catch (error) {
@@ -407,19 +403,15 @@ class ProcessClass extends Document {
 				{ pid, status: 'extending' },
 				{
 					$set: {
-						status: 'queued'
+						status: 'running'
 					}
 				}
 			);
 			log.info(`Queued process ${pid} for next step`);
-			if (process) {
-				log.info(`Process ${process.pid} is starting with seeds:`, process.currentStep.seeds);
-				await Resource.insertSeeds(process.currentStep.seeds, process.pid);
-				await process.notifyStart();
-				return true;
-			}
-			log.info('No queued processes to start');
-			return false;
+			log.info(`Process ${process.pid} is starting with seeds:`, process.currentStep.seeds);
+			await Resource.insertSeeds(process.currentStep.seeds, process.pid);
+			await process.notifyStart();
+			return true;
 		}
 		log.info('There are already running processes, not starting a new one');
 		return false;
@@ -546,7 +538,7 @@ class ProcessClass extends Document {
 			summary.paths += pathRes.modifiedCount ?? pathRes.matchedCount ?? 0;
 
 			skip += paths.length;
-			log.debug(`Processed batch ${Math.ceil(skip / batchSize)}: ${paths.length} paths, ${skip} total`);
+			log.debug(`Reset error state in paths batch ${Math.ceil(skip / batchSize)}: ${paths.length} paths, ${skip} total`);
 		}
 
 		log.info(`Errored entities reset for process ${this.pid}`, summary);

@@ -74,6 +74,7 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 			{
 				$push: { steps: newStep },
 				$set: {
+					status: 'queued',
 					currentStep: newStep,
 				}
 			}
