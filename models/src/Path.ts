@@ -169,8 +169,16 @@ class PathClass {
 		newPaths: PathSkeleton[];
 		procTriples: Types.ObjectId[];
 	}> {
+		// paths can only be extended with triples that respect the predicate limit
+		const predLimit = process.currentStep.predLimit;
+		const predLimFilter =
+			predLimit.limType === 'whitelist'
+				? { predicate: { $in: predLimit.limPredicates } }
+				: { predicate: { $nin: predLimit.limPredicates } };
+
 		// find triples which include the head but dont belong to the path yet
 		let triples: TripleDocument[] = await Triple.find({
+			...predLimFilter,
 			nodes: this.head.url,
 			_id: { $nin: this.triples },
 		});
