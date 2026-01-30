@@ -1,6 +1,6 @@
 <script lang="ts">
 	export let data;
-	import { Col, Row, Table } from '@sveltestrap/sveltestrap';
+	import { Col, Row, Table, Tooltip } from '@sveltestrap/sveltestrap';
 </script>
 
 <header style="padding-bottom: 1rem">
@@ -28,12 +28,31 @@
 					<tbody>
 						{#each data.triples as triple}
 							<tr>
-								<td>{triple.processStep}</td>
-								<td><a href={triple.subject} target="_blank">{triple.subject}</a></td>
+								<td>
+									<span id={triple._id}>{triple.processStep}></span>
+									<Tooltip target={triple._id} placement="right"
+										>{JSON.stringify(triple.sources)}</Tooltip
+									>
+								</td>
+								<td
+									><a href={triple.subject} target="_blank">
+										{#if triple.sources?.includes(triple.subject)}
+											<strong>{triple.subject}</strong>
+										{:else}
+											{triple.subject}
+										{/if}
+									</a></td
+								>
 								<td><a href={triple.predicate} target="_blank">{triple.predicate}</a></td>
 								<td>
 									{#if triple.object.startsWith('http://') || triple.object.startsWith('https://')}
-										<a href={triple.object} target="_blank">{triple.object}</a>
+										{#if triple.sources?.includes(triple.object)}
+											<strong><a href={triple.object} target="_blank">{triple.object}</a></strong>
+										{:else}
+											<a href={triple.object} target="_blank">{triple.object}</a>
+										{/if}
+									{:else if triple.sources?.includes(triple.object)}
+										<strong>{triple.object}</strong>
 									{:else}
 										{triple.object}
 									{/if}

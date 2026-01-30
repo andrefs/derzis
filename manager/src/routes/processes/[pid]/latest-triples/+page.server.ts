@@ -27,7 +27,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const latestTriples = procTriples
 		.sort((a, b) => b.createdAt!.getTime() - a.createdAt!.getTime())
 		.map((procTriple) => ({
+			_id: procTriple.triple._id.toString(),
 			processStep: procTriple.processStep,
+			sources: procTriple.triple.sources,
 			subject: procTriple.triple.subject,
 			predicate: procTriple.triple.predicate,
 			object: procTriple.triple.object,

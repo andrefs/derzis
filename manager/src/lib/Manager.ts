@@ -103,12 +103,12 @@ export default class Manager {
 							}
 						}
 					);
-                await Path.updateMany(
-                    { 'head.domain.origin': jobResult.origin, status: 'active' },
-                    {
-                        $set: { 'head.domain.status': 'ready' }
-                    }
-                );
+					await Path.updateMany(
+						{ 'head.domain.origin': jobResult.origin, status: 'active' },
+						{
+							$set: { 'head.domain.status': 'ready' }
+						}
+					);
 
 					if (res.acknowledged && res.modifiedCount) {
 						this.jobs.deregisterJob(jobResult.origin);
@@ -133,11 +133,11 @@ export default class Manager {
 		log.silly('jobResult.details.triples', JSON.stringify(jobResult.details.triples, null, 2));
 
 		// filter out triples which dont refer to head resource
-		const triples = jobResult.details.triples.filter(
-			(t) => t.object === jobResult.url || t.subject === jobResult.url
-		);
+		//const triples = jobResult.details.triples.filter(
+		//	(t) => t.object === jobResult.url || t.subject === jobResult.url
+		//);
 
-		await this.processNewTriples(jobResult.url, triples);
+		await this.processNewTriples(jobResult.url, jobResult.details.triples);
 	}
 
 	/**
@@ -194,10 +194,10 @@ export default class Manager {
 	 * @param triplesByNode Object mapping node URLs to arrays of triples connected to them
 	 */
 	async updateAllPathsWithHead(sourceUrl: string, triplesByNode: { [url: string]: TripleClass[] }) {
-        const pids = await Path.distinct('processId', {
-            'head.url': sourceUrl,
-            status: 'active'
-        });
+		const pids = await Path.distinct('processId', {
+			'head.url': sourceUrl,
+			status: 'active'
+		});
 		for (const pid of pids) {
 			const proc = await Process.findOne({ pid });
 			await proc?.extendProcessPaths(triplesByNode);
