@@ -1,3 +1,4 @@
 #!/bin/bash
 
-unbuffer npm run dev 2>&1 | tee -a manager.log
+# append log to manager.log.gz and print to console
+unbuffer npm run dev 2>&1 | tee -a >(gzip >>manager.log.gz)
