@@ -5,6 +5,6 @@ if [[ ! -f live.log ]]; then
   mkfifo worker.live.log
 fi
 
-zstd --adapt --flush-interval=1 <live.log >>worker.log.zst &
+zstd --adapt --flush-interval=1 <worker.live.log >>worker.log.zst &
 
 unbuffer npm run dev 2>&1 | tee worker.live.log
