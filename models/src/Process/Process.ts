@@ -392,7 +392,7 @@ class ProcessClass extends Document {
 			const pid = process.pid;
 
 			// Before queuing, extend existing paths according to new step limits
-			process.extendExistingPaths();
+			await process.extendExistingPaths();
 
 			// Set the process to queued
 			await Process.updateOne(
