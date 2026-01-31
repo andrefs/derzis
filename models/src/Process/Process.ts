@@ -331,17 +331,6 @@ class ProcessClass extends Document {
 		} catch (error) {
 			log.error(`Error updating process ${this.pid} status to 'extending':`, error);
 			throw error;
-		} finally {
-			// set status back to done
-			try {
-				await Process.findOneAndUpdate(
-					{ pid: this.pid, status: 'extending' },
-					{ $set: { status: 'done' } },
-					{ new: true }
-				);
-			} catch (error) {
-				log.error(`Error updating process ${this.pid} status back to 'done':`, error);
-			}
 		}
 	}
 
