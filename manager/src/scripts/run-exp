@@ -1,4 +1,10 @@
 #!/bin/bash
 
-# append log to manager.log.gz and print to console
-unbuffer npm run dev 2>&1 | tee -a >(gzip >>manager.log.gz)
+# create named pipe if it doesn't exist
+if [[ ! -f live.log ]]; then
+  mkfifo manager.live.log
+fi
+
+zstd --adapt --flush-interval=1 <live.log >>manager.log.zst &
+
+unbuffer npm run dev 2>&1 | tee manager.live.log

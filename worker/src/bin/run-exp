@@ -1,4 +1,10 @@
 #!/bin/bash
 
-# append log to worker.log.gz and print to console
-unbuffer npm run dev 2>&1 | tee -a >(gzip >>worker.log.gz)
+# create named pipe if it doesn't exist
+if [[ ! -f live.log ]]; then
+  mkfifo worker.live.log
+fi
+
+zstd --adapt --flush-interval=1 <live.log >>worker.log.zst &
+
+unbuffer npm run dev 2>&1 | tee worker.live.log
