@@ -1,10 +1,4 @@
 #!/bin/bash
 
-# create named pipe if it doesn't exist
-if [[ ! -f live.log ]]; then
-  mkfifo manager.live.log
-fi
-
-zstd --adapt --flush-interval=1 <manager.live.log >>manager.log.zst &
-
-unbuffer npm run dev 2>&1 | tee manager.live.log
+unbuffer npm run dev 2>&1 | rotatelogs -p gzip -L manager.log -l manager.log.%Y%m%d%H%M 1G &
+tail -F manager.log
