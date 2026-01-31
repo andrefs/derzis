@@ -391,6 +391,14 @@ class ProcessClass extends Document {
 
 			const pid = process.pid;
 
+
+			// Before queuing, reset errored states if needed
+			if (process.currentStep.resetErrors) {
+				log.info(`Resetting errored states for process ${pid}`);
+				const res = await process.resetErroredStates();
+				log.debug(`Reset errored states for process ${pid}: ${res}`);
+			}
+
 			// Before queuing, extend existing paths according to new step limits
 			await process.extendExistingPaths();
 

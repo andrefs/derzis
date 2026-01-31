@@ -41,11 +41,6 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
 		throw new Error('Process not found');
 	}
 
-	if (params.resetErrors) {
-		log.info(`Resetting errored states for process ${pid}`);
-		const res = await p.resetErroredStates();
-		log.debug(`Reset errored states for process ${pid}: ${res}`);
-	}
 
 	const oldSeeds = new Set(p.currentStep.seeds);
 	const newSeeds = (params.seeds || []).filter((s) => !oldSeeds.has(s));
