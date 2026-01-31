@@ -235,6 +235,13 @@ class ProcessClass extends Document {
 			return true;
 		}
 
+		if (this.status !== 'running') {
+			log.info(`Process ${this.pid} is not running (status: ${this.status}), thus not done yet.`);
+			return false;
+		}
+
+		// check for more paths to crawl or check
+
 		const pathsToCrawl = await getPathsForDomainCrawl(this, [], 0, 1);
 		const pathsToCheck = await getPathsForRobotsChecking(this, 0, 1);
 		const hasPathsChecking = await hasPathsDomainRobotsChecking(this);
