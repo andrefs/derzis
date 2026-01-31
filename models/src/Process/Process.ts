@@ -229,7 +229,7 @@ class ProcessClass extends Document {
 	 * Check if the process is done
 	 * @returns {Promise<boolean>} - Whether the process is done
 	 */
-	public async isDone(this: ProcessClass) {
+	public async isDone(this: ProcessClass): Promise<boolean> {
 		// process is done
 		if (['done', 'error'].includes(this.status)) {
 			return true;
