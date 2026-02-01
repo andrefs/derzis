@@ -60,8 +60,6 @@ class RobotsClass {
   public elapsedTime?: number;
 }
 
-@index({ delay: 1 })
-@index({ nextAllowed: 1 })
 class CrawlClass {
   @prop({ default: 0, type: Number, index: true, required: true })
   public delay!: number;
@@ -93,20 +91,24 @@ class CrawlClass {
       );
     }
   })
+@index({ delay: 1 })
+@index({ nextAllowed: 1 })
 @index({
-  status: 1,
-  'crawl.pathHeads': 1,
-  'crawl.nextAllowed': -1
+	status: 1,
+	'crawl.pathHeads': 1,
+	'crawl.nextAllowed': -1
 })
 @index({
-  'crawl.nextAllowed': -1
+	'crawl.nextAllowed': -1
 })
 @index({
-  'robots.status': 1
+	'robots.status': 1
 })
 @index({
-  jobId: 1
+	jobId: 1
 })
+@index({ status: 1, 'crawl.nextAllowed': 1 })
+@index({ 'crawl.pathHeads': 1, 'crawl.nextAllowed': 1 })
 class DomainClass {
   @prop({ required: true, index: true, unique: true, type: String })
   public origin!: string;

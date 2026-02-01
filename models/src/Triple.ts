@@ -20,6 +20,7 @@ type TripleWithSources = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 
 
 @index({ nodes: 1 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
+@index({ predicate: 1 })
 class TripleClass {
 	_id!: Types.ObjectId;
 
