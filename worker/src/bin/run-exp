@@ -1,4 +1,11 @@
 #!/bin/bash
 
-unbuffer npm run dev 2>&1 | rotatelogs -p gzip -L worker.log -l worker.log.%Y%m%d%H%M 1G &
-tail -F worker.log
+mkdir -p ./logs
+# Start tail in the background and capture its PID
+tail -n 0 -F logs/current &
+TAIL_PID=$!
+
+# Trap signals to ensure cleanup
+trap "kill $TAIL_PID 2>/dev/null" EXIT
+
+unbuffer npm run dev 2>&1 | multilog s104857600 n10 ./logs
