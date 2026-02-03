@@ -30,34 +30,45 @@
 					<tr><th scope="row">Time running</th><td>{data.proc.timeRunning}</td></tr>
 					<tr>
 						<th scope="row">Triples</th><td>
-							<p>
-								<a href="/api/processes/{data.proc.pid}/triples.json.gz"
-									>JSON <Icon src={BiDownload} /></a
-								>
-							</p>
-							<p>
-								<a href="/api/processes/{data.proc.pid}/triples.nt.gz"
-									>N-Triples <Icon src={BiDownload} /></a
-								>
-							</p>
-							<p>
-								<a href="/processes/{data.proc.pid}/draw"> Draw <Icon src={BiNetworkChart} /></a>
-							</p>
-							<p>
-								<a href="/processes/{data.proc.pid}/draw-seeds">
-									Draw seeds<Icon src={BiNetworkChart} /></a
-								>
-							</p>
-							<p>
-								<a href="/processes/{data.proc.pid}/latest-triples?count=100"
-									>Latest triples <Icon src={HiSolidMagnifyingGlass} /></a
-								>
-							</p>
-							<p>
-								<a href="/processes/{data.proc.pid}/resource"
-									>Triples by resource <Icon src={HiSolidMagnifyingGlass} /></a
-								>
-							</p>
+							<Row>
+								<Col md="6">
+									<p>
+										<a href="/api/processes/{data.proc.pid}/triples.json.gz"
+											>JSON <Icon src={BiDownload} /></a
+										>
+									</p>
+									<p>
+										<a href="/api/processes/{data.proc.pid}/triples.nt.gz"
+											>N-Triples <Icon src={BiDownload} /></a
+										>
+									</p>
+									<p>
+										<a href="/processes/{data.proc.pid}/draw"> Draw <Icon src={BiNetworkChart} /></a>
+									</p>
+									<p>
+										<a href="/processes/{data.proc.pid}/draw-seeds">
+											Draw seeds<Icon src={BiNetworkChart} /></a
+										>
+									</p>
+								</Col>
+								<Col md="6">
+									<p>
+										<a href="/processes/{data.proc.pid}/latest-triples?count=100"
+											>Latest triples <Icon src={HiSolidMagnifyingGlass} /></a
+										>
+									</p>
+									<p>
+										<a href="/processes/{data.proc.pid}/resource"
+											>Triples by resource <Icon src={HiSolidMagnifyingGlass} /></a
+										>
+									</p>
+									<p>
+										<a href="/processes/{data.proc.pid}/seed-head"
+											>Longest path by seed/head <Icon src={HiSolidMagnifyingGlass} /></a
+										>
+									</p>
+								</Col>
+							</Row>
 						</td>
 					</tr>
 					<tr>
