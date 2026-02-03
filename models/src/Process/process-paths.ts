@@ -81,6 +81,16 @@ export async function extendPathsWithExistingTriples(process: ProcessClass, path
 
 			// create new paths
 			const newPaths = await Path.create(newPathObjs);
+
+			// add proc-triple associations
+			await ProcessTriple.insertMany(
+				[...procTriples].map((tId) => ({
+					processId: process.pid,
+					triple: tId,
+					processStep: process.steps.length
+				}))
+			);
+
 			// mark old paths as deleted
 			await Path.updateMany({ _id: { $in: Array.from(toDelete) } }, { $set: { status: 'deleted' } });
 
