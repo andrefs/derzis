@@ -68,11 +68,16 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			.select('subject predicate object')
 			.lean();
 
-		// Convert ObjectId to strings for serialization for longest path
-		const serializedLongestTriples = longestTriples.map(triple => ({
-			...triple,
-			_id: triple._id?.toString()
-		}));
+		// Sort triples to maintain the same order as in the Path document
+		const longestTriplesInOrder = longestPath.triples.map(tripleId => {
+			const foundTriple = longestTriples.find(t => t._id?.toString() === tripleId.toString());
+			return foundTriple ? { ...foundTriple, _id: foundTriple._id?.toString() } : null;
+		}).filter(Boolean) as Array<{
+			subject: string;
+			predicate: string;
+			object: string;
+			_id?: string;
+		}>;
 
 		// Process shortest path if found
 		let shortestPathData = null;
@@ -86,16 +91,21 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				.select('subject predicate object')
 				.lean();
 
-			// Convert ObjectId to strings for serialization for shortest path
-			const serializedShortestTriples = shortestTriples.map(triple => ({
-				...triple,
-				_id: triple._id?.toString()
-			}));
+			// Sort triples to maintain the same order as in the Path document
+			const shortestTriplesInOrder = shortestPath.triples.map(tripleId => {
+				const foundTriple = shortestTriples.find(t => t._id?.toString() === tripleId.toString());
+				return foundTriple ? { ...foundTriple, _id: foundTriple._id?.toString() } : null;
+			}).filter(Boolean) as Array<{
+				subject: string;
+				predicate: string;
+				object: string;
+				_id?: string;
+			}>;
 
 			shortestPathData = {
 				nodes: shortestPath.nodes.elems,
 				predicates: shortestPath.predicates.elems,
-				triples: serializedShortestTriples
+				triples: shortestTriplesInOrder
 			};
 		}
 
@@ -106,7 +116,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			longestPathData: {
 				nodes: longestPath.nodes.elems,
 				predicates: longestPath.predicates.elems,
-				triples: serializedLongestTriples
+				triples: longestTriplesInOrder
 			},
 			shortestPathData
 		};
