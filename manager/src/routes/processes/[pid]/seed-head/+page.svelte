@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { Col, Row, Table, Accordion, AccordionItem } from '@sveltestrap/sveltestrap';
+	import { Col, Row, Table, Accordion, AccordionItem, Badge } from '@sveltestrap/sveltestrap';
 	import { Tooltip } from '@sveltestrap/sveltestrap';
 	import { Icon } from 'svelte-icons-pack';
 	import { FaSolidArrowDown, FaSolidArrowUp } from 'svelte-icons-pack/fa';
@@ -16,6 +16,9 @@
 				subject: string;
 				predicate: string;
 				object: string;
+				followDirection: boolean;
+				processStep: number;
+				sources: string[];
 			}>;
 		} | null;
 		shortestPathData?: {
@@ -25,6 +28,9 @@
 				subject: string;
 				predicate: string;
 				object: string;
+				followDirection: boolean;
+				processStep: number;
+				sources: string[];
 			}>;
 		} | null;
 		errorMessage?: string;
@@ -141,7 +147,10 @@
 						<h4 class="mt-3">Triples in Path:</h4>
 						<div class="triples-container">
 							{#each data.longestPathData.triples as triple, i}
-								<div class="triple in-process">
+								<div
+									class="triple in-process step-{triple.processStep}"
+									id="longest-triple-{i}"
+								>
 									<span class="triple-number">{i + 1}.</span>
 									<span class="triple-content">
 										<a
@@ -176,13 +185,29 @@
 										</a>
 									</span>
 									<span class="triple-direction-icon">
+										{#if triple.followDirection}
+											<Badge color="success">FD</Badge>
+										{/if}
+										<Badge color="secondary" class={triple.followDirection ? 'ms-1' : ''}>{triple.processStep}</Badge>
 										{#if getTripleDirection(triple, i > 0 && data.longestPathData?.triples[i - 1] ? data.longestPathData.triples[i - 1] : null, data.seedUrl || '') === 'down'}
-											<Icon src={FaSolidArrowDown} className="arrow-down" />
+											<Icon src={FaSolidArrowDown} className="arrow-down ms-1" />
 										{:else}
-											<Icon src={FaSolidArrowUp} className="arrow-up" />
+											<Icon src={FaSolidArrowUp} className="arrow-up ms-1" />
 										{/if}
 									</span>
 								</div>
+								<Tooltip target="longest-triple-{i}" placement="top">
+									<div class="sources-tooltip">
+										<strong>Sources:</strong>
+										{#if triple.sources.length > 0}
+											{#each triple.sources as source}
+												<div class="source-url">{source}</div>
+											{/each}
+										{:else}
+											<div class="source-url">None</div>
+										{/if}
+									</div>
+								</Tooltip>
 							{/each}
 						</div>
 					</AccordionItem>
@@ -210,7 +235,10 @@
 						<h4 class="mt-3">Triples in Path:</h4>
 						<div class="triples-container">
 							{#each data.shortestPathData.triples as triple, i}
-								<div class="triple in-process">
+								<div
+									class="triple in-process step-{triple.processStep}"
+									id="shortest-triple-{i}"
+								>
 									<span class="triple-number">{i + 1}.</span>
 									<span class="triple-content">
 										<a
@@ -245,13 +273,29 @@
 										</a>
 									</span>
 									<span class="triple-direction-icon">
+										{#if triple.followDirection}
+											<Badge color="success">FD</Badge>
+										{/if}
+										<Badge color="secondary" class={triple.followDirection ? 'ms-1' : ''}>{triple.processStep}</Badge>
 										{#if getTripleDirection(triple, i > 0 && data.shortestPathData?.triples[i - 1] ? data.shortestPathData.triples[i - 1] : null, data.seedUrl || '') === 'down'}
-											<Icon src={FaSolidArrowDown} className="arrow-down" />
+											<Icon src={FaSolidArrowDown} className="arrow-down ms-1" />
 										{:else}
-											<Icon src={FaSolidArrowUp} className="arrow-up" />
+											<Icon src={FaSolidArrowUp} className="arrow-up ms-1" />
 										{/if}
 									</span>
 								</div>
+								<Tooltip target="shortest-triple-{i}" placement="top">
+									<div class="sources-tooltip">
+										<strong>Sources:</strong>
+										{#if triple.sources.length > 0}
+											{#each triple.sources as source}
+												<div class="source-url">{source}</div>
+											{/each}
+										{:else}
+											<div class="source-url">None</div>
+										{/if}
+									</div>
+								</Tooltip>
 							{/each}
 						</div>
 					</AccordionItem>
@@ -340,6 +384,31 @@
 		align-items: center;
 	}
 
+	.step-1 {
+		background-color: #d4edda;
+		border-left: 3px solid #28a745;
+	}
+
+	.step-2 {
+		background-color: #cce5ff;
+		border-left: 3px solid #004085;
+	}
+
+	.step-3 {
+		background-color: #fff3cd;
+		border-left: 3px solid #856404;
+	}
+
+	.step-4 {
+		background-color: #f8d7da;
+		border-left: 3px solid #721c24;
+	}
+
+	.step-5 {
+		background-color: #e2e3e5;
+		border-left: 3px solid #383d41;
+	}
+
 	.triple-number {
 		font-weight: bold;
 		margin-right: 0.5rem;
@@ -359,6 +428,28 @@
 		width: 1em;
 		height: 1em;
 		color: #6c757d;
+	}
+
+	.triple-direction-icon :global(.badge) {
+		font-size: 0.7rem;
+		padding: 0.3em 0.5em;
+	}
+
+	:global(.tooltip) {
+		max-width: none !important;
+	}
+
+	:global(.tooltip-inner) {
+		max-width: none;
+	}
+
+	.sources-tooltip {
+		text-align: left;
+	}
+
+	.source-url {
+		word-break: break-all;
+		font-size: 0.85em;
 	}
 
 	:global(.arrow-down) {
