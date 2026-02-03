@@ -2,6 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { Col, Row, Table, Accordion, AccordionItem } from '@sveltestrap/sveltestrap';
 	import { Tooltip } from '@sveltestrap/sveltestrap';
+	import { Icon } from 'svelte-icons-pack';
+	import { FaSolidArrowDown, FaSolidArrowUp } from 'svelte-icons-pack/fa';
 
 	export let data: {
 		process: { pid: string };
@@ -26,6 +28,8 @@
 			}>;
 		} | null;
 		errorMessage?: string;
+		longestPathsCount?: number;
+		shortestPathsCount?: number;
 	};
 
 	let seedUrl = data.seedUrl || '';
@@ -46,6 +50,32 @@
 
 	function isCurrentResource(url: string): boolean {
 		return url === data.seedUrl || url === data.headUrl;
+	}
+
+	function getTripleDirection(
+		triple: { subject: string; object: string },
+		previousTriple: { subject: string; object: string } | null,
+		seedUrl: string
+	): 'down' | 'up' {
+		if (previousTriple === null) {
+			return triple.subject === seedUrl ? 'down' : 'up';
+		}
+
+		const prevSubject = previousTriple.subject;
+		const prevObject = previousTriple.object;
+		const currSubject = triple.subject;
+		const currObject = triple.object;
+
+		const subjectMatchesPrev = currSubject === prevSubject || currSubject === prevObject;
+		const objectMatchesPrev = currObject === prevSubject || currObject === prevObject;
+
+		if (subjectMatchesPrev) {
+			return 'down';
+		} else if (objectMatchesPrev) {
+			return 'up';
+		} else {
+			return triple.subject === seedUrl ? 'down' : 'up';
+		}
 	}
 </script>
 
@@ -77,7 +107,7 @@
 			/>
 		</div>
 
-		<button type="submit" class="btn btn-primary">Find example of long path</button>
+		<button type="submit" class="btn btn-primary">Find path examples</button>
 	</form>
 
 	{#if data.errorMessage}
@@ -90,7 +120,7 @@
 		<div class="mt-4">
 			<Accordion>
 				{#if data.longestPathData}
-					<AccordionItem header="Longest Path Found">
+					<AccordionItem header="Longest path example ({data.longestPathsCount || 1} found)">
 						<p><strong>Path Length:</strong> {data.longestPathData.nodes.length} nodes</p>
 						<p><strong>Predicates:</strong> {data.longestPathData.predicates.length} predicates</p>
 
@@ -115,23 +145,42 @@
 									<span class="triple-number">{i + 1}.</span>
 									<span class="triple-content">
 										<a
-											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(triple.subject)}"
-											class="resource-link {isCurrentResource(triple.subject) ? 'current-resource' : ''}"
+											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(
+												triple.subject
+											)}"
+											class="resource-link {isCurrentResource(triple.subject)
+												? 'current-resource'
+												: ''}"
 										>
 											&lt;{triple.subject}&gt;
 										</a>
 										<a
-											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(triple.predicate)}"
-											class="resource-link {isCurrentResource(triple.predicate) ? 'current-resource' : ''}"
+											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(
+												triple.predicate
+											)}"
+											class="resource-link {isCurrentResource(triple.predicate)
+												? 'current-resource'
+												: ''}"
 										>
 											&lt;{triple.predicate}&gt;
 										</a>
 										<a
-											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(triple.object)}"
-											class="resource-link {isCurrentResource(triple.object) ? 'current-resource' : ''}"
+											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(
+												triple.object
+											)}"
+											class="resource-link {isCurrentResource(triple.object)
+												? 'current-resource'
+												: ''}"
 										>
 											&lt;{triple.object}&gt;
 										</a>
+									</span>
+									<span class="triple-direction-icon">
+										{#if getTripleDirection(triple, i > 0 && data.longestPathData?.triples[i - 1] ? data.longestPathData.triples[i - 1] : null, data.seedUrl || '') === 'down'}
+											<Icon src={FaSolidArrowDown} className="arrow-down" />
+										{:else}
+											<Icon src={FaSolidArrowUp} className="arrow-up" />
+										{/if}
 									</span>
 								</div>
 							{/each}
@@ -140,7 +189,7 @@
 				{/if}
 
 				{#if data.shortestPathData}
-					<AccordionItem header="Shortest Path Found">
+					<AccordionItem header="Shortest path example ({data.shortestPathsCount || 1} found)">
 						<p><strong>Path Length:</strong> {data.shortestPathData.nodes.length} nodes</p>
 						<p><strong>Predicates:</strong> {data.shortestPathData.predicates.length} predicates</p>
 
@@ -165,23 +214,42 @@
 									<span class="triple-number">{i + 1}.</span>
 									<span class="triple-content">
 										<a
-											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(triple.subject)}"
-											class="resource-link {isCurrentResource(triple.subject) ? 'current-resource' : ''}"
+											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(
+												triple.subject
+											)}"
+											class="resource-link {isCurrentResource(triple.subject)
+												? 'current-resource'
+												: ''}"
 										>
 											&lt;{triple.subject}&gt;
 										</a>
 										<a
-											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(triple.predicate)}"
-											class="resource-link {isCurrentResource(triple.predicate) ? 'current-resource' : ''}"
+											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(
+												triple.predicate
+											)}"
+											class="resource-link {isCurrentResource(triple.predicate)
+												? 'current-resource'
+												: ''}"
 										>
 											&lt;{triple.predicate}&gt;
 										</a>
 										<a
-											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(triple.object)}"
-											class="resource-link {isCurrentResource(triple.object) ? 'current-resource' : ''}"
+											href="/processes/{data.process.pid}/resource?url={encodeURIComponent(
+												triple.object
+											)}"
+											class="resource-link {isCurrentResource(triple.object)
+												? 'current-resource'
+												: ''}"
 										>
 											&lt;{triple.object}&gt;
 										</a>
+									</span>
+									<span class="triple-direction-icon">
+										{#if getTripleDirection(triple, i > 0 && data.shortestPathData?.triples[i - 1] ? data.shortestPathData.triples[i - 1] : null, data.seedUrl || '') === 'down'}
+											<Icon src={FaSolidArrowDown} className="arrow-down" />
+										{:else}
+											<Icon src={FaSolidArrowUp} className="arrow-up" />
+										{/if}
 									</span>
 								</div>
 							{/each}
@@ -279,6 +347,28 @@
 		min-width: 2rem;
 	}
 
+	.triple-direction-icon {
+		margin-right: 0.5rem;
+		min-width: 1.5rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.triple-direction-icon :global(svg) {
+		width: 1em;
+		height: 1em;
+		color: #6c757d;
+	}
+
+	:global(.arrow-down) {
+		color: #28a745;
+	}
+
+	:global(.arrow-up) {
+		color: #dc3545;
+	}
+
 	.triple-content {
 		flex: 1;
 		min-width: 0;
@@ -286,11 +376,6 @@
 		flex-wrap: wrap;
 		gap: 0.5rem;
 		align-items: center;
-	}
-
-	.triple-part {
-		flex: 1 1 30%;
-		min-width: 200px;
 	}
 
 	.alert {
@@ -304,4 +389,3 @@
 		border: 1px solid #f5c6cb;
 	}
 </style>
-

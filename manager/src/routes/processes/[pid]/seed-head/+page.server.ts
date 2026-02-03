@@ -26,29 +26,31 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	}
 
 	try {
-		// Find the longest path with the given seed and head URLs
-		const longestPaths = await Path.find({
+		// Find all paths with the given seed and head URLs to count max/min
+		const lpFilter = {
 			processId: pid,
 			'seed.url': seedUrl,
 			'head.url': headUrl,
 			status: 'active'
-		})
-			.sort({ 'nodes.count': -1 }) // Sort by longest path first
+		};
+		const _longestPath = await Path.find(lpFilter)
+			.sort({ 'nodes.count': -1 })
 			.limit(1)
 			.lean();
 
-		// Find the shortest path with the given seed and head URLs
-		const shortestPaths = await Path.find({
+		const spFilter = {
 			processId: pid,
 			'seed.url': seedUrl,
 			'head.url': headUrl,
 			status: 'active'
-		})
-			.sort({ 'nodes.count': 1 }) // Sort by shortest path first
+		};
+		const _shortestPath = await Path.find(spFilter)
+			.sort({ 'nodes.count': 1 })
 			.limit(1)
 			.lean();
 
-		if (longestPaths.length === 0) {
+
+		if (_longestPath.length === 0 || _shortestPath.length === 0) {
 			return {
 				process: { pid },
 				seedUrl,
@@ -59,7 +61,16 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			};
 		}
 
-		const longestPath = longestPaths[0];
+
+		const longestPath = _longestPath[0];
+		const shortestPath = _shortestPath[0];
+
+		const maxNodes = longestPath.nodes.count;
+		const minNodes = shortestPath.nodes.count;
+
+		const longestPathsCount = await Path.countDocuments(lpFilter).where('nodes.count').equals(maxNodes);
+		const shortestPathsCount = await Path.countDocuments(spFilter).where('nodes.count').equals(minNodes);
+
 
 		// Get the actual triple documents for the longest path
 		const longestTriples = await Triple.find({
@@ -81,9 +92,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 		// Process shortest path if found
 		let shortestPathData = null;
-		if (shortestPaths.length > 0) {
-			const shortestPath = shortestPaths[0];
-
+		if (shortestPath) {
 			// Get the actual triple documents for the shortest path
 			const shortestTriples = await Triple.find({
 				_id: { $in: shortestPath.triples }
@@ -118,7 +127,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
 				predicates: longestPath.predicates.elems,
 				triples: longestTriplesInOrder
 			},
-			shortestPathData
+			shortestPathData,
+			longestPathsCount,
+			shortestPathsCount
 		};
 	} catch (err) {
 		console.error('Error loading path data:', err);
