@@ -92,8 +92,13 @@ export async function extendPathsWithExistingTriples(process: ProcessClass, path
 				}))
 			);
 
-			// mark old paths as deleted
-			await Path.updateMany({ _id: { $in: Array.from(toDelete) } }, { $set: { status: 'deleted' } });
+			// mark old paths as deleted if their head status is 'done'
+			await Path.updateMany(
+				{
+					_id: { $in: Array.from(toDelete) },
+					'head.status': { $in: ['done'] }
+				},
+				{ $set: { status: 'deleted' } });
 
 			// extend newly created paths recursively
 			await extendPathsWithExistingTriples(process, newPaths);
@@ -219,8 +224,14 @@ export async function extendProcessPaths(process: ProcessClass, triplesByNode: {
 	// create new paths
 	const newPaths = await Path.create(newPathObjs);
 
-	// mark old paths as deleted
-	await Path.updateMany({ _id: { $in: Array.from(toDelete) } }, { $set: { status: 'deleted' } });
+	// mark old paths as deleted if their head status is 'done'
+	await Path.updateMany(
+		{
+			_id: { $in: Array.from(toDelete) },
+			'head.status': { $in: ['done'] }
+		},
+		{ $set: { status: 'deleted' } }
+	);
 
 	// recursively extend newly created paths
 	await extendPathsWithExistingTriples(process, newPaths);
