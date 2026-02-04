@@ -176,7 +176,7 @@ class PathClass {
 
 		// if path already at max props
 		if (this.predicates.count >= process.currentStep.maxPathProps) {
-			// and if there's a step whitelist only predicates on both lists allowed
+			// and if there's a step whitelist, only predicates on both lists allowed
 			if (process.currentStep.predLimit.limType === 'whitelist') {
 				const predWhiteList = [];
 				for (const p of this.predicates.elems) {
@@ -212,6 +212,8 @@ class PathClass {
 			nodes: this.head.url,
 			_id: { $nin: this.triples },
 		});
+
+		log.silly(`Found ${triples.length} existing triples to extend path ${this._id}`);
 
 		return this.extend(triples, process);
 	}

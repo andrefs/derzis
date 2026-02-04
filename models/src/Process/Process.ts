@@ -334,8 +334,15 @@ class ProcessClass extends Document {
 	public async extendExistingPaths() {
 		log.info(`Extending existing paths for process ${this.pid}`);
 
+		const procTripleCount = await ProcessTriple.countDocuments({ processId: this.pid });
+
 		try {
 			await extendExistingPaths(this.pid);
+			const newPTC = await ProcessTriple.countDocuments({ processId: this.pid });
+			log.info(
+				`Extended existing paths for process ${this.pid}. ` +
+				`ProcessTriples before: ${procTripleCount}, after: ${newPTC}, added: ${newPTC - procTripleCount}`
+			);
 		} catch (error) {
 			log.error(`Error updating process ${this.pid} status to 'extending':`, error);
 			throw error;
@@ -377,49 +384,49 @@ class ProcessClass extends Document {
 	public static async startNext(this: ReturnModelType<typeof ProcessClass>) {
 		const runningProcs = await this.countDocuments({ status: 'running' });
 
-		if (!runningProcs) {
-			log.info('No running processes, starting next queued process');
-			const process = await this.findOneAndUpdate(
-				{ status: 'queued' },
-				{ $set: { status: 'extending' } },
-				{ new: true }
-			);
-
-			if (!process) {
-				log.info('No queued processes to start');
-				return false;
-			}
-
-			const pid = process.pid;
-
-
-			// Before queuing, reset errored states if needed
-			if (process.currentStep.resetErrors) {
-				log.info(`Resetting errored states for process ${pid}`);
-				const res = await process.resetErroredStates();
-				log.debug(`Reset errored states for process ${pid}: ${res}`);
-			}
-
-			// Before queuing, extend existing paths according to new step limits
-			await process.extendExistingPaths();
-
-			// Set the process to queued
-			await Process.updateOne(
-				{ pid, status: 'extending' },
-				{
-					$set: {
-						status: 'running'
-					}
-				}
-			);
-			log.info(`Queued process ${pid} for next step`);
-			log.info(`Process ${process.pid} is starting with seeds:`, process.currentStep.seeds);
-			await Resource.insertSeeds(process.currentStep.seeds, process.pid);
-			await process.notifyStart();
-			return true;
+		if (runningProcs > 0) {
+			log.info('There are already running processes, not starting a new one');
+			return false;
 		}
-		log.info('There are already running processes, not starting a new one');
-		return false;
+
+		log.info('No running processes, starting next queued process');
+		const process = await this.findOneAndUpdate(
+			{ status: 'queued' },
+			{ $set: { status: 'extending' } },
+			{ new: true }
+		);
+
+		if (!process) {
+			log.info('No queued processes to start');
+			return false;
+		}
+
+		const pid = process.pid;
+
+		// Before queuing, reset errored states if needed
+		if (process.currentStep.resetErrors) {
+			log.info(`Resetting errored states for process ${pid}`);
+			const res = await process.resetErroredStates();
+			log.debug(`Reset errored states for process ${pid}: ${res}`);
+		}
+
+		// Before queuing, extend existing paths according to new step limits
+		await process.extendExistingPaths();
+
+		// Set the process to queued
+		await Process.updateOne(
+			{ pid, status: 'extending' },
+			{
+				$set: {
+					status: 'running'
+				}
+			}
+		);
+		log.info(`Queued process ${pid} for next step`);
+		log.info(`Process ${process.pid} is starting with seeds:`, process.currentStep.seeds);
+		await Resource.insertSeeds(process.currentStep.seeds, process.pid);
+		await process.notifyStart();
+		return true;
 	}
 
 	/**

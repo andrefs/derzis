@@ -149,13 +149,13 @@ export async function extendExistingPaths(pid: string) {
 			break;
 		}
 
-		processedPaths += paths.length;
 		const percentage = Math.round((processedPaths / totalPaths) * 100);
 		const elapsedTime = (Date.now() - startTime) / 1000;
 
 		log.info(`Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${totalPaths} - ${percentage}%)`);
 
 		await extendPathsWithExistingTriples(process, paths);
+		processedPaths += paths.length;
 
 		const batchTime = (Date.now() - batchStartTime) / 1000;
 		log.info(`Batch completed in ${batchTime.toFixed(2)}s (Total elapsed: ${elapsedTime.toFixed(2)}s)`);
