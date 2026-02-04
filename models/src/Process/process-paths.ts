@@ -47,21 +47,21 @@ export async function getPathsForDomainCrawl(process: ProcessClass, domainBlackl
 }
 
 export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promise<boolean> {
-	const paths = await Path.find({
+	const pathsCount = await Path.countDocuments({
 		processId: process.pid,
 		status: 'active',
 		'head.domain.status': 'checking'
 	});
-	return !!paths.length;
+	return !!pathsCount;
 }
 
 export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<boolean> {
-	const paths = await Path.find({
+	const pathsCount = await Path.countDocuments({
 		processId: process.pid,
 		status: 'active',
 		'head.status': 'crawling'
 	});
-	return !!paths.length;
+	return !!pathsCount;
 }
 
 export async function extendPathsWithExistingTriples(process: ProcessClass, paths: PathDocument[]) {

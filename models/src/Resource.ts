@@ -26,6 +26,7 @@ class CrawlId {
 @index({ url: 1 }, { unique: true })
 @index({ status: 1 })
 @index({ domain: 1 })
+@index({ domain: 1, status: 1, url: 1 })
 class ResourceClass {
 	createdAt!: Date;
 	updatedAt!: Date;
