@@ -188,7 +188,7 @@ export async function extendProcessPaths(process: ProcessClass, triplesByNode: {
 	const pathsToDelete = new Set();
 	const newPathObjs = [];
 	const toDelete = new Set();
-	const procTriples = new Set();
+	const procTriples: Set<Types.ObjectId> = new Set();
 
 	for (const path of paths) {
 		const { newPaths: nps, procTriples: pts } = await path.extend(
