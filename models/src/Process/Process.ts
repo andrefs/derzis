@@ -382,20 +382,29 @@ class ProcessClass extends Document {
 
 	// TODO configurable number of simultaneous processes
 	public static async startNext(this: ReturnModelType<typeof ProcessClass>) {
+		// if there is already a running process, do not start a new one
 		const runningProcs = await this.countDocuments({ status: 'running' });
-
 		if (runningProcs > 0) {
 			log.info('There are already running processes, not starting a new one');
 			return false;
 		}
 
-		log.info('No running processes, starting next queued process');
-		const process = await this.findOneAndUpdate(
-			{ status: 'queued' },
-			{ $set: { status: 'extending' } },
-			{ new: true }
-		);
+		// check for a process in extending state
+		let process = await this.findOne({ status: 'extending' });
+		if (process) {
+			log.info('Found process in extending state, setting it to running');
+		}
+		// or the next queued process
+		else {
+			log.info('No running or extending processes, starting next queued process');
+			const process = await this.findOneAndUpdate(
+				{ status: 'queued' },
+				{ $set: { status: 'extending' } },
+				{ new: true }
+			);
+		}
 
+		// if no process found, return
 		if (!process) {
 			log.info('No queued processes to start');
 			return false;

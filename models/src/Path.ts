@@ -213,6 +213,10 @@ class PathClass {
 			_id: { $nin: this.triples },
 		});
 
+		if (!triples.length) {
+			log.silly(`No existing triples found to extend path ${this._id}`);
+			return { newPaths: [], procTriples: [] };
+		}
 		log.silly(`Found ${triples.length} existing triples to extend path ${this._id}`);
 
 		return this.extend(triples, process);
