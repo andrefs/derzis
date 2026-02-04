@@ -1,6 +1,7 @@
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { TripleClass } from './Triple';
 import { prop, index, getModelForClass, ReturnModelType } from '@typegoose/typegoose';
+import { Types } from 'mongoose';
 
 @index({ processId: 1, triple: 1 }, { unique: true })
 class ProcessTripleClass extends TimeStamps {
@@ -42,7 +43,7 @@ const ProcessTriple = getModelForClass(ProcessTripleClass, {
 
 interface ProcessTripleInput {
 	processId: string;
-	triple: TripleClass;
+	triple: TripleClass | Types.ObjectId;
 	processStep: number;
 }
 
