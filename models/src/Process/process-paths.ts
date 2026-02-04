@@ -83,7 +83,7 @@ export async function extendPathsWithExistingTriples(process: ProcessClass, path
 			const newPaths = await Path.create(newPathObjs);
 
 			// add proc-triple associations
-			await ProcessTriple.insertMany(
+			await ProcessTriple.upsertMany(
 				[...procTriples].map((tId) => ({
 					processId: process.pid,
 					triple: tId,
@@ -207,7 +207,7 @@ export async function extendProcessPaths(process: ProcessClass, triplesByNode: {
 	await updateNewPathHeadStatus(newPathObjs);
 
 	// add proc-triple associations
-	await ProcessTriple.insertMany(
+	await ProcessTriple.upsertMany(
 		[...procTriples].map((tId) => ({
 			processId: process.pid,
 			triple: tId,
