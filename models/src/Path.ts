@@ -206,11 +206,36 @@ class PathClass {
 			}
 		}
 
+		const followDirection = process!.currentStep.followDirection;
+		const predsDirMetrics = process!.curPredsDirMetrics();
+		let directionFilter = {};
+
+		if (followDirection && predsDirMetrics && predsDirMetrics.size) {
+			const subjPreds: string[] = [];
+			const objPreds: string[] = [];
+			Array.from(predsDirMetrics).forEach(([pred, { bf }]) => {
+				const bfRatio = bf.subj / bf.obj;
+				if (bfRatio >= 1) {
+					subjPreds.push(pred);
+				} else {
+					objPreds.push(pred);
+				}
+			});
+			directionFilter = {
+				$or: [
+					{ predicate: { $nin: [...subjPreds, ...objPreds] } },
+					{ predicate: { $in: subjPreds }, subject: this.head.url },
+					{ predicate: { $in: objPreds }, object: this.head.url }
+				]
+			};
+		}
+
 		// find triples which include the head but dont belong to the path yet
 		let triples: TripleDocument[] = await Triple.find({
 			predicate: predFilter,
 			nodes: this.head.url,
 			_id: { $nin: this.triples },
+			...directionFilter,
 		});
 
 		if (!triples.length) {
