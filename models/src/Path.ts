@@ -94,6 +94,13 @@ export type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
+@index({
+	processId: 1,
+	status: 1,
+	'head.domain.status': 1,
+	'nodes.count': 1,
+	'predicates.count': 1
+})
 class PathClass {
 	_id!: Types.ObjectId;
 	createdAt!: Date;

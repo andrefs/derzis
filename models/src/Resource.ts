@@ -126,14 +126,14 @@ class ResourceClass {
 		);
 
 		// Path
-        await Path.updateMany(
-            { 'head.url': url, status: 'active' },
-            {
-                $set: {
-                    'head.status': error ? 'error' : 'done'
-                }
-            }
-        );
+		await Path.updateMany(
+			{ 'head.url': url, status: 'active' },
+			{
+				$set: {
+					'head.status': error ? 'error' : 'done'
+				}
+			}
+		);
 
 		// Domain
 		const baseFilter = { origin: new URL(url).origin };
@@ -216,15 +216,15 @@ class ResourceClass {
 			.select('url domain status')
 			.lean();
 
-        const paths = seedResources.map((s) => ({
-            processId: pid,
-            seed: { url: s.url },
-            head: { url: s.url, status: s.status },
-            nodes: { elems: [s.url] },
-            predicates: { elems: [] },
-            triples: [],
-            status: 'active'
-        }));
+		const paths = seedResources.map((s) => ({
+			processId: pid,
+			seed: { url: s.url },
+			head: { url: s.url, status: s.status },
+			nodes: { elems: [s.url] },
+			predicates: { elems: [] },
+			triples: [],
+			status: 'active'
+		}));
 
 		const insPaths = await Path.create(paths);
 		return this.addPaths(insPaths);
@@ -263,7 +263,7 @@ class ResourceClass {
 		limit: number
 	) {
 		return await Resource.find({
-			origin: domain,
+			domain,
 			status: 'unvisited',
 			url: { $nin: exclude }
 		})
