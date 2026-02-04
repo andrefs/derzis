@@ -4,6 +4,7 @@ import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
+import { Types } from 'mongoose';
 
 export async function getPathsForRobotsChecking(process: ProcessClass, skip = 0, limit = 20) {
 	const paths = await Path.find({
@@ -67,7 +68,7 @@ export async function extendPathsWithExistingTriples(process: ProcessClass, path
 	for (const path of paths) {
 		const newPathObjs = [];
 		const toDelete = new Set();
-		const procTriples = new Set();
+		const procTriples: Set<Types.ObjectId> = new Set();
 
 		const { newPaths: nps, procTriples: pts } = await path.extendWithExistingTriples(process);
 
