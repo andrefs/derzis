@@ -130,8 +130,10 @@ export async function extendExistingPaths(pid: string) {
 
 	let processedPaths = 0;
 	const startTime = Date.now();
+	let batchCounter = 0;
 
 	while (hasMore) {
+		batchCounter++;
 		const batchStartTime = Date.now();
 
 		// find a batch of active paths that can be extended
@@ -158,11 +160,12 @@ export async function extendExistingPaths(pid: string) {
 		processedPaths += paths.length;
 
 		const batchTime = (Date.now() - batchStartTime) / 1000;
-		log.info(`Batch completed in ${batchTime.toFixed(2)}s (Total elapsed: ${elapsedTime.toFixed(2)}s)`);
+		log.info(`Batch ${batchCounter} completed in ${batchTime.toFixed(2)}s (Total elapsed: ${elapsedTime.toFixed(2)}s)`);
 
 		// add a 1s delay between batches to reduce DB load
 		log.debug('Waiting 1s before processing the next batch...');
 		await new Promise((resolve) => setTimeout(resolve, 1000));
+		log.silly('Continuing to next batch...');
 
 		skip += batchSize;
 	}

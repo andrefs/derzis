@@ -389,20 +389,12 @@ class ProcessClass extends Document {
 			return false;
 		}
 
-		// check for a process in extending state
-		let process = await this.findOne({ status: 'extending' });
-		if (process) {
-			log.info('Found process in extending state, setting it to running');
-		}
-		// or the next queued process
-		else {
-			log.info('No running or extending processes, starting next queued process');
-			const process = await this.findOneAndUpdate(
-				{ status: 'queued' },
-				{ $set: { status: 'extending' } },
-				{ new: true }
-			);
-		}
+		log.info('No running processes, starting next queued process');
+		const process = await this.findOneAndUpdate(
+			{ status: 'queued' },
+			{ $set: { status: 'extending' } },
+			{ new: true }
+		);
 
 		// if no process found, return
 		if (!process) {

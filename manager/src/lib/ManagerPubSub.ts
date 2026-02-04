@@ -6,6 +6,7 @@ const log = createLogger('Manager');
 import Manager from './Manager';
 import process from 'process';
 import type { JobCapacity, Message } from '@derzis/common';
+import { Process } from '@derzis/models';
 const redisOpts = {
 	url: `redis://${config.pubsub.host}:${config.pubsub.port}`
 };
@@ -36,6 +37,7 @@ class ManagerPubSub {
 		log.info('Started');
 		await this._m.jobs.cancelAllJobs();
 		await this.connect();
+		await Process.updateMany({ status: 'extending' }, { status: 'queued' });
 		//await this._m.startNewProcess();
 		this.askCurrentCapacity();
 	}
