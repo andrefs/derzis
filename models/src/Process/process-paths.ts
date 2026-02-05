@@ -71,12 +71,12 @@ export async function extendPathsWithExistingTriples(process: ProcessClass, path
 		const toDelete = new Set();
 		const procTriples: Set<Types.ObjectId> = new Set();
 
-		const { newPaths: nps, procTriples: pts } = await path.extendWithExistingTriples(process);
+		const { extendedPaths: eps, procTriples: pts } = await path.extendWithExistingTriples(process);
 
 		// if new paths were created
-		if (nps.length) {
+		if (eps.length) {
 			toDelete.add(path._id);
-			newPathObjs.push(...nps);
+			newPathObjs.push(...eps);
 			for (const pt of pts) {
 				procTriples.add(pt);
 			}

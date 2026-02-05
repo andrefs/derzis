@@ -170,15 +170,13 @@ class PathClass {
 	}
 
 	/**
-	* Try to extend the path with existing triples in the database.
-	* If successful, create new paths and return them along with the ProcessTriples to create.
-	* If not, return empty array.
-	*/
-	public async extendWithExistingTriples(process: ProcessClass): Promise<{
-		newPaths: PathSkeleton[];
-		procTriples: Types.ObjectId[];
-	}> {
-
+	 * Generate a filter to find existing triples that can extend this path,
+	 * based on the process's current step whitelist/blacklist and the path's current predicates.
+	 *
+	 * @param process The current process context.
+	 * @returns A filter object for querying existing triples.
+	 */
+	public genExistingTriplesFilter(process: ProcessClass) {
 		let predFilter;
 
 		// if path already at max props
@@ -237,23 +235,35 @@ class PathClass {
 			};
 		}
 
-		// find triples which include the head but dont belong to the path yet
-		let triples: TripleDocument[] = await Triple.find({
+		return {
 			predicate: predFilter,
 			nodes: this.head.url,
 			_id: { $nin: this.triples },
 			...directionFilter,
-		});
+		};
 
+	}
+
+	/**
+	* Try to extend the path with existing triples in the database.
+	* If successful, create new paths and return them along with the ProcessTriples to create.
+	* If not, return empty array.
+	*/
+	public async extendWithExistingTriples(process: ProcessClass): ReturnType<PathClass['genExtended']> {
+		const triplesFilter = this.genExistingTriplesFilter(process);
+		// find triples which include the head but dont belong to the path yet
+		let triples: TripleDocument[] = await Triple.find(triplesFilter);
 		if (!triples.length) {
 			log.silly(`No existing triples found to extend path ${this._id}`);
-			return { newPaths: [], procTriples: [] };
+			return { extendedPaths: [], procTriples: [] };
 		}
 		log.silly(`Found ${triples.length} existing triples to extend path ${this._id}`);
-
 		return this.genExtended(triples, process);
 	}
 
+	/**
+	 * Create a copy of the path.
+	 */
 	public copy(this: PathClass): PathSkeleton {
 		const copy = {
 			processId: this.processId,
