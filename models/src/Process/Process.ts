@@ -327,10 +327,6 @@ class ProcessClass extends Document {
 		return hasPathsHeadBeingCrawled(this);
 	}
 
-	public async extendPathsWithExistingTriples(paths: PathDocument[]) {
-		return extendPathsWithExistingTriples(this, paths);
-	}
-
 	public async extendExistingPaths() {
 		log.info(`Extending existing paths for process ${this.pid}`);
 
