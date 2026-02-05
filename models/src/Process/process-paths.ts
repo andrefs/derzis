@@ -65,13 +65,15 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
 	return !!pathsCount;
 }
 
-export async function extendPathsWithExistingTriples(process: ProcessClass, paths: PathDocument[]) {
+export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: PathDocument[]) {
+	log.silly(`Extending ${paths.length} paths for process ${proc.pid} with existing triples...`);
+
 	for (const path of paths) {
 		const newPathObjs = [];
 		const toDelete = new Set();
 		const procTriples: Set<Types.ObjectId> = new Set();
 
-		const { extendedPaths: eps, procTriples: pts } = await path.extendWithExistingTriples(process);
+		const { extendedPaths: eps, procTriples: pts } = await path.extendWithExistingTriples(proc);
 
 		// if new paths were created
 		if (eps.length) {
@@ -81,28 +83,45 @@ export async function extendPathsWithExistingTriples(process: ProcessClass, path
 				procTriples.add(pt);
 			}
 
-			// create new paths
-			const newPaths = await Path.create(newPathObjs);
+			let newPaths: PathDocument[] = [];
+			if (newPathObjs.length) {
+				// create new paths
+				newPaths = await Path.create(newPathObjs);
+			} else {
+				log.silly('No new paths to create.');
+			}
 
-			// add proc-triple associations
-			await ProcessTriple.upsertMany(
-				[...procTriples].map((tId) => ({
-					processId: process.pid,
-					triple: tId,
-					processStep: process.steps.length
-				}))
-			);
+			if (procTriples.size) {
+				// add proc-triple associations
+				await ProcessTriple.upsertMany(
+					[...procTriples].map((tId) => ({
+						processId: proc.pid,
+						triple: tId,
+						processStep: proc.steps.length
+					}))
+				);
+			} else {
+				log.silly('No new process-triple associations to add.');
+			}
 
-			// mark old paths as deleted if their head status is 'done'
-			await Path.updateMany(
-				{
-					_id: { $in: Array.from(toDelete) },
-					'head.status': { $in: ['done'] }
-				},
-				{ $set: { status: 'deleted' } });
+			if (toDelete.size) {
+				// mark old paths as deleted if their head status is 'done'
+				await Path.updateMany(
+					{
+						_id: { $in: Array.from(toDelete) },
+						'head.status': { $in: ['done'] }
+					},
+					{ $set: { status: 'deleted' } });
+			} else {
+				log.silly('No old paths to delete.');
+			}
 
-			// extend newly created paths recursively
-			await extendPathsWithExistingTriples(process, newPaths);
+			if (newPaths.length) {
+				// extend newly created paths recursively
+				await extendPathsWithExistingTriples(proc, newPaths);
+			} else {
+				log.silly('No new paths to extend further.');
+			}
 		}
 	}
 }
@@ -182,16 +201,25 @@ export async function extendExistingPaths(pid: string) {
 }
 
 export async function extendProcessPaths(process: ProcessClass, headUrl: string) {
+	log.info(`Extending paths for process ${process.pid} with head URL: ${headUrl}`);
 	const paths = await Path.find({
 		processId: process.pid,
 		status: 'active',
 		'head.url': headUrl,
 	});
-	log.silly('Paths:', paths);
+	if (!paths.length) {
+		log.info(`No active paths found for process ${process.pid} with head URL: ${headUrl}`);
+		return;
+	}
 
 	const triples = await Triple.find({
 		nodes: headUrl,
-	}).lean();
+	});
+
+	if (!triples.length) {
+		log.info(`No triples found connected to head URL: ${headUrl}`);
+		return;
+	}
 
 	const pathsToCreate = [];
 	const pathsToDelete = new Set();
@@ -212,29 +240,44 @@ export async function extendProcessPaths(process: ProcessClass, headUrl: string)
 			}
 		}
 	}
-	// update head status of new paths
-	await setNewPathHeadStatus(pathsToCreate);
 
-	// add proc-triple associations
-	await ProcessTriple.upsertMany(
-		[...procTriples].map((tId) => ({
-			processId: process.pid,
-			triple: tId,
-			processStep: process.steps.length
-		}))
-	);
+	if (procTriples.size) {
+		// add proc-triple associations
+		await ProcessTriple.upsertMany(
+			[...procTriples].map((tId) => ({
+				processId: process.pid,
+				triple: tId,
+				processStep: process.steps.length
+			}))
+		);
+	} else {
+		log.silly('No new process-triple associations to add.');
+	}
 
-	// create new paths
-	const newPaths = await Path.create(pathsToCreate);
+	let newPaths: PathDocument[] = [];
+	if (pathsToCreate.length) {
+		// update head status of new paths
+		await setNewPathHeadStatus(pathsToCreate);
 
-	// mark old paths as deleted if their head status is 'done'
-	await Path.updateMany(
-		{
-			_id: { $in: Array.from(pathsToDelete) },
-			'head.status': 'done'
-		},
-		{ $set: { status: 'deleted' } }
-	);
+		// create new paths
+		newPaths = await Path.create(pathsToCreate);
+	} else {
+		log.silly('No new paths to create.');
+	}
+
+
+	if (pathsToDelete.size) {
+		// mark old paths as deleted if their head status is 'done'
+		await Path.updateMany(
+			{
+				_id: { $in: Array.from(pathsToDelete) },
+				'head.status': 'done'
+			},
+			{ $set: { status: 'deleted' } }
+		);
+	} else {
+		log.silly('No old paths to delete.');
+	}
 
 	// recursively extend newly created paths
 	await extendPathsWithExistingTriples(process, newPaths);

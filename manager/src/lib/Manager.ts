@@ -164,28 +164,8 @@ export default class Manager {
 		// add new triples in batches
 		const res = await Triple.upsertMany(source, triples);
 
-		// for each batch bulk write result
-		for (const r of res) {
-			if (r.upsertedCount) {
-				const tids = Object.values(r.upsertedIds).map((i) => new ObjectId(i));
-				// filter out reflexive triples and triples not referring to head resource
-				const tObjs: TripleClass[] = (await Triple.find({ _id: { $in: tids } })).filter(
-					(t) => t.subject !== t.object && (t.subject == source.url || t.object == source.url)
-				);
-
-				// TODO convert to TripleDocument
-				const triplesByNode: { [url: string]: TripleClass[] } = {};
-				for (const t of tObjs) {
-					const newHead = t.subject === source.url ? t.object : t.subject;
-					if (!triplesByNode[source.url]) {
-						triplesByNode[source.url] = [];
-					}
-					triplesByNode[source.url].push(t);
-				}
-				log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
-				await this.updateAllPathsWithHead(source.url);
-			}
-		}
+		// extend paths with source url as head
+		await this.updateAllPathsWithHead(source.url);
 	}
 
 	/**
