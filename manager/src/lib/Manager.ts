@@ -183,24 +183,23 @@ export default class Manager {
 					triplesByNode[source.url].push(t);
 				}
 				log.silly('Triples by node -- nodes:', Object.keys(triplesByNode));
-				await this.updateAllPathsWithHead(source.url, triplesByNode);
+				await this.updateAllPathsWithHead(source.url);
 			}
 		}
 	}
 
 	/**
 	 * Update all paths that have the given source URL as head
-	 * @param sourceUrl URL of the resource that is the head of the paths to update
-	 * @param triplesByNode Object mapping node URLs to arrays of triples connected to them
+	 * @param headUrl URL of the resource that is the head of the paths to update
 	 */
-	async updateAllPathsWithHead(sourceUrl: string, triplesByNode: { [url: string]: TripleClass[] }) {
+	async updateAllPathsWithHead(headUrl: string) {
 		const pids = await Path.distinct('processId', {
-			'head.url': sourceUrl,
+			'head.url': headUrl,
 			status: 'active'
 		});
 		for (const pid of pids) {
 			const proc = await Process.findOne({ pid });
-			await proc?.extendProcessPaths(triplesByNode);
+			await proc?.extendProcessPaths(headUrl);
 		}
 	}
 

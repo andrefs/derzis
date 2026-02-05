@@ -349,8 +349,8 @@ class ProcessClass extends Document {
 		}
 	}
 
-	public async extendProcessPaths(triplesByNode: { [headUrl: string]: TripleClass[] }) {
-		return extendProcessPaths(this, triplesByNode);
+	public async extendProcessPaths(headUrl: string) {
+		return extendProcessPaths(this, headUrl);
 	}
 
 	/**

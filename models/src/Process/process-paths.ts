@@ -5,6 +5,7 @@ import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { Types } from 'mongoose';
+import { Triple } from '../Triple';
 
 export async function getPathsForRobotsChecking(process: ProcessClass, skip = 0, limit = 20) {
 	const paths = await Path.find({
@@ -180,37 +181,39 @@ export async function extendExistingPaths(pid: string) {
 	log.info(`Finished extending existing paths for process ${process.pid}. Total time: ${totalTime.toFixed(2)}s`);
 }
 
-export async function extendProcessPaths(process: ProcessClass, triplesByNode: { [headUrl: string]: any[] }) {
-	const newHeads = Object.keys(triplesByNode);
-	log.silly('New heads:', newHeads);
+export async function extendProcessPaths(process: ProcessClass, headUrl: string) {
 	const paths = await Path.find({
 		processId: process.pid,
 		status: 'active',
-		'head.url': newHeads.length === 1 ? newHeads[0] : { $in: Object.keys(triplesByNode) }
+		'head.url': headUrl,
 	});
 	log.silly('Paths:', paths);
 
+	const triples = await Triple.find({
+		nodes: headUrl,
+	}).lean();
+
+	const pathsToCreate = [];
 	const pathsToDelete = new Set();
-	const newPathObjs = [];
-	const toDelete = new Set();
 	const procTriples: Set<Types.ObjectId> = new Set();
 
 	for (const path of paths) {
-		const { newPaths: nps, procTriples: pts } = await path.extend(
-			triplesByNode[path.head.url],
+		const { extendedPaths: eps, procTriples: pts } = await path.genExtended(
+			triples,
 			process
 		);
-		log.silly('New paths:', nps);
-		if (nps.length) {
-			toDelete.add(path._id);
-			newPathObjs.push(...nps);
+		log.silly('Extended paths:', eps);
+		// if new paths were created gather them
+		if (eps.length) {
+			pathsToDelete.add(path._id);
+			pathsToCreate.push(...eps);
 			for (const pt of pts) {
 				procTriples.add(pt);
 			}
 		}
 	}
-
-	await updateNewPathHeadStatus(newPathObjs);
+	// update head status of new paths
+	await setNewPathHeadStatus(pathsToCreate);
 
 	// add proc-triple associations
 	await ProcessTriple.upsertMany(
@@ -222,13 +225,13 @@ export async function extendProcessPaths(process: ProcessClass, triplesByNode: {
 	);
 
 	// create new paths
-	const newPaths = await Path.create(newPathObjs);
+	const newPaths = await Path.create(pathsToCreate);
 
 	// mark old paths as deleted if their head status is 'done'
 	await Path.updateMany(
 		{
-			_id: { $in: Array.from(toDelete) },
-			'head.status': { $in: ['done'] }
+			_id: { $in: Array.from(pathsToDelete) },
+			'head.status': 'done'
 		},
 		{ $set: { status: 'deleted' } }
 	);
@@ -238,15 +241,21 @@ export async function extendProcessPaths(process: ProcessClass, triplesByNode: {
 }
 
 /**
-		* Update the head status of new paths based on existing Resource statuses.
+		* Set the head status of new paths based on existing Resource statuses.
 		* @param newPaths Array of PathSkeleton objects to update.
 		*/
-async function updateNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
+async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
 	const headUrls = newPaths.map((p) => p.head.url);
 	const resources = await Resource.find({ url: { $in: headUrls } })
 		.select('url status')
 		.lean();
 	const resourceMap: { [url: string]: 'unvisited' | 'done' | 'crawling' | 'error' } = {};
-	resources.forEach((r) => (resourceMap[r.url] = r.status));
-	newPaths.forEach((p) => (p.head.status = resourceMap[p.head.url] || 'unvisited'));
+
+	for (const r of resources) {
+		resourceMap[r.url] = r.status;
+	}
+
+	for (const np of newPaths) {
+		np.head.status = resourceMap[np.head.url] || 'unvisited';
+	}
 }

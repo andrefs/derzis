@@ -251,7 +251,7 @@ class PathClass {
 		}
 		log.silly(`Found ${triples.length} existing triples to extend path ${this._id}`);
 
-		return this.extend(triples, process);
+		return this.genExtended(triples, process);
 	}
 
 	public copy(this: PathClass): PathSkeleton {
@@ -275,14 +275,17 @@ class PathClass {
 
 	/**
 	* Try to extend the path with the given triples.
-	* If successful, create new paths and return them along with the ProcessTriples to create.
+	* If successful, generate new paths and return them along with the ProcessTriples to create.
 	* If not, return empty array.
+	* Does not save anything to the database.
+	* @param triples Triples to use for extension.
+	* @param process Process context.
 	*/
-	public async extend(
+	public async genExtended(
 		triples: TripleClass[],
 		process: ProcessClass,
-	): Promise<{ newPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
-		let newPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
+	): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
+		let extendedPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
 		let procTriples: Types.ObjectId[] = [];
 		const predsDirMetrics = process.curPredsDirMetrics();
 		const followDirection = process!.currentStep.followDirection;
@@ -293,32 +296,31 @@ class PathClass {
 			t.directionOk(this.head.url, followDirection, predsDirMetrics)
 		)) {
 			log.silly('Extending path with triple', t);
-			// TODO check follow direction
 			const newHeadUrl: string = t.subject === this.head.url ? t.object : t.subject;
 			const prop = t.predicate;
 
-			newPaths[prop] = newPaths[prop] || {};
+			extendedPaths[prop] = extendedPaths[prop] || {};
 			// avoid extending the same path twice with the same triple
 			// and check if triple is out of bounds
-			if (!newPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
-				const np = this.copy();
-				np.head.url = newHeadUrl;
-				np.head.status = 'unvisited'; // to be redefined later
-				np.triples = [...this.triples, t._id];
-				np.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
-				np.nodes.elems.push(newHeadUrl);
-				np.status = 'active';
+			if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
+				const ep = this.copy();
+				ep.head.url = newHeadUrl;
+				ep.head.status = 'unvisited'; // to be redefined later
+				ep.triples = [...this.triples, t._id];
+				ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
+				ep.nodes.elems.push(newHeadUrl);
+				ep.status = 'active';
 
 				procTriples.push(t._id);
-				log.silly('New path', np);
-				newPaths[prop][newHeadUrl] = np;
+				log.silly('New path', ep);
+				extendedPaths[prop][newHeadUrl] = ep;
 			}
 		}
-		const nps: PathSkeleton[] = [];
-		Object.values(newPaths).forEach((x) => Object.values(x).forEach((y) => nps.push(y)));
+		const eps: PathSkeleton[] = [];
+		Object.values(extendedPaths).forEach((x) => Object.values(x).forEach((y) => eps.push(y)));
 
-		log.silly('New paths', nps);
-		return { newPaths: nps, procTriples };
+		log.silly('Extended paths', eps);
+		return { extendedPaths: eps, procTriples };
 	}
 }
 
