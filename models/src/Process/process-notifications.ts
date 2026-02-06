@@ -134,7 +134,7 @@ const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
 	let retries = 0;
 	while (retries < 3) {
 		try {
-			const res = webhookPost(webhook, notif);
+			const res = await webhookPost(webhook, notif);
 			return res;
 		} catch (e) {
 			retries++;
@@ -175,8 +175,8 @@ type StepStartedNotification = BaseProcNotification & {
 type ProcessNotification = {
 	ok: boolean;
 	data:
-		| StepStartedNotification
-		| StepFinishedNotification
-		| ProcStartNotification
-		| ProcCreatedNotification;
+	| StepStartedNotification
+	| StepFinishedNotification
+	| ProcStartNotification
+	| ProcCreatedNotification;
 };
