@@ -246,12 +246,13 @@ export default class Manager {
 				log.warn(`Worker ${workerId} has no capacity for domainCrawl jobs`);
 			} else {
 				log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
-				//for await (const crawl of this.domainsToCrawl(
+				let gotRes = false;
 				for await (const crawl of Domain.domainsToCrawl2(
 					workerId,
 					workerAvail.domainCrawl.capacity,
 					workerAvail.domainCrawl.resourcesPerDomain
 				)) {
+					gotRes = true;
 					if (
 						crawl?.resources?.length &&
 						(await this.jobs.registerJob(crawl.domain.jobId, crawl.domain.origin, 'domainCrawl'))
@@ -266,6 +267,9 @@ export default class Manager {
 						log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
 					}
 				}
+				if (!gotRes) {
+					log.info(`No domains to crawl for worker ${workerId}`);
+				}
 			}
 		}
 		// robotsCheck jobs
@@ -274,7 +278,9 @@ export default class Manager {
 				log.warn(`Worker ${workerId} has no capacity for robotsCheck jobs`);
 			} else {
 				log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
+				let gotRes = false;
 				for await (const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)) {
+					gotRes = true;
 					if (await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')) {
 						log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning robotsCheck', {
 							workerId,
@@ -288,6 +294,9 @@ export default class Manager {
 							origin: check.origin
 						};
 					}
+				}
+				if (!gotRes) {
+					log.info(`No domains to check for worker ${workerId}`);
 				}
 			}
 		}
