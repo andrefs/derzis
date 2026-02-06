@@ -83,29 +83,29 @@ class CrawlClass {
   public nextAllowed!: Date;
 }
 
-  @post<DomainClass>('findOneAndUpdate', async function (doc) {
-    if (doc) {
-      await Path.updateMany(
-        { 'head.domain.origin': doc.origin, status: 'active' },
-        { $set: { 'head.domain.status': doc.status } }
-      );
-    }
-  })
+@post<DomainClass>('findOneAndUpdate', async function (doc) {
+  if (doc) {
+    await Path.updateMany(
+      { 'head.domain.origin': doc.origin, status: 'active' },
+      { $set: { 'head.domain.status': doc.status } }
+    );
+  }
+})
 @index({ delay: 1 })
 @index({ nextAllowed: 1 })
 @index({
-	status: 1,
-	'crawl.pathHeads': 1,
-	'crawl.nextAllowed': -1
+  status: 1,
+  'crawl.pathHeads': 1,
+  'crawl.nextAllowed': -1
 })
 @index({
-	'crawl.nextAllowed': -1
+  'crawl.nextAllowed': -1
 })
 @index({
-	'robots.status': 1
+  'robots.status': 1
 })
 @index({
-	jobId: 1
+  jobId: 1
 })
 @index({ status: 1, 'crawl.nextAllowed': 1 })
 @index({ 'crawl.pathHeads': 1, 'crawl.nextAllowed': 1 })
@@ -372,7 +372,7 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-        origin: domain,
+        domain,
         status: 'unvisited',
         url: { $nin: dPathHeads.map((r) => r.url) }
       })
