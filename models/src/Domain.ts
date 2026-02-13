@@ -430,6 +430,7 @@ class DomainClass {
 
     // iterate over processes
     PROCESS_LOOP: while (domainsFound < domLimit) {
+      log.info(`Worker ${wId} looking for process to crawl, skipping ${procSkip} processes so far.`);
       const proc = await Process.getOneRunning(procSkip);
       if (!proc) {
         return;
@@ -442,6 +443,7 @@ class DomainClass {
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
+        log.info(`Worker ${wId} looking for paths to crawl in process ${proc.id}, skipping ${pathSkip} paths so far.`);
         // determine which domains to skip based on their crawl.nextAllowed time
         const now = new Date();
         const blDomains = [];
@@ -466,6 +468,7 @@ class DomainClass {
         // get only unvisited path heads
         const unvisHeads = paths.filter((p) => p.head.status === 'unvisited').map((p) => p.head);
         if (!unvisHeads.length) {
+          log.silly(`No unvisited path heads found for process ${proc.id} with current path batch, skipping to next batch.`);
           continue PATHS_LOOP;
         }
 
@@ -476,6 +479,7 @@ class DomainClass {
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
+          log.info(`No domains could be locked for crawling for process ${proc.id} with current path batch, skipping to next batch.`);
           const domains = await this
             .find({ origin: { $in: Array.from(origins) } })
             .select('origin crawl')
@@ -488,6 +492,8 @@ class DomainClass {
           }
           continue PATHS_LOOP;
         }
+
+        log.info(`Locked domains for crawling: ${domains.map((d) => d.origin)}`);
 
         // throw away domains over the limit
         if (domainsFound + domains.length > domLimit) {

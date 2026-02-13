@@ -408,7 +408,7 @@ class ProcessClass extends Document {
 		}
 
 		// Before queuing, extend existing paths according to new step limits
-		//await process.extendExistingPaths();
+		await process.extendExistingPaths();
 
 		// Set the process to queued
 		await Process.updateOne(
