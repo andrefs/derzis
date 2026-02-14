@@ -1,7 +1,7 @@
 import type { Types, Document, UpdateQuery } from 'mongoose';
 import { urlValidator, WorkerError } from '@derzis/common';
 import { Domain, DomainClass } from './Domain';
-import { Path, type PathDocument } from './Path';
+import { TraversalPath, type TraversalPathDocument } from './TraversalPath';
 import { Triple, type TripleClass, type TripleSkeleton } from './Triple';
 import type { CrawlResourceResultDetails } from '@derzis/common';
 
@@ -126,8 +126,8 @@ class ResourceClass {
 			{ returnDocument: 'before' }
 		);
 
-		// Path
-		await Path.updateMany(
+		// TraversalPath
+		await TraversalPath.updateMany(
 			{ 'head.url': url, status: 'active' },
 			{
 				$set: {
@@ -227,13 +227,13 @@ class ResourceClass {
 			status: 'active'
 		}));
 
-		const insPaths = await Path.create(paths);
+		const insPaths = await TraversalPath.create(paths);
 		return this.addPaths(insPaths);
 	}
 
-	public static async addPaths(this: ReturnModelType<typeof ResourceClass>, paths: PathDocument[]) {
+	public static async addPaths(this: ReturnModelType<typeof ResourceClass>, paths: TraversalPathDocument[]) {
 		const res = await this.bulkWrite(
-			paths.map((p: PathDocument) => ({
+			paths.map((p: TraversalPathDocument) => ({
 				updateOne: {
 					filter: { url: p.head.url },
 					update: {
@@ -247,7 +247,7 @@ class ResourceClass {
 			}))
 		);
 		const dom = await Domain.bulkWrite(
-			paths.map((p: PathDocument) => ({
+			paths.map((p: TraversalPathDocument) => ({
 				updateOne: {
 					filter: { origin: p.head.domain.origin },
 					update: { $inc: { 'crawl.pathHeads': 1 } }

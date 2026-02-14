@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { Path, Triple, Process, ProcessTriple } from '@derzis/models';
+import { TraversalPath, Triple, Process, ProcessTriple } from '@derzis/models';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, url }) => {
@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	const headUrl = url.searchParams.get('headUrl') || '';
 
 	// Check if process exists by trying to find paths for it
-	const processCheck = await Path.findOne({ processId: pid });
+	const processCheck = await TraversalPath.findOne({ processId: pid });
 	if (!processCheck) {
 		throw error(404, {
 			message: 'Process not found'
@@ -41,7 +41,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			'head.url': headUrl,
 			status: 'active'
 		};
-		const _longestPath = await Path.find(lpFilter)
+		const _longestPath = await TraversalPath.find(lpFilter)
 			.sort({ 'nodes.count': -1 })
 			.limit(1)
 			.lean();
@@ -52,7 +52,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 			'head.url': headUrl,
 			status: 'active'
 		};
-		const _shortestPath = await Path.find(spFilter)
+		const _shortestPath = await TraversalPath.find(spFilter)
 			.sort({ 'nodes.count': 1 })
 			.limit(1)
 			.lean();
@@ -76,8 +76,8 @@ export const load: PageServerLoad = async ({ params, url }) => {
 		const maxNodes = longestPath.nodes.count;
 		const minNodes = shortestPath.nodes.count;
 
-		const longestPathsCount = await Path.countDocuments(lpFilter).where('nodes.count').equals(maxNodes);
-		const shortestPathsCount = await Path.countDocuments(spFilter).where('nodes.count').equals(minNodes);
+		const longestPathsCount = await TraversalPath.countDocuments(lpFilter).where('nodes.count').equals(maxNodes);
+		const shortestPathsCount = await TraversalPath.countDocuments(spFilter).where('nodes.count').equals(minNodes);
 
 
 		// Get the actual triple documents for the longest path

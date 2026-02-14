@@ -1,4 +1,4 @@
-import { Path, type PathSkeleton, type PathDocument } from '../Path';
+import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument } from '../TraversalPath';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
@@ -8,7 +8,7 @@ import { Types } from 'mongoose';
 import { Triple } from '../Triple';
 
 export async function getPathsForRobotsChecking(process: ProcessClass, skip = 0, limit = 20) {
-	const paths = await Path.find({
+	const paths = await TraversalPath.find({
 		processId: process.pid,
 		status: 'active',
 		'head.domain.status': 'unvisited',
@@ -24,12 +24,12 @@ export async function getPathsForRobotsChecking(process: ProcessClass, skip = 0,
 	return paths;
 }
 
-export async function getPathsForDomainCrawl(process: ProcessClass, domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<PathDocument[]> {
+export async function getPathsForDomainCrawl(process: ProcessClass, domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<TraversalPathDocument[]> {
 	const predLimFilter =
 		process.currentStep.predLimit.limType === 'whitelist'
 			? { 'predicates.elems': { $in: process.currentStep.predLimit.limPredicates } }
 			: { 'predicates.elems': { $nin: process.currentStep.predLimit.limPredicates } };
-	const paths = await Path.find({
+	const paths = await TraversalPath.find({
 		processId: process.pid,
 		status: 'active',
 		'head.domain.status': 'ready',
@@ -48,7 +48,7 @@ export async function getPathsForDomainCrawl(process: ProcessClass, domainBlackl
 }
 
 export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promise<boolean> {
-	const pathsCount = await Path.countDocuments({
+	const pathsCount = await TraversalPath.countDocuments({
 		processId: process.pid,
 		status: 'active',
 		'head.domain.status': 'checking'
@@ -57,7 +57,7 @@ export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promi
 }
 
 export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<boolean> {
-	const pathsCount = await Path.countDocuments({
+	const pathsCount = await TraversalPath.countDocuments({
 		processId: process.pid,
 		status: 'active',
 		'head.status': 'crawling'
@@ -65,7 +65,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
 	return !!pathsCount;
 }
 
-export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: PathDocument[]) {
+export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: TraversalPathDocument[]) {
 	log.silly(`Extending ${paths.length} paths for process ${proc.pid} with existing triples...`);
 
 	for (const path of paths) {
@@ -83,10 +83,10 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
 				procTriples.add(pt);
 			}
 
-			let newPaths: PathDocument[] = [];
+			let newPaths: TraversalPathDocument[] = [];
 			if (newPathObjs.length) {
 				// create new paths
-				newPaths = await Path.create(newPathObjs);
+				newPaths = await TraversalPath.create(newPathObjs);
 			} else {
 				log.silly('No new paths to create.');
 			}
@@ -106,7 +106,7 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
 
 			if (toDelete.size) {
 				// mark old paths as deleted if their head status is 'done'
-				await Path.updateMany(
+				await TraversalPath.updateMany(
 					{
 						_id: { $in: Array.from(toDelete) },
 						'head.status': { $in: ['done'] }
@@ -147,7 +147,7 @@ export async function extendExistingPaths(pid: string) {
 	let hasMore = true;
 
 	// Get total number of paths to process
-	const totalPaths = await Path.countDocuments({
+	const totalPaths = await TraversalPath.countDocuments({
 		processId: process.pid,
 		status: 'active',
 		'nodes.count': { $lt: process.currentStep.maxPathLength },
@@ -163,7 +163,7 @@ export async function extendExistingPaths(pid: string) {
 		const batchStartTime = Date.now();
 
 		// find a batch of active paths that can be extended
-		const paths = await Path.find({
+	const paths = await TraversalPath.find({
 			processId: process.pid,
 			status: 'active',
 			'nodes.count': { $lt: process.currentStep.maxPathLength },
@@ -202,7 +202,7 @@ export async function extendExistingPaths(pid: string) {
 
 export async function extendProcessPaths(process: ProcessClass, headUrl: string) {
 	log.info(`Extending paths for process ${process.pid} with head URL: ${headUrl}`);
-	const paths = await Path.find({
+	const paths = await TraversalPath.find({
 		processId: process.pid,
 		status: 'active',
 		'head.url': headUrl,
@@ -254,13 +254,13 @@ export async function extendProcessPaths(process: ProcessClass, headUrl: string)
 		log.silly('No new process-triple associations to add.');
 	}
 
-	let newPaths: PathDocument[] = [];
+	let newPaths: TraversalPathDocument[] = [];
 	if (pathsToCreate.length) {
 		// update head status of new paths
 		await setNewPathHeadStatus(pathsToCreate);
 
 		// create new paths
-		newPaths = await Path.create(pathsToCreate);
+		newPaths = await TraversalPath.create(pathsToCreate);
 	} else {
 		log.silly('No new paths to create.');
 	}
@@ -268,7 +268,7 @@ export async function extendProcessPaths(process: ProcessClass, headUrl: string)
 
 	if (pathsToDelete.size) {
 		// mark old paths as deleted if their head status is 'done'
-		await Path.updateMany(
+		await TraversalPath.updateMany(
 			{
 				_id: { $in: Array.from(pathsToDelete) },
 				'head.status': 'done'
@@ -285,9 +285,9 @@ export async function extendProcessPaths(process: ProcessClass, headUrl: string)
 
 /**
 		* Set the head status of new paths based on existing Resource statuses.
-		* @param newPaths Array of PathSkeleton objects to update.
+		* @param newPaths Array of TraversalPathSkeleton objects to update.
 		*/
-async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
+async function setNewPathHeadStatus(newPaths: TraversalPathSkeleton[]): Promise<void> {
 	const headUrls = newPaths.map((p) => p.head.url);
 	const resources = await Resource.find({ url: { $in: headUrls } })
 		.select('url status')

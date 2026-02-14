@@ -16,10 +16,8 @@ import {
 } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from './Triple';
 import { ProcessClass } from './Process';
-import { ProcessTriple } from './ProcessTriple';
 import { Domain } from './Domain';
-import { Resource } from './Resource';
-const log = createLogger('Path');
+const log = createLogger('TraversalPath');
 
 class _Domain {
 	@prop({
@@ -59,13 +57,13 @@ class HeadClass {
 	@prop({ type: _Domain })
 	public domain!: _Domain;
 }
-export type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
-	RecursivePartial<PathClass> & {
+export type TraversalPathSkeleton = Pick<TraversalPathClass, 'processId' | 'seed' | 'head'> &
+	RecursivePartial<TraversalPathClass> & {
 		predicates: Pick<ResourceCount, 'elems'>;
 		nodes: Pick<ResourceCount, 'elems'>;
 	};
 
-@pre<PathClass>('save', async function () {
+@pre<TraversalPathClass>('save', async function () {
 	this.nodes.count = this.nodes.elems.length;
 	this.predicates.count = this.predicates.elems.length;
 	if (this.predicates.count) {
@@ -102,7 +100,7 @@ export type PathSkeleton = Pick<PathClass, 'processId' | 'seed' | 'head'> &
 	'nodes.count': 1,
 	'predicates.count': 1
 })
-class PathClass {
+class TraversalPathClass {
 	_id!: Types.ObjectId;
 	createdAt!: Date;
 	updatedAt!: Date;
@@ -139,7 +137,7 @@ class PathClass {
 	})
 	public status!: 'active' | 'deleted';
 
-	public shouldCreateNewPath(this: PathClass, t: TripleClass): boolean {
+	public shouldCreateNewPath(this: TraversalPathClass, t: TripleClass): boolean {
 		//console.log('XXXXXXXXXXXXXX shouldCreateNewPath', { t, _this: this });
 		// triple is reflexive
 		if (t.subject === t.object) {
@@ -250,7 +248,7 @@ class PathClass {
 	* If successful, create new paths and return them along with the ProcessTriples to create.
 	* If not, return empty array.
 	*/
-	public async extendWithExistingTriples(process: ProcessClass): ReturnType<PathClass['genExtended']> {
+	public async extendWithExistingTriples(process: ProcessClass): ReturnType<TraversalPathClass['genExtended']> {
 		const triplesFilter = this.genExistingTriplesFilter(process);
 		// find triples which include the head but dont belong to the path yet
 		let triples: TripleDocument[] = await Triple.find(triplesFilter);
@@ -265,7 +263,7 @@ class PathClass {
 	/**
 	 * Create a copy of the path.
 	 */
-	public copy(this: PathClass): PathSkeleton {
+	public copy(this: TraversalPathClass): TraversalPathSkeleton {
 		const copy = {
 			processId: this.processId,
 			seed: {
@@ -295,8 +293,8 @@ class PathClass {
 	public async genExtended(
 		triples: TripleClass[],
 		process: ProcessClass,
-	): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
-		let extendedPaths: { [prop: string]: { [newHead: string]: PathSkeleton } } = {};
+	): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: Types.ObjectId[] }> {
+		let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
 		let procTriples: Types.ObjectId[] = [];
 		const predsDirMetrics = process.curPredsDirMetrics();
 		const followDirection = process!.currentStep.followDirection;
@@ -327,7 +325,7 @@ class PathClass {
 				extendedPaths[prop][newHeadUrl] = ep;
 			}
 		}
-		const eps: PathSkeleton[] = [];
+		const eps: TraversalPathSkeleton[] = [];
 		Object.values(extendedPaths).forEach((x) => Object.values(x).forEach((y) => eps.push(y)));
 
 		log.silly('Extended paths', eps);
@@ -335,10 +333,10 @@ class PathClass {
 	}
 }
 
-const Path = getModelForClass(PathClass, {
-	schemaOptions: { timestamps: true, collection: 'paths' }
+const TraversalPath = getModelForClass(TraversalPathClass, {
+	schemaOptions: { timestamps: true, collection: 'traversalPaths' }
 });
 
-type PathDocument = PathClass & Document;
+type TraversalPathDocument = TraversalPathClass & Document;
 
-export { Path, PathClass, type PathDocument };
+export { TraversalPath, TraversalPathClass, type TraversalPathDocument };

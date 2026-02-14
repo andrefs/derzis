@@ -2,7 +2,7 @@ import { Types, Document } from 'mongoose';
 import { Resource } from '../Resource';
 import { Triple, TripleClass } from '../Triple';
 import { humanize } from 'humanize-digest';
-import { Path, type PathSkeleton, type PathDocument } from '../Path';
+import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument } from '../TraversalPath';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Process');
@@ -24,7 +24,7 @@ import {
 	extendPathsWithExistingTriples,
 	extendExistingPaths,
 	extendProcessPaths
-} from './process-paths';
+} from './process-traversal-paths';
 import {
 	notifyStepStarted,
 	notifyProcessCreated,
@@ -315,7 +315,7 @@ class ProcessClass extends Document {
 		return getPathsForRobotsChecking(this, skip, limit);
 	}
 
-	public async getPathsForDomainCrawl(domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<PathDocument[]> {
+	public async getPathsForDomainCrawl(domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<TraversalPathDocument[]> {
 		return getPathsForDomainCrawl(this, domainBlacklist, skip, limit);
 	}
 
@@ -498,7 +498,7 @@ class ProcessClass extends Document {
 
 		while (hasMore) {
 			// Fetch a batch of paths for this process
-			const paths = await Path.find({ processId: this.pid, status: 'active' })
+			const paths = await TraversalPath.find({ processId: this.pid, status: 'active' })
 				.skip(skip)
 				.limit(batchSize)
 				.select('head.url head.domain.origin')
@@ -531,7 +531,7 @@ class ProcessClass extends Document {
 						$unset: { workerId: '', jobId: '' }
 					}
 				),
-				Path.updateMany(
+				TraversalPath.updateMany(
 					{ processId: this.pid, status: 'active', 'head.status': 'error', 'head.url': { $in: Array.from(headUrls) } },
 					{
 						$set: {

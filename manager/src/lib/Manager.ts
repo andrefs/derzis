@@ -3,12 +3,12 @@ import config from '@derzis/config';
 import {
 	Domain,
 	Triple,
-	Path,
+	TraversalPath,
 	Resource,
 	Process,
 	ResourceClass,
 	TripleClass,
-	PathClass
+	TraversalPathClass
 } from '@derzis/models';
 import {
 	type JobResult,
@@ -103,7 +103,7 @@ export default class Manager {
 							}
 						}
 					);
-					await Path.updateMany(
+					await TraversalPath.updateMany(
 						{ 'head.domain.origin': jobResult.origin, status: 'active' },
 						{
 							$set: { 'head.domain.status': 'ready' }
@@ -173,7 +173,7 @@ export default class Manager {
 	 * @param headUrl URL of the resource that is the head of the paths to update
 	 */
 	async updateAllPathsWithHead(headUrl: string) {
-		const pids = await Path.distinct('processId', {
+		const pids = await TraversalPath.distinct('processId', {
 			'head.url': headUrl,
 			status: 'active'
 		});
@@ -183,7 +183,7 @@ export default class Manager {
 		}
 	}
 
-	shouldCreateNewPath(t: TripleClass, path: PathClass) {
+	shouldCreateNewPath(t: TripleClass, path: TraversalPathClass) {
 		// triple is reflexive
 		if (t.subject === t.object) {
 			return false;

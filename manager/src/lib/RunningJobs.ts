@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import { Domain, DomainClass, Resource, Path } from '@derzis/models';
+import { Domain, DomainClass, Resource, TraversalPath } from '@derzis/models';
 import config from '@derzis/config';
 import { type JobType, type OngoingJobs } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -142,7 +142,7 @@ export default class RunningJobs extends EventEmitter {
 			await Domain.updateMany({ origin }, update);
 
 			// update paths with head belonging to this domain
-			await Path.updateMany(
+			await TraversalPath.updateMany(
 				{ 'head.domain.origin': origin, status: 'active' },
 				{
 					$set: {
@@ -170,7 +170,7 @@ export default class RunningJobs extends EventEmitter {
 			const res = await Domain.updateMany({ origin }, update);
 
 			// update paths with head belonging to this domain
-			await Path.updateMany(
+			await TraversalPath.updateMany(
 				{ 'head.domain.origin': origin, status: 'active' },
 				{
 					$set: {
@@ -224,7 +224,7 @@ export default class RunningJobs extends EventEmitter {
 
 		// Reset path head domains being checked
 		log.debug('Resetting outstanding path head domains being checked');
-		await Path.updateMany(
+		await TraversalPath.updateMany(
 			{ 'head.domain.status': 'checking', status: 'active' },
 			{ $set: { 'head.domain.status': 'unvisited' } }
 		);
@@ -244,14 +244,14 @@ export default class RunningJobs extends EventEmitter {
 
 		// Reset path head domains being crawled
 		log.debug('Resetting outstanding path head domains being crawled');
-		await Path.updateMany({ 'head.domain.status': 'crawling', status: 'active' }, { $set: { status: 'unvisited' } });
+		await TraversalPath.updateMany({ 'head.domain.status': 'crawling', status: 'active' }, { $set: { status: 'unvisited' } });
 
 		// Reset resources being crawled
 		log.debug('Resetting outstanding resources being crawled');
 		await Resource.updateMany({ status: 'crawling' }, { status: 'unvisited' });
 		// Reset path head resources being crawled
 		log.debug('Resetting outstanding path head resources being crawled');
-		await Path.updateMany({ 'head.status': 'crawling', status: 'active' }, { $set: { 'head.status': 'unvisited' } });
+		await TraversalPath.updateMany({ 'head.status': 'crawling', status: 'active' }, { $set: { 'head.status': 'unvisited' } });
 
 		log.info(`Outstanding jobs cleaned`);
 		return;
@@ -335,7 +335,7 @@ export default class RunningJobs extends EventEmitter {
 				filter.workerId = workerId;
 			}
 			await Domain.updateMany({ origin: { $in: domains } }, update);
-			await Path.updateMany(
+			await TraversalPath.updateMany(
 				{ 'head.domain.origin': { $in: domains }, status: 'active' },
 				{ $set: { status: 'unvisited' } }
 			);
@@ -359,7 +359,7 @@ export default class RunningJobs extends EventEmitter {
 				filter.workerId = workerId;
 			}
 			await Domain.updateMany({ origin: { $in: domains } }, update);
-			await Path.updateMany(
+			await TraversalPath.updateMany(
 				{ 'head.domain.origin': { $in: domains }, status: 'active' },
 				{
 					$set: {

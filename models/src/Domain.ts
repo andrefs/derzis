@@ -2,7 +2,7 @@ import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
 import type { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
-import { Path } from './Path';
+import { TraversalPath } from './TraversalPath';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type UpdateOneModel } from 'mongoose';
@@ -85,7 +85,7 @@ class CrawlClass {
 
 @post<DomainClass>('findOneAndUpdate', async function (doc) {
   if (doc) {
-    await Path.updateMany(
+    await TraversalPath.updateMany(
       { 'head.domain.origin': doc.origin, status: 'active' },
       { $set: { 'head.domain.status': doc.status } }
     );
@@ -166,7 +166,7 @@ class DomainClass {
     );
 
     if (jobResult.err.errorType === 'host_not_found') {
-      for await (const path of Path.find({ 'head.domain': jobResult.origin, status: 'active' })) {
+      for await (const path of TraversalPath.find({ 'head.domain': jobResult.origin, status: 'active' })) {
         // await path.markDisabled(); // TODO make sure this was not needed
         d = await this.findOneAndUpdate(
           { origin: jobResult.origin },
@@ -265,7 +265,7 @@ class DomainClass {
     await this.findOneAndUpdate(query, update, options);
     const domains = await this.find({ jobId }).lean();
     if (domains.length) {
-      await Path.updateMany(
+      await TraversalPath.updateMany(
         { 'head.domain.origin': { $in: domains.map((d) => d.origin) }, status: 'active' },
         { $set: { 'head.domain.status': 'checking' } }
       );
@@ -305,7 +305,7 @@ class DomainClass {
     await this.findOneAndUpdate(query, update, options);
     const domains = this.find({ jobId }).lean();
     if (domains.length) {
-      await Path.updateMany(
+      await TraversalPath.updateMany(
         { 'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) }, status: 'active' },
         { $set: { 'head.domain.status': 'crawling' } }
       );
@@ -401,7 +401,7 @@ class DomainClass {
       { url: { $in: resources.map((r) => r.url) } },
       { status: 'crawling', jobId }
     ).lean();
-    await Path.updateMany(
+    await TraversalPath.updateMany(
       { 'head.url': { $in: resources.map((r) => r.url) }, status: 'active' },
       { $set: { 'head.status': 'crawling' } }
     ).lean();
