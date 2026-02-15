@@ -1,4 +1,4 @@
-import { create, Delta } from "jsondiffpatch";
+import { create, Delta } from 'jsondiffpatch';
 
 /**
  * Convert a jsondiffpatch Delta into human-readable text.
@@ -9,10 +9,10 @@ export function humanizeDelta(delta: Delta, path: (string | number)[] = []): str
   const messages: string[] = [];
 
   for (const key in delta) {
-    if (key === "_t") continue; // skip metadata (_t = "a" for arrays)
+    if (key === '_t') continue; // skip metadata (_t = "a" for arrays)
 
     const value = (delta as any)[key];
-    const currentPath = [...path, key].join(".");
+    const currentPath = [...path, key].join('.');
 
     // Case 1: Value changed
     if (Array.isArray(value) && value.length === 2) {
@@ -35,7 +35,7 @@ export function humanizeDelta(delta: Delta, path: (string | number)[] = []): str
     }
 
     // Case 4: Nested object or array
-    else if (typeof value === "object" && value !== null) {
+    else if (typeof value === 'object' && value !== null) {
       messages.push(...humanizeDelta(value as Delta, [...path, key]));
     }
   }

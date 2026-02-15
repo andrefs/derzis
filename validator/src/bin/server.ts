@@ -14,14 +14,12 @@ console.log(`Loading graph from ${graphFolder}`);
 const rdfData = fs.readFileSync(`${graphFolder}/data.ttl`, 'utf-8');
 const tripleHash = parseTriples(rdfData);
 
-
 const app = express();
 app.engine('hbs', engine({ extname: '.hbs' }));
 app.set('view engine', 'hbs');
 app.set('views', path.join(__dirname, '../views'));
 // Serve static files from the "public" directory
 // app.use(express.static(path.join(__dirname, '../public')));
-
 
 const now = () => new Date().toISOString();
 
@@ -40,7 +38,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const start = process.hrtime();
   res.on('finish', () => {
     const diff = process.hrtime(start);
-    const durationMs = (diff[0] * 1e3) + (diff[1] / 1e6);
+    const durationMs = diff[0] * 1e3 + diff[1] / 1e6;
     const base = `${now()} - <- ${req.method} ${req.originalUrl} - ${res.statusCode} ${res.statusMessage || ''} - ${durationMs.toFixed(3)} ms - Host: ${req.hostname}`;
     if (res.statusCode >= 500) {
       console.error(base);
@@ -52,7 +50,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
   next();
 });
-
 
 app.get('/debug/triple-hash', (req: Request, res: Response) => {
   res.json(tripleHash);
@@ -67,7 +64,6 @@ app.get('/robots.txt', (req: Request, res: Response) => {
   res.render('robots', { layout: false });
 });
 
-
 // TODO use graph id from req.params
 app.get('/sw/:graphId/:type-:num', (req: Request, res: Response) => {
   const { type, num } = req.params;
@@ -80,12 +76,12 @@ app.get('/sw/:graphId/:type-:num', (req: Request, res: Response) => {
   }
   res.type('text/turtle');
   // send triples as turtle
-  res.send(triples.map(t => `<${t.subject}> <${t.predicate}> <${t.object}> .`).join('\n'));
-})
+  res.send(triples.map((t) => `<${t.subject}> <${t.predicate}> <${t.object}> .`).join('\n'));
+});
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log('Server is running on http://localhost:' + port);
   console.log(`Loaded triples from ${graphFolder}/data.ttl:`);
   //console.log(tripleHash);
-})
+});

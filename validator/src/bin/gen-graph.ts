@@ -9,7 +9,6 @@ export interface Prefixes {
   [url: string]: string;
 }
 
-
 const genDomain = (n: number, graphId: string, prefixes: Prefixes) => {
   const num = n.toString().padStart(3, '0');
   // three digits with leading zeros
@@ -23,7 +22,6 @@ const genResName = (n: number, t: 'resource' | 'seed' | 'predicate') => {
 };
 const prefixes: Prefixes = {};
 
-
 // create a unique 6-character alphanumeric string
 const graphId = Math.random().toString(36).substring(2, 8);
 
@@ -32,7 +30,7 @@ const domains = [
   genDomain(2, graphId, prefixes),
   genDomain(3, graphId, prefixes),
   genDomain(4, graphId, prefixes),
-  genDomain(5, graphId, prefixes),
+  genDomain(5, graphId, prefixes)
 ];
 
 const seeds = [
@@ -40,12 +38,15 @@ const seeds = [
   `${domains[0]}:${genResName(2, 'seed')} `,
   `${domains[0]}:${genResName(3, 'seed')} `,
   `${domains[1]}:${genResName(4, 'seed')} `,
-  `${domains[1]}:${genResName(5, 'seed')} `,
-]
+  `${domains[1]}:${genResName(5, 'seed')} `
+];
 
 const resources = [];
 
-const predicates = Array.from({ length: 20 }, (_, i) => `${domains[i % 4]}:${genResName(i + 1, 'predicate')} `);
+const predicates = Array.from(
+  { length: 20 },
+  (_, i) => `${domains[i % 4]}:${genResName(i + 1, 'predicate')} `
+);
 const triples: SimpleTriple[] = [];
 
 // level 1: each seed has 20 triples
@@ -53,7 +54,10 @@ for (const seed of seeds) {
   for (let rn = 1; rn <= 20; rn++) {
     const predicate = getRandom(predicates, 1)[0];
 
-    const res = Math.random() < 0.9 ? `${domains[rn % 4]}:${genResName(rn, 'resource')} ` : getRandom(seeds, 1)[0];
+    const res =
+      Math.random() < 0.9
+        ? `${domains[rn % 4]}:${genResName(rn, 'resource')} `
+        : getRandom(seeds, 1)[0];
     if (!res.match(/seed/)) {
       resources.push(res);
     }
@@ -61,7 +65,7 @@ for (const seed of seeds) {
     triples.push({
       subject: seed,
       predicate,
-      object: res,
+      object: res
     });
   }
 }
@@ -81,7 +85,7 @@ for (let i = 0; i < resCount; i++) {
     triples.push({
       subject: resources[i],
       predicate,
-      object: obj,
+      object: obj
     });
   }
 }
@@ -101,11 +105,10 @@ for (let i = 0; i < resCount2; i++) {
     triples.push({
       subject: resources[i],
       predicate,
-      object: obj,
+      object: obj
     });
   }
 }
-
 
 // level 4: each resource has 5 triples, 20% change of linking to a new resource, 80% chance of linking to an existing resource or seed
 const resCount3 = resources.length;
@@ -122,7 +125,7 @@ for (let i = 0; i < resCount3; i++) {
     triples.push({
       subject: resources[i],
       predicate,
-      object: obj,
+      object: obj
     });
   }
 }

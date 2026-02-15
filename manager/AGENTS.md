@@ -102,11 +102,11 @@ Use the configured path aliases for clean imports:
 
 ```typescript
 interface ProcessClass {
-	pid: string;
-	steps: StepClass[];
-	currentStep: StepClass;
-	status: ProcessStatus;
-	createdAt?: Date;
+  pid: string;
+  steps: StepClass[];
+  currentStep: StepClass;
+  status: ProcessStatus;
+  createdAt?: Date;
 }
 ```
 
@@ -115,12 +115,12 @@ interface ProcessClass {
 ```typescript
 // Type assertion with confidence
 const seeds: string[] = (data.get('seeds') as string)
-	?.split(/\s*[\n,]\s*/)
-	.filter((s: string) => !s.match(/^\s*$/));
+  ?.split(/\s*[\n,]\s*/)
+  .filter((s: string) => !s.match(/^\s*$/));
 
 // Type narrowing
 if (jobResult.jobType === 'robotsCheck') {
-	// jobResult is now narrowed to robotsCheck type
+  // jobResult is now narrowed to robotsCheck type
 }
 ```
 
@@ -128,7 +128,7 @@ if (jobResult.jobType === 'robotsCheck') {
 
 ```typescript
 type RecursivePartial<T> = {
-	[P in keyof T]?: T[P] extends object ? RecursivePartial<T[P]> : T[P];
+  [P in keyof T]?: T[P] extends object ? RecursivePartial<T[P]> : T[P];
 };
 ```
 
@@ -143,12 +143,12 @@ type RecursivePartial<T> = {
 
 ```typescript
 async function updateJobResults(jobResult: JobResult) {
-	try {
-		await this.saveRobots(jobResult);
-	} catch (e) {
-		// Handle error appropriately
-		log.error('Failed to save robots data', { error: e });
-	}
+  try {
+    await this.saveRobots(jobResult);
+  } catch (e) {
+    // Handle error appropriately
+    log.error('Failed to save robots data', { error: e });
+  }
 }
 ```
 
@@ -164,10 +164,10 @@ async function updateJobResults(jobResult: JobResult) {
 
 ```typescript
 export async function load() {
-	const data = await fetchData();
-	return {
-		data: structuredClone(data) // Use structuredClone for complex objects
-	};
+  const data = await fetchData();
+  return {
+    data: structuredClone(data) // Use structuredClone for complex objects
+  };
 }
 ```
 
@@ -175,11 +175,11 @@ export async function load() {
 
 ```typescript
 export const actions = {
-	actionName: async ({ request }) => {
-		const data = await request.formData();
-		// Process form data
-		throw redirect(303, '/success-page');
-	}
+  actionName: async ({ request }) => {
+    const data = await request.formData();
+    // Process form data
+    throw redirect(303, '/success-page');
+  }
 };
 ```
 
@@ -187,10 +187,10 @@ export const actions = {
 
 ```svelte
 <script lang="ts">
-	import { Row, Col, Table } from '@sveltestrap/sveltestrap';
+  import { Row, Col, Table } from '@sveltestrap/sveltestrap';
 
-	export let data;
-	// Component logic
+  export let data;
+  // Component logic
 </script>
 ```
 
@@ -209,10 +209,10 @@ export const actions = {
 import { describe, it, expect } from 'vitest';
 
 describe('Manager class', () => {
-	it('should initialize with empty jobs', () => {
-		const manager = new Manager();
-		expect(manager.jobs).toBeInstanceOf(RunningJobs);
-	});
+  it('should initialize with empty jobs', () => {
+    const manager = new Manager();
+    expect(manager.jobs).toBeInstanceOf(RunningJobs);
+  });
 });
 ```
 

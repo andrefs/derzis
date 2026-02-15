@@ -1,207 +1,207 @@
 {
-	"openapi": "3.0.0",
-	"info": {
-		"title": "API Documentation",
-		"version": "1.0.0",
-		"description": "API documentation for the processes endpoints"
-	},
-	"paths": {
-		"/api/processes": {
-			"get": {
-				"summary": "Get all processes",
-				"responses": {
-					"200": {
-						"description": "A list of processes",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"processes": {
-											"type": "array",
-											"items": {
-												"$ref": "#/components/schemas/Process"
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			},
-			"post": {
-				"summary": "Create a new process",
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"$ref": "#/components/schemas/NewProcess"
-							}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "Process created",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/Process"
-								}
-							}
-						}
-					}
-				}
-			}
-		},
-		"/api/processes/{pid}": {
-			"get": {
-				"summary": "Get process by ID",
-				"parameters": [
-					{
-						"name": "pid",
-						"in": "path",
-						"required": true,
-						"schema": {
-							"type": "string"
-						}
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Process details",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/Process"
-								}
-							}
-						}
-					}
-				}
-			}
-		},
-		"/api/processes/{pid}/stats": {
-			"get": {
-				"summary": "Get process stats by ID",
-				"parameters": [
-					{
-						"name": "pid",
-						"in": "path",
-						"required": true,
-						"schema": {
-							"type": "string"
-						}
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Process stats",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object"
-								}
-							}
-						}
-					}
-				}
-			}
-		},
-		"/api/processes/{pid}/triples.json.gz": {
-			"get": {
-				"summary": "Get triples in JSON format",
-				"parameters": [
-					{
-						"name": "pid",
-						"in": "path",
-						"required": true,
-						"schema": {
-							"type": "string"
-						}
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Triples in JSON format",
-						"content": {
-							"application/gzip": {}
-						}
-					}
-				}
-			}
-		},
-		"/api/processes/{pid}/triples.nt.gz": {
-			"get": {
-				"summary": "Get triples in N-Triples format",
-				"parameters": [
-					{
-						"name": "pid",
-						"in": "path",
-						"required": true,
-						"schema": {
-							"type": "string"
-						}
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Triples in N-Triples format",
-						"content": {
-							"application/gzip": {}
-						}
-					}
-				}
-			}
-		},
-		"/api/processes/info": {
-			"get": {
-				"summary": "Get processes info",
-				"responses": {
-					"200": {
-						"description": "Processes info",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"processes": {
-											"type": "object",
-											"properties": {
-												"queued": { "type": "integer" },
-												"running": { "type": "integer" },
-												"done": { "type": "integer" },
-												"error": { "type": "integer" }
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	},
-	"components": {
-		"schemas": {
-			"Process": {
-				"type": "object",
-				"properties": {
-					"pid": { "type": "string" },
-					"createdAt": { "type": "string", "format": "date-time" },
-					"updatedAt": { "type": "string", "format": "date-time" }
-				}
-			},
-			"NewProcess": {
-				"type": "object",
-				"properties": {
-					"notification": { "type": "object" },
-					"step": { "type": "object" }
-				}
-			}
-		}
-	}
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API Documentation",
+    "version": "1.0.0",
+    "description": "API documentation for the processes endpoints"
+  },
+  "paths": {
+    "/api/processes": {
+      "get": {
+        "summary": "Get all processes",
+        "responses": {
+          "200": {
+            "description": "A list of processes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "processes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Process"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new process",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewProcess"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Process created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Process"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/processes/{pid}": {
+      "get": {
+        "summary": "Get process by ID",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Process details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Process"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/processes/{pid}/stats": {
+      "get": {
+        "summary": "Get process stats by ID",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Process stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/processes/{pid}/triples.json.gz": {
+      "get": {
+        "summary": "Get triples in JSON format",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Triples in JSON format",
+            "content": {
+              "application/gzip": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/processes/{pid}/triples.nt.gz": {
+      "get": {
+        "summary": "Get triples in N-Triples format",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Triples in N-Triples format",
+            "content": {
+              "application/gzip": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/processes/info": {
+      "get": {
+        "summary": "Get processes info",
+        "responses": {
+          "200": {
+            "description": "Processes info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "processes": {
+                      "type": "object",
+                      "properties": {
+                        "queued": { "type": "integer" },
+                        "running": { "type": "integer" },
+                        "done": { "type": "integer" },
+                        "error": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Process": {
+        "type": "object",
+        "properties": {
+          "pid": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "NewProcess": {
+        "type": "object",
+        "properties": {
+          "notification": { "type": "object" },
+          "step": { "type": "object" }
+        }
+      }
+    }
+  }
 }

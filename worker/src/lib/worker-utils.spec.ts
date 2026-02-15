@@ -6,7 +6,7 @@ import {
   findRedirectUrl,
   findUrlInHtml,
   findUrlInLinkHeader,
-  handleHttpError,
+  handleHttpError
 } from './worker-utils';
 
 beforeEach(() => {
@@ -96,7 +96,7 @@ describe('findRedirectUrl', () => {
   it('can get url from Link header', () => {
     const headers = {
       Link: '<http://dbpedia.org/data/Aladdin.n3>; rel="alternate"; type="text/n3"',
-      'content-type': 'text/html; charset=UTF-8',
+      'content-type': 'text/html; charset=UTF-8'
     };
     expect(findRedirectUrl(headers, '')).toMatchInlineSnapshot(
       `"http://dbpedia.org/data/Aladdin.n3"`
@@ -142,10 +142,10 @@ describe('fetchRobots', () => {
     mockAxios.get.mockResolvedValueOnce({
       headers: {
         'request-endTime': new Date('2020-01-01'),
-        'request-duration': 1000,
+        'request-duration': 1000
       },
       data: '',
-      status: '200',
+      status: '200'
     });
     expect(await fetchRobots('fakeurl', mockAxios)).toMatchInlineSnapshot(`
 {
@@ -167,10 +167,10 @@ describe('handleHttpError', () => {
       response: {
         headers: {
           'request-endTime': new Date('2020-01-01'),
-          'request-duration': 1000,
-        },
+          'request-duration': 1000
+        }
       },
-      isAxiosError: true,
+      isAxiosError: true
     };
     const res = handleHttpError('fakeurl', err);
     expect(res).toMatchInlineSnapshot(`

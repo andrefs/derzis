@@ -21,26 +21,34 @@ export class WorkerError extends Error {
     super();
   }
 
-  toString() { return '[' + this.constructor.name.toString() + '] ' + this.errorType; }
-};
+  toString() {
+    return '[' + this.constructor.name.toString() + '] ' + this.errorType;
+  }
+}
 
 export class NoCapacityError extends WorkerError {
   errorType = 'no_capacity' as const;
   name = 'No Capacity Error';
-  constructor() { super(); }
-};
+  constructor() {
+    super();
+  }
+}
 
 export class AlreadyBeingDone extends WorkerError {
   errorType = 'already_being_done' as const;
   name = 'Already Being Done' as const;
-  constructor() { super(); }
-};
+  constructor() {
+    super();
+  }
+}
 
 export class RobotsForbiddenError extends WorkerError {
   errorType = 'robots_forbidden' as const;
   name = 'Robots Forbidden Error';
-  constructor() { super(); }
-};
+  constructor() {
+    super();
+  }
+}
 
 export class RequestTimeoutError extends WorkerError {
   timeout: number;
@@ -50,20 +58,24 @@ export class RequestTimeoutError extends WorkerError {
     super();
     this.timeout = timeout;
   }
-};
+}
 
 export class JobTimeoutError extends WorkerError {
   errorType = 'job_timeout' as const;
   name = 'Job Timeout Error';
 
-  constructor() { super(); }
-};
+  constructor() {
+    super();
+  }
+}
 
 export class ConnectionResetError extends WorkerError {
   errorType = 'connection_reset' as const;
   name = 'Connection Reset Error';
-  constructor() { super(); }
-};
+  constructor() {
+    super();
+  }
+}
 
 export class TooManyRedirectsError extends WorkerError {
   lastUrl: string;
@@ -74,7 +86,7 @@ export class TooManyRedirectsError extends WorkerError {
     super();
     this.lastUrl = lastUrl;
   }
-};
+}
 
 export class HttpError extends WorkerError {
   httpStatus: number;
@@ -84,13 +96,15 @@ export class HttpError extends WorkerError {
     super();
     this.httpStatus = httpStatus;
   }
-};
+}
 
 export class DomainNotFoundError extends WorkerError {
   errorType = 'host_not_found' as const;
   name = 'Host Not Found Error';
-  constructor() { super(); }
-};
+  constructor() {
+    super();
+  }
+}
 
 export class MimeTypeError extends WorkerError {
   mimeType: string;
@@ -104,8 +118,8 @@ export class MimeTypeError extends WorkerError {
     if (info.httpStatus) {
       this.httpStatus = info.httpStatus;
     }
-  };
-};
+  }
+}
 
 export class AxiosError extends WorkerError {
   name = 'Axios Error';
@@ -115,7 +129,7 @@ export class AxiosError extends WorkerError {
     super();
     this.message = axiosError.message;
   }
-};
+}
 
 export class ParsingError extends WorkerError {
   mimeType!: string;
@@ -123,8 +137,7 @@ export class ParsingError extends WorkerError {
   errorType = 'parsing' as const;
   name = 'Parsing Error';
 
-  constructor(message: string,
-    { httpStatus, mimeType }: { httpStatus: number, mimeType: string }) {
+  constructor(message: string, { httpStatus, mimeType }: { httpStatus: number; mimeType: string }) {
     super();
     this.message = message;
     if (httpStatus) {
@@ -134,4 +147,4 @@ export class ParsingError extends WorkerError {
       this.mimeType = mimeType;
     }
   }
-};
+}

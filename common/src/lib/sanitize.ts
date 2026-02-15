@@ -1,4 +1,3 @@
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function sanitize(obj: any) {
   if (!obj) return obj;

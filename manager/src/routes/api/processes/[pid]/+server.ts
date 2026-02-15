@@ -5,14 +5,14 @@ import * as processHelper from '$lib/process-helper';
 import type { RequestEvent } from './$types';
 
 export const GET = async ({ params, request }: RequestEvent) => {
-	log.info(`GET ${request.url}`);
-	const p = await processHelper.info(params.pid);
+  log.info(`GET ${request.url}`);
+  const p = await processHelper.info(params.pid);
 
-	if (!p) {
-		throw error(404, {
-			message: 'Not found'
-		});
-	}
+  if (!p) {
+    throw error(404, {
+      message: 'Not found'
+    });
+  }
 
-	return json({ ok: true, data: p });
+  return json({ ok: true, data: p });
 };

@@ -7,7 +7,7 @@ describe('parse', () => {
     const rdf = `PREFIX c: <http://example.org/cartoons#>
       c:Tom a c:Cat.
       c:Jerry a c:Mouse;
-              c:smarterThan c:Tom.`
+              c:smarterThan c:Tom.`;
     const tripIt = await parseRdf(rdf, 'text/turtle');
 
     expect(tripIt).toHaveProperty('triples');
@@ -16,4 +16,3 @@ describe('parse', () => {
     expect(tripIt.errors).toHaveLength(0);
   });
 });
-

@@ -17,7 +17,7 @@ describe('cmpGraphPreConds', () => {
     } as ProcessInfo;
     const info2 = { ...info1 };
     expect(cmpGraphPreConds(info1, info2)).toBe(true);
-  })
+  });
 
   it('should return false for different number of steps', () => {
     const info1 = {
@@ -211,4 +211,3 @@ describe('cmpGraphPreConds', () => {
     expect(cmpGraphPreConds(info1, info2)).toBe(true);
   });
 });
-

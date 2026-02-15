@@ -5,21 +5,21 @@ import type { RecursivePartial } from '@derzis/common';
 import type { RequestEvent } from './$types';
 
 export type BaseAPIResponse = {
-	ok: boolean;
-	err: string;
-	data: any;
+  ok: boolean;
+  err: string;
+  data: any;
 };
 
 export async function GET() {
-	const ps: ProcessClass[] = await Process.find().lean();
-	const _ps = ps.map((p) => ({ ...p, createdAt: p.createdAt?.toISOString() }));
+  const ps: ProcessClass[] = await Process.find().lean();
+  const _ps = ps.map((p) => ({ ...p, createdAt: p.createdAt?.toISOString() }));
 
-	return json({ processes: _ps });
+  return json({ processes: _ps });
 }
 
 interface ProcessSkel {
-	notification: NotificationClass;
-	step: Partial<StepClass>;
+  notification: NotificationClass;
+  step: Partial<StepClass>;
 }
 
 /**
@@ -34,28 +34,28 @@ interface ProcessSkel {
  * }
  */
 export async function POST({ request }: RequestEvent) {
-	const { ok, err, data }: BaseAPIResponse = await request.json();
-	if (!ok) {
-		throw error(424, err);
-	}
-	const pskel = data.process;
-	const process = {
-		steps: [pskel.step],
-		currentStep: pskel.step,
-		notification: pskel.notification
-	};
+  const { ok, err, data }: BaseAPIResponse = await request.json();
+  if (!ok) {
+    throw error(424, err);
+  }
+  const pskel = data.process;
+  const process = {
+    steps: [pskel.step],
+    currentStep: pskel.step,
+    notification: pskel.notification
+  };
 
-	try {
-		const proc = await newProcess(process);
+  try {
+    const proc = await newProcess(process);
 
-		return json({
-			ok: true,
-			process: proc
-		});
-	} catch (e) {
-		return json({
-			ok: false,
-			err: e
-		});
-	}
+    return json({
+      ok: true,
+      process: proc
+    });
+  } catch (e) {
+    return json({
+      ok: false,
+      err: e
+    });
+  }
 }

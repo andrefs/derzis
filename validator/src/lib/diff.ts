@@ -1,4 +1,4 @@
-import { SimpleTriple } from "@derzis/common";
+import { SimpleTriple } from '@derzis/common';
 import * as jsondiffpatch from 'jsondiffpatch';
 
 export function sortTripleArray(triples: SimpleTriple[]) {
@@ -25,4 +25,3 @@ export function diffObjs(obj1: any, obj2: any) {
   const delta = jsondiffpatch.diff(obj1, obj2);
   return delta;
 }
-

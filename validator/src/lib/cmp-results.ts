@@ -1,5 +1,5 @@
-import { ProcessInfo } from "./types";
-import * as jsondiffpatch from "jsondiffpatch";
+import { ProcessInfo } from './types';
+import * as jsondiffpatch from 'jsondiffpatch';
 
 export function checkPreConditions(info1: ProcessInfo, info2: ProcessInfo) {
   if (info1?.steps?.length !== info2?.steps?.length) {
@@ -19,7 +19,10 @@ export function checkPreConditions(info1: ProcessInfo, info2: ProcessInfo) {
     // compare "seeds" arrays
     const seeds1 = info1.steps[i].seeds || [];
     const seeds2 = info2.steps[i].seeds || [];
-    if (seeds1.length !== seeds2.length || !seeds1.every((val: any, index: number) => val === seeds2[index])) {
+    if (
+      seeds1.length !== seeds2.length ||
+      !seeds1.every((val: any, index: number) => val === seeds2[index])
+    ) {
       console.warn(`Different seeds at step ${i}`);
       return false;
     }
@@ -31,12 +34,15 @@ export function checkPreConditions(info1: ProcessInfo, info2: ProcessInfo) {
     const limType2 = predLimit2?.limType || 'blacklist';
     const limPreds1 = predLimit1?.limPredicates || [];
     const limPreds2 = predLimit2?.limPredicates || [];
-    
+
     if (limType1 !== limType2) {
       console.warn(`Different limType at step ${i}`);
       return false;
     }
-    if (limPreds1.length !== limPreds2.length || !limPreds1.every((val: any, index: number) => val === limPreds2[index])) {
+    if (
+      limPreds1.length !== limPreds2.length ||
+      !limPreds1.every((val: any, index: number) => val === limPreds2[index])
+    ) {
       console.warn(`Different limPredicates at step ${i}`);
       return false;
     }
@@ -51,17 +57,16 @@ export function cmpCounts(info1: ProcessInfo, info2: ProcessInfo) {
     resources: info1.resources.total || 0,
     triples: info1.triples.total || 0,
     domains: info1.domains.total || 0,
-    paths: info1.paths.total || 0,
+    paths: info1.paths.total || 0
   };
 
   const i2 = {
     resources: info2.resources.total || 0,
     triples: info2.triples.total || 0,
     domains: info2.domains.total || 0,
-    paths: info2.paths.total || 0,
+    paths: info2.paths.total || 0
   };
 
   const delta = jsondiffpatch.diff(i1, i2);
   return delta;
 }
-

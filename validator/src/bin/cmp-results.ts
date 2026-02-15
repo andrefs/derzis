@@ -6,7 +6,6 @@ import { humanizeDelta } from '../lib/jdp-humanize';
 import { SimpleTriple } from '@derzis/common';
 import { diffTripleArrays } from '../lib/diff';
 
-
 async function loadJsonFromZip<T>(zipPath: string, filePath: string | RegExp): Promise<T> {
   try {
     const content = await loadFileFromZip(zipPath, filePath);
@@ -25,7 +24,10 @@ async function loadFileFromZip(zipPath: string, filePath: string | RegExp): Prom
 
       zipfile.readEntry();
       zipfile.on('entry', (entry) => {
-        if ((filePath instanceof RegExp && filePath.test(entry.fileName)) || entry.fileName === filePath) {
+        if (
+          (filePath instanceof RegExp && filePath.test(entry.fileName)) ||
+          entry.fileName === filePath
+        ) {
           found = true;
           zipfile.openReadStream(entry, (err, readStream) => {
             if (err || !readStream) {
@@ -59,8 +61,6 @@ async function loadFileFromZip(zipPath: string, filePath: string | RegExp): Prom
   });
 }
 
-
-
 async function cmpGraphs(zip1: string, zip2: string) {
   const info1 = await loadJsonFromZip<ProcessInfo>(zip1, 'info.json');
   const info2 = await loadJsonFromZip<ProcessInfo>(zip2, 'info.json');
@@ -87,9 +87,6 @@ async function cmpGraphs(zip1: string, zip2: string) {
   }
 }
 
-
-
-
 async function main() {
   const args = process.argv.slice(2);
   if (args.length !== 2) {
@@ -101,12 +98,12 @@ async function main() {
   await cmpGraphs(zip1, zip2);
 }
 
-main().catch((err) => {
-  console.error('Error in main:', err);
-  process.exit(1);
-}).then(() => {
-  //console.log('Done');
-  process.exit(0);
-});
-
-
+main()
+  .catch((err) => {
+    console.error('Error in main:', err);
+    process.exit(1);
+  })
+  .then(() => {
+    //console.log('Done');
+    process.exit(0);
+  });

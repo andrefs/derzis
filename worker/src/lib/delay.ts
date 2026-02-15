@@ -10,4 +10,3 @@ const setupDelay = (time: number) => {
 };
 
 export default setupDelay;
-

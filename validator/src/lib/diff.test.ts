@@ -58,9 +58,7 @@ describe('diffTripleArrays', () => {
   });
 
   it('should handle different lengths of arrays', () => {
-    const arr1 = [
-      { subject: 'A', predicate: 'p1', object: 'o1' }
-    ];
+    const arr1 = [{ subject: 'A', predicate: 'p1', object: 'o1' }];
     const arr2 = [
       { subject: 'A', predicate: 'p1', object: 'o1' },
       { subject: 'B', predicate: 'p2', object: 'o2' }
@@ -85,9 +83,7 @@ describe('diffTripleArrays', () => {
       { subject: 'A', predicate: 'p1', object: 'o1' },
       { subject: 'B', predicate: 'p2', object: 'o2' }
     ];
-    const arr2 = [
-      { subject: 'A', predicate: 'p1', object: 'o1' }
-    ];
+    const arr2 = [{ subject: 'A', predicate: 'p1', object: 'o1' }];
     const diff = diffTripleArrays(arr1, arr2);
     expect(diff).toMatchInlineSnapshot(`
       {
@@ -103,12 +99,10 @@ describe('diffTripleArrays', () => {
         "_t": "a",
       }
     `);
-  })
+  });
 
   it('should handle triple additions', () => {
-    const arr1 = [
-      { subject: 'A', predicate: 'p1', object: 'o1' }
-    ];
+    const arr1 = [{ subject: 'A', predicate: 'p1', object: 'o1' }];
     const arr2 = [
       { subject: 'A', predicate: 'p1', object: 'o1' },
       { subject: 'B', predicate: 'p2', object: 'o2' }
@@ -138,100 +132,87 @@ describe('diffObjs', () => {
   });
 
   it('should return differences for different objects', () => {
-    const obj1 =
-    {
-      "level1": {
-        "level2": {
-          "level3": {
-            "level4": {
-              "value1": "This is a deeply nested value",
-              "value2": 42,
-              "value3": [
-                1,
-                2,
-                3,
-                4,
-                5
-              ],
-              "level5": {
-                "value4": true,
-                "value5": null
+    const obj1 = {
+      level1: {
+        level2: {
+          level3: {
+            level4: {
+              value1: 'This is a deeply nested value',
+              value2: 42,
+              value3: [1, 2, 3, 4, 5],
+              level5: {
+                value4: true,
+                value5: null
               }
             },
-            "arrayLevel3": [
+            arrayLevel3: [
               {
-                "item1": "Item 1"
+                item1: 'Item 1'
               },
               {
-                "item2": "Item 2"
+                item2: 'Item 2'
               },
               {
-                "item3": "Item 3"
+                item3: 'Item 3'
               }
             ]
           },
-          "anotherLevel3": {
-            "value6": "Another value at level 3"
+          anotherLevel3: {
+            value6: 'Another value at level 3'
           }
         },
-        "arrayLevel2": [
+        arrayLevel2: [
           {
-            "itemA": "Item A"
+            itemA: 'Item A'
           },
           {
-            "itemB": "Item B"
+            itemB: 'Item B'
           }
         ]
       },
-      "topLevelValue": "This is a top level value"
-    }
-    const obj2 =
-    {
-      "level1": {
-        "level2": {
-          "level3": {
-            "level4": {
-              "value2": 43,
-              "value3": [
-                1,
-                2,
-                4,
-                5
-              ],
-              "level5": {
-                "value4": true,
-                "value5": null
+      topLevelValue: 'This is a top level value'
+    };
+    const obj2 = {
+      level1: {
+        level2: {
+          level3: {
+            level4: {
+              value2: 43,
+              value3: [1, 2, 4, 5],
+              level5: {
+                value4: true,
+                value5: null
               }
             },
-            "arrayLevel3": [
+            arrayLevel3: [
               {
-                "item1": "Item 1"
+                item1: 'Item 1'
               },
               {
-                "item2": "Item 2"
+                item2: 'Item 2'
               },
               {
-                "item3": "Item 3"
+                item3: 'Item 3'
               },
               {
-                "item4": "Item 4"
+                item4: 'Item 4'
               }
             ]
           },
-          "anotherLevel3": {
-            "value6": "Another value at level 3"
+          anotherLevel3: {
+            value6: 'Another value at level 3'
           }
         },
-        "arrayLevel2": [
+        arrayLevel2: [
           {
-            "itemA": "Item A"
+            itemA: 'Item A'
           },
           {
-            "itemB": "Item B"
+            itemB: 'Item B'
           }
         ]
       }
-    }
+    };
     const diff = jsondiffpatch.diff(obj1, obj2);
     expect(diff).toMatchInlineSnapshot(`
       {
@@ -275,6 +256,5 @@ describe('diffObjs', () => {
         ],
       }
     `);
-
   });
 });

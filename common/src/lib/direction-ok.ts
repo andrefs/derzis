@@ -1,4 +1,4 @@
-import type { SimpleTriple } from "./types";
+import type { SimpleTriple } from './types';
 
 /**
  * Check if the direction of the triple is acceptable based on the position of head URL in the triple and branch factor.

@@ -7,7 +7,7 @@ type MonkeyPatchedAxiosRequestConfig = InternalAxiosRequestConfig & {
   tsStart: number;
 };
 
-export default function(logger: MonkeyPatchedLogger) {
+export default function (logger: MonkeyPatchedLogger) {
   const instance = axios.create({
     // 10 sec timeout
     timeout: 10 * 1000,

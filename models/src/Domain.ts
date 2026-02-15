@@ -26,7 +26,11 @@ type DomainErrorType =
   | 'E_UNKNOWN';
 
 class LastWarningClass {
-  @prop({ type: String, required: true, enum: ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN'] })
+  @prop({
+    type: String,
+    required: true,
+    enum: ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN']
+  })
   public errType!: DomainErrorType;
 }
 class WarningsClass {
@@ -306,7 +310,10 @@ class DomainClass {
     const domains = this.find({ jobId }).lean();
     if (domains.length) {
       await TraversalPath.updateMany(
-        { 'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) }, status: 'active' },
+        {
+          'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) },
+          status: 'active'
+        },
         { $set: { 'head.domain.status': 'crawling' } }
       );
     }
@@ -376,13 +383,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-        domain,
-        status: 'unvisited',
-        url: { $nin: dPathHeads.map((r) => r.url) }
-      })
-        .limit(limit)
-        .select('url')
-        .lean()
+          domain,
+          status: 'unvisited',
+          url: { $nin: dPathHeads.map((r) => r.url) }
+        })
+          .limit(limit)
+          .select('url')
+          .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
@@ -425,16 +432,20 @@ class DomainClass {
     domLimit: number,
     resLimit: number
   ): AsyncGenerator<DomainCrawlJobInfo> {
-    log.info(`Starting domain crawl locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`);
+    log.info(
+      `Starting domain crawl locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
+    );
     let domainsFound = 0;
     let procSkip = 0;
     let pathLimit = 20; // TODO get from config
 
-    let skipDomains: { [origin: string]: Date } = {}
+    let skipDomains: { [origin: string]: Date } = {};
 
     // iterate over processes
     PROCESS_LOOP: while (domainsFound < domLimit) {
-      log.info(`Worker ${wId} looking for process to crawl, skipping ${procSkip} processes so far.`);
+      log.info(
+        `Worker ${wId} looking for process to crawl, skipping ${procSkip} processes so far.`
+      );
       const proc = await Process.getOneRunning(procSkip);
       if (!proc) {
         return;
@@ -447,7 +458,9 @@ class DomainClass {
       let pathSkip = 0;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
-        log.info(`Worker ${wId} looking for paths to crawl in process ${proc.id}, skipping ${pathSkip} paths so far.`);
+        log.info(
+          `Worker ${wId} looking for paths to crawl in process ${proc.id}, skipping ${pathSkip} paths so far.`
+        );
         // determine which domains to skip based on their crawl.nextAllowed time
         const now = new Date();
         const blDomains = [];
@@ -459,7 +472,9 @@ class DomainClass {
           }
         }
         if (Object.keys(skipDomains).length) {
-          log.info(`Skipping domains: ${Object.keys(skipDomains)} because they cannot be crawled yet.`);
+          log.info(
+            `Skipping domains: ${Object.keys(skipDomains)} because they cannot be crawled yet.`
+          );
         }
 
         // get paths for this process
@@ -477,26 +492,33 @@ class DomainClass {
         // get only unvisited path heads
         const unvisHeads = paths.filter((p) => p.head.status === 'unvisited').map((p) => p.head);
         if (!unvisHeads.length) {
-          log.silly(`No unvisited path heads found for process ${proc.id} with current path batch, skipping to next batch.`);
+          log.silly(
+            `No unvisited path heads found for process ${proc.id} with current path batch, skipping to next batch.`
+          );
           continue PATHS_LOOP;
         }
 
-        log.info(`Preparing to lock for crawl domains from the following resources`,
-          Array.from(new Set(unvisHeads.map((h) => h.url))));
+        log.info(
+          `Preparing to lock for crawl domains from the following resources`,
+          Array.from(new Set(unvisHeads.map((h) => h.url)))
+        );
         const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
-          log.info(`No domains could be locked for crawling for process ${proc.id} with current path batch, skipping to next batch.`);
-          const domains = await this
-            .find({ origin: { $in: Array.from(origins) } })
+          log.info(
+            `No domains could be locked for crawling for process ${proc.id} with current path batch, skipping to next batch.`
+          );
+          const domains = await this.find({ origin: { $in: Array.from(origins) } })
             .select('origin crawl')
             .lean();
           for (const d of domains) {
             if (d.crawl.nextAllowed > new Date()) {
               skipDomains[d.origin] = d.crawl.nextAllowed;
-              log.info(`Domain ${d.origin} cannot be crawled yet, next allowed at ${d.crawl.nextAllowed}`);
+              log.info(
+                `Domain ${d.origin} cannot be crawled yet, next allowed at ${d.crawl.nextAllowed}`
+              );
             }
           }
           continue PATHS_LOOP;
@@ -507,7 +529,9 @@ class DomainClass {
         // throw away domains over the limit
         if (domainsFound + domains.length > domLimit) {
           const allowed = domLimit - domainsFound;
-          log.info(`Domain limit reached, only processing ${allowed} out of ${domains.length} locked domains.`);
+          log.info(
+            `Domain limit reached, only processing ${allowed} out of ${domains.length} locked domains.`
+          );
           domains.splice(allowed);
         }
 
@@ -582,7 +606,8 @@ class DomainClass {
     this: ReturnModelType<typeof DomainClass>,
     origin: string,
     ts: number,
-    crawlDelay: number) {
+    crawlDelay: number
+  ) {
     const nextAllowed = new Date(ts + crawlDelay * 1000);
 
     const filter = {
@@ -591,9 +616,13 @@ class DomainClass {
         $lt: nextAllowed
       }
     };
-    let d = await this.findOneAndUpdate(filter, {
-      'crawl.nextAllowed': nextAllowed
-    }, { returnDocument: 'after' });
+    let d = await this.findOneAndUpdate(
+      filter,
+      {
+        'crawl.nextAllowed': nextAllowed
+      },
+      { returnDocument: 'after' }
+    );
 
     return d;
   }

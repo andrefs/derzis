@@ -4,19 +4,19 @@ import type { PageServerLoad } from './$types';
 import { Process } from '@derzis/models';
 
 export const load: PageServerLoad = async ({ params }) => {
-	const p = await Process.findOne({ pid: params.pid });
-	if (!p) {
-		throw error(404, {
-			message: 'Not found'
-		});
-	}
+  const p = await Process.findOne({ pid: params.pid });
+  if (!p) {
+    throw error(404, {
+      message: 'Not found'
+    });
+  }
 
-	return {
-		proc: {
-			pid: p.pid,
-			currentStep: {
-				seeds: p.currentStep.seeds
-			}
-		}
-	};
+  return {
+    proc: {
+      pid: p.pid,
+      currentStep: {
+        seeds: p.currentStep.seeds
+      }
+    }
+  };
 };

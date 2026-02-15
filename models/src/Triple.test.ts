@@ -5,7 +5,7 @@ describe('directionOk', () => {
   const triple: SimpleTriple = {
     subject: 'http://example.com/subject',
     predicate: 'http://example.com/predicate',
-    object: 'http://example.com/object',
+    object: 'http://example.com/object'
   };
 
   it('returns true when branch factor is 1 (no directionality)', () => {

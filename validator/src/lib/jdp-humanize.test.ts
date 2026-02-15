@@ -5,7 +5,7 @@ import * as jsondiffpatch from 'jsondiffpatch';
 describe('humanizeDelta', () => {
   it('should describe added properties', () => {
     const delta = {
-      newProp: [42],
+      newProp: [42]
     } as jsondiffpatch.Delta;
     const result = humanizeDelta(delta);
     expect(result).toEqual(['Added "newProp" with value 42']);
@@ -13,7 +13,7 @@ describe('humanizeDelta', () => {
 
   it('should describe removed properties', () => {
     const delta = {
-      oldProp: [42, 0, 0],
+      oldProp: [42, 0, 0]
     } as jsondiffpatch.Delta;
     const result = humanizeDelta(delta);
     expect(result).toEqual(['Removed "oldProp" (was 42)']);
@@ -21,7 +21,7 @@ describe('humanizeDelta', () => {
 
   it('should describe changed properties', () => {
     const delta = {
-      changedProp: [42, 43],
+      changedProp: [42, 43]
     } as jsondiffpatch.Delta;
     const result = humanizeDelta(delta);
     expect(result).toEqual(['Changed "changedProp" from 42 to 43']);
@@ -32,14 +32,14 @@ describe('humanizeDelta', () => {
       nested: {
         newProp: [42],
         oldProp: [43, 0, 0],
-        changedProp: [44, 45],
-      },
+        changedProp: [44, 45]
+      }
     } as jsondiffpatch.Delta;
     const result = humanizeDelta(delta);
     expect(result).toEqual([
       'Added "nested.newProp" with value 42',
       'Removed "nested.oldProp" (was 43)',
-      'Changed "nested.changedProp" from 44 to 45',
+      'Changed "nested.changedProp" from 44 to 45'
     ]);
   });
 
@@ -49,21 +49,21 @@ describe('humanizeDelta', () => {
         _t: 'a',
         '0': [1, 2],
         '1': [3],
-        '2': [4, 0, 0],
-      },
+        '2': [4, 0, 0]
+      }
     } as jsondiffpatch.Delta;
     const result = humanizeDelta(delta);
     expect(result).toEqual([
       'Changed "arr.0" from 1 to 2',
       'Added "arr.1" with value 3',
-      'Removed "arr.2" (was 4)',
+      'Removed "arr.2" (was 4)'
     ]);
   });
 
   it('should ignore _t metadata', () => {
     const delta = {
       _t: 'a',
-      prop: [1, 2],
+      prop: [1, 2]
     } as jsondiffpatch.Delta;
     const result = humanizeDelta(delta);
     expect(result).toEqual(['Changed "prop" from 1 to 2']);
