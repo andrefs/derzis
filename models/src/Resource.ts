@@ -214,9 +214,9 @@ class ResourceClass {
 		const res = await this.bulkWrite(upserts);
 		const domains = new Set<string>(urls.map((u: string) => new URL(u).origin));
 		await Domain.upsertMany(Array.from(domains));
-		const seedResources = await this.find({ url: { $in: urls } })
-			.select('url domain status')
-			.lean();
+		const seedResources = await this
+			.find({ url: { $in: urls } })
+			.select('url domain status');
 
 		return this.insertSeedPaths(pid, seedResources);
 	}
