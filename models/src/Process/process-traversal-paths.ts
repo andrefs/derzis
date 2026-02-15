@@ -146,13 +146,16 @@ export async function extendExistingPaths(pid: string) {
 	let skip = 0;
 	let hasMore = true;
 
-	// Get total number of paths to process
-	const totalPaths = await TraversalPath.countDocuments({
+
+	const query = {
 		processId: process.pid,
 		status: 'active',
 		'nodes.count': { $lt: process.currentStep.maxPathLength },
 		'predicates.count': { $lte: process.currentStep.maxPathProps }
-	});
+	};
+
+	// Get total number of paths to process
+	const initPathsCount = await TraversalPath.countDocuments(query);
 
 	let processedPaths = 0;
 	const startTime = Date.now();
@@ -162,13 +165,11 @@ export async function extendExistingPaths(pid: string) {
 		batchCounter++;
 		const batchStartTime = Date.now();
 
+		const curPathsCount = await TraversalPath.countDocuments(query);
+
 		// find a batch of active paths that can be extended
-	const paths = await TraversalPath.find({
-			processId: process.pid,
-			status: 'active',
-			'nodes.count': { $lt: process.currentStep.maxPathLength },
-			'predicates.count': { $lte: process.currentStep.maxPathProps }
-		})
+		const paths = await TraversalPath.find(query)
+			.sort({ 'nodes.count': 1 }) // shorter paths first
 			.limit(batchSize)
 			.skip(skip);
 
@@ -177,10 +178,12 @@ export async function extendExistingPaths(pid: string) {
 			break;
 		}
 
-		const percentage = Math.round((processedPaths / totalPaths) * 100);
+		//const percentage = Math.round((processedPaths / initPathsCount) * 100);
+		const percentage = Math.round((skip / curPathsCount) * 100);
 		const elapsedTime = (Date.now() - startTime) / 1000;
 
-		log.info(`Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${totalPaths} - ${percentage}%)`);
+		//log.info(`Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${initPathsCount} - ${percentage}%)`);
+		log.info(`Extending batch of ${paths.length} existing paths for process ${process.pid} (${skip}/${curPathsCount} - ${percentage}%)`);
 
 		await extendPathsWithExistingTriples(process, paths);
 		processedPaths += paths.length;
