@@ -15,7 +15,7 @@
 		"test": "npm run test:integration && npm run test:unit",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"lint": "prettier --plugin-search-dir . --check . && eslint .",
+		"lint": "prettier --check src && eslint src",
 		"format": "prettier --plugin-search-dir . --write .",
 		"test:integration": "cp .env .env.backup 2>/dev/null || true && cp .env.test .env && npm run build && (npm run preview & echo $! > .server.pid) && sleep 5 && npm run db:setup:test && playwright test --grep-invert 'Database-Dependent Pages with Mock Data'; kill $(cat .server.pid) 2>/dev/null || true; rm -f .server.pid; mv .env.backup .env 2>/dev/null || true",
 		"test:unit": "vitest",

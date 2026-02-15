@@ -4,6 +4,8 @@
   "description": "",
   "scripts": {
     "typecheck": "tsc -b tsconfig.json",
+    "lint": "prettier --check src && eslint src",
+    "format": "prettier --write src",
     "test": "vitest run"
   },
   "keywords": [],
@@ -22,6 +24,7 @@
   "devDependencies": {
     "@types/node": "22.12.0",
     "@types/nodemailer": "6.4.17",
+    "prettier": "^3.4.0",
     "typescript": "5.9.3",
     "vitest": "4.0.17"
   }
