@@ -17,7 +17,8 @@ export default {
     },
     email: {
       doNotSend: true
-    }
+    },
+    pathType: process.env.DERZIS_PATH_TYPE || 'endpoint' // 'endpoint' or 'traversal'
   },
   worker: {
     db: {
