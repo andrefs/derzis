@@ -1,4 +1,4 @@
-import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument, EndpointPath, TraversalPathClass, EndpointPathClass } from '../Path';
+import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument, EndpointPath, TraversalPathClass, EndpointPathClass, PathSkeleton } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
@@ -6,6 +6,7 @@ import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { Types } from 'mongoose';
 import { Triple } from '../Triple';
+import { PathClass } from '../Path';
 import { PathType } from '@derzis/common';
 
 /**
@@ -121,66 +122,64 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
 	return !!pathsCount;
 }
 
-export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: TraversalPathDocument[]) {
+export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: PathClass[]) {
 	log.silly(`Extending ${paths.length} paths for process ${proc.pid} with existing triples...`);
 
-	for (const path of paths) {
-		const newPathObjs = [];
-		const toDelete = new Set();
-		const procTriples: Set<Types.ObjectId> = new Set();
+	const toDelete = new Set();
+	const procTriples: Set<Types.ObjectId> = new Set();
+	let newPaths: TraversalPathDocument[] = [];
 
-		const { extendedPaths: eps, procTriples: pts } = await path.extendWithExistingTriples(proc);
+	for (const path of paths) {
+		const { extendedPaths: eps, procTriples: pts } =
+			await path.extendWithExistingTriples(proc);
+
+		if (!eps.length) {
+			log.silly('No new paths created from this path, skipping to next path.');
+			continue;
+		}
 
 		// if new paths were created
-		if (eps.length) {
-			toDelete.add(path._id);
-			newPathObjs.push(...eps);
-			for (const pt of pts) {
-				procTriples.add(pt);
-			}
-
-			let newPaths: TraversalPathDocument[] = [];
-			if (newPathObjs.length) {
-				// create new paths
-				newPaths = await TraversalPath.create(newPathObjs);
-			} else {
-				log.silly('No new paths to create.');
-			}
-
-			if (procTriples.size) {
-				// add proc-triple associations
-				await ProcessTriple.upsertMany(
-					[...procTriples].map((tId) => ({
-						processId: proc.pid,
-						triple: tId,
-						processStep: proc.steps.length
-					}))
-				);
-			} else {
-				log.silly('No new process-triple associations to add.');
-			}
-
-			if (toDelete.size) {
-				// mark old paths as deleted if their head status is 'done'
-				await TraversalPath.updateMany(
-					{
-						_id: { $in: Array.from(toDelete) },
-						'head.status': { $in: ['done'] }
-					},
-					{ $set: { status: 'deleted' } });
-			} else {
-				log.silly('No old paths to delete.');
-			}
-
-			if (newPaths.length) {
-				// extend newly created paths recursively
-				await extendPathsWithExistingTriples(proc, newPaths);
-			} else {
-				log.silly('No new paths to extend further.');
-			}
+		toDelete.add(path._id);
+		for (const pt of pts) {
+			procTriples.add(pt);
 		}
+		newPaths.push(...await TraversalPath.create(eps));
+	}
+
+	if (procTriples.size) {
+		// add proc-triple associations
+		await ProcessTriple.upsertMany(
+			[...procTriples].map((tId) => ({
+				processId: proc.pid,
+				triple: tId,
+				processStep: proc.steps.length
+			}))
+		);
+	} else {
+		log.silly('No new process-triple associations to add.');
+	}
+
+	if (toDelete.size) {
+		// mark old paths as deleted if their head status is 'done'
+		await TraversalPath.updateMany(
+			{
+				_id: { $in: Array.from(toDelete) },
+				'head.status': { $in: ['done'] }
+			},
+			{ $set: { status: 'deleted' } });
+	} else {
+		log.silly('No old paths to delete.');
+	}
+
+	if (newPaths.length) {
+		// extend newly created paths recursively
+		await extendPathsWithExistingTriples(proc, newPaths);
+	} else {
+		log.silly('No new paths to extend further.');
 	}
 }
+
+
 
 /**
  * Extend existing active paths for a process according to its current step limits.
@@ -259,84 +258,133 @@ export async function extendExistingPaths(pid: string) {
 	log.info(`Finished extending existing paths for process ${process.pid}. Total time: ${totalTime.toFixed(2)}s`);
 }
 
-export async function extendProcessPaths(process: ProcessClass, headUrl: string) {
-	log.info(`Extending paths for process ${process.pid} with head URL: ${headUrl}`);
-	const paths = await TraversalPath.find({
-		processId: process.pid,
-		status: 'active',
-		'head.url': headUrl,
-	});
-	if (!paths.length) {
-		log.info(`No active paths found for process ${process.pid} with head URL: ${headUrl}`);
-		return;
-	}
-
-	const triples = await Triple.find({
-		nodes: headUrl,
-	});
-
-	if (!triples.length) {
-		log.info(`No triples found connected to head URL: ${headUrl}`);
-		return;
-	}
-
-	const pathsToCreate = [];
-	const pathsToDelete = new Set();
-	const procTriples: Set<Types.ObjectId> = new Set();
-
-	for (const path of paths) {
-		const { extendedPaths: eps, procTriples: pts } = await path.genExtended(
-			triples,
-			process
-		);
-		log.silly('Extended paths:', eps);
-		// if new paths were created gather them
-		if (eps.length) {
-			pathsToDelete.add(path._id);
-			pathsToCreate.push(...eps);
-			for (const pt of pts) {
-				procTriples.add(pt);
-			}
-		}
-	}
-
+/**
+ * Helper function to insert process-triple associations in bulk.
+ * @param pid Process ID
+ * @param procTriples Set of triple IDs to associate with the process
+ * @param procStep Current step number of the process
+ */
+async function insertProcTriples(pid: string, procTriples: Set<Types.ObjectId>, procStep: number) {
 	if (procTriples.size) {
 		// add proc-triple associations
 		await ProcessTriple.upsertMany(
 			[...procTriples].map((tId) => ({
-				processId: process.pid,
+				processId: pid,
 				triple: tId,
-				processStep: process.steps.length
+				processStep: procStep
 			}))
 		);
 	} else {
 		log.silly('No new process-triple associations to add.');
 	}
+}
 
-	let newPaths: TraversalPathDocument[] = [];
+/**
+ * Helper function to create new paths in bulk.
+ * @param pathsToCreate Array of PathSkeleton objects to create as new paths
+ * @param pathType Type of paths to create ('traversal' or 'endpoint')
+ * @returns Array of created PathClass documents
+ */
+async function createNewPaths(pathsToCreate: PathSkeleton[], pathType: PathType): Promise<PathClass[]> {
 	if (pathsToCreate.length) {
 		// update head status of new paths
 		await setNewPathHeadStatus(pathsToCreate);
 
 		// create new paths
-		newPaths = await TraversalPath.create(pathsToCreate);
+		return pathType === 'traversal' ?
+			await TraversalPath.create(pathsToCreate) :
+			await EndpointPath.create(pathsToCreate);
 	} else {
 		log.silly('No new paths to create.');
+		return [];
 	}
+}
 
 
+/**
+ * * Helper function to mark old paths as deleted in bulk.
+ * @param pathsToDelete Set of path IDs to mark as deleted
+ * @param pathType Type of paths to delete ('traversal' or 'endpoint')
+ */
+async function deleteOldPaths(pathsToDelete: Set<Types.ObjectId>, pathType: PathType) {
 	if (pathsToDelete.size) {
+		const pathQuery = {
+			_id: { $in: Array.from(pathsToDelete) },
+			'head.status': 'done'
+		};
+		const pathUpdate = { $set: { status: 'deleted' } };
+
 		// mark old paths as deleted if their head status is 'done'
-		await TraversalPath.updateMany(
-			{
-				_id: { $in: Array.from(pathsToDelete) },
-				'head.status': 'done'
-			},
-			{ $set: { status: 'deleted' } }
-		);
+
+		if (pathType === 'traversal') {
+			await TraversalPath.updateMany(pathQuery, pathUpdate);
+		} else {
+			await EndpointPath.updateMany(pathQuery, pathUpdate);
+		}
 	} else {
 		log.silly('No old paths to delete.');
 	}
+}
+
+
+/**
+ * Extend active paths for a process that have a specific head URL, based on the triples connected to that URL.
+ * @param process ProcessClass instance
+ * @param headUrl URL of the head node to extend paths from
+ * @param pathType Type of paths to extend ('traversal' or 'endpoint')
+ */
+export async function extendProcessPaths(process: ProcessClass, headUrl: string, pathType: PathType) {
+	log.info(`Extending paths for process ${process.pid} with head URL: ${headUrl}`);
+	const pathQuery = {
+		processId: process.pid,
+		status: 'active',
+		'head.url': headUrl,
+	};
+
+	let hasMore = true;
+	const batchSize = 100;
+	const pathsToCreate = [];
+	const pathsToDelete = new Set<Types.ObjectId>();
+	const procTriples: Set<Types.ObjectId> = new Set();
+
+	while (hasMore) {
+		const paths = pathType === 'traversal' ?
+			await TraversalPath.find(pathQuery).limit(batchSize) :
+			await EndpointPath.find(pathQuery).limit(batchSize);
+
+		if (!paths.length) {
+			log.info(`No active paths found for process ${process.pid} with head URL: ${headUrl}`);
+			hasMore = false;
+			break;
+		}
+
+		const triples = await Triple.find({ nodes: headUrl });
+		if (!triples.length) {
+			log.info(`No triples found connected to head URL: ${headUrl}`);
+			return;
+		}
+
+		// extend each path with the new triples and gather new paths and proc-triple associations
+		for (const path of paths) {
+			const { extendedPaths: eps, procTriples: pts } = await path.genExtended(
+				triples,
+				process
+			);
+			log.silly('Extended paths:', eps);
+			// if new paths were created gather them
+			if (eps.length) {
+				pathsToDelete.add(path._id);
+				pathsToCreate.push(...eps);
+				for (const pt of pts) {
+					procTriples.add(pt);
+				}
+			}
+		}
+	}
+
+	await insertProcTriples(process.pid, procTriples, process.steps.length);
+	const newPaths = await createNewPaths(pathsToCreate, pathType);
+	await deleteOldPaths(pathsToDelete, pathType);
 
 	// recursively extend newly created paths
 	await extendPathsWithExistingTriples(process, newPaths);
@@ -346,7 +394,7 @@ export async function extendProcessPaths(process: ProcessClass, headUrl: string)
 		* Set the head status of new paths based on existing Resource statuses.
 		* @param newPaths Array of TraversalPathSkeleton objects to update.
 		*/
-async function setNewPathHeadStatus(newPaths: TraversalPathSkeleton[]): Promise<void> {
+async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
 	const headUrls = newPaths.map((p) => p.head.url);
 	const resources = await Resource.find({ url: { $in: headUrls } })
 		.select('url status')

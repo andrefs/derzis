@@ -165,16 +165,16 @@ class DomainClass {
       { new: true }
     );
 
-    if (jobResult.err.errorType === 'host_not_found') {
-      for await (const path of TraversalPath.find({ 'head.domain': jobResult.origin, status: 'active' })) {
-        // await path.markDisabled(); // TODO make sure this was not needed
-        d = await this.findOneAndUpdate(
-          { origin: jobResult.origin },
-          { $inc: { 'crawl.pathHeads': -1 } },
-          { new: true }
-        );
-      }
-    }
+    //if (jobResult.err.errorType === 'host_not_found') {
+    //  for await (const path of TraversalPath.find({ 'head.domain': jobResult.origin, status: 'active' })) {
+    //    // await path.markDisabled(); // TODO make sure this was not needed
+    //    d = await this.findOneAndUpdate(
+    //      { origin: jobResult.origin },
+    //      { $inc: { 'crawl.pathHeads': -1 } },
+    //      { new: true }
+    //    );
+    //  }
+    //}
 
     return d;
   }

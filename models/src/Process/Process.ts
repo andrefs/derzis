@@ -256,8 +256,8 @@ class ProcessClass extends Document {
 		}
 	}
 
-	public async extendProcessPaths(headUrl: string) {
-		return extendProcessPaths(this, headUrl);
+	public async extendProcessPaths(headUrl: string, pathType: PathType) {
+		return extendProcessPaths(this, headUrl, pathType);
 	}
 
 	/**

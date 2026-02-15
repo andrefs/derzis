@@ -7,8 +7,7 @@ import {
 	Resource,
 	Process,
 	ResourceClass,
-	TripleClass,
-	TraversalPathClass
+	EndpointPath,
 } from '@derzis/models';
 import {
 	type JobResult,
@@ -21,10 +20,10 @@ import RunningJobs from './RunningJobs';
 import type {
 	JobCapacity,
 	JobRequest,
+	PathType,
 	ResourceCrawlJobRequest,
 	SimpleTriple
 } from '@derzis/common';
-import { ObjectId } from 'bson';
 
 export default class Manager {
 	jobs: RunningJobs;
@@ -173,47 +172,25 @@ export default class Manager {
 	 * @param headUrl URL of the resource that is the head of the paths to update
 	 */
 	async updateAllPathsWithHead(headUrl: string) {
-		const pids = await TraversalPath.distinct('processId', {
+		const query = {
 			'head.url': headUrl,
 			status: 'active'
-		});
+		};
+
+		const pids = config.manager.pathType === 'traversal' ?
+			await TraversalPath.distinct('processId', query) :
+			await EndpointPath.distinct('processId', query);
+
 		for (const pid of pids) {
 			const proc = await Process.findOne({ pid });
-			await proc?.extendProcessPaths(headUrl);
+			await proc?.extendProcessPaths(headUrl, config.manager.pathType as PathType);
 		}
 	}
 
-	shouldCreateNewPath(t: TripleClass, path: TraversalPathClass) {
-		// triple is reflexive
-		if (t.subject === t.object) {
-			return false;
-		}
-		// triple is not connected to path
-		if (t.subject !== path.head.url && t.object !== path.head.url) {
-			return false;
-		}
-
-		const newHeadUrl: string = t.subject === path.head.url ? t.object : t.subject;
-		const prop: string = t.predicate;
-
-		// new head already contained in path
-		if (path.nodes.elems.includes(newHeadUrl)) {
-			return false;
-		}
-		// new predicate and path already has max preds
-		if (
-			!path.predicates.elems.includes(prop) &&
-			path.predicates.count >= config.graph.maxPathProps
-		) {
-			return false;
-		}
-		// path already has max length
-		if (path.nodes.count >= config.graph.maxPathLength) {
-			return false;
-		}
-		return true;
-	}
-
+	/**
+	* Save results of a robots check job to the database, including crawl delay and any errors
+	* @param jobResult Result of the robots check job to save
+	*/
 	async saveRobots(jobResult: RobotsCheckResult) {
 		let crawlDelay = config.http.crawlDelay || 1;
 

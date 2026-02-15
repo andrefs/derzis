@@ -101,4 +101,6 @@ export abstract class PathClass {
 	public abstract copy(): PathSkeleton;
 
 	public abstract genExtended(triples: TripleClass[], process: ProcessClass): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }>;
+
+	public abstract extendWithExistingTriples(proc: ProcessClass): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }>;
 }
