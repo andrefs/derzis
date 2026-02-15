@@ -2,7 +2,7 @@ import { Types, Document } from 'mongoose';
 import { Resource } from '../Resource';
 import { Triple, TripleClass } from '../Triple';
 import { humanize } from 'humanize-digest';
-import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument } from '../Path';
+import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument, EndpointPath } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Process');
@@ -49,6 +49,7 @@ import {
 	StepClass
 } from './aux-classes';
 import { PathType } from '@derzis/common';
+import config from '@derzis/config';
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
@@ -318,7 +319,7 @@ class ProcessClass extends Document {
 		}
 
 		// Before queuing, extend existing paths according to new step limits
-		//await process.extendExistingPaths();
+		await process.extendExistingPaths();
 
 		// Set the process to queued
 		await Process.updateOne(
@@ -406,13 +407,20 @@ class ProcessClass extends Document {
 		let skip = 0;
 		let hasMore = true;
 
+		const PathClass = config.manager.pathType === 'traversal' ? TraversalPath : EndpointPath;
 		while (hasMore) {
 			// Fetch a batch of paths for this process
-			const paths = await TraversalPath.find({ processId: this.pid, status: 'active' })
-				.skip(skip)
-				.limit(batchSize)
-				.select('head.url head.domain.origin')
-				.lean();
+			const paths = config.manager.pathType === 'traversal' ?
+				await TraversalPath.find({ processId: this.pid, status: 'active' })
+					.skip(skip)
+					.limit(batchSize)
+					.select('head.url head.domain.origin')
+					.lean() :
+				await EndpointPath.find({ processId: this.pid, status: 'active' })
+					.skip(skip)
+					.limit(batchSize)
+					.select('head.url head.domain.origin')
+					.lean();
 
 			if (paths.length === 0) {
 				hasMore = false;
@@ -422,6 +430,8 @@ class ProcessClass extends Document {
 			const headUrls = new Set(paths.map(p => p.head.url));
 			const origins = new Set(paths.map(p => p.head.domain.origin));
 
+			const pathQuery = { processId: this.pid, status: 'active', 'head.status': 'error', 'head.url': { $in: Array.from(headUrls) } };
+			const pathUpdate = { $set: { 'head.status': 'unvisited', 'head.domain.status': 'ready' } };
 			const [resourceRes, domainRes, pathRes] = await Promise.all([
 				Resource.updateMany(
 					{ status: 'error', url: { $in: Array.from(headUrls) } },
@@ -441,15 +451,9 @@ class ProcessClass extends Document {
 						$unset: { workerId: '', jobId: '' }
 					}
 				),
-				TraversalPath.updateMany(
-					{ processId: this.pid, status: 'active', 'head.status': 'error', 'head.url': { $in: Array.from(headUrls) } },
-					{
-						$set: {
-							'head.status': 'unvisited',
-							'head.domain.status': 'ready'
-						}
-					}
-				)
+				config.manager.pathType === 'traversal' ?
+					TraversalPath.updateMany(pathQuery, pathUpdate) :
+					EndpointPath.updateMany(pathQuery, pathUpdate)
 			]);
 
 			summary.resources += resourceRes.modifiedCount ?? resourceRes.matchedCount ?? 0;
