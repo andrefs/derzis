@@ -125,50 +125,20 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
 export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: PathClass[]) {
 	log.silly(`Extending ${paths.length} paths for process ${proc.pid} with existing triples...`);
 
-	const toDelete = new Set();
-	const procTriples: Set<Types.ObjectId> = new Set();
-	let newPaths: TraversalPathDocument[] = [];
+	let newPaths = [];
 
 	for (const path of paths) {
-		const { extendedPaths: eps, procTriples: pts } =
-			await path.extendWithExistingTriples(proc);
+		const res = await path.extendWithExistingTriples(proc);
 
-		if (!eps.length) {
+		if (!res.extendedPaths.length) {
 			log.silly('No new paths created from this path, skipping to next path.');
 			continue;
 		}
 
+		await insertProcTriples(proc.pid, new Set(res.procTriples), proc.steps.length);
+		await deleteOldPaths(new Set([path._id]), path.type);
 		// if new paths were created
-		toDelete.add(path._id);
-		for (const pt of pts) {
-			procTriples.add(pt);
-		}
-		newPaths.push(...await TraversalPath.create(eps));
-	}
-
-	if (procTriples.size) {
-		// add proc-triple associations
-		await ProcessTriple.upsertMany(
-			[...procTriples].map((tId) => ({
-				processId: proc.pid,
-				triple: tId,
-				processStep: proc.steps.length
-			}))
-		);
-	} else {
-		log.silly('No new process-triple associations to add.');
-	}
-
-	if (toDelete.size) {
-		// mark old paths as deleted if their head status is 'done'
-		await TraversalPath.updateMany(
-			{
-				_id: { $in: Array.from(toDelete) },
-				'head.status': { $in: ['done'] }
-			},
-			{ $set: { status: 'deleted' } });
-	} else {
-		log.silly('No old paths to delete.');
+		newPaths.push(...await createNewPaths(res.extendedPaths, path.type));
 	}
 
 	if (newPaths.length) {
@@ -200,8 +170,6 @@ export async function extendExistingPaths(pid: string) {
 	const batchSize = 100;
 	let skip = 0;
 	let hasMore = true;
-
-
 	const query = {
 		processId: process.pid,
 		status: 'active',
@@ -219,7 +187,6 @@ export async function extendExistingPaths(pid: string) {
 	while (hasMore) {
 		batchCounter++;
 		const batchStartTime = Date.now();
-
 		const curPathsCount = await TraversalPath.countDocuments(query);
 
 		// find a batch of active paths that can be extended
@@ -341,59 +308,75 @@ export async function extendProcessPaths(process: ProcessClass, headUrl: string,
 		'head.url': headUrl,
 	};
 
-	let hasMore = true;
 	const batchSize = 100;
-	const pathsToCreate = [];
-	const pathsToDelete = new Set<Types.ObjectId>();
-	const procTriples: Set<Types.ObjectId> = new Set();
+	let hasMorePaths = true;
+	let skipPaths = 0;
 
-	while (hasMore) {
+	let newPaths = [];
+	// process paths in batches to avoid using up too much memory
+	while (hasMorePaths) {
 		const paths = pathType === 'traversal' ?
-			await TraversalPath.find(pathQuery).limit(batchSize) :
-			await EndpointPath.find(pathQuery).limit(batchSize);
+			await TraversalPath
+				.find(pathQuery)
+				.sort({ 'nodes.count': 1 })
+				.limit(batchSize)
+				.skip(skipPaths) :
+			await EndpointPath
+				.find(pathQuery)
+				.sort({ 'shortestPath.length': 1 })
+				.limit(batchSize)
+				.skip(skipPaths);
+		skipPaths += batchSize;
 
 		if (!paths.length) {
 			log.info(`No active paths found for process ${process.pid} with head URL: ${headUrl}`);
-			hasMore = false;
+			hasMorePaths = false;
 			break;
 		}
 
-		const triples = await Triple.find({ nodes: headUrl });
-		if (!triples.length) {
-			log.info(`No triples found connected to head URL: ${headUrl}`);
-			return;
-		}
+		let hasMoreTriples = true;
+		let skipTriples = 0;
+		// process triples in batches to avoid using up too much memory
+		while (hasMoreTriples) {
+			const triples = await Triple
+				.find({ nodes: headUrl })
+				.sort({ createdAt: 1 }) // older triples first
+				.limit(batchSize)
+				.skip(skipTriples);
+			skipTriples += batchSize;
 
-		// extend each path with the new triples and gather new paths and proc-triple associations
-		for (const path of paths) {
-			const { extendedPaths: eps, procTriples: pts } = await path.genExtended(
-				triples,
-				process
-			);
-			log.silly('Extended paths:', eps);
-			// if new paths were created gather them
-			if (eps.length) {
-				pathsToDelete.add(path._id);
-				pathsToCreate.push(...eps);
-				for (const pt of pts) {
-					procTriples.add(pt);
+			if (!triples.length) {
+				log.info(`No triples found connected to head URL: ${headUrl}`);
+				hasMoreTriples = false;
+				break;
+			}
+
+			// extend each path with the new triples and gather new paths and proc-triple associations
+			for (const path of paths) {
+				const res = await path.genExtended(triples, process);
+				log.silly('Extended paths:', res.extendedPaths);
+				// make db operations immediately for each path to avoid keeping too many new paths in memory
+				if (res.extendedPaths.length) {
+					await insertProcTriples(process.pid, new Set(res.procTriples), process.steps.length);
+					newPaths.push(...await createNewPaths(res.extendedPaths, pathType));
+					await deleteOldPaths(new Set([path._id]), pathType);
 				}
 			}
 		}
+
+		if (newPaths.length) {
+			// recursively extend newly created paths
+			await extendPathsWithExistingTriples(process, newPaths);
+		} else {
+			log.silly('No new paths to extend further.');
+		}
 	}
-
-	await insertProcTriples(process.pid, procTriples, process.steps.length);
-	const newPaths = await createNewPaths(pathsToCreate, pathType);
-	await deleteOldPaths(pathsToDelete, pathType);
-
-	// recursively extend newly created paths
-	await extendPathsWithExistingTriples(process, newPaths);
 }
 
 /**
-		* Set the head status of new paths based on existing Resource statuses.
-		* @param newPaths Array of TraversalPathSkeleton objects to update.
-		*/
+ * Set the head status of new paths based on existing Resource statuses.
+ * @param newPaths Array of TraversalPathSkeleton objects to update.
+ */
 async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
 	const headUrls = newPaths.map((p) => p.head.url);
 	const resources = await Resource.find({ url: { $in: headUrls } })
