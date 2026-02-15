@@ -4,6 +4,7 @@ import { Domain, DomainClass } from './Domain';
 import { TraversalPath, type TraversalPathDocument } from './TraversalPath';
 import { Triple, type TripleClass, type TripleSkeleton } from './Triple';
 import type { CrawlResourceResultDetails } from '@derzis/common';
+import config from '@derzis/config';
 
 import {
 	prop,
@@ -12,6 +13,7 @@ import {
 	getModelForClass,
 	PropType
 } from '@typegoose/typegoose';
+import { EndpointPath, EndpointPathDocument } from './EndpointPath';
 
 class CrawlId {
 	@prop({ type: Date })
@@ -217,21 +219,82 @@ class ResourceClass {
 			.select('url domain status')
 			.lean();
 
-		const paths = seedResources.map((s) => ({
-			processId: pid,
-			seed: { url: s.url },
-			head: { url: s.url, status: s.status },
-			nodes: { elems: [s.url] },
-			predicates: { elems: [] },
-			triples: [],
-			status: 'active'
-		}));
-
-		const insPaths = await TraversalPath.create(paths);
-		return this.addPaths(insPaths);
+		return this.insertSeedPaths(pid, seedResources);
 	}
 
-	public static async addPaths(this: ReturnModelType<typeof ResourceClass>, paths: TraversalPathDocument[]) {
+	/**
+	 * Inserts seed paths for a given process ID and an array of seed resources, creating either traversal or endpoint paths based on the configuration.
+	 * @param pid - The process ID to associate with the seed paths.
+	 * @param seeds - An array of ResourceDocument objects representing the seed resources.
+	 * @returns An object containing the results of the path insertions and related updates.
+	 */
+	public static async insertSeedPaths(
+		this: ReturnModelType<typeof ResourceClass>,
+		pid: string,
+		seeds: ResourceDocument[]
+	) {
+
+		// Traversal paths
+		if (config.manager.pathType === 'traversal') {
+			const paths = seeds.map((s) => ({
+				processId: pid,
+				seed: { url: s.url },
+				head: { url: s.url, status: s.status },
+				nodes: { elems: [s.url] },
+				predicates: { elems: [] },
+				triples: [],
+				status: 'active'
+			}));
+
+			const insPaths = await TraversalPath.create(paths);
+			return this.addTvPaths(insPaths);
+		}
+		// Endpoint paths
+		else {
+			const paths = seeds.map((s) => ({
+				processId: pid,
+				seed: { url: s.url },
+				head: { url: s.url, status: s.status, domain: { origin: s.domain, status: 'active' } },
+				status: 'active',
+				frontier: true,
+				minPath: {
+					length: 1,
+					seeds: [s.url]
+				},
+				seedPaths: {
+					[s.url]: 1
+				}
+			}));
+
+			const insPaths = await EndpointPath.create(paths);
+			return this.addEpPaths(insPaths);
+		}
+	}
+
+	/**
+	 * Adds endpoint paths to the related domains, updating their crawl statistics.
+	 * @param paths - An array of EndpointPathDocument objects to add to the domains.
+	 * @returns An object containing the results of the domain updates.
+	 **/
+	public static async addEpPaths(this: ReturnModelType<typeof ResourceClass>, paths: EndpointPathDocument[]) {
+		const dom = await Domain.bulkWrite(
+			paths.map((p: EndpointPathDocument) => ({
+				updateOne: {
+					filter: { origin: p.head.domain.origin },
+					update: { $inc: { 'crawl.pathHeads': 1 } }
+				}
+			}))
+		);
+		return { dom };
+	}
+
+	/**
+	* Adds traversal paths to the resources, updating their head counts and minimum path lengths.
+	* Also updates the related domain crawl statistics.
+	* @param paths - An array of TraversalPathDocument objects to add to the resources.
+	* @returns An object containing the results of the resource and domain updates.
+	*/
+	public static async addTvPaths(this: ReturnModelType<typeof ResourceClass>, paths: TraversalPathDocument[]) {
 		const res = await this.bulkWrite(
 			paths.map((p: TraversalPathDocument) => ({
 				updateOne: {

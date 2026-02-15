@@ -124,98 +124,11 @@ class EndpointPathClass {
 			return false;
 		}
 
-		const newHeadUrl: string = t.subject === this.head.url ? t.object : t.subject;
-
-		// new head already contained in path
-		if (this.nodes.elems.includes(newHeadUrl)) {
-			return false;
-		}
-		//console.log('XXXXXXXXXXXXXX shouldCreateNewPath TRUE');
-
 		return true;
 	}
 
 	public tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean {
-		const pathPreds: Set<string> = new Set(this.predicates.elems);
-		return (
-			this.nodes.count >= process.currentStep.maxPathLength ||
-			(!pathPreds.has(t.predicate) && this.predicates.count >= process.currentStep.maxPathProps)
-		);
-	}
-
-	/**
-	 * Generate a filter to find existing triples that can extend this path,
-	 * based on the process's current step whitelist/blacklist and the path's current predicates.
-	 *
-	 * @param process The current process context.
-	 * @returns A filter object for querying existing triples.
-	 */
-	public genExistingTriplesFilter(process: ProcessClass) {
-		let predFilter;
-
-		// if path already at max props
-		if (this.predicates.count >= process.currentStep.maxPathProps) {
-			// and if there's a step whitelist, only predicates on both lists allowed
-			if (process.currentStep.predLimit.limType === 'whitelist') {
-				const predWhiteList = [];
-				for (const p of this.predicates.elems) {
-					if (process.currentStep.predLimit.limPredicates.includes(p)) {
-						predWhiteList.push(p);
-					}
-				}
-				predFilter = { $in: predWhiteList };
-			}
-			// blacklist case, just use path predicates
-			else {
-				predFilter = {
-					// path at max props but step has blacklist, so just use path predicates
-					$in: this.predicates.elems,
-					// and exclude blacklisted predicates
-					'$nin': process.currentStep.predLimit.limPredicates
-				};
-			}
-		}
-		// path not at max props, use step whitelist/blacklist as is
-		else {
-			if (process.currentStep.predLimit.limType === 'whitelist') {
-				predFilter = { $in: process.currentStep.predLimit.limPredicates };
-			}
-			else {
-				predFilter = { $nin: process.currentStep.predLimit.limPredicates };
-			}
-		}
-
-		const followDirection = process!.currentStep.followDirection;
-		const predsDirMetrics = process!.curPredsDirMetrics();
-		let directionFilter = {};
-
-		if (followDirection && predsDirMetrics && predsDirMetrics.size) {
-			const subjPreds: string[] = [];
-			const objPreds: string[] = [];
-			Array.from(predsDirMetrics).forEach(([pred, { bf }]) => {
-				const bfRatio = bf.subj / bf.obj;
-				if (bfRatio >= 1) {
-					subjPreds.push(pred);
-				} else {
-					objPreds.push(pred);
-				}
-			});
-			directionFilter = {
-				$or: [
-					{ predicate: { $nin: [...subjPreds, ...objPreds] } },
-					{ predicate: { $in: subjPreds }, subject: this.head.url },
-					{ predicate: { $in: objPreds }, object: this.head.url }
-				]
-			};
-		}
-
-		return {
-			predicate: predFilter,
-			nodes: this.head.url,
-			_id: { $nin: this.triples },
-			...directionFilter,
-		};
-
+		return this.minPath.length + 1 > process.currentStep.maxPathLength;
 	}
 
 	/**
@@ -224,7 +137,10 @@ class EndpointPathClass {
 	* If not, return empty array.
 	*/
 	public async extendWithExistingTriples(process: ProcessClass): ReturnType<EndpointPathClass['genExtended']> {
-		const triplesFilter = this.genExistingTriplesFilter(process);
+		const triplesFilter = {
+			processId: this.processId,
+			nodes: this.head.url
+		} as const;
 		// find triples which include the head but dont belong to the path yet
 		let triples: TripleDocument[] = await Triple.find(triplesFilter);
 		if (!triples.length) {
