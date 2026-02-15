@@ -244,7 +244,16 @@ export default class RunningJobs extends EventEmitter {
 
 		// Reset path head domains being crawled
 		log.debug('Resetting outstanding path head domains being crawled');
-		await TraversalPath.updateMany({ 'head.domain.status': 'crawling', status: 'active' }, { $set: { status: 'unvisited' } });
+		await TraversalPath.updateMany({
+			'head.domain.status': 'crawling',
+			status: 'active'
+		},
+			{
+				$set: {
+					status: 'unvisited',
+					'head.domain.status': 'ready'
+				}
+			});
 
 		// Reset resources being crawled
 		log.debug('Resetting outstanding resources being crawled');

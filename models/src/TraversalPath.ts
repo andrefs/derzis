@@ -92,6 +92,7 @@ export type TraversalPathSkeleton = Pick<TraversalPathClass, 'processId' | 'seed
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
+@index({ 'head.domain.status': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({
 	processId: 1,
