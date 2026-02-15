@@ -54,16 +54,5 @@
     "require": [
       "tsconfig-paths/register"
     ]
-  },
-  "references": [
-    {
-      "path": "../config"
-    },
-    {
-      "path": "../models"
-    },
-    {
-      "path": "../common/"
-    }
-  ]
+  }
 }
