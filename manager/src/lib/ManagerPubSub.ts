@@ -37,6 +37,7 @@ class ManagerPubSub {
 		log.info('Started');
 		await this._m.jobs.cancelAllJobs();
 		await this.connect();
+		// In case the manager was killed while some jobs were being extended, we set them back to queued so that they can be reassigned
 		await Process.updateMany({ status: 'extending' }, { status: 'queued' });
 		//await this._m.startNewProcess();
 		this.askCurrentCapacity();
