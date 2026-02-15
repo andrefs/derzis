@@ -1,6 +1,7 @@
 export * from './Domain';
 export * from './Process';
 export * from './TraversalPath';
+export * from './EndpointPath';
 export * from './Resource';
 export * from './Triple';
 export * from './Counter';
@@ -8,3 +9,4 @@ export * as db from './connect-db';
 export * from './ProcessTriple';
 export * from './ProcessResource';
 export * from './ResourceCache';
+export * from './Path';
