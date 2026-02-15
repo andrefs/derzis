@@ -23,7 +23,7 @@ import {
 	hasPathsHeadBeingCrawled,
 	extendExistingPaths,
 	extendProcessPaths
-} from './process-traversal-paths';
+} from './process-paths';
 import {
 	notifyStepStarted,
 	notifyProcessCreated,
