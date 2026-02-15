@@ -24,24 +24,27 @@ export function checkPreConditions(info1: ProcessInfo, info2: ProcessInfo) {
       return false;
     }
 
-    // compare "whiteList" arrays
-    const whiteList1 = info1.steps[i].whiteList || [];
-    const whiteList2 = info2.steps[i].whiteList || [];
-    if (whiteList1.length !== whiteList2.length || !whiteList1.every((val: any, index: number) => val === whiteList2[index])) {
-      console.warn(`Different whiteList at step ${i}`);
+    // compare "predLimit.limPredicates" arrays based on limType
+    const predLimit1 = info1.steps[i].predLimit;
+    const predLimit2 = info2.steps[i].predLimit;
+    const limType1 = predLimit1?.limType || 'blacklist';
+    const limType2 = predLimit2?.limType || 'blacklist';
+    const limPreds1 = predLimit1?.limPredicates || [];
+    const limPreds2 = predLimit2?.limPredicates || [];
+    
+    if (limType1 !== limType2) {
+      console.warn(`Different limType at step ${i}`);
       return false;
     }
-
-    // compare "blackList" arrays
-    const blackList1 = info1.steps[i].blackList || [];
-    const blackList2 = info2.steps[i].blackList || [];
-    if (blackList1.length !== blackList2.length || !blackList1.every((val: any, index: number) => val === blackList2[index])) {
-      console.warn(`Different blackList at step ${i}`);
+    if (limPreds1.length !== limPreds2.length || !limPreds1.every((val: any, index: number) => val === limPreds2[index])) {
+      console.warn(`Different limPredicates at step ${i}`);
       return false;
     }
   }
   return true;
 }
+
+export const cmpGraphPreConds = checkPreConditions;
 
 export function cmpCounts(info1: ProcessInfo, info2: ProcessInfo) {
   const i1 = {
