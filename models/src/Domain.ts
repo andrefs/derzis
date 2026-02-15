@@ -2,7 +2,7 @@ import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
 import type { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
-import { TraversalPath } from './TraversalPath';
+import { TraversalPath } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type UpdateOneModel } from 'mongoose';

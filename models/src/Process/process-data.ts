@@ -1,7 +1,7 @@
 import { ProcessClass, BranchFactorClass, SeedPosRatioClass } from './Process';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
-import { TraversalPath } from '../TraversalPath';
+import { TraversalPath } from '../Path';
 import { Domain } from '../Domain';
 import { Triple } from '../Triple';
 

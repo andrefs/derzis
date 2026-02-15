@@ -1,7 +1,7 @@
 import type { Types, Document, UpdateQuery } from 'mongoose';
 import { urlValidator, WorkerError } from '@derzis/common';
 import { Domain, DomainClass } from './Domain';
-import { TraversalPath, type TraversalPathDocument } from './TraversalPath';
+import { TraversalPath, EndpointPath, type TraversalPathDocument, type EndpointPathDocument } from './Path';
 import { Triple, type TripleClass, type TripleSkeleton } from './Triple';
 import type { CrawlResourceResultDetails } from '@derzis/common';
 import config from '@derzis/config';
@@ -13,7 +13,6 @@ import {
 	getModelForClass,
 	PropType
 } from '@typegoose/typegoose';
-import { EndpointPath, EndpointPathDocument } from './EndpointPath';
 
 class CrawlId {
 	@prop({ type: Date })

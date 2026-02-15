@@ -1,4 +1,4 @@
-import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument } from '../TraversalPath';
+import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';

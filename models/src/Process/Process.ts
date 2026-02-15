@@ -2,7 +2,7 @@ import { Types, Document } from 'mongoose';
 import { Resource } from '../Resource';
 import { Triple, TripleClass } from '../Triple';
 import { humanize } from 'humanize-digest';
-import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument } from '../TraversalPath';
+import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Process');
