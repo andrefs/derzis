@@ -225,8 +225,8 @@ class ProcessClass extends Document {
 		return getPathsForRobotsChecking(this, pathType, skip, limit);
 	}
 
-	public async getPathsForDomainCrawl(domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<TraversalPathDocument[]> {
-		return getPathsForDomainCrawl(this, domainBlacklist, skip, limit);
+	public async getPathsForDomainCrawl(pathType: PathType, domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<TraversalPathDocument[]> {
+		return getPathsForDomainCrawl(this, pathType, domainBlacklist, skip, limit);
 	}
 
 	public async hasPathsDomainRobotsChecking(): Promise<boolean> {

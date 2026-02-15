@@ -463,7 +463,12 @@ class DomainClass {
         }
 
         // get paths for this process
-        const paths = await proc.getPathsForDomainCrawl(blDomains, pathSkip, pathLimit);
+        const paths = await proc.getPathsForDomainCrawl(
+          config.manager.pathType as PathType,
+          blDomains,
+          pathSkip,
+          pathLimit
+        );
         pathSkip += pathLimit;
         if (!paths.length) {
           continue PROCESS_LOOP;
