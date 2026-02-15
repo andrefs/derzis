@@ -2,6 +2,8 @@ import { WorkerError } from '../errors';
 export * from './worker';
 import type * as RDF from '@rdfjs/types';
 
+export type PathType = 'traversal' | 'endpoint';
+
 export type CrawlResourceResultDetails = {
   crawlId: { domainTs: Date; counter: number };
   ts: number;

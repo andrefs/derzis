@@ -1,6 +1,6 @@
 import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
-import type { RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
+import type { PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
 import { TraversalPath } from './Path';
 import { Process } from './Process';
@@ -15,7 +15,7 @@ import {
   post
 } from '@typegoose/typegoose';
 import type { DomainCrawlJobInfo } from '@derzis/common';
-
+import config from '@derzis/config';
 const log = createLogger('Domain');
 
 type DomainErrorType =
@@ -332,7 +332,11 @@ class DomainClass {
 
       let pathSkip = 0;
       PATHS_LOOP: while (domainsFound < limit) {
-        const paths = await proc.getPathsForRobotsChecking(pathSkip, pathLimit);
+        const paths = await proc.getPathsForRobotsChecking(
+          config.manager.pathType as PathType,
+          pathSkip,
+          pathLimit
+        );
 
         // if this process has no more available paths, skip it
         if (!paths.length) {

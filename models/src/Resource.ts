@@ -127,15 +127,27 @@ class ResourceClass {
 			{ returnDocument: 'before' }
 		);
 
-		// TraversalPath
-		await TraversalPath.updateMany(
-			{ 'head.url': url, status: 'active' },
-			{
-				$set: {
-					'head.status': error ? 'error' : 'done'
+		if (config.manager.pathType === 'traversal') {
+			// TraversalPath
+			await TraversalPath.updateMany(
+				{ 'head.url': url, status: 'active' },
+				{
+					$set: {
+						'head.status': error ? 'error' : 'done'
+					}
 				}
-			}
-		);
+			);
+		} else {
+			// EndpointPath
+			await EndpointPath.updateMany(
+				{ 'head.url': url, status: 'active' },
+				{
+					$set: {
+						'head.status': error ? 'error' : 'done'
+					}
+				}
+			);
+		}
 
 		// Domain
 		const baseFilter = { origin: new URL(url).origin };

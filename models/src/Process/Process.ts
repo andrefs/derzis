@@ -48,6 +48,7 @@ import {
 	NotificationClass,
 	StepClass
 } from './aux-classes';
+import { PathType } from '@derzis/common';
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
@@ -220,8 +221,8 @@ class ProcessClass extends Document {
 		return yield* getResourcesJson(this);
 	}
 
-	public async getPathsForRobotsChecking(skip = 0, limit = 20) {
-		return getPathsForRobotsChecking(this, skip, limit);
+	public async getPathsForRobotsChecking(pathType: PathType, skip = 0, limit = 20) {
+		return getPathsForRobotsChecking(this, pathType, skip, limit);
 	}
 
 	public async getPathsForDomainCrawl(domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<TraversalPathDocument[]> {
