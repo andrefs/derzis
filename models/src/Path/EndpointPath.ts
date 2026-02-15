@@ -7,7 +7,7 @@ import {
 import { TripleClass, Triple, type TripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
 import { PathClass } from './Path';
-import { RecursivePartial } from '@derzis/common';
+import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
 

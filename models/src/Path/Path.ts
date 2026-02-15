@@ -12,8 +12,8 @@ import {
 } from '@typegoose/typegoose';
 import { TripleClass } from '../Triple';
 import { ProcessClass } from '../Process';
-import { TraversalPathSkeleton } from './TraversalPath';
-import { EndpointPathSkeleton } from './EndpointPath';
+import { type TraversalPathSkeleton } from './TraversalPath';
+import { type EndpointPathSkeleton } from './EndpointPath';
 
 class DomainClass {
 	@prop({
