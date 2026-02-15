@@ -38,7 +38,7 @@ export type EndpointPathSkeleton = Pick<
 @index({ processId: 1 })
 @index({ type: 1 })
 @index({ 'seed.url': 1, 'head.url': 1 })
-@index({ 'head.url': 1 })
+@index({ 'head.url': 1 }, { unique: true })
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
