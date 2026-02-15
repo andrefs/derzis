@@ -57,17 +57,6 @@
 			"tsconfig-paths/register"
 		]
 	},
-	"references": [
-		{
-			"path": "../config"
-		},
-		{
-			"path": "../models"
-		},
-		{
-			"path": "../common/"
-		}
-	],
 	"exclude": [
 		"**/vitest.config.*",
 		"**/node_modules"
