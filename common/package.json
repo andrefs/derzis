@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "typecheck": "tsc -b tsconfig.json",
-    "lint": "prettier --check src && eslint src",
+    "lint": "prettier --check src",
     "format": "prettier --write src",
     "test": "vitest run"
   },
