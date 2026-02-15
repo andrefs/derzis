@@ -1,4 +1,5 @@
-import { ProcessClass, BranchFactorClass, SeedPosRatioClass } from './Process';
+import { ProcessClass } from './Process';
+import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath } from '../Path';

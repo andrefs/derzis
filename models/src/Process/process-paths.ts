@@ -1,4 +1,4 @@
-import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument, EndpointPath, TraversalPathClass, EndpointPathClass, PathSkeleton } from '../Path';
+import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument, EndpointPath, TraversalPathClass, EndpointPathClass, type PathSkeleton } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
@@ -7,7 +7,7 @@ const log = createLogger('ProcessPaths');
 import { Types } from 'mongoose';
 import { Triple } from '../Triple';
 import { PathClass } from '../Path';
-import { PathType } from '@derzis/common';
+import { type PathType } from '@derzis/common';
 
 /**
  * Get paths for a process that are ready for robots checking, based on the head domain status and path limits.

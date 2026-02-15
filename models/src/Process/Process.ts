@@ -2,7 +2,7 @@ import { Types, Document } from 'mongoose';
 import { Resource } from '../Resource';
 import { Triple, TripleClass } from '../Triple';
 import { humanize } from 'humanize-digest';
-import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument, EndpointPath } from '../Path';
+import { TraversalPath, type TraversalPathSkeleton, type TraversalPathDocument, EndpointPath, TraversalPathClass, EndpointPathClass } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Process');
@@ -48,7 +48,7 @@ import {
 	NotificationClass,
 	StepClass
 } from './aux-classes';
-import { PathType } from '@derzis/common';
+import { type PathType } from '@derzis/common';
 import config from '@derzis/config';
 
 @index({ status: 1 })
@@ -154,8 +154,8 @@ class ProcessClass extends Document {
 
 		// check for more paths to crawl or check
 
-		const pathsToCrawl = await getPathsForDomainCrawl(this, [], 0, 1);
-		const pathsToCheck = await getPathsForRobotsChecking(this, 0, 1);
+		const pathsToCrawl = await getPathsForDomainCrawl(this, config.manager.pathType as PathType, [], 0, 1);
+		const pathsToCheck = await getPathsForRobotsChecking(this, config.manager.pathType as PathType, 0, 1);
 		const hasPathsChecking = await hasPathsDomainRobotsChecking(this);
 		const hasPathsCrawling = await hasPathsHeadBeingCrawled(this);
 
@@ -226,7 +226,7 @@ class ProcessClass extends Document {
 		return getPathsForRobotsChecking(this, pathType, skip, limit);
 	}
 
-	public async getPathsForDomainCrawl(pathType: PathType, domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<TraversalPathDocument[]> {
+	public async getPathsForDomainCrawl(pathType: PathType, domainBlacklist: string[] = [], skip = 0, limit = 20): Promise<TraversalPathClass[] | EndpointPathClass[]> {
 		return getPathsForDomainCrawl(this, pathType, domainBlacklist, skip, limit);
 	}
 

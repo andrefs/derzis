@@ -1,4 +1,3 @@
-import type { PathType } from '@derzis/common';
 import { config } from 'dotenv';
 config({ path: '../.env' });
 const version = process.env.npm_package_version || '0.0.1';
@@ -19,7 +18,7 @@ export default {
     email: {
       doNotSend: true
     },
-    pathType: process.env.DERZIS_PATH_TYPE || 'endpoint' as PathType // 'endpoint' or 'traversal'
+    pathType: process.env.DERZIS_PATH_TYPE || 'traversal'
   },
   worker: {
     db: {

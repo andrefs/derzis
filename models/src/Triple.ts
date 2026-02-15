@@ -13,7 +13,7 @@ import {
 	PropType
 } from '@typegoose/typegoose';
 import type { Document } from 'mongoose';
-import { BranchFactorClass, SeedPosRatioClass } from './Process';
+import { BranchFactorClass, SeedPosRatioClass } from './Process/aux-classes';
 
 type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
 type TripleWithSources = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 'sources'>;

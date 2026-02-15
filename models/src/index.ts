@@ -1,7 +1,7 @@
-export * from './Domain';
+export { Domain, DomainClass } from './Domain';
 export * from './Process';
-export * from './TraversalPath';
-export * from './EndpointPath';
+export * from './Path/TraversalPath';
+export * from './Path/EndpointPath';
 export * from './Resource';
 export * from './Triple';
 export * from './Counter';
