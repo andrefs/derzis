@@ -89,7 +89,7 @@ export async function getPathsForDomainCrawl(
     'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
     'head.status': 'unvisited'
   };
-  const select = 'head.status';
+  const select = 'head.status head.domain.origin';
 
   if (pathType === 'traversal') {
     const predLimFilter =
@@ -345,13 +345,13 @@ export async function extendProcessPaths(
     const paths =
       pathType === 'traversal'
         ? await TraversalPath.find(pathQuery)
-            .sort({ 'nodes.count': 1 })
-            .limit(batchSize)
-            .skip(skipPaths)
+          .sort({ 'nodes.count': 1 })
+          .limit(batchSize)
+          .skip(skipPaths)
         : await EndpointPath.find(pathQuery)
-            .sort({ 'shortestPath.length': 1 })
-            .limit(batchSize)
-            .skip(skipPaths);
+          .sort({ 'shortestPath.length': 1 })
+          .limit(batchSize)
+          .skip(skipPaths);
     skipPaths += batchSize;
 
     if (!paths.length) {

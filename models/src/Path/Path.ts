@@ -1,11 +1,12 @@
 import { Types } from 'mongoose';
-import { urlListValidator, urlValidator } from '@derzis/common';
+import { PathType, urlListValidator, urlValidator } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 import { prop, PropType, Severity, modelOptions } from '@typegoose/typegoose';
 import { TripleClass } from '../Triple';
 import { ProcessClass } from '../Process';
 import { type TraversalPathSkeleton } from './TraversalPath';
 import { type EndpointPathSkeleton } from './EndpointPath';
+import config from '@derzis/config';
 
 class DomainClass {
   @prop({
@@ -67,7 +68,8 @@ export abstract class PathClass {
   @prop({
     enum: ['traversal', 'endpoint'],
     required: true,
-    type: String
+    type: String,
+    default: config.manager.pathType as PathType
   })
   public type!: 'traversal' | 'endpoint';
 
