@@ -74,6 +74,10 @@ class TraversalPathClass extends PathClass {
   @prop({ required: true, ref: 'Triple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
   public triples!: Types.ObjectId[];
 
+  // type is always 'traversal' for this class
+  @prop({ enum: ['traversal'], required: true, type: String, default: 'traversal' })
+  public type!: 'traversal';
+
   public copy(this: TraversalPathClass): TraversalPathSkeleton {
     const copy = {
       processId: this.processId,
@@ -332,6 +336,7 @@ class TraversalPathClass extends PathClass {
     // filter based on predicate limits and path fullness
     const predResult = this.genPredicatesFilter(limType, limPredicates, pathFull);
     if (!predResult) {
+      log.silly(`Path ${this._id} cannot be extended based on current limits`);
       return null;
     }
     const { allowed, notAllowed, predFilter } = predResult;

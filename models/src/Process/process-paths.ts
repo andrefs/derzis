@@ -149,7 +149,11 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
     const res = await path.extendWithExistingTriples(proc);
 
     if (!res.extendedPaths.length) {
-      log.silly('No new paths created from this path, skipping to next path.');
+      const length = path instanceof TraversalPath ? path.nodes.count : path instanceof EndpointPath ? path.shortestPath.length : 'N/A';
+      const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
+
+      log.silly(`No new paths created from path ${path._id} (seed ${path.seed.url}, head ${path.head.url}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`);
+
       continue;
     }
 

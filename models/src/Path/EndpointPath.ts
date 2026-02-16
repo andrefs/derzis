@@ -44,6 +44,10 @@ class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Object, default: {} })
   public seedPaths!: { [seedUrl: string]: number };
 
+  // type is always 'endpoint' for this class
+  @prop({ enum: ['endpoint'], required: true, type: String, default: 'endpoint' })
+  public type!: 'endpoint';
+
   public shouldCreateNewPath(this: EndpointPathClass, t: TripleClass): boolean {
     if (t.subject === t.object) {
       return false;
@@ -61,6 +65,8 @@ class EndpointPathClass extends PathClass {
   }
 
   public genExistingTriplesFilter(process: ProcessClass): FilterQuery<TripleClass> {
+
+    console.log('XXXXXXXXXXXXXX EndpointPath genExistingTriplesFilter');
     return {
       processId: this.processId,
       nodes: this.head.url
