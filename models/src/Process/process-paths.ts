@@ -12,7 +12,7 @@ import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
-import { Types } from 'mongoose';
+import { FilterQuery, Types } from 'mongoose';
 import { Triple } from '../Triple';
 import { PathClass } from '../Path';
 import { type PathType } from '@derzis/common';
@@ -172,6 +172,62 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
 }
 
 /**
+ * Generate a MongoDB query to find active paths for a process that can be extended based on the current step limits.
+ * @param process ProcessClass instance
+ * @returns MongoDB query object
+ */
+function genPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument> {
+  const baseQuery = {
+    processId: process.pid,
+    status: 'active',
+    'nodes.count': { $lt: process.currentStep.maxPathLength },
+  };
+  const queryOr = []
+
+  // if there is no predicate limit, any path can be extended
+  if (!process.currentStep.predLimit) {
+    queryOr.push({
+      ...baseQuery,
+      'predicates.count': { $lte: process.currentStep.maxPathProps }
+    });
+  }
+  // if there is a whitelist, only paths that have less than maxPathProps predicates
+  // or that have at least one of the white listed predicates can be extended
+  else if (process.currentStep.predLimit.limType === 'whitelist') {
+    queryOr.push({
+      ...baseQuery,
+      'predicates.count': { $lt: process.currentStep.maxPathProps },
+    });
+    queryOr.push({
+      ...baseQuery,
+      'predicates.count': process.currentStep.maxPathProps,
+      'predicates.elems': { $in: process.currentStep.predLimit.limPredicates }
+    });
+  }
+  // if there is a blacklist, only paths that have less than maxPathProps predicates
+  // or that have at least one predicate that is not in the black list can be extended
+  else if (process.currentStep.predLimit.limType === 'blacklist') {
+    queryOr.push({
+      ...baseQuery,
+      'predicates.count': process.currentStep.maxPathProps,
+    });
+    queryOr.push({
+      ...baseQuery,
+      'predicates.count': { $lte: process.currentStep.maxPathProps },
+      $expr: {
+        $not: {
+          $setIsSubset: ['$predicates.elems', process.currentStep.predLimit.limPredicates]
+        }
+      }
+    });
+  }
+
+  const query = queryOr.length > 1 ? { $or: queryOr } : queryOr[0];
+  return query;
+}
+
+
+/**
  * Extend existing active paths for a process according to its current step limits.
  * @param pid Process ID
  */
@@ -190,12 +246,7 @@ export async function extendExistingPaths(pid: string) {
   const batchSize = 100;
   let skip = 0;
   let hasMore = true;
-  const query = {
-    processId: process.pid,
-    status: 'active',
-    'nodes.count': { $lt: process.currentStep.maxPathLength },
-    'predicates.count': { $lte: process.currentStep.maxPathProps }
-  };
+  const query = genPathQuery(process);
 
   // Get total number of paths to process
   const initPathsCount = await TraversalPath.countDocuments(query);
