@@ -89,7 +89,7 @@ export async function getPathsForDomainCrawl(
     'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
     'head.status': 'unvisited'
   };
-  const select = 'head.status head.domain.origin';
+  const select = 'head.status head.domain.origin head.url';
 
   if (pathType === 'traversal') {
     const predLimFilter =

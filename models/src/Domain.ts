@@ -383,13 +383,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-          domain,
-          status: 'unvisited',
-          url: { $nin: dPathHeads.map((r) => r.url) }
-        })
-          .limit(limit)
-          .select('url')
-          .lean()
+        domain,
+        status: 'unvisited',
+        url: { $nin: dPathHeads.map((r) => r.url) }
+      })
+        .limit(limit)
+        .select('url')
+        .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
