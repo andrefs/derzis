@@ -206,11 +206,16 @@ export default class Manager {
     workerId: string,
     workerAvail: JobCapacity
   ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>> {
-    if (this.jobs.beingSaved.count() > 2) {
+    if (this.jobs.beingSaved.count() > 0) {
       log.warn(
         `Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
       );
       return; // TODO check if this is correct
+    }
+    else {
+      log.debug(
+        `Only ${this.jobs.beingSaved.count()} jobs being saved, proceeding to assign new jobs for worker ${workerId}`
+      );
     }
     let assignedCheck = 0;
     let assignedCrawl = 0;

@@ -194,6 +194,12 @@ class TraversalPathClass extends PathClass {
       const subjPreds: string[] = [];
       const objPreds: string[] = [];
       Array.from(predsDirMetrics).forEach(([pred, { bf }]) => {
+        if (process.currentStep.predLimit.limType === 'whitelist' && !process.currentStep.predLimit.limPredicates.includes(pred)) {
+          return;
+        }
+        if (process.currentStep.predLimit.limType === 'blacklist' && process.currentStep.predLimit.limPredicates.includes(pred)) {
+          return;
+        }
         const bfRatio = bf.subj / bf.obj;
         if (bfRatio >= 1) {
           subjPreds.push(pred);
@@ -201,13 +207,19 @@ class TraversalPathClass extends PathClass {
           objPreds.push(pred);
         }
       });
-      directionFilter = {
-        $or: [
-          { predicate: { $nin: [...subjPreds, ...objPreds] } },
-          { predicate: { $in: subjPreds }, subject: this.head.url },
-          { predicate: { $in: objPreds }, object: this.head.url }
-        ]
-      };
+      const or = [];
+      if (subjPreds.length) {
+        or.push({ predicate: { $in: subjPreds }, subject: this.head.url });
+      }
+      if (objPreds.length) {
+        or.push({ predicate: { $in: objPreds }, object: this.head.url });
+      }
+      if (subjPreds.length || objPreds.length) {
+        or.push({ predicate: { $nin: [...subjPreds, ...objPreds] } });
+      }
+      if (or.length) {
+        directionFilter = { $or: or };
+      }
     }
 
     return {
