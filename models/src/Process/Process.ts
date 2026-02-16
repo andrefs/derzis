@@ -96,7 +96,7 @@ class ProcessClass extends Document {
     enum: ['endpoint', 'traversal'],
     required: true,
     type: String,
-    default: 'endpoint'
+    default: config.manager.pathType as PathType
   })
   public pathType!: 'endpoint' | 'traversal';
 
@@ -193,16 +193,16 @@ class ProcessClass extends Document {
     // process is not done
     log.info(
       `Process ${this.pid} is not done yet: ` +
-        JSON.stringify(
-          {
-            pathsToCrawl,
-            pathsToCheck,
-            hasPathsChecking,
-            hasPathsCrawling
-          },
-          null,
-          2
-        )
+      JSON.stringify(
+        {
+          pathsToCrawl,
+          pathsToCheck,
+          hasPathsChecking,
+          hasPathsCrawling
+        },
+        null,
+        2
+      )
     );
     return false;
   }
@@ -266,7 +266,7 @@ class ProcessClass extends Document {
       const newPTC = await ProcessTriple.countDocuments({ processId: this.pid });
       log.info(
         `Extended existing paths for process ${this.pid}. ` +
-          `ProcessTriples before: ${procTripleCount}, after: ${newPTC}, added: ${newPTC - procTripleCount}`
+        `ProcessTriples before: ${procTripleCount}, after: ${newPTC}, added: ${newPTC - procTripleCount}`
       );
     } catch (error) {
       log.error(`Error updating process ${this.pid} status to 'extending':`, error);
@@ -336,7 +336,7 @@ class ProcessClass extends Document {
     }
 
     // Before queuing, extend existing paths according to new step limits
-    await process.extendExistingPaths();
+    await process.extendExistingPaths(); // this potentially takes a lot of time
 
     // Set the process to queued
     await Process.updateOne(
@@ -429,15 +429,15 @@ class ProcessClass extends Document {
       const paths =
         config.manager.pathType === 'traversal'
           ? await TraversalPath.find({ processId: this.pid, status: 'active' })
-              .skip(skip)
-              .limit(batchSize)
-              .select('head.url head.domain.origin')
-              .lean()
+            .skip(skip)
+            .limit(batchSize)
+            .select('head.url head.domain.origin')
+            .lean()
           : await EndpointPath.find({ processId: this.pid, status: 'active' })
-              .skip(skip)
-              .limit(batchSize)
-              .select('head.url head.domain.origin')
-              .lean();
+            .skip(skip)
+            .limit(batchSize)
+            .select('head.url head.domain.origin')
+            .lean();
 
       if (paths.length === 0) {
         hasMore = false;

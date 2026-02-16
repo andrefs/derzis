@@ -18,6 +18,8 @@ export default {
     email: {
       doNotSend: true
     },
+    // this must be defined before ever running Derzis
+    // and cannot ever be changed!
     pathType: process.env.DERZIS_PATH_TYPE || 'traversal'
   },
   worker: {
