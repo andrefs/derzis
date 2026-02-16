@@ -168,7 +168,7 @@ class TraversalPathClass extends PathClass {
   * @param pathFull Boolean indicating whether the path is considered full based on predicate count.
   * @returns An object containing allowed and not allowed predicates, and the corresponding filter for existing triples, or null if no triples should be returned.
   */
-  private genPredicatesFilter(
+  public genPredicatesFilter(
     limType: string,
     limPredicates: string[],
     pathFull: boolean
@@ -232,7 +232,7 @@ class TraversalPathClass extends PathClass {
   * @param predsDirMetrics Map of predicate direction metrics, where the key is the predicate and the value contains branch factor and seed position ratio.
   * @returns An object representing the filter for existing triples based on directionality, or an empty object if no directionality filtering is needed.
   */
-  private genDirectionFilter(
+  public genDirectionFilter(
     allowed: Set<string>,
     notAllowed: Set<string>,
     limType: string,
