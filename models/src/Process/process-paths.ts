@@ -176,7 +176,7 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
  * @param process ProcessClass instance
  * @returns MongoDB query object
  */
-function genPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument> {
+export function genTraversalPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument> {
   const baseQuery = {
     processId: process.pid,
     status: 'active',
@@ -251,7 +251,7 @@ export async function extendExistingPaths(pid: string) {
   const batchSize = 100;
   let skip = 0;
   let hasMore = true;
-  const query = genPathQuery(process);
+  const query = genTraversalPathQuery(process);
 
   // Get total number of paths to process
   const initPathsCount = await TraversalPath.countDocuments(query);

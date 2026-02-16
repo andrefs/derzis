@@ -50,7 +50,7 @@ import {
   curPredsDirMetrics
 } from './process-data';
 import { BranchFactorClass, SeedPosRatioClass, NotificationClass, StepClass } from './aux-classes';
-import { type PathType } from '@derzis/common';
+import { SimpleTriple, type PathType } from '@derzis/common';
 import config from '@derzis/config';
 
 @index({ status: 1 })
@@ -209,9 +209,9 @@ class ProcessClass extends Document {
 
   /**
    * Get triples as a stream
-   * @returns {AsyncGenerator<TripleClass>} - Triples
+   * @returns {AsyncGenerator<SimpleTriple>} - Triples
    */
-  public async *getTriples(this: ProcessClass) {
+  public async *getTriples(this: ProcessClass): AsyncGenerator<SimpleTriple> {
     return yield* getTriples(this);
   }
 
