@@ -160,74 +160,111 @@ class TraversalPathClass extends PathClass {
     );
   }
 
-  public genExistingTriplesFilter(process: ProcessClass) {
-    let predFilter;
-
-    if (this.predicates.count >= process.currentStep.maxPathProps) {
-      if (process.currentStep.predLimit.limType === 'whitelist') {
-        const predWhiteList = [];
-        for (const p of this.predicates.elems) {
-          if (process.currentStep.predLimit.limPredicates.includes(p)) {
-            predWhiteList.push(p);
-          }
+  genMaxPathPropsFilter(process: ProcessClass) {
+    const allowed = new Set<string>();
+    if (process.currentStep.predLimit.limType === 'whitelist') {
+      for (const p of this.predicates.elems) {
+        if (process.currentStep.predLimit.limPredicates.includes(p)) {
+          allowed.add(p);
         }
-        predFilter = { $in: predWhiteList };
-      } else {
-        predFilter = {
-          $in: this.predicates.elems,
-          $nin: process.currentStep.predLimit.limPredicates
-        };
       }
     } else {
-      if (process.currentStep.predLimit.limType === 'whitelist') {
-        predFilter = { $in: process.currentStep.predLimit.limPredicates };
-      } else {
-        predFilter = { $nin: process.currentStep.predLimit.limPredicates };
+      for (const p of this.predicates.elems) {
+        if (!process.currentStep.predLimit.limPredicates.includes(p)) {
+          allowed.add(p);
+        }
       }
     }
+    return allowed
+  }
 
+  public genExistingTriplesFilter(process: ProcessClass) {
+    let allowed: Set<string> = new Set();
+    let notAllowed: Set<string> = new Set();
+
+    /**** WHITE/BLACKLIST FILTER ****/
+    if (this.predicates.count >= process.currentStep.maxPathProps) {
+      allowed = this.genMaxPathPropsFilter(process);
+    } else {
+      if (process.currentStep.predLimit.limType === 'whitelist') {
+        allowed = new Set(process.currentStep.predLimit.limPredicates);
+      } else {
+        notAllowed = new Set(process.currentStep.predLimit.limPredicates);
+      }
+    }
+    let predFilter;
+    if (allowed.size) {
+      predFilter = allowed.size === 1
+        ? { predicate: Array.from(allowed)[0] }
+        : { predicate: { $in: Array.from(allowed) } };
+    } else if (notAllowed.size) {
+      predFilter = notAllowed.size === 1
+        ? { predicate: { $ne: Array.from(notAllowed)[0] } }
+        : { predicate: { $nin: Array.from(notAllowed) } };
+    } else {
+      predFilter = {};
+    }
+
+    /**** DIRECTION FILTER ****/
+    // this includes the white/blacklist filter for predicates
     const followDirection = process!.currentStep.followDirection;
     const predsDirMetrics = process!.curPredsDirMetrics();
     let directionFilter = {};
 
     if (followDirection && predsDirMetrics && predsDirMetrics.size) {
-      const subjPreds: string[] = [];
-      const objPreds: string[] = [];
-      Array.from(predsDirMetrics).forEach(([pred, { bf }]) => {
-        if (process.currentStep.predLimit.limType === 'whitelist' && !process.currentStep.predLimit.limPredicates.includes(pred)) {
-          return;
+      const subjPreds: Set<string> = new Set(); // preds that have more subjs than objs (BF ratio > 1)
+      const objPreds: Set<string> = new Set(); // preds that have more objs than subjs (BF ratio < 1)
+
+      // we use the BF ratio to determine the direction of the predicate,
+      // and the direction we want to follow
+      for (const [pred, { bf }] of predsDirMetrics) {
+        if (allowed.size && !allowed.has(pred)) {
+          continue;
         }
-        if (process.currentStep.predLimit.limType === 'blacklist' && process.currentStep.predLimit.limPredicates.includes(pred)) {
-          return;
+        if (notAllowed.size && notAllowed.has(pred)) {
+          continue;
         }
         const bfRatio = bf.subj / bf.obj;
         if (bfRatio >= 1) {
-          subjPreds.push(pred);
+          subjPreds.add(pred);
         } else {
-          objPreds.push(pred);
+          objPreds.add(pred);
         }
-      });
-      const or = [];
-      if (subjPreds.length) {
-        or.push({ predicate: { $in: subjPreds }, subject: this.head.url });
       }
-      if (objPreds.length) {
-        or.push({ predicate: { $in: objPreds }, object: this.head.url });
+
+
+      let or = [];
+      if (subjPreds.size && objPreds.size && !allowed.size) {
+        const list = [...subjPreds, ...objPreds, ...Array.from(notAllowed)];
+        or.push({ predicate: list.length === 1 ? { $ne: list[0] } : { $nin: list } });
       }
-      if (subjPreds.length || objPreds.length) {
-        or.push({ predicate: { $nin: [...subjPreds, ...objPreds] } });
+      if (subjPreds.size) {
+        const list = Array.from(subjPreds);
+        or.push({ predicate: list.length === 1 ? list[0] : { $in: list }, subject: this.head.url });
       }
-      if (or.length) {
-        directionFilter = { $or: or };
+      if (objPreds.size) {
+        const list = Array.from(objPreds);
+        or.push({ predicate: list.length === 1 ? list[0] : { $in: list }, object: this.head.url });
       }
+
+      // if or has only one filter, we can use it directly 
+      directionFilter = or.length > 1
+        ? { $or: or }
+        : or.length === 1
+          ? or[0]
+          : {};
     }
 
-    return {
-      predicate: predFilter,
+    const baseFilter = {
       nodes: this.head.url,
-      _id: { $nin: this.triples },
-      ...directionFilter
+      _id: { $nin: this.triples }
     };
+
+    // direction filter already includes the white/blacklist filter for predicates,
+    // so we only need predFilter if we don't have a direction filter
+    return directionFilter && Object.keys(directionFilter).length
+      ? { ...baseFilter, ...directionFilter }
+      : { ...baseFilter, ...predFilter };
   }
 
   public async extendWithExistingTriples(
