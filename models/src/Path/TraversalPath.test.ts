@@ -764,4 +764,185 @@ describe('TraversalPathClass.genDirectionFilter', () => {
       expect(result).toHaveProperty('subject');
     });
   });
+
+  describe('return value based on or array length', () => {
+    it('returns empty object when all predicate sets are empty', () => {
+      const path = createMockPath({ headUrl: 'http://example.com/head' });
+
+      const result = path.genDirectionFilter(
+        new Set(),
+        new Set(),
+        'blacklist',
+        true,
+        new Map()
+      );
+
+      expect(result).toEqual({});
+    });
+
+    it('returns single clause without $or when only subjPreds has items', () => {
+      const path = createMockPath({ headUrl: 'http://head.org' });
+
+      const bf = new BranchFactorClass();
+      bf.subj = 3;
+      bf.obj = 1;
+
+      const result = path.genDirectionFilter(
+        new Set(),
+        new Set(),
+        'blacklist',
+        true,
+        new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+      );
+
+      expect(result).not.toHaveProperty('$or');
+      expect(result).toHaveProperty('predicate', 'p1');
+      expect(result).toHaveProperty('subject', 'http://head.org');
+    });
+
+    it('returns $or when both subjPreds and objPreds have items', () => {
+      const path = createMockPath({ headUrl: 'http://head.org' });
+
+      const bfSubj = new BranchFactorClass();
+      bfSubj.subj = 3;
+      bfSubj.obj = 1;
+
+      const bfObj = new BranchFactorClass();
+      bfObj.subj = 1;
+      bfObj.obj = 3;
+
+      const result = path.genDirectionFilter(
+        new Set(),
+        new Set(),
+        'blacklist',
+        true,
+        new Map([
+          ['subj-pred', { bf: bfSubj, spr: new SeedPosRatioClass() }],
+          ['obj-pred', { bf: bfObj, spr: new SeedPosRatioClass() }]
+        ])
+      );
+
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+    });
+
+    it('returns $or when subjPreds and noDirPreds have items', () => {
+      const path = createMockPath({ headUrl: 'http://head.org' });
+
+      const bfSubj = new BranchFactorClass();
+      bfSubj.subj = 3;
+      bfSubj.obj = 1;
+
+      const bfNoDir = new BranchFactorClass();
+      bfNoDir.subj = 1;
+      bfNoDir.obj = 1;
+
+      const result = path.genDirectionFilter(
+        new Set(),
+        new Set(),
+        'blacklist',
+        true,
+        new Map([
+          ['subj-pred', { bf: bfSubj, spr: new SeedPosRatioClass() }],
+          ['nodir-pred', { bf: bfNoDir, spr: new SeedPosRatioClass() }]
+        ])
+      );
+
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+    });
+
+    it('returns $or when objPreds and noDirPreds have items', () => {
+      const path = createMockPath({ headUrl: 'http://head.org' });
+
+      const bfObj = new BranchFactorClass();
+      bfObj.subj = 1;
+      bfObj.obj = 3;
+
+      const bfNoDir = new BranchFactorClass();
+      bfNoDir.subj = 1;
+      bfNoDir.obj = 1;
+
+      const result = path.genDirectionFilter(
+        new Set(),
+        new Set(),
+        'blacklist',
+        true,
+        new Map([
+          ['obj-pred', { bf: bfObj, spr: new SeedPosRatioClass() }],
+          ['nodir-pred', { bf: bfNoDir, spr: new SeedPosRatioClass() }]
+        ])
+      );
+
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+    });
+
+    it('returns $or when all three predicate sets have items', () => {
+      const path = createMockPath({ headUrl: 'http://head.org' });
+
+      const bfSubj = new BranchFactorClass();
+      bfSubj.subj = 3;
+      bfSubj.obj = 1;
+
+      const bfObj = new BranchFactorClass();
+      bfObj.subj = 1;
+      bfObj.obj = 3;
+
+      const bfNoDir = new BranchFactorClass();
+      bfNoDir.subj = 1;
+      bfNoDir.obj = 1;
+
+      const result = path.genDirectionFilter(
+        new Set(),
+        new Set(),
+        'blacklist',
+        true,
+        new Map([
+          ['subj-pred', { bf: bfSubj, spr: new SeedPosRatioClass() }],
+          ['obj-pred', { bf: bfObj, spr: new SeedPosRatioClass() }],
+          ['nodir-pred', { bf: bfNoDir, spr: new SeedPosRatioClass() }]
+        ])
+      );
+
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(3);
+    });
+
+    it('returns filter with $ne when allowed predicate not in predsDirMetrics (added to noDirPreds)', () => {
+      const path = createMockPath({ headUrl: 'http://example.com/head' });
+
+      const bf = new BranchFactorClass();
+      bf.subj = 3;
+      bf.obj = 1;
+
+      const result = path.genDirectionFilter(
+        new Set(['only-allowed']),
+        new Set(),
+        'blacklist',
+        true,
+        new Map([['other-pred', { bf, spr: new SeedPosRatioClass() }]])
+      );
+
+      expect(result).toEqual({ predicate: { $ne: 'only-allowed' } });
+    });
+
+    it('returns empty object when all preds filtered out by notAllowed', () => {
+      const path = createMockPath({ headUrl: 'http://example.com/head' });
+
+      const bf = new BranchFactorClass();
+      bf.subj = 3;
+      bf.obj = 1;
+
+      const result = path.genDirectionFilter(
+        new Set(),
+        new Set(['blocked-pred']),
+        'blacklist',
+        true,
+        new Map([['blocked-pred', { bf, spr: new SeedPosRatioClass() }]])
+      );
+
+      expect(result).toEqual({});
+    });
+  });
 });
