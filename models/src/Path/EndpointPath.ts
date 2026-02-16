@@ -159,7 +159,7 @@ class EndpointPathClass extends PathClass {
 }
 
 const EndpointPath = getModelForClass(EndpointPathClass, {
-  schemaOptions: { timestamps: true, collection: 'traversalPaths' }
+  schemaOptions: { timestamps: true, collection: 'endpointPaths' }
 });
 
 type EndpointPathDocument = EndpointPathClass & Document;
