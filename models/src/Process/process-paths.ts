@@ -182,43 +182,51 @@ function genPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument>
     status: 'active',
     'nodes.count': { $lt: process.currentStep.maxPathLength },
   };
+  const limType = process.currentStep.predLimit?.limType;
+  const limPredicates = process.currentStep.predLimit?.limPredicates || [];
+  const maxPathProps = process.currentStep.maxPathProps;
   const queryOr = []
 
   // if there is no predicate limit, any path can be extended
   if (!process.currentStep.predLimit) {
     queryOr.push({
       ...baseQuery,
-      'predicates.count': { $lte: process.currentStep.maxPathProps }
+      'predicates.count': { $lte: maxPathProps }
     });
   }
   // if there is a whitelist, only paths that have less than maxPathProps predicates
   // or that have at least one of the white listed predicates can be extended
-  else if (process.currentStep.predLimit.limType === 'whitelist') {
+  else if (limType === 'whitelist') {
     queryOr.push({
       ...baseQuery,
-      'predicates.count': { $lt: process.currentStep.maxPathProps },
+      'predicates.count': { $lt: maxPathProps },
     });
     queryOr.push({
       ...baseQuery,
-      'predicates.count': process.currentStep.maxPathProps,
-      'predicates.elems': { $in: process.currentStep.predLimit.limPredicates }
+      'predicates.count': maxPathProps,
+      'predicates.elems': limPredicates.length === 1 ? limPredicates[0] : { $in: limPredicates }
     });
   }
   // if there is a blacklist, only paths that have less than maxPathProps predicates
   // or that have at least one predicate that is not in the black list can be extended
-  else if (process.currentStep.predLimit.limType === 'blacklist') {
+  else if (limType === 'blacklist') {
     queryOr.push({
       ...baseQuery,
-      'predicates.count': process.currentStep.maxPathProps,
+      'predicates.count': maxPathProps,
     });
+    const predElemsCondition = limPredicates.length === 1
+      ? { 'predicates.elems': { $ne: limPredicates[0] } }
+      : {
+        $expr: {
+          $not: {
+            $setIsSubset: ['$predicates.elems', limPredicates]
+          }
+        }
+      };
     queryOr.push({
       ...baseQuery,
-      'predicates.count': { $lte: process.currentStep.maxPathProps },
-      $expr: {
-        $not: {
-          $setIsSubset: ['$predicates.elems', process.currentStep.predLimit.limPredicates]
-        }
-      }
+      'predicates.count': { $lte: maxPathProps },
+      ...predElemsCondition
     });
   }
 
