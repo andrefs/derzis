@@ -190,7 +190,6 @@ function genPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument>
   // if there is no predicate limit, any path can be extended
   if (!process.currentStep.predLimit) {
     queryOr.push({
-      ...baseQuery,
       'predicates.count': { $lte: maxPathProps }
     });
   }
@@ -198,11 +197,9 @@ function genPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument>
   // or that have at least one of the white listed predicates can be extended
   else if (limType === 'whitelist') {
     queryOr.push({
-      ...baseQuery,
       'predicates.count': { $lt: maxPathProps },
     });
     queryOr.push({
-      ...baseQuery,
       'predicates.count': maxPathProps,
       'predicates.elems': limPredicates.length === 1 ? limPredicates[0] : { $in: limPredicates }
     });
@@ -211,7 +208,6 @@ function genPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument>
   // or that have at least one predicate that is not in the black list can be extended
   else if (limType === 'blacklist') {
     queryOr.push({
-      ...baseQuery,
       'predicates.count': maxPathProps,
     });
     const predElemsCondition = limPredicates.length === 1
@@ -224,13 +220,14 @@ function genPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument>
         }
       };
     queryOr.push({
-      ...baseQuery,
       'predicates.count': { $lte: maxPathProps },
       ...predElemsCondition
     });
   }
 
-  const query = queryOr.length > 1 ? { $or: queryOr } : queryOr[0];
+  const query = queryOr.length > 1
+    ? { ...baseQuery, $or: queryOr }
+    : { ...baseQuery, ...queryOr[0] };
   return query;
 }
 
