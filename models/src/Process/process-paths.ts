@@ -207,7 +207,7 @@ export async function extendExistingPaths(pid: string) {
 
     // find a batch of active paths that can be extended
     const paths = await TraversalPath.find(query)
-      .sort({ 'nodes.count': 1 }) // shorter paths first
+      .sort({ createdAt: 1 }) // older paths first
       .limit(batchSize)
       .skip(skip);
 

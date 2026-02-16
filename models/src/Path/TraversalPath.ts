@@ -275,6 +275,7 @@ class TraversalPathClass extends PathClass {
     if (!triples.length) {
       return { extendedPaths: [], procTriples: [] };
     }
+    log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
     return this.genExtended(triples, process) as Promise<{
       extendedPaths: TraversalPathSkeleton[];
       procTriples: Types.ObjectId[];
