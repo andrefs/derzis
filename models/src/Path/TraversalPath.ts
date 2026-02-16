@@ -160,38 +160,34 @@ class TraversalPathClass extends PathClass {
     );
   }
 
-  genMaxPathPropsFilter(process: ProcessClass) {
-    const allowed = new Set<string>();
-    if (process.currentStep.predLimit.limType === 'whitelist') {
-      for (const p of this.predicates.elems) {
-        if (process.currentStep.predLimit.limPredicates.includes(p)) {
-          allowed.add(p);
-        }
-      }
-    } else {
-      for (const p of this.predicates.elems) {
-        if (!process.currentStep.predLimit.limPredicates.includes(p)) {
-          allowed.add(p);
-        }
-      }
-    }
-    return allowed
-  }
+
 
   public genExistingTriplesFilter(process: ProcessClass) {
+    const limType = process.currentStep.predLimit.limType;
+    const limPredicates = process.currentStep.predLimit.limPredicates || [];
+    const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
+
     let allowed: Set<string> = new Set();
     let notAllowed: Set<string> = new Set();
 
-    /**** WHITE/BLACKLIST FILTER ****/
-    if (this.predicates.count >= process.currentStep.maxPathProps) {
-      allowed = this.genMaxPathPropsFilter(process);
-    } else {
-      if (process.currentStep.predLimit.limType === 'whitelist') {
-        allowed = new Set(process.currentStep.predLimit.limPredicates);
+    if (!pathFull) {
+      if (limType === 'whitelist') {
+        allowed = new Set(limPredicates);
       } else {
-        notAllowed = new Set(process.currentStep.predLimit.limPredicates);
+        notAllowed = new Set(limPredicates);
+      }
+    } else {
+      if (limType === 'whitelist') {
+        allowed = new Set(this.predicates.elems.filter((p) => limPredicates.includes(p)));
+      } else {
+        allowed = new Set(this.predicates.elems.filter((p) => !limPredicates.includes(p)));
       }
     }
+
+    if (allowed.size === 0 && (pathFull || limType === 'whitelist')) {
+      return null;
+    }
+
     let predFilter;
     if (allowed.size) {
       predFilter = allowed.size === 1
@@ -205,18 +201,15 @@ class TraversalPathClass extends PathClass {
       predFilter = {};
     }
 
-    /**** DIRECTION FILTER ****/
-    // this includes the white/blacklist filter for predicates
-    const followDirection = process!.currentStep.followDirection;
-    const predsDirMetrics = process!.curPredsDirMetrics();
+    const followDirection = process.currentStep.followDirection;
+    const predsDirMetrics = process.curPredsDirMetrics();
     let directionFilter = {};
 
     if (followDirection && predsDirMetrics && predsDirMetrics.size) {
-      const subjPreds: Set<string> = new Set(); // preds that have more subjs than objs (BF ratio > 1)
-      const objPreds: Set<string> = new Set(); // preds that have more objs than subjs (BF ratio < 1)
+      const subjPreds: Set<string> = new Set();
+      const objPreds: Set<string> = new Set();
+      const noDirPreds: Set<string> = new Set();
 
-      // we use the BF ratio to determine the direction of the predicate,
-      // and the direction we want to follow
       for (const [pred, { bf }] of predsDirMetrics) {
         if (allowed.size && !allowed.has(pred)) {
           continue;
@@ -224,64 +217,93 @@ class TraversalPathClass extends PathClass {
         if (notAllowed.size && notAllowed.has(pred)) {
           continue;
         }
+
         const bfRatio = bf.subj / bf.obj;
-        if (bfRatio >= 1) {
+        if (bfRatio >= 1.2) {
           subjPreds.add(pred);
-        } else {
+        } else if (bfRatio <= 0.83) {
           objPreds.add(pred);
+        } else {
+          noDirPreds.add(pred);
         }
       }
 
-      console.log('XXXXXXXXXXXXX1', {
-        subjPreds: subjPreds.size,
-        objPreds: objPreds.size,
-        allowed: allowed.size,
-        notAllowed: notAllowed.size,
-        predElems: this.predicates.elems,
-        limType: process.currentStep.predLimit.limType,
-        limPredicates: process.currentStep.predLimit.limPredicates,
-        predsCount: this.predicates.count,
-        maxPathProps: process.currentStep.maxPathProps
-      });
-
-      let or = [];
-      if (subjPreds.size && objPreds.size && !allowed.size) {
-        const list = [...subjPreds, ...objPreds, ...Array.from(notAllowed)];
-        or.push({ predicate: list.length === 1 ? { $ne: list[0] } : { $nin: list } });
-      }
-      if (subjPreds.size) {
-        const list = Array.from(subjPreds);
-        or.push({ predicate: list.length === 1 ? list[0] : { $in: list }, subject: this.head.url });
-      }
-      if (objPreds.size) {
-        const list = Array.from(objPreds);
-        or.push({ predicate: list.length === 1 ? list[0] : { $in: list }, object: this.head.url });
+      for (const p of allowed) {
+        if (!predsDirMetrics.has(p)) {
+          noDirPreds.add(p);
+        }
       }
 
-      // if or has only one filter, we can use it directly 
-      directionFilter = or.length > 1
-        ? { $or: or }
-        : or.length === 1
-          ? or[0]
-          : {};
+      if (subjPreds.size === 0 && objPreds.size === 0 && noDirPreds.size === 0) {
+        directionFilter = {};
+      } else {
+        let or: object[] = [];
+
+        if (subjPreds.size > 0) {
+          const subjList = Array.from(subjPreds);
+          or.push(
+            subjList.length === 1
+              ? { predicate: subjList[0], subject: this.head.url }
+              : { predicate: { $in: subjList }, subject: this.head.url }
+          );
+        }
+
+        if (objPreds.size > 0) {
+          const objList = Array.from(objPreds);
+          or.push(
+            objList.length === 1
+              ? { predicate: objList[0], object: this.head.url }
+              : { predicate: { $in: objList }, object: this.head.url }
+          );
+        }
+
+        if (noDirPreds.size > 0) {
+          const noDirList = Array.from(noDirPreds);
+          if (limType === 'whitelist') {
+            or.push(
+              noDirList.length === 1
+                ? { predicate: noDirList[0] }
+                : { predicate: { $in: noDirList } }
+            );
+          } else {
+            or.push(
+              noDirList.length === 1
+                ? { predicate: { $ne: noDirList[0] } }
+                : { predicate: { $nin: noDirList } }
+            );
+          }
+        }
+
+        directionFilter = or.length > 1
+          ? { $or: or }
+          : or.length === 1
+            ? or[0]
+            : {};
+      }
     }
+
 
     const baseFilter = {
       nodes: this.head.url,
       _id: { $nin: this.triples }
     };
 
-    // direction filter already includes the white/blacklist filter for predicates,
-    // so we only need predFilter if we don't have a direction filter
-    return directionFilter && Object.keys(directionFilter).length
-      ? { ...baseFilter, ...directionFilter }
-      : { ...baseFilter, ...predFilter };
+    const hasDirectionFilter = directionFilter && Object.keys(directionFilter).length > 0;
+
+    if (hasDirectionFilter) {
+      return { ...baseFilter, ...directionFilter };
+    } else {
+      return { ...baseFilter, ...predFilter };
+    }
   }
 
   public async extendWithExistingTriples(
     process: ProcessClass
   ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: Types.ObjectId[] }> {
     const triplesFilter = this.genExistingTriplesFilter(process);
+    if (!triplesFilter) {
+      return { extendedPaths: [], procTriples: [] };
+    }
     let triples: TripleDocument[] = await Triple.find(triplesFilter);
     if (!triples.length) {
       return { extendedPaths: [], procTriples: [] };

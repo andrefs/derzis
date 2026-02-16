@@ -90,7 +90,7 @@ export abstract class PathClass {
 
   public abstract tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean;
 
-  public abstract genExistingTriplesFilter(process: ProcessClass): object;
+  public abstract genExistingTriplesFilter(process: ProcessClass): object | null;
 
   public abstract copy(): PathSkeleton;
 
