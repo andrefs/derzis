@@ -1,5 +1,4 @@
-import { Types, Document } from 'mongoose';
-import type { FilterQuery } from 'mongodb';
+import { Types, Document, FilterQuery } from 'mongoose';
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';

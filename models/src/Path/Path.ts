@@ -1,5 +1,4 @@
-import { Types } from 'mongoose';
-import type { FilterQuery } from 'mongodb';
+import { Types, FilterQuery } from 'mongoose';
 import { PathType, urlListValidator, urlValidator } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 import { prop, PropType, Severity, modelOptions } from '@typegoose/typegoose';
