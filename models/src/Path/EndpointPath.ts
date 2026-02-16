@@ -1,4 +1,5 @@
 import { Types, Document } from 'mongoose';
+import type { FilterQuery } from 'mongodb';
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
@@ -60,7 +61,7 @@ class EndpointPathClass extends PathClass {
     return this.shortestPath.length + 1 > process.currentStep.maxPathLength;
   }
 
-  public genExistingTriplesFilter(process: ProcessClass): object {
+  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<TripleClass> {
     return {
       processId: this.processId,
       nodes: this.head.url

@@ -1,4 +1,5 @@
 import { Types } from 'mongoose';
+import type { FilterQuery } from 'mongodb';
 import { PathType, urlListValidator, urlValidator } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 import { prop, PropType, Severity, modelOptions } from '@typegoose/typegoose';
@@ -90,7 +91,7 @@ export abstract class PathClass {
 
   public abstract tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean;
 
-  public abstract genExistingTriplesFilter(process: ProcessClass): object | null;
+  public abstract genExistingTriplesFilter(process: ProcessClass): FilterQuery<TripleClass> | null;
 
   public abstract copy(): PathSkeleton;
 

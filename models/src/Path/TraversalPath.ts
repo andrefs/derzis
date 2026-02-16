@@ -1,4 +1,5 @@
 import { Types, Document } from 'mongoose';
+import type { FilterQuery } from 'mongodb';
 import { prop, index, pre, getModelForClass, PropType } from '@typegoose/typegoose';
 import { TripleClass, Triple, type TripleDocument } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
@@ -172,7 +173,7 @@ class TraversalPathClass extends PathClass {
     limType: string,
     limPredicates: string[],
     pathFull: boolean
-  ) {
+  ): { allowed: Set<string>; notAllowed: Set<string>; predFilter: FilterQuery<TripleClass> } | null {
     const allowed = new Set<string>();
     const notAllowed = new Set<string>();
 
@@ -238,7 +239,7 @@ class TraversalPathClass extends PathClass {
     limType: string,
     followDirection: boolean,
     predsDirMetrics: Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined
-  ): object {
+  ): FilterQuery<TripleClass> {
     if (!followDirection || !predsDirMetrics || predsDirMetrics.size === 0) {
       return {};
     }
@@ -324,7 +325,7 @@ class TraversalPathClass extends PathClass {
   * @param process The current process instance containing the current step's configuration.
   * @returns An object representing the filter for existing triples, or null if no triples should be returned based on the limits.
   */
-  public genExistingTriplesFilter(process: ProcessClass) {
+  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<TripleClass> | null {
     const limType = process.currentStep.predLimit.limType;
     const limPredicates = process.currentStep.predLimit.limPredicates || [];
     const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
