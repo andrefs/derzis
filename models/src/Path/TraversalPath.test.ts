@@ -975,3 +975,291 @@ describe('TraversalPathClass.genDirectionFilter', () => {
     });
   });
 });
+
+describe('TraversalPathClass.shouldCreateNewPath', () => {
+  const createMockPath = (overrides: {
+    headUrl?: string;
+    nodesElems?: string[];
+    nodesCount?: number;
+  }) => {
+    const path = new TraversalPathClass();
+    path.processId = 'test-pid';
+    path.status = 'active';
+    path.seed = { url: 'http://example.com/seed' };
+    path.head = { 
+      url: overrides.headUrl ?? 'http://example.com/head',
+      status: 'unvisited',
+      domain: { origin: 'http://example.com', status: 'ready' }
+    };
+    path.predicates = { count: 0, elems: [] };
+    path.nodes = {
+      count: overrides.nodesCount ?? overrides.nodesElems?.length ?? 1,
+      elems: overrides.nodesElems ?? ['http://example.com/node1']
+    };
+    path.triples = [];
+    return path;
+  };
+
+  const createMockTriple = (subject: string, object: string, predicate: string) => {
+    return { subject, object, predicate } as any;
+  };
+
+  describe('returns false', () => {
+    it('when subject equals object (same subject and object)', () => {
+      const path = createMockPath({ headUrl: 'http://example.com/head' });
+      const triple = createMockTriple('http://same.org', 'http://same.org', 'http://pred.org');
+
+      const result = path.shouldCreateNewPath(triple);
+
+      expect(result).toBe(false);
+    });
+
+    it('when predicate equals head URL', () => {
+      const path = createMockPath({ headUrl: 'http://example.com/head' });
+      const triple = createMockTriple('http://subj.org', 'http://obj.org', 'http://example.com/head');
+
+      const result = path.shouldCreateNewPath(triple);
+
+      expect(result).toBe(false);
+    });
+
+    it('when new head URL already exists in nodes', () => {
+      const path = createMockPath({ 
+        headUrl: 'http://example.com/head',
+        nodesElems: ['http://node1.org', 'http://existing-node.org']
+      });
+      // head is example.com/head, triple has subject as head, so newHead = object
+      const triple = createMockTriple('http://example.com/head', 'http://existing-node.org', 'http://pred.org');
+
+      const result = path.shouldCreateNewPath(triple);
+
+      expect(result).toBe(false);
+    });
+
+    it('when new head URL already exists in nodes (reverse direction)', () => {
+      const path = createMockPath({ 
+        headUrl: 'http://example.com/head',
+        nodesElems: ['http://node1.org', 'http://existing-node.org']
+      });
+      // head is example.com/head, triple has object as head, so newHead = subject
+      const triple = createMockTriple('http://existing-node.org', 'http://example.com/head', 'http://pred.org');
+
+      const result = path.shouldCreateNewPath(triple);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('returns true', () => {
+    it('when triple is valid for extension (subject matches head)', () => {
+      const path = createMockPath({ 
+        headUrl: 'http://example.com/head',
+        nodesElems: ['http://node1.org']
+      });
+      const triple = createMockTriple('http://example.com/head', 'http://new-node.org', 'http://pred.org');
+
+      const result = path.shouldCreateNewPath(triple);
+
+      expect(result).toBe(true);
+    });
+
+    it('when triple is valid for extension (object matches head)', () => {
+      const path = createMockPath({ 
+        headUrl: 'http://example.com/head',
+        nodesElems: ['http://node1.org']
+      });
+      const triple = createMockTriple('http://new-node.org', 'http://example.com/head', 'http://pred.org');
+
+      const result = path.shouldCreateNewPath(triple);
+
+      expect(result).toBe(true);
+    });
+
+    it('when new head URL is not in nodes', () => {
+      const path = createMockPath({ 
+        headUrl: 'http://example.com/head',
+        nodesElems: ['http://node1.org', 'http://node2.org']
+      });
+      const triple = createMockTriple('http://example.com/head', 'http://brand-new.org', 'http://pred.org');
+
+      const result = path.shouldCreateNewPath(triple);
+
+      expect(result).toBe(true);
+    });
+  });
+});
+
+describe('TraversalPathClass.tripleIsOutOfBounds', () => {
+  const createMockPath = (overrides: {
+    nodesCount?: number;
+    predicatesElems?: string[];
+    predicatesCount?: number;
+  }) => {
+    const path = new TraversalPathClass();
+    path.processId = 'test-pid';
+    path.status = 'active';
+    path.seed = { url: 'http://example.com/seed' };
+    path.head = { 
+      url: 'http://example.com/head',
+      status: 'unvisited',
+      domain: { origin: 'http://example.com', status: 'ready' }
+    };
+    path.predicates = {
+      count: overrides.predicatesCount ?? overrides.predicatesElems?.length ?? 0,
+      elems: overrides.predicatesElems ?? []
+    };
+    path.nodes = {
+      count: overrides.nodesCount ?? 1,
+      elems: ['http://example.com/node1']
+    };
+    path.triples = [];
+    return path;
+  };
+
+  const createMockProcess = (maxPathLength: number, maxPathProps: number) => {
+    const step = new StepClass();
+    step.maxPathLength = maxPathLength;
+    step.maxPathProps = maxPathProps;
+    step.seeds = [];
+    step.followDirection = false;
+    step.resetErrors = false;
+    step.predLimit = new PredicateLimitationClass();
+    return step;
+  };
+
+  const createMockTriple = (predicate: string) => {
+    return { 
+      subject: 'http://subj.org', 
+      object: 'http://obj.org', 
+      predicate 
+    } as any;
+  };
+
+  describe('returns true', () => {
+    it('when nodes.count >= maxPathLength', () => {
+      const path = createMockPath({ nodesCount: 5 });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://pred.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(true);
+    });
+
+    it('when nodes.count > maxPathLength', () => {
+      const path = createMockPath({ nodesCount: 6 });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://pred.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(true);
+    });
+
+    it('when predicate is not in path and predicates.count >= maxPathProps', () => {
+      const path = createMockPath({ 
+        nodesCount: 1,
+        predicatesElems: ['http://existing-pred.org'],
+        predicatesCount: 2
+      });
+      const process = createMockProcess(10, 2);
+      const triple = createMockTriple('http://new-pred.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(true);
+    });
+
+    it('when nodes at limit and predicate not in path and predicates at limit', () => {
+      const path = createMockPath({ 
+        nodesCount: 3,
+        predicatesElems: ['http://pred1.org'],
+        predicatesCount: 2
+      });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://pred2.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('returns false', () => {
+    it('when nodes.count < maxPathLength and predicate is in path', () => {
+      const path = createMockPath({ 
+        nodesCount: 2,
+        predicatesElems: ['http://pred1.org', 'http://pred2.org'],
+        predicatesCount: 2
+      });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://pred1.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(false);
+    });
+
+    it('when nodes.count < maxPathLength and predicate not in path but predicates.count < maxPathProps', () => {
+      const path = createMockPath({ 
+        nodesCount: 1,
+        predicatesElems: ['http://pred1.org'],
+        predicatesCount: 1
+      });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://new-pred.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(false);
+    });
+
+    it('when nodes.count is 0', () => {
+      const path = createMockPath({ nodesCount: 0 });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://pred.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(false);
+    });
+
+    it('when at boundary: nodes.count = maxPathLength - 1', () => {
+      const path = createMockPath({ nodesCount: 4 });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://pred.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(false);
+    });
+
+    it('when at boundary: predicates.count = maxPathProps - 1 and predicate not in path', () => {
+      const path = createMockPath({ 
+        nodesCount: 1,
+        predicatesElems: ['http://pred1.org'],
+        predicatesCount: 1
+      });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://pred2.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(false);
+    });
+
+    it('when predicate is in path but predicates.count >= maxPathProps', () => {
+      const path = createMockPath({ 
+        nodesCount: 1,
+        predicatesElems: ['http://existing.org'],
+        predicatesCount: 2
+      });
+      const process = createMockProcess(5, 2);
+      const triple = createMockTriple('http://existing.org');
+
+      const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
+
+      expect(result).toBe(false);
+    });
+  });
+});
