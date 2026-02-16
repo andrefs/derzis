@@ -221,6 +221,35 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
   });
 
   describe('when followDirection is true', () => {
+    it('returns combined baseFilter with directionFilter when direction filter is non-empty', () => {
+      const path = createMockPath({
+        headUrl: 'http://example.com/head',
+        predicatesElems: ['http://pred.org'],
+        predicatesCount: 1,
+        triples: ['triple1', 'triple2']
+      });
+
+      const bf = new BranchFactorClass();
+      bf.subj = 3;
+      bf.obj = 1;
+
+      const process = createMockProcess({
+        maxPathProps: 2,
+        limType: 'blacklist',
+        limPredicates: [],
+        followDirection: true,
+        predsDirMetrics: new Map([['http://pred.org', { bf, spr: new SeedPosRatioClass() }]])
+      });
+
+      const filter = path.genExistingTriplesFilter(process);
+
+      expect(filter).toBeDefined();
+      expect(filter?.nodes).toBe('http://example.com/head');
+      expect(filter?._id).toEqual({ $nin: ['triple1', 'triple2'] });
+      expect(filter?.predicate).toBe('http://pred.org');
+      expect(filter?.subject).toBe('http://example.com/head');
+    });
+
     it('does not add direction filter when predicate is not allowed', () => {
       const path = createMockPath({
         headUrl: 'http://example.com/head',
