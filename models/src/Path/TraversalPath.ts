@@ -232,6 +232,17 @@ class TraversalPathClass extends PathClass {
         }
       }
 
+      console.log('XXXXXXXXXXXXX1', {
+        subjPreds: subjPreds.size,
+        objPreds: objPreds.size,
+        allowed: allowed.size,
+        notAllowed: notAllowed.size,
+        predElems: this.predicates.elems,
+        limType: process.currentStep.predLimit.limType,
+        limPredicates: process.currentStep.predLimit.limPredicates,
+        predsCount: this.predicates.count,
+        maxPathProps: process.currentStep.maxPathProps
+      });
 
       let or = [];
       if (subjPreds.size && objPreds.size && !allowed.size) {
