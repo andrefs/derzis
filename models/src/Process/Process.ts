@@ -1,4 +1,4 @@
-import { Types, Document } from 'mongoose';
+import { Types, Document, FilterQuery } from 'mongoose';
 import { Resource } from '../Resource';
 import { Triple, TripleClass } from '../Triple';
 import { humanize } from 'humanize-digest';
@@ -8,7 +8,8 @@ import {
   type TraversalPathDocument,
   EndpointPath,
   TraversalPathClass,
-  EndpointPathClass
+  EndpointPathClass,
+  PathClass
 } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
@@ -421,29 +422,40 @@ class ProcessClass extends Document {
       domains: 0,
       paths: 0
     };
-    let skip = 0;
+    let lastSeenCreatedAt: Date | null = null;
+    let lastSeenId: Types.ObjectId | null = null;
     let hasMore = true;
 
-    const PathClass = config.manager.pathType === 'traversal' ? TraversalPath : EndpointPath;
     while (hasMore) {
+      const cursorCondition: FilterQuery<PathClass> = lastSeenCreatedAt && lastSeenId
+        ? {
+          createdAt: { $gte: lastSeenCreatedAt },
+          _id: { $gt: lastSeenId }
+        }
+        : {};
+
       // Fetch a batch of paths for this process
       const paths =
         config.manager.pathType === 'traversal'
-          ? await TraversalPath.find({ processId: this.pid, status: 'active' })
-            .skip(skip)
+          ? await TraversalPath.find({ processId: this.pid, status: 'active', ...cursorCondition })
+            .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
-            .select('head.url head.domain.origin')
+            .select('head.url head.domain.origin createdAt _id')
             .lean()
-          : await EndpointPath.find({ processId: this.pid, status: 'active' })
-            .skip(skip)
+          : await EndpointPath.find({ processId: this.pid, status: 'active', ...cursorCondition })
+            .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
-            .select('head.url head.domain.origin')
+            .select('head.url head.domain.origin createdAt _id')
             .lean();
 
       if (paths.length === 0) {
         hasMore = false;
         continue;
       }
+
+      const lastPath = paths[paths.length - 1];
+      lastSeenCreatedAt = lastPath.createdAt;
+      lastSeenId = lastPath._id as Types.ObjectId;
 
       const headUrls = new Set(paths.map((p) => p.head.url));
       const origins = new Set(paths.map((p) => p.head.domain.origin));
@@ -485,9 +497,8 @@ class ProcessClass extends Document {
       summary.domains += domainRes.modifiedCount ?? domainRes.matchedCount ?? 0;
       summary.paths += pathRes.modifiedCount ?? pathRes.matchedCount ?? 0;
 
-      skip += paths.length;
       log.debug(
-        `Reset error state in paths batch ${Math.ceil(skip / batchSize)}: ${paths.length} paths, ${skip} total`
+        `Reset error state in paths batch: ${paths.length} paths processed`
       );
     }
 
