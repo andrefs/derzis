@@ -128,6 +128,13 @@ class ProcessClass extends Document {
   })
   public status!: 'queued' | 'running' | 'done' | 'error' | 'extending';
 
+  /**
+   * Counter that increments each time a new step is added to the process.
+   * Used to track which paths have been considered for extension.
+   */
+  @prop({ default: 0, type: Number })
+  public pathExtensionCounter!: number;
+
   public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
     // triple predicate allowed by white/blacklist
     if (!this.currentStep.predLimit) {
@@ -343,7 +350,7 @@ class ProcessClass extends Document {
     }
 
     // Before queuing, extend existing paths according to new step limits
-    //await process.extendExistingPaths(); // this potentially takes a lot of time
+    await process.extendExistingPaths(); // this potentially takes a lot of time
 
     // Set the process to queued
     await Process.updateOne(

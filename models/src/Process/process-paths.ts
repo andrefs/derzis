@@ -195,6 +195,9 @@ export function genTraversalPathQuery(process: ProcessClass): FilterQuery<Traver
     'predicates.count': { $lte: maxPathProps },
   };
 
+  // Filter paths that haven't been considered for extension with the current step
+  query.extensionCounter = { $lt: process.pathExtensionCounter };
+
   // if there is a whitelist, path must have at least one whitelisted predicate in its existing predicates
   if (limType === 'whitelist') {
     query['predicates.elems'] = limPredicates.length === 1
@@ -283,6 +286,13 @@ export async function extendExistingPaths(pid: string) {
 
     await extendPathsWithExistingTriples(process, paths);
     processedPaths += paths.length;
+
+    // Mark all paths in this batch as considered for extension
+    const pathIds = paths.map((p) => p._id);
+    await TraversalPath.updateMany(
+      { _id: { $in: pathIds } },
+      { $set: { extensionCounter: process.pathExtensionCounter } }
+    );
 
     const batchTime = (Date.now() - batchStartTime) / 1000;
     log.info(

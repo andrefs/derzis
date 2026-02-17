@@ -86,6 +86,9 @@ export abstract class PathClass {
   })
   public status!: 'active' | 'deleted';
 
+  @prop({ default: 0, type: Number })
+  public extensionCounter!: number;
+
   public abstract shouldCreateNewPath(t: TripleClass): boolean;
 
   public abstract tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean;

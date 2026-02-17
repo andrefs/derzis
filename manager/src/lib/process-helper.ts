@@ -70,7 +70,8 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
         $set: {
           status: 'queued',
           currentStep: newStep
-        }
+        },
+        $inc: { pathExtensionCounter: 1 }
       }
     );
     log.info(`Added step to process ${pid}`);
