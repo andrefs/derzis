@@ -171,57 +171,36 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
  * @returns MongoDB query object
  */
 export function genTraversalPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument> {
-  const baseQuery = {
-    processId: process.pid,
-    status: 'active',
-    'nodes.count': { $lt: process.currentStep.maxPathLength },
-  };
   const limType = process.currentStep.predLimit?.limType;
   const limPredicates = process.currentStep.predLimit?.limPredicates || [];
   const maxPathProps = process.currentStep.maxPathProps;
-  const queryOr = []
 
-  // if there is no predicate limit, any path can be extended
-  if (!process.currentStep.predLimit) {
-    queryOr.push({
-      'predicates.count': { $lte: maxPathProps }
-    });
+  const query: FilterQuery<TraversalPathDocument> = {
+    processId: process.pid,
+    status: 'active',
+    'nodes.count': { $lt: process.currentStep.maxPathLength },
+    'predicates.count': { $lte: maxPathProps },
+  };
+
+  // if there is a whitelist, path must have at least one whitelisted predicate in its existing predicates
+  if (limType === 'whitelist') {
+    query['predicates.elems'] = limPredicates.length === 1
+      ? limPredicates[0]
+      : { $in: limPredicates };
   }
-  // if there is a whitelist, only paths that have less than maxPathProps predicates
-  // or that have at least one of the white listed predicates can be extended
-  else if (limType === 'whitelist') {
-    queryOr.push({
-      'predicates.count': { $lt: maxPathProps },
-    });
-    queryOr.push({
-      'predicates.count': maxPathProps,
-      'predicates.elems': limPredicates.length === 1 ? limPredicates[0] : { $in: limPredicates }
-    });
-  }
-  // if there is a blacklist, only paths that have less than maxPathProps predicates
-  // or that have at least one predicate that is not in the black list can be extended
+  // if there is a blacklist, path must have at least one non-blacklisted predicate in its existing predicates
   else if (limType === 'blacklist') {
-    queryOr.push({
-      'predicates.count': maxPathProps,
-    });
-    const predElemsCondition = limPredicates.length === 1
-      ? { 'predicates.elems': { $ne: limPredicates[0] } }
-      : {
-        $expr: {
-          $not: {
-            $setIsSubset: ['$predicates.elems', limPredicates]
-          }
+    if (limPredicates.length === 1) {
+      query['predicates.elems'] = { $ne: limPredicates[0] };
+    } else {
+      query.$expr = {
+        $not: {
+          $setIsSubset: ['$predicates.elems', limPredicates]
         }
       };
-    queryOr.push({
-      'predicates.count': { $lte: maxPathProps },
-      ...predElemsCondition
-    });
+    }
   }
 
-  const query = queryOr.length > 1
-    ? { ...baseQuery, $or: queryOr }
-    : { ...baseQuery, ...queryOr[0] };
   return query;
 }
 

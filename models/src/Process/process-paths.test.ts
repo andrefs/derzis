@@ -58,27 +58,7 @@ describe('genTraversalPathQuery', () => {
   });
 
   describe('when there is a whitelist predicate limit', () => {
-    it('returns $or query with predicates.count < maxPathProps OR predicates.count == maxPathProps with whitelist predicate', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = ['http://pred1.org', 'http://pred2.org'];
-
-      const process = createMockProcess({
-        maxPathLength: 4,
-        maxPathProps: 2,
-        predLimit,
-      });
-
-      const query = genTraversalPathQuery(process);
-
-      expect(query.processId).toBe('test-pid');
-      expect(query.status).toBe('active');
-      expect(query['nodes.count']).toEqual({ $lt: 4 });
-      expect(query.$or).toBeDefined();
-      expect(query.$or).toHaveLength(2);
-    });
-
-    it('uses $in for multiple whitelist predicates', () => {
+    it('returns query with predicates.elems $in and predicates.count $lte', () => {
       const predLimit = new PredicateLimitationClass();
       predLimit.limType = 'whitelist';
       predLimit.limPredicates = ['http://pred1.org', 'http://pred2.org'];
@@ -90,8 +70,8 @@ describe('genTraversalPathQuery', () => {
 
       const query = genTraversalPathQuery(process) as any;
 
-      const maxPropsClause = query.$or.find((clause: any) => clause['predicates.count'] === 2);
-      expect(maxPropsClause['predicates.elems']).toEqual({ $in: ['http://pred1.org', 'http://pred2.org'] });
+      expect(query['predicates.elems']).toEqual({ $in: ['http://pred1.org', 'http://pred2.org'] });
+      expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
 
     it('uses direct equality for single whitelist predicate', () => {
@@ -106,11 +86,11 @@ describe('genTraversalPathQuery', () => {
 
       const query = genTraversalPathQuery(process) as any;
 
-      const maxPropsClause = query.$or.find((clause: any) => clause['predicates.count'] === 2);
-      expect(maxPropsClause['predicates.elems']).toBe('http://only-one.org');
+      expect(query['predicates.elems']).toBe('http://only-one.org');
+      expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
 
-    it('includes clause for paths with count < maxPathProps', () => {
+    it('applies predicate filter and count limit at top level (no $or)', () => {
       const predLimit = new PredicateLimitationClass();
       predLimit.limType = 'whitelist';
       predLimit.limPredicates = ['http://pred1.org'];
@@ -122,14 +102,14 @@ describe('genTraversalPathQuery', () => {
 
       const query = genTraversalPathQuery(process) as any;
 
-      const lessThanClause = query.$or.find((clause: any) => clause['predicates.count']?.$lt);
-      expect(lessThanClause).toBeDefined();
-      expect(lessThanClause['predicates.count']).toEqual({ $lt: 2 });
+      expect(query.$or).toBeUndefined();
+      expect(query['predicates.elems']).toEqual('http://pred1.org');
+      expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
   });
 
   describe('when there is a blacklist predicate limit', () => {
-    it('returns $or query with predicates.count == maxPathProps OR predicates.count <= maxPathProps with $expr $not $setIsSubset', () => {
+    it('returns query with $expr $not $setIsSubset and predicates.count $lte', () => {
       const predLimit = new PredicateLimitationClass();
       predLimit.limType = 'blacklist';
       predLimit.limPredicates = ['http://blocked1.org', 'http://blocked2.org'];
@@ -145,8 +125,10 @@ describe('genTraversalPathQuery', () => {
       expect(query.processId).toBe('test-pid');
       expect(query.status).toBe('active');
       expect(query['nodes.count']).toEqual({ $lt: 4 });
-      expect(query.$or).toBeDefined();
-      expect(query.$or).toHaveLength(2);
+      expect(query['predicates.count']).toEqual({ $lte: 2 });
+      expect(query.$expr).toBeDefined();
+      expect(query.$expr.$not).toBeDefined();
+      expect(query.$expr.$not.$setIsSubset).toEqual(['$predicates.elems', ['http://blocked1.org', 'http://blocked2.org']]);
     });
 
     it('uses $ne for single blacklist predicate', () => {
@@ -161,11 +143,11 @@ describe('genTraversalPathQuery', () => {
 
       const query = genTraversalPathQuery(process) as any;
 
-      const withPredClause = query.$or.find((clause: any) => clause['predicates.elems']);
-      expect(withPredClause['predicates.elems']).toEqual({ $ne: 'http://blocked.org' });
+      expect(query['predicates.elems']).toEqual({ $ne: 'http://blocked.org' });
+      expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
 
-    it('uses $expr $not $setIsSubset for multiple blacklist predicates', () => {
+    it('applies predicate filter and count limit at top level (no $or)', () => {
       const predLimit = new PredicateLimitationClass();
       predLimit.limType = 'blacklist';
       predLimit.limPredicates = ['http://blocked1.org', 'http://blocked2.org'];
@@ -177,27 +159,9 @@ describe('genTraversalPathQuery', () => {
 
       const query = genTraversalPathQuery(process) as any;
 
-      const withPredClause = query.$or.find((clause: any) => clause.$expr);
-      expect(withPredClause.$expr).toBeDefined();
-      expect(withPredClause.$expr.$not).toBeDefined();
-      expect(withPredClause.$expr.$not.$setIsSubset).toEqual(['$predicates.elems', ['http://blocked1.org', 'http://blocked2.org']]);
-    });
-
-    it('uses $lte for blacklist paths count (not $lt like whitelist)', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = ['http://blocked.org'];
-
-      const process = createMockProcess({
-        maxPathProps: 2,
-        predLimit,
-      });
-
-      const query = genTraversalPathQuery(process) as any;
-
-      const withPredClause = query.$or.find((clause: any) => clause['predicates.count']?.$lte);
-      expect(withPredClause).toBeDefined();
-      expect(withPredClause['predicates.count']).toEqual({ $lte: 2 });
+      expect(query.$or).toBeUndefined();
+      expect(query.$expr).toBeDefined();
+      expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
   });
 
@@ -214,9 +178,10 @@ describe('genTraversalPathQuery', () => {
 
       const query = genTraversalPathQuery(process) as any;
 
-      // With empty blacklist, should match all (setIsSubset with empty array is always true)
-      const withPredClause = query.$or.find((clause: any) => clause.$expr);
-      expect(withPredClause.$expr.$not.$setIsSubset).toEqual(['$predicates.elems', []]);
+      // With empty blacklist, $setIsSubset with empty array is always true
+      // so $not makes it always false - no paths should match
+      expect(query.$expr).toBeDefined();
+      expect(query.$expr.$not.$setIsSubset).toEqual(['$predicates.elems', []]);
     });
 
     it('handles empty limPredicates array for whitelist', () => {
@@ -231,10 +196,8 @@ describe('genTraversalPathQuery', () => {
 
       const query = genTraversalPathQuery(process) as any;
 
-      expect(query.$or).toBeDefined();
-      expect(query.$or).toHaveLength(2);
-      const lessThanClause = query.$or.find((c: any) => c['predicates.count']?.$lt);
-      expect(lessThanClause['predicates.count']).toEqual({ $lt: 2 });
+      // With empty whitelist, $in: [] matches nothing
+      expect(query['predicates.elems']).toEqual({ $in: [] });
     });
 
     it('includes processId in all queries', () => {
