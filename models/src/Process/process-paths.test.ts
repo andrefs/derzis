@@ -1,6 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { genTraversalPathQuery } from './process-paths';
 import { StepClass, PredicateLimitationClass } from './aux-classes';
+import { FilterQuery } from 'mongoose';
+import type { TraversalPathDocument } from '../Path/TraversalPath';
+import type { ProcessClass } from './Process';
+
+type TraversalPathQueryWithExpr = FilterQuery<TraversalPathDocument> & {
+  $expr: {
+    $not: {
+      $setIsSubset: unknown[];
+    };
+  };
+};
 
 describe('genTraversalPathQuery', () => {
   const createMockProcess = (overrides: {
@@ -22,7 +33,7 @@ describe('genTraversalPathQuery', () => {
     return {
       pid: overrides.pid ?? 'test-pid',
       currentStep: step,
-    } as any;
+    } as ProcessClass;
   };
 
   describe('when there is no predicate limit', () => {
@@ -68,7 +79,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as any;
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
       expect(query['predicates.elems']).toEqual({ $in: ['http://pred1.org', 'http://pred2.org'] });
       expect(query['predicates.count']).toEqual({ $lte: 2 });
@@ -84,7 +95,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as any;
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
       expect(query['predicates.elems']).toBe('http://only-one.org');
       expect(query['predicates.count']).toEqual({ $lte: 2 });
@@ -100,7 +111,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as any;
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
       expect(query.$or).toBeUndefined();
       expect(query['predicates.elems']).toEqual('http://pred1.org');
@@ -120,7 +131,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process);
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
       expect(query.processId).toBe('test-pid');
       expect(query.status).toBe('active');
@@ -141,7 +152,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as any;
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
       expect(query['predicates.elems']).toEqual({ $ne: 'http://blocked.org' });
       expect(query['predicates.count']).toEqual({ $lte: 2 });
@@ -157,7 +168,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as any;
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
       expect(query.$or).toBeUndefined();
       expect(query.$expr).toBeDefined();
@@ -176,7 +187,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as any;
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
       // With empty blacklist, $setIsSubset with empty array is always true
       // so $not makes it always false - no paths should match
@@ -194,7 +205,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as any;
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
       // With empty whitelist, $in: [] matches nothing
       expect(query['predicates.elems']).toEqual({ $in: [] });

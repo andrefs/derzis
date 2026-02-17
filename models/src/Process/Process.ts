@@ -168,13 +168,15 @@ class ProcessClass extends Document {
       this,
       config.manager.pathType as PathType,
       [],
-      0,
+      null,
+      null,
       1
     );
     const pathsToCheck = await getPathsForRobotsChecking(
       this,
       config.manager.pathType as PathType,
-      0,
+      null,
+      null,
       1
     );
     const hasPathsChecking = await hasPathsDomainRobotsChecking(this);
