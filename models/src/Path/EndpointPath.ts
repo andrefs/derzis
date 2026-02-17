@@ -50,6 +50,10 @@ class EndpointPathClass extends PathClass {
   public type!: 'endpoint';
 
   public shouldCreateNewPath(this: EndpointPathClass, t: TripleClass): boolean {
+    if (t.object === undefined) {
+      return false;
+    }
+
     if (t.subject === t.object) {
       return false;
     }
@@ -119,12 +123,13 @@ class EndpointPathClass extends PathClass {
 
     for (const t of triples.filter(
       (t) =>
+        t.object !== undefined &&
         this.shouldCreateNewPath(t) &&
         process?.whiteBlackListsAllow(t) &&
         t.directionOk(this.head.url, followDirection, predsDirMetrics)
     )) {
       log.silly('Extending path with triple', t);
-      const newHeadUrl: string = t.subject === this.head.url ? t.object : t.subject;
+      const newHeadUrl: string = t.subject === this.head.url ? t.object! : t.subject;
       const prop = t.predicate;
 
       extendedPaths[prop] = extendedPaths[prop] || {};

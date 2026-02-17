@@ -2,9 +2,10 @@ import { Process } from '@derzis/models';
 import { error } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 import { Readable } from 'stream';
-import { Writer, NamedNode } from 'n3';
+import { Writer, NamedNode, Literal } from 'n3';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
+import type { SimpleTriple } from '@derzis/common';
 
 export async function GET({ params, setHeaders }: RequestEvent) {
   const p = await Process.findOne({ pid: params.pid });
@@ -25,12 +26,35 @@ export async function GET({ params, setHeaders }: RequestEvent) {
     read() {}
   });
 
-  readableStream.on('data', (quad) => {
-    writer.addQuad(
-      new NamedNode(quad.subject),
-      new NamedNode(quad.predicate),
-      new NamedNode(quad.object)
-    );
+  readableStream.on('data', (quad: SimpleTriple) => {
+    if (quad.object !== undefined) {
+      writer.addQuad(
+        new NamedNode(quad.subject),
+        new NamedNode(quad.predicate),
+        new NamedNode(quad.object)
+      );
+    } else if (quad.objectLiteral) {
+      const { value, language, datatype } = quad.objectLiteral;
+      if (language) {
+        writer.addQuad(
+          new NamedNode(quad.subject),
+          new NamedNode(quad.predicate),
+          new Literal(value, language)
+        );
+      } else if (datatype) {
+        writer.addQuad(
+          new NamedNode(quad.subject),
+          new NamedNode(quad.predicate),
+          new Literal(value, new NamedNode(datatype))
+        );
+      } else {
+        writer.addQuad(
+          new NamedNode(quad.subject),
+          new NamedNode(quad.predicate),
+          new Literal(value)
+        );
+      }
+    }
   });
 
   readableStream.on('end', () => {

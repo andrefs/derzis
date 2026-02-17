@@ -1,11 +1,13 @@
 import { writable, derived, get } from 'svelte/store';
 import { formatDateLabel } from '$lib/utils';
 import { getTriplesWithinHops } from '$lib/seed-graph-utils';
+import type { LiteralObject } from '@derzis/common';
 
 export type Triple = {
   subject: string;
   predicate: string;
-  object: string;
+  object?: string;
+  objectLiteral?: LiteralObject;
   createdAt: string;
 };
 
@@ -20,7 +22,8 @@ export const allTriples = writable<
   Array<{
     subject: string;
     predicate: string;
-    object: string;
+    object?: string;
+    objectLiteral?: LiteralObject;
     createdAt: string;
   }>
 >([]);
@@ -28,7 +31,8 @@ export const filteredTriples = writable<
   Array<{
     subject: string;
     predicate: string;
-    object: string;
+    object?: string;
+    objectLiteral?: LiteralObject;
     createdAt: string;
   }>
 >([]);
@@ -88,7 +92,9 @@ export async function loadAllTriples(pid: string) {
     const decompStream = new DecompressionStream('gzip');
     const decompressedResponse = response.body!.pipeThrough(decompStream);
     const text = await new Response(decompressedResponse).text();
-    allTriples.set(JSON.parse(text));
+    const parsed = JSON.parse(text);
+    const namedNodeTriples = parsed.filter((t: Triple) => t.object !== undefined);
+    allTriples.set(namedNodeTriples);
   }
 }
 
@@ -142,13 +148,15 @@ export const computedNodeMaxCreatedAt = derived([filteredTriples], ([$filteredTr
   const nodeMaxCreatedAt = new Map<string, Date>();
   for (const t of $filteredTriples) {
     const subj = t.subject;
-    const obj = t.object;
     const date = new Date(t.createdAt);
     if (!nodeMaxCreatedAt.has(subj) || nodeMaxCreatedAt.get(subj)! < date) {
       nodeMaxCreatedAt.set(subj, date);
     }
-    if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
-      nodeMaxCreatedAt.set(obj, date);
+    if (t.object !== undefined) {
+      const obj = t.object;
+      if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
+        nodeMaxCreatedAt.set(obj, date);
+      }
     }
   }
   return nodeMaxCreatedAt;

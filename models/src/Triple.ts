@@ -1,7 +1,7 @@
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import { urlValidator, directionOk } from '@derzis/common';
-import type { SimpleTriple } from '@derzis/common';
+import type { SimpleTriple, LiteralObject } from '@derzis/common';
 const log = createLogger('Triple');
 import type { ResourceClass } from './Resource';
 import type { Types } from 'mongoose';
@@ -15,8 +15,8 @@ import {
 import type { Document } from 'mongoose';
 import { BranchFactorClass, SeedPosRatioClass } from './Process/aux-classes';
 
-type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
-type TripleWithSources = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 'sources'>;
+type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 'objectLiteral'>;
+type TripleWithSources = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 'objectLiteral' | 'sources'>;
 
 @index({ nodes: 1 })
 // For keyset pagination
@@ -24,6 +24,8 @@ type TripleWithSources = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
 @index({ predicate: 1 })
 @index({ predicate: 1, nodes: 1, subject: 1 })
+@index({ 'objectLiteral.language': 1, 'objectLiteral.value': 1 })
+@index({ 'objectLiteral.datatype': 1 })
 class TripleClass {
   _id!: Types.ObjectId;
 
@@ -36,8 +38,11 @@ class TripleClass {
   @prop({ required: true, validate: urlValidator, type: String })
   public predicate!: string;
 
-  @prop({ required: true, validate: urlValidator, type: String })
-  public object!: string;
+  @prop({ required: false, validate: urlValidator, type: String })
+  public object?: string;
+
+  @prop({ required: false, type: Object })
+  public objectLiteral?: LiteralObject;
 
   @prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)
   public nodes?: string[];
@@ -61,37 +66,81 @@ class TripleClass {
     // deduplicate triples and aggregate sources
     const tripleMap = new Map<string, TripleWithSources>();
     for (const t of triples) {
-      const key = `${t.subject}\u0000${t.predicate}\u0000${t.object}`;
+      let key: string;
+      let filterField: { object?: string; objectLiteral?: LiteralObject };
+      
+      if (t.object !== undefined) {
+        // NamedNode triple
+        key = `${t.subject}\u0000${t.predicate}\u0000${t.object}`;
+        filterField = { object: t.object };
+      } else if (t.objectLiteral) {
+        // Literal triple - key includes hash of objectLiteral for uniqueness
+        const litKey = JSON.stringify(t.objectLiteral);
+        key = `${t.subject}\u0000${t.predicate}\u0000${litKey}`;
+        filterField = { objectLiteral: t.objectLiteral };
+      } else {
+        log.warn('Triple has neither object nor objectLiteral, skipping', t);
+        continue;
+      }
+
       if (tripleMap.has(key)) {
         tripleMap.get(key)!.sources!.push(source.url);
       } else {
         tripleMap.set(key, {
-          ...t,
+          subject: t.subject,
+          predicate: t.predicate,
+          object: t.object,
+          objectLiteral: t.objectLiteral,
           sources: [source.url]
         });
       }
     }
-    const ops = [...tripleMap.values()].map((t) => ({
-      updateOne: {
-        filter: {
+
+    const ops = [...tripleMap.values()].map((t) => {
+      let nodes: string[];
+      let updateSet: Record<string, unknown>;
+      
+      if (t.object !== undefined) {
+        // NamedNode triple - include object in nodes array for traversal
+        nodes = [t.subject, t.object];
+        updateSet = {
           subject: t.subject,
           predicate: t.predicate,
-          object: t.object
-        },
-        update: {
-          $setOnInsert: {
+          object: t.object,
+          objectLiteral: null,
+          nodes
+        };
+      } else if (t.objectLiteral) {
+        // Literal triple - only subject in nodes (literals can't be traversed)
+        nodes = [t.subject];
+        updateSet = {
+          subject: t.subject,
+          predicate: t.predicate,
+          object: null,
+          objectLiteral: t.objectLiteral,
+          nodes
+        };
+      } else {
+        throw new Error('Invalid triple: must have either object or objectLiteral');
+      }
+
+      return {
+        updateOne: {
+          filter: {
             subject: t.subject,
             predicate: t.predicate,
-            object: t.object,
-            nodes: [t.subject, t.object]
+            ...(t.object !== undefined ? { object: t.object } : { objectLiteral: t.objectLiteral })
           },
-          $addToSet: {
-            sources: { $each: t.sources! }
-          }
-        },
-        upsert: true
-      }
-    }));
+          update: {
+            $setOnInsert: updateSet,
+            $addToSet: {
+              sources: { $each: t.sources! }
+            }
+          },
+          upsert: true
+        }
+      };
+    });
 
     const BATCH_SIZE = 500;
     const results: BulkWriteResult[] = [];
@@ -145,12 +194,13 @@ class TripleClass {
     const bfDir = bfRatio >= 1 ? 'subj->obj' : 'obj->subj';
 
     const dOk = directionOk(this, headUrl, bfRatio);
+    const objectDisplay = this.object ?? this.objectLiteral?.value ?? '(none)';
     log.silly(`XXXXXXXXXXdir Direction ${dOk ? '' : 'not '}ok for triple
-\t${this.subject}
-\t${this.predicate}
-\t${this.object}
-\tbranch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
-\theadUrl: ${headUrl}`);
+  ${this.subject}
+  ${this.predicate}
+  ${objectDisplay}
+  branch factor: ${bfRatio} ${bfDir} (total ${bf.subj + bf.obj})
+  headUrl: ${headUrl}`);
     return dOk;
   }
 }

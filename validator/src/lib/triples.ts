@@ -1,8 +1,34 @@
 import { Prefixes } from '../bin/gen-graph';
-import { SimpleTriple } from '@derzis/common';
+import type { SimpleTriple, LiteralObject } from '@derzis/common';
 
 export interface IndexedTriples {
   [subject: string]: SimpleTriple[];
+}
+
+/**
+ * Escapes a string for use in Turtle/N-Triples format
+ */
+function escapeTurtleString(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
+/**
+ * Converts a literal object to its Turtle/N-Triples string representation
+ */
+function literalToString(literal: LiteralObject): string {
+  const escaped = escapeTurtleString(literal.value);
+  if (literal.language) {
+    return `"${escaped}"@${literal.language}`;
+  }
+  if (literal.datatype) {
+    return `"${escaped}"^^<${literal.datatype}>`;
+  }
+  return `"${escaped}"`;
 }
 
 /**
@@ -14,14 +40,19 @@ export interface IndexedTriples {
  */
 export function triplesToTurtle(
   prefixes: Prefixes,
-  triples: Array<{ subject: string; predicate: string; object: string }>
+  triples: SimpleTriple[]
 ): string {
   const prefixLines = Object.entries(prefixes).map(
     ([url, prefix]) => `@prefix ${prefix}: <${url}> .`
   );
   const lines = triples.map((triple) => {
-    return `${triple.subject} ${triple.predicate} ${triple.object} .`;
-  });
+    if (triple.object !== undefined) {
+      return `${triple.subject} ${triple.predicate} ${triple.object} .`;
+    } else if (triple.objectLiteral) {
+      return `${triple.subject} ${triple.predicate} ${literalToString(triple.objectLiteral)} .`;
+    }
+    return '';
+  }).filter(Boolean);
   return [...prefixLines, '', ...lines].join('\n');
 }
 

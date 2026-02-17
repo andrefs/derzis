@@ -13,7 +13,7 @@ describe('directionOk', () => {
   });
 
   it('returns true when branch factor > 1 and headUrl matches subject', () => {
-    expect(directionOk(triple, triple.subject, 2)).toBe(true);
+    expect(directionOk(triple, triple.subject!, 2)).toBe(true);
   });
 
   it('returns false when branch factor > 1 and headUrl does not match subject', () => {
@@ -21,7 +21,7 @@ describe('directionOk', () => {
   });
 
   it('returns true when branch factor < 1 and headUrl matches object', () => {
-    expect(directionOk(triple, triple.object, 0.5)).toBe(true);
+    expect(directionOk(triple, triple.object!, 0.5)).toBe(true);
   });
 
   it('returns false when branch factor < 1 and headUrl does not match object', () => {
@@ -29,10 +29,10 @@ describe('directionOk', () => {
   });
 
   it('returns false when branch factor < 1 and headUrl matches subject instead of object', () => {
-    expect(directionOk(triple, triple.subject, 0.5)).toBe(false);
+    expect(directionOk(triple, triple.subject!, 0.5)).toBe(false);
   });
 
   it('returns false when branch factor > 1 and headUrl matches object instead of subject', () => {
-    expect(directionOk(triple, triple.object, 2)).toBe(false);
+    expect(directionOk(triple, triple.object!, 2)).toBe(false);
   });
 });

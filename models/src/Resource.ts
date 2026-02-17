@@ -97,7 +97,9 @@ class ResourceClass {
     const resources: { [pos: string]: boolean } = {};
     for (const t of triples) {
       resources[t.subject] = true;
-      resources[t.object] = true;
+      if (t.object !== undefined) {
+        resources[t.object] = true;
+      }
     }
 
     return await this.addMany(

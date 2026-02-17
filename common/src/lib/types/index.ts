@@ -77,10 +77,17 @@ export type BaseCrawlResourceResult = {
   details: CrawlResourceResultDetails;
 } & BaseJobResult;
 
+export type LiteralObject = {
+  value: string;
+  datatype?: string;
+  language?: string;
+};
+
 export type SimpleTriple = {
   subject: string;
   predicate: string;
-  object: string;
+  object?: string;
+  objectLiteral?: LiteralObject;
 };
 
 export type CrawlResourceResultOk = {

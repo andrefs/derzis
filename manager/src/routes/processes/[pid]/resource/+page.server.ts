@@ -39,7 +39,9 @@ export const load: PageServerLoad = async ({ params, url }) => {
     const allUrls = new Set<string>();
     triples.forEach((triple) => {
       allUrls.add(triple.subject);
-      allUrls.add(triple.object);
+      if (triple.object) {
+        allUrls.add(triple.object);
+      }
     });
 
     // Mark triples as found in process or not
@@ -49,6 +51,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
         subject: tripleObj.subject,
         predicate: tripleObj.predicate,
         object: tripleObj.object,
+        objectLiteral: tripleObj.objectLiteral,
         sources: tripleObj.sources,
         nodes: tripleObj.nodes,
         inProcess: processTripleIdSet.has(triple._id.toString())

@@ -282,15 +282,29 @@ export class Worker extends EventEmitter {
           (t) =>
             t.subject.termType === 'NamedNode' &&
             t.predicate.termType === 'NamedNode' &&
-            t.object.termType === 'NamedNode'
+            (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
         )
         .map(
-          (t) =>
-            ({
-              subject: t.subject.value,
-              predicate: t.predicate.value,
-              object: t.object.value
-            }) as SimpleTriple
+          (t) => {
+            if (t.object.termType === 'NamedNode') {
+              return {
+                subject: t.subject.value,
+                predicate: t.predicate.value,
+                object: t.object.value
+              } as SimpleTriple;
+            } else {
+              const literal = t.object as import('@rdfjs/types').Literal;
+              return {
+                subject: t.subject.value,
+                predicate: t.predicate.value,
+                objectLiteral: {
+                  value: literal.value,
+                  language: literal.language || undefined,
+                  datatype: literal.datatype?.value || undefined
+                }
+              } as SimpleTriple;
+            }
+          }
         );
       const resCache = await ResourceCache.create({
         url,

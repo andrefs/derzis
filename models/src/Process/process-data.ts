@@ -16,6 +16,7 @@ export async function* getTriples(process: ProcessClass) {
       subject: triple.subject,
       predicate: triple.predicate,
       object: triple.object,
+      objectLiteral: triple.objectLiteral,
       createdAt: (procTriple as any).createdAt
     };
   }
@@ -28,7 +29,7 @@ export async function* getTriplesJson(
   for await (const t of getTriples(process)) {
     const obj = includeCreatedAt
       ? t
-      : { subject: t.subject, predicate: t.predicate, object: t.object };
+      : { subject: t.subject, predicate: t.predicate, object: t.object, objectLiteral: t.objectLiteral };
     yield JSON.stringify(obj);
   }
 }

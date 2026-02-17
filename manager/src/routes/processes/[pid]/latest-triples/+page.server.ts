@@ -32,6 +32,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
       subject: procTriple.triple.subject,
       predicate: procTriple.triple.predicate,
       object: procTriple.triple.object,
+      objectLiteral: procTriple.triple.objectLiteral,
       createdAt: procTriple.createdAt?.toISOString()
     }));
 
