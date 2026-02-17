@@ -130,7 +130,7 @@ class ProcessClass extends Document {
    * Counter that increments each time a new step is added to the process.
    * Used to track which paths have been considered for extension.
    */
-  @prop({ default: 0, type: Number })
+  @prop({ default: 1, type: Number })
   public pathExtensionCounter!: number;
 
   public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
