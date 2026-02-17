@@ -55,12 +55,8 @@ type RecursivePartial<T> = {
 })
 
 @index({ processId: 1 })
-@index({ type: 1 })
-@index({
-  'seed.url': 1,
-  'head.url': 1,
-  'predicates.count': 1
-})
+@index({ status: 1 })
+@index({ 'head.url': 1, status: 1 })
 @index({
   'head.url': 1,
   'nodes.count': 1
@@ -71,19 +67,11 @@ type RecursivePartial<T> = {
   "nodes.count": 1,
   "predicates.count": 1
 })
-@index({ status: 1 })
-@index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
 @index({ 'head.domain.status': 1, status: 1 })
 @index({ 'head.domain.origin': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
-@index({
-  processId: 1,
-  status: 1,
-  'head.domain.status': 1,
-  'nodes.count': 1,
-  'predicates.count': 1
-})
+@index({ processId: 1, status: 1, extensionCounter: 1 })
 class TraversalPathClass extends PathClass {
   @prop({ validate: (value: string) => !!value, type: String })
   public lastPredicate?: string;
