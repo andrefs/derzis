@@ -254,6 +254,7 @@ export async function extendExistingPaths(pid: string) {
   const query = genTraversalPathQuery(process);
 
   // Get total number of paths to process
+  const beforeCount = await TraversalPath.countDocuments({ processId: process.pid });
   const initPathsCount = await TraversalPath.countDocuments(query);
 
   let processedPaths = 0;
@@ -301,9 +302,11 @@ export async function extendExistingPaths(pid: string) {
     skip += batchSize;
   }
 
+  const finalPathsCount = await TraversalPath.countDocuments({ processId: process.pid });
+
   const totalTime = (Date.now() - startTime) / 1000;
   log.info(
-    `Finished extending existing paths for process ${process.pid}. Total time: ${totalTime.toFixed(2)}s`
+    `Finished extending existing paths for process ${process.pid}. Total time: ${totalTime.toFixed(2)}s. Created ${finalPathsCount - beforeCount} new paths from ${processedPaths} processed paths.`
   );
 }
 

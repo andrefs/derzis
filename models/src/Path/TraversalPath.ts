@@ -38,6 +38,20 @@ type RecursivePartial<T> = {
     };
   }
 })
+
+// Primary query efficiency
+@index({ "processId": 1, "status": 1 })
+// For the predicates count/elems filtering
+@index({ "predicates.count": 1, "processId": 1, "status": 1 })
+@index({ "nodes.count": 1, "processId": 1, "status": 1 })
+// If predicates.elems queries are common
+@index({ "predicates.elems": 1 })
+@index({
+  "processId": 1,
+  "status": 1,
+  "createdAt": 1
+})
+
 @index({ processId: 1 })
 @index({ type: 1 })
 @index({
@@ -49,10 +63,17 @@ type RecursivePartial<T> = {
   'head.url': 1,
   'nodes.count': 1
 })
+@index({
+  processId: 1,
+  status: 1,
+  "nodes.count": 1,
+  "predicates.count": 1
+})
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
 @index({ 'head.domain.status': 1, status: 1 })
+@index({ 'head.domain.origin': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({
   processId: 1,
