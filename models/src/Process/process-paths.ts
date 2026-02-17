@@ -82,25 +82,16 @@ export async function getPathsForDomainCrawl(
   skip = 0,
   limit = 20
 ): Promise<TraversalPathClass[] | EndpointPathClass[]> {
-  const baseQuery = {
-    processId: process.pid,
-    status: 'active',
-    'head.domain.status': 'ready',
-    'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
-    'head.status': 'unvisited'
-  };
   const select = 'head.status head.domain.origin head.url';
 
   if (pathType === 'traversal') {
-    const predLimFilter =
-      process.currentStep.predLimit.limType === 'whitelist'
-        ? { 'predicates.elems': { $in: process.currentStep.predLimit.limPredicates } }
-        : { 'predicates.elems': { $nin: process.currentStep.predLimit.limPredicates } };
+    const traversalQuery = genTraversalPathQuery(process);
+
     const paths = await TraversalPath.find({
-      ...baseQuery,
-      'nodes.count': { $lt: process.currentStep.maxPathLength },
-      'predicates.count': { $lte: process.currentStep.maxPathProps },
-      ...predLimFilter
+      ...traversalQuery,
+      'head.domain.status': 'ready',
+      'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
+      'head.status': 'unvisited'
     })
       .sort({ createdAt: 1 }) // older paths first
       .limit(limit)
@@ -109,7 +100,11 @@ export async function getPathsForDomainCrawl(
     return paths;
   } else {
     const paths = await EndpointPath.find({
-      ...baseQuery,
+      processId: process.pid,
+      status: 'active',
+      'head.domain.status': 'ready',
+      'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
+      'head.status': 'unvisited',
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
