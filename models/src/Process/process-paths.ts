@@ -79,9 +79,9 @@ export async function getPathsForDomainCrawl(
   // Compound cursor using $gte and $gt - requires compound index on {createdAt: 1, _id: 1}
   const cursorCondition = lastSeenCreatedAt && lastSeenId
     ? {
-        createdAt: { $gte: lastSeenCreatedAt },
-        _id: { $gt: lastSeenId }
-      }
+      createdAt: { $gte: lastSeenCreatedAt },
+      _id: { $gt: lastSeenId }
+    }
     : {};
 
   if (pathType === 'traversal') {
@@ -143,8 +143,14 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
     const res = await path.extendWithExistingTriples(proc);
 
     if (!res.extendedPaths.length) {
-      const length = path instanceof TraversalPath ? path.nodes.count : path instanceof EndpointPath ? path.shortestPath.length : 'N/A';
-      const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
+      const length = path instanceof TraversalPath
+        ? path.nodes.count
+        : path instanceof EndpointPath
+          ? path.shortestPath.length
+          : 'N/A';
+      const predicates = path instanceof TraversalPath
+        ? path.predicates.elems
+        : null;
 
       log.silly(`No new paths created from path ${path._id} (seed ${path.seed.url}, head ${path.head.url}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`);
 
@@ -222,7 +228,8 @@ export async function extendExistingPaths(pid: string) {
 
   // Process paths in batches to avoid using up too much memory
   const batchSize = 100;
-  let skip = 0;
+  let lastSeenCreatedAt: Date | null = null;
+  let lastSeenId: Types.ObjectId | null = null;
   let hasMore = true;
   const query = genTraversalPathQuery(process);
 
@@ -239,24 +246,32 @@ export async function extendExistingPaths(pid: string) {
     const batchStartTime = Date.now();
     const curPathsCount = await TraversalPath.countDocuments(query);
 
+    const cursorCondition: FilterQuery<TraversalPathDocument> = lastSeenCreatedAt && lastSeenId
+      ? {
+          createdAt: { $gte: lastSeenCreatedAt },
+          _id: { $gt: lastSeenId }
+        }
+      : {};
+
     // find a batch of active paths that can be extended
-    const paths = await TraversalPath.find(query)
-      .sort({ createdAt: 1 }) // older paths first
-      .limit(batchSize)
-      .skip(skip);
+    const paths = await TraversalPath.find({ ...query, ...cursorCondition })
+      .sort({ createdAt: 1, _id: 1 })
+      .limit(batchSize);
 
     if (paths.length === 0) {
       hasMore = false;
       break;
     }
 
-    //const percentage = Math.round((processedPaths / initPathsCount) * 100);
-    const percentage = Math.round((skip / curPathsCount) * 100);
+    const lastPath = paths[paths.length - 1];
+    lastSeenCreatedAt = lastPath.createdAt;
+    lastSeenId = lastPath._id as Types.ObjectId;
+
+    const percentage = Math.round((processedPaths / curPathsCount) * 100);
     const elapsedTime = (Date.now() - startTime) / 1000;
 
-    //log.info(`Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${initPathsCount} - ${percentage}%)`);
     log.info(
-      `Extending batch of ${paths.length} existing paths for process ${process.pid} (${skip}/${curPathsCount} - ${percentage}%)`
+      `Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${curPathsCount} - ${percentage}%)`
     );
 
     await extendPathsWithExistingTriples(process, paths);
@@ -271,8 +286,6 @@ export async function extendExistingPaths(pid: string) {
     log.debug('Waiting 1s before processing the next batch...');
     await new Promise((resolve) => setTimeout(resolve, 1000));
     log.silly('Continuing to next batch...');
-
-    skip += batchSize;
   }
 
   const finalPathsCount = await TraversalPath.countDocuments({ processId: process.pid });
