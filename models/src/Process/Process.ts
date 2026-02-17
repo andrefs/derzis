@@ -1,11 +1,9 @@
 import { Types, Document, FilterQuery } from 'mongoose';
 import { Resource } from '../Resource';
-import { Triple, TripleClass } from '../Triple';
+import { TripleClass } from '../Triple';
 import { humanize } from 'humanize-digest';
 import {
   TraversalPath,
-  type TraversalPathSkeleton,
-  type TraversalPathDocument,
   EndpointPath,
   TraversalPathClass,
   EndpointPathClass,
