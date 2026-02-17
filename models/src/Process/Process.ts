@@ -236,8 +236,13 @@ class ProcessClass extends Document {
     return yield* getResourcesJson(this);
   }
 
-  public async getPathsForRobotsChecking(pathType: PathType, skip = 0, limit = 20) {
-    return getPathsForRobotsChecking(this, pathType, skip, limit);
+  public async getPathsForRobotsChecking(
+    pathType: PathType,
+    lastSeenCreatedAt: Date | null = null,
+    lastSeenId: Types.ObjectId | null = null,
+    limit = 20
+  ) {
+    return getPathsForRobotsChecking(this, pathType, lastSeenCreatedAt, lastSeenId, limit);
   }
 
   public async getPathsForDomainCrawl(

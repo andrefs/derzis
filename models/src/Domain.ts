@@ -337,11 +337,13 @@ class DomainClass {
       }
       procSkip++;
 
-      let pathSkip = 0;
+      let lastSeenCreatedAt: Date | null = null;
+      let lastSeenId: Types.ObjectId | null = null;
       PATHS_LOOP: while (domainsFound < limit) {
         const paths = await proc.getPathsForRobotsChecking(
           config.manager.pathType as PathType,
-          pathSkip,
+          lastSeenCreatedAt,
+          lastSeenId,
           pathLimit
         );
 
@@ -349,7 +351,10 @@ class DomainClass {
         if (!paths.length) {
           continue PROCESS_LOOP;
         }
-        pathSkip += pathLimit;
+
+        const lastPath = paths[paths.length - 1];
+        lastSeenCreatedAt = lastPath.createdAt;
+        lastSeenId = lastPath._id as Types.ObjectId;
 
         const origins = new Set<string>(paths.map((p) => p.head.domain.origin));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));

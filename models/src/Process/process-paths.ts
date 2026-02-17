@@ -1,6 +1,5 @@
 import {
   TraversalPath,
-  type TraversalPathSkeleton,
   type TraversalPathDocument,
   EndpointPath,
   TraversalPathClass,
@@ -21,14 +20,16 @@ import { type PathType } from '@derzis/common';
  * Get paths for a process that are ready for robots checking, based on the head domain status and path limits.
  * @param process ProcessClass instance
  * @param pathType Type of paths to retrieve ('traversal' or 'endpoint')
- * @param skip Number of paths to skip (for pagination)
+ * @param lastSeenCreatedAt Cursor for pagination - return paths with createdAt greater than this value
+ * @param lastSeenId Cursor for pagination - return paths with _id greater than this value (for ties)
  * @param limit Maximum number of paths to return
  * @returns Array of TraversalPathClass or EndpointPathClass documents with only head domain origin selected
  */
 export async function getPathsForRobotsChecking(
   process: ProcessClass,
   pathType: PathType,
-  skip = 0,
+  lastSeenCreatedAt: Date | null = null,
+  lastSeenId: Types.ObjectId | null = null,
   limit = 20
 ): Promise<TraversalPathClass[] | EndpointPathClass[]> {
   const baseQuery = {
@@ -36,30 +37,36 @@ export async function getPathsForRobotsChecking(
     status: 'active',
     'head.domain.status': 'unvisited'
   };
-  const select = 'head.domain.origin';
+  const select = 'head.domain.origin createdAt _id';
+
+  const cursorCondition = lastSeenCreatedAt && lastSeenId
+    ? {
+      createdAt: { $gte: lastSeenCreatedAt },
+      _id: { $gt: lastSeenId }
+    }
+    : {};
 
   if (pathType === 'traversal') {
     const paths = await TraversalPath.find({
       ...baseQuery,
+      ...cursorCondition,
       'nodes.count': { $lt: process.currentStep.maxPathLength },
       'predicates.count': { $lte: process.currentStep.maxPathProps }
     })
-      // shorter paths first
-      .sort({ 'nodes.count': 1 })
+      .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
-      .skip(skip)
       .select(select)
       .lean();
     return paths;
   } else {
     const paths = await EndpointPath.find({
       ...baseQuery,
+      ...cursorCondition,
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
-      .sort({ 'shortestPath.length': 1 })
+      .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
-      .skip(skip)
       .select(select)
       .lean();
     return paths;
