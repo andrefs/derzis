@@ -103,9 +103,6 @@ class CrawlClass {
   'crawl.nextAllowed': -1
 })
 @index({
-  'crawl.nextAllowed': -1
-})
-@index({
   'robots.status': 1
 })
 @index({
