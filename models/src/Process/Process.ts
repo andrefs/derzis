@@ -242,10 +242,11 @@ class ProcessClass extends Document {
   public async getPathsForDomainCrawl(
     pathType: PathType,
     domainBlacklist: string[] = [],
-    skip = 0,
+    lastSeenCreatedAt: Date | null = null,
+    lastSeenId: Types.ObjectId | null = null,
     limit = 20
   ): Promise<TraversalPathClass[] | EndpointPathClass[]> {
-    return getPathsForDomainCrawl(this, pathType, domainBlacklist, skip, limit);
+    return getPathsForDomainCrawl(this, pathType, domainBlacklist, lastSeenCreatedAt, lastSeenId, limit);
   }
 
   public async hasPathsDomainRobotsChecking(): Promise<boolean> {
@@ -336,7 +337,7 @@ class ProcessClass extends Document {
     }
 
     // Before queuing, extend existing paths according to new step limits
-    await process.extendExistingPaths(); // this potentially takes a lot of time
+    //await process.extendExistingPaths(); // this potentially takes a lot of time
 
     // Set the process to queued
     await Process.updateOne(

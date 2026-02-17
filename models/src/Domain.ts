@@ -5,7 +5,7 @@ import { Counter } from './Counter';
 import { TraversalPath } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
-import { type UpdateOneModel } from 'mongoose';
+import { type UpdateOneModel, Types } from 'mongoose';
 import {
   prop,
   index,
@@ -455,11 +455,12 @@ class DomainClass {
         continue PROCESS_LOOP;
       }
 
-      let pathSkip = 0;
+      let lastSeenCreatedAt: Date | null = null;
+      let lastSeenId: Types.ObjectId | null = null;
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
         log.info(
-          `Worker ${wId} looking for paths to crawl in process ${proc.id}, skipping ${pathSkip} paths so far.`
+          `Worker ${wId} looking for paths to crawl in process ${proc.id}, cursor: ${lastSeenCreatedAt?.toISOString() ?? 'none'}`
         );
         // determine which domains to skip based on their crawl.nextAllowed time
         const now = new Date();
@@ -481,13 +482,17 @@ class DomainClass {
         const paths = await proc.getPathsForDomainCrawl(
           config.manager.pathType as PathType,
           blDomains,
-          pathSkip,
+          lastSeenCreatedAt,
+          lastSeenId,
           pathLimit
         );
-        pathSkip += pathLimit;
         if (!paths.length) {
           continue PROCESS_LOOP;
         }
+
+        const lastPath = paths[paths.length - 1];
+        lastSeenCreatedAt = lastPath.createdAt;
+        lastSeenId = lastPath._id as Types.ObjectId;
 
         // get only unvisited path heads
         const unvisHeads = paths.filter((p) => p.head.status === 'unvisited').map((p) => p.head);

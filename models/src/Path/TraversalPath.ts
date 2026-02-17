@@ -41,6 +41,8 @@ type RecursivePartial<T> = {
 
 // Primary query efficiency
 @index({ "processId": 1, "status": 1 })
+// For keyset pagination (cursor-based pagination)
+@index({ createdAt: 1, _id: 1 })
 // For the predicates count/elems filtering
 @index({ "predicates.count": 1, "processId": 1, "status": 1 })
 @index({ "nodes.count": 1, "processId": 1, "status": 1 })

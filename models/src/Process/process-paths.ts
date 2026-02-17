@@ -66,40 +66,41 @@ export async function getPathsForRobotsChecking(
   }
 }
 
-/**
- * Get paths for a process that are ready for domain crawling, based on the head domain status, head resource status and path limits.
- * @param process ProcessClass instance
- * @param pathType Type of paths to retrieve ('traversal' or 'endpoint')
- * @param domainBlacklist Array of domain origins to exclude from the results
- * @param skip Number of paths to skip (for pagination)
- * @param limit Maximum number of paths to return
- * @returns Array of TraversalPathClass or EndpointPathClass documents with head domain origin, head URL, head status, nodes and predicates selected
- */
 export async function getPathsForDomainCrawl(
   process: ProcessClass,
   pathType: PathType,
   domainBlacklist: string[] = [],
-  skip = 0,
+  lastSeenCreatedAt: Date | null = null,
+  lastSeenId: Types.ObjectId | null = null,
   limit = 20
 ): Promise<TraversalPathClass[] | EndpointPathClass[]> {
-  const select = 'head.status head.domain.origin head.url';
+  const select = 'head.status head.domain.origin head.url createdAt _id';
+
+  // Compound cursor using $gte and $gt - requires compound index on {createdAt: 1, _id: 1}
+  const cursorCondition = lastSeenCreatedAt && lastSeenId
+    ? {
+        createdAt: { $gte: lastSeenCreatedAt },
+        _id: { $gt: lastSeenId }
+      }
+    : {};
 
   if (pathType === 'traversal') {
     const traversalQuery = genTraversalPathQuery(process);
 
     const paths = await TraversalPath.find({
       ...traversalQuery,
+      ...cursorCondition,
       'head.domain.status': 'ready',
       'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited'
     })
-      .sort({ createdAt: 1 }) // older paths first
+      .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
-      .skip(skip)
       .select(select);
     return paths;
   } else {
     const paths = await EndpointPath.find({
+      ...cursorCondition,
       processId: process.pid,
       status: 'active',
       'head.domain.status': 'ready',
@@ -108,9 +109,8 @@ export async function getPathsForDomainCrawl(
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
-      .sort({ createdAt: 1 }) // older paths first
+      .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
-      .skip(skip)
       .select(select);
     return paths;
   }
