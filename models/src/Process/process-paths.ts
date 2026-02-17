@@ -248,9 +248,9 @@ export async function extendExistingPaths(pid: string) {
 
     const cursorCondition: FilterQuery<TraversalPathDocument> = lastSeenCreatedAt && lastSeenId
       ? {
-          createdAt: { $gte: lastSeenCreatedAt },
-          _id: { $gt: lastSeenId }
-        }
+        createdAt: { $gte: lastSeenCreatedAt },
+        _id: { $gt: lastSeenId }
+      }
       : {};
 
     // find a batch of active paths that can be extended
@@ -386,22 +386,27 @@ export async function extendProcessPaths(
 
   const batchSize = 100;
   let hasMorePaths = true;
-  let skipPaths = 0;
+  let lastPathCreatedAt: Date | null = null;
+  let lastPathId: Types.ObjectId | null = null;
 
   let newPaths = [];
   // process paths in batches to avoid using up too much memory
   while (hasMorePaths) {
+    const pathCursorCondition: FilterQuery<TraversalPathClass> = lastPathCreatedAt && lastPathId
+      ? {
+        createdAt: { $gte: lastPathCreatedAt },
+        _id: { $gt: lastPathId }
+      }
+      : {};
+
     const paths =
       pathType === 'traversal'
-        ? await TraversalPath.find(pathQuery)
-          .sort({ 'nodes.count': 1 })
+        ? await TraversalPath.find({ ...pathQuery, ...pathCursorCondition })
+          .sort({ createdAt: 1, _id: 1 })
           .limit(batchSize)
-          .skip(skipPaths)
-        : await EndpointPath.find(pathQuery)
-          .sort({ 'shortestPath.length': 1 })
-          .limit(batchSize)
-          .skip(skipPaths);
-    skipPaths += batchSize;
+        : await EndpointPath.find({ ...pathQuery, ...pathCursorCondition })
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize);
 
     if (!paths.length) {
       log.info(`No active paths found for process ${process.pid} with head URL: ${headUrl}`);
@@ -409,21 +414,35 @@ export async function extendProcessPaths(
       break;
     }
 
+    const lastPath = paths[paths.length - 1];
+    lastPathCreatedAt = lastPath.createdAt;
+    lastPathId = lastPath._id as Types.ObjectId;
+
     let hasMoreTriples = true;
-    let skipTriples = 0;
+    let lastTripleCreatedAt: Date | null = null;
+    let lastTripleId: Types.ObjectId | null = null;
     // process triples in batches to avoid using up too much memory
     while (hasMoreTriples) {
-      const triples = await Triple.find({ nodes: headUrl })
-        .sort({ createdAt: 1 }) // older triples first
-        .limit(batchSize)
-        .skip(skipTriples);
-      skipTriples += batchSize;
+      const tripleCursorCondition: FilterQuery<TraversalPathClass> = lastTripleCreatedAt && lastTripleId
+        ? {
+          createdAt: { $gte: lastTripleCreatedAt },
+          _id: { $gt: lastTripleId }
+        }
+        : {};
+
+      const triples = await Triple.find({ nodes: headUrl, ...tripleCursorCondition })
+        .sort({ createdAt: 1, _id: 1 })
+        .limit(batchSize);
 
       if (!triples.length) {
         log.info(`No triples found connected to head URL: ${headUrl}`);
         hasMoreTriples = false;
         break;
       }
+
+      const lastTriple = triples[triples.length - 1];
+      lastTripleCreatedAt = lastTriple.createdAt;
+      lastTripleId = lastTriple._id as Types.ObjectId;
 
       // extend each path with the new triples and gather new paths and proc-triple associations
       for (const path of paths) {

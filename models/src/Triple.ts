@@ -19,6 +19,8 @@ type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object'>;
 type TripleWithSources = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 'sources'>;
 
 @index({ nodes: 1 })
+// For keyset pagination
+@index({ createdAt: 1, _id: 1 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
 @index({ predicate: 1 })
 @index({ predicate: 1, nodes: 1, subject: 1 })
