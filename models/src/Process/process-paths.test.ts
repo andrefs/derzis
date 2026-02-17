@@ -177,7 +177,7 @@ describe('genTraversalPathQuery', () => {
   });
 
   describe('edge cases', () => {
-    it('handles empty limPredicates array for blacklist', () => {
+    it('handles empty limPredicates array for blacklist - no filter added', () => {
       const predLimit = new PredicateLimitationClass();
       predLimit.limType = 'blacklist';
       predLimit.limPredicates = [];
@@ -187,15 +187,14 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
+      const query = genTraversalPathQuery(process);
 
-      // With empty blacklist, $setIsSubset with empty array is always true
-      // so $not makes it always false - no paths should match
-      expect(query.$expr).toBeDefined();
-      expect(query.$expr.$not.$setIsSubset).toEqual(['$predicates.elems', []]);
+      // With empty blacklist, no predicates are blocked - no filter should be added
+      expect(query['predicates.elems']).toBeUndefined();
+      expect(query.$expr).toBeUndefined();
     });
 
-    it('handles empty limPredicates array for whitelist', () => {
+    it('handles empty limPredicates array for whitelist - matches nothing', () => {
       const predLimit = new PredicateLimitationClass();
       predLimit.limType = 'whitelist';
       predLimit.limPredicates = [];
@@ -205,7 +204,7 @@ describe('genTraversalPathQuery', () => {
         predLimit,
       });
 
-      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
+      const query = genTraversalPathQuery(process);
 
       // With empty whitelist, $in: [] matches nothing
       expect(query['predicates.elems']).toEqual({ $in: [] });

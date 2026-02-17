@@ -196,7 +196,9 @@ export function genTraversalPathQuery(process: ProcessClass): FilterQuery<Traver
   };
 
   // Filter paths that haven't been considered for extension with the current step
-  query.extensionCounter = { $lt: process.pathExtensionCounter };
+  if (process.pathExtensionCounter !== undefined) {
+    query.extensionCounter = { $lt: process.pathExtensionCounter };
+  }
 
   // if there is a whitelist, path must have at least one whitelisted predicate in its existing predicates
   if (limType === 'whitelist') {
@@ -205,7 +207,7 @@ export function genTraversalPathQuery(process: ProcessClass): FilterQuery<Traver
       : { $in: limPredicates };
   }
   // if there is a blacklist, path must have at least one non-blacklisted predicate in its existing predicates
-  else if (limType === 'blacklist') {
+  else if (limType === 'blacklist' && limPredicates.length > 0) {
     if (limPredicates.length === 1) {
       query['predicates.elems'] = { $ne: limPredicates[0] };
     } else {
