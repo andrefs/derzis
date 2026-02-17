@@ -35,23 +35,24 @@ export async function GET({ params, setHeaders }: RequestEvent) {
       );
     } else if (quad.objectLiteral) {
       const { value, language, datatype } = quad.objectLiteral;
+      const LiteralConstructor = Literal as new (value: string, languageOrDatatype?: string | import('n3').NamedNode) => import('n3').Literal;
       if (language) {
         writer.addQuad(
           new NamedNode(quad.subject),
           new NamedNode(quad.predicate),
-          new Literal(value, language)
+          new LiteralConstructor(value, language)
         );
       } else if (datatype) {
         writer.addQuad(
           new NamedNode(quad.subject),
           new NamedNode(quad.predicate),
-          new Literal(value, new NamedNode(datatype))
+          new LiteralConstructor(value, new NamedNode(datatype))
         );
       } else {
         writer.addQuad(
           new NamedNode(quad.subject),
           new NamedNode(quad.predicate),
-          new Literal(value)
+          new LiteralConstructor(value)
         );
       }
     }

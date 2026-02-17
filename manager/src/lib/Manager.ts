@@ -150,15 +150,29 @@ export default class Manager {
       return;
     }
 
+    // TODO: eventually this whitelist will come from Process/Step configuration
+    const LITERAL_PREDICATE_WHITELIST = ['http://www.w3.org/2000/01/rdf-schema#label'];
+
+    // Filter triples: keep all NamedNode triples, and only keep literal triples with whitelisted predicates
+    const filteredTriples = triples.filter((t) => {
+      if (t.object !== undefined) {
+        return true;
+      }
+      if (t.objectLiteral && LITERAL_PREDICATE_WHITELIST.includes(t.predicate)) {
+        return true;
+      }
+      return false;
+    });
+
     const source = (await Resource.findOne({
       url: sourceUrl
     })) as ResourceClass;
 
     // add new resources
-    await Resource.addFromTriples(triples);
+    await Resource.addFromTriples(filteredTriples);
 
     // add new triples in batches
-    const res = await Triple.upsertMany(source, triples);
+    const res = await Triple.upsertMany(source, filteredTriples);
 
     // extend paths with source url as head
     await this.updateAllPathsWithHead(source.url);
