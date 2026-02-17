@@ -102,8 +102,7 @@ export async function getPathsForDomainCrawl(
       'predicates.count': { $lte: process.currentStep.maxPathProps },
       ...predLimFilter
     })
-      // shorter paths first
-      .sort({ 'nodes.count': 1 })
+      .sort({ createdAt: 1 }) // older paths first
       .limit(limit)
       .skip(skip)
       .select(select);
@@ -114,7 +113,7 @@ export async function getPathsForDomainCrawl(
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
-      .sort({ 'shortestPath.length': 1 })
+      .sort({ createdAt: 1 }) // older paths first
       .limit(limit)
       .skip(skip)
       .select(select);
