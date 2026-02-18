@@ -79,7 +79,7 @@ class ProcessClass extends Document {
   createdAt?: Date;
   updatedAt?: Date;
 
-  @prop({ index: true, unique: true, type: String })
+  @prop({ type: String })
   public pid!: string;
 
   @prop({ required: true, type: NotificationClass })

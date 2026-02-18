@@ -111,7 +111,7 @@ class CrawlClass {
 @index({ status: 1, 'crawl.nextAllowed': 1 })
 @index({ 'crawl.pathHeads': 1, 'crawl.nextAllowed': 1 })
 class DomainClass {
-  @prop({ required: true, index: true, unique: true, type: String })
+  @prop({ required: true, type: String })
   public origin!: string;
 
   @prop({
