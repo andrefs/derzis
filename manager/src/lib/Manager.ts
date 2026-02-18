@@ -2,7 +2,8 @@ import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import {
   Domain,
-  Triple,
+  NamedNodeTriple,
+  LiteralTriple,
   TraversalPath,
   Resource,
   Process,
@@ -155,10 +156,11 @@ export default class Manager {
 
     // Filter triples: keep all NamedNode triples, and only keep literal triples with whitelisted predicates
     const filteredTriples = triples.filter((t) => {
-      if (t.object !== undefined) {
+      if (typeof t.object === 'string') {
         return true;
       }
-      if (t.objectLiteral && LITERAL_PREDICATE_WHITELIST.includes(t.predicate)) {
+      // t.object is LiteralObject
+      if (LITERAL_PREDICATE_WHITELIST.includes(t.predicate)) {
         return true;
       }
       return false;
@@ -171,10 +173,19 @@ export default class Manager {
     // add new resources
     await Resource.addFromTriples(filteredTriples);
 
-    log.info('Calling Triple.upsertMany with', filteredTriples.length, 'triples');
-    // add new triples in batches
-    const res = await Triple.upsertMany(source, filteredTriples);
-    log.info('Triple.upsertMany result:', res);
+    // Split into NamedNode and Literal triples
+    const namedNodeTriples = filteredTriples.filter((t) => t.type === 'namedNode');
+    const literalTriples = filteredTriples.filter((t) => t.type === 'literal');
+
+    // Store NamedNode triples (used for path expansion)
+    log.info('Calling NamedNodeTriple.upsertMany with', namedNodeTriples.length, 'triples');
+    const namedNodeResult = await NamedNodeTriple.upsertMany(source, namedNodeTriples);
+    log.info('NamedNodeTriple.upsertMany result:', namedNodeResult);
+
+    // Store Literal triples (stored only, not used for path expansion)
+    log.info('Calling LiteralTriple.upsertMany with', literalTriples.length, 'triples');
+    const literalResult = await LiteralTriple.upsertMany(source, literalTriples);
+    log.info('LiteralTriple.upsertMany result:', literalResult);
 
     // extend paths with source url as head
     log.info('Calling updateAllPathsWithHead for:', source.url);
