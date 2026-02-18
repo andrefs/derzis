@@ -241,9 +241,9 @@ export async function* getAllDomains(process: ProcessClass) {
 export async function getInfo(process: DocumentType<ProcessClass>) {
   const baseFilter = { processId: process.pid };
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
-  const lastLLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
+  const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
-  const lastTriple = [lastLLT, lastNNT].reduce((latest, t) => {
+  const lastTriple = [lastLT, lastNNT].reduce((latest, t) => {
     if (!t) return latest;
     return !latest || t.updatedAt > latest.updatedAt ? t : latest;
   }, null as (LiteralTripleClass | NamedNodeTripleClass | null));

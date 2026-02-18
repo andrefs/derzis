@@ -1,4 +1,4 @@
-import { StepClass, Process, ProcessClass, Resource, Triple, TraversalPath } from '@derzis/models';
+import { StepClass, Process, ProcessClass, Resource, NamedNodeTriple, TraversalPath, LiteralTriple, LiteralTripleClass, NamedNodeTripleClass } from '@derzis/models';
 import { type RecursivePartial } from '@derzis/common';
 import { sendInitEmail } from '@derzis/common/server';
 import { secondsToString, type MakeOptional } from './utils';
@@ -92,7 +92,13 @@ export async function info(pid: string) {
   }
 
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO this should be process specific
-  const lastTriple = await Triple.findOne().sort({ updatedAt: -1 });
+  const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
+  const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
+  const lastTriple = [lastLT, lastNNT].reduce((latest, t) => {
+    if (!t) return latest;
+    return !latest || t.updatedAt > latest.updatedAt ? t : latest;
+  }, null as (LiteralTripleClass | NamedNodeTripleClass | null));
+
   const lastPath = await TraversalPath.findOne({ status: 'active' }).sort({ updatedAt: -1 });
   const last = Math.max(
     lastResource?.updatedAt.getTime() || 0,
