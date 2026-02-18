@@ -3,21 +3,28 @@ import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath } from '../Path';
-import { Domain } from '../Domain';
-import { Triple } from '../Triple';
+import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, type NamedNodeTripleClass } from '../Triple';
 
+/**
+ * Get triples for a process as an async generator
+ * @param {ProcessClass} process - the process to get triples for
+ * @returns {AsyncGenerator<SimpleTriple>} - an async generator yielding triples
+ */
 export async function* getTriples(process: ProcessClass) {
   const procTriples = ProcessTriple.find({
     processId: process.pid
   }).populate('triple');
   for await (const procTriple of procTriples) {
-    const triple = procTriple.triple;
+    const triple = procTriple.tripleCollection === 'NamedNodeTriple'
+      ? (procTriple.triple as NamedNodeTripleClass)
+      : (procTriple.triple as LiteralTripleClass);
+
     yield {
       subject: triple.subject,
       predicate: triple.predicate,
       object: triple.object,
-      objectLiteral: triple.objectLiteral,
-      createdAt: (procTriple as any).createdAt
+      type: 'namedNode' as const,
+      createdAt: procTriple.createdAt
     };
   }
 }
@@ -29,7 +36,7 @@ export async function* getTriplesJson(
   for await (const t of getTriples(process)) {
     const obj = includeCreatedAt
       ? t
-      : { subject: t.subject, predicate: t.predicate, object: t.object, objectLiteral: t.objectLiteral };
+      : { subject: t.subject, predicate: t.predicate, object: t.object };
     yield JSON.stringify(obj);
   }
 }
@@ -226,10 +233,20 @@ export async function* getAllDomains(process: ProcessClass) {
   }
 }
 
+/**
+ * Get info about a process including counts of resources, triples, domains, paths, and timing metrics
+ * @param {DocumentType<ProcessClass>} process - the process to get info for
+ * @returns {Promise<object>} - an object containing info about the process
+ */
 export async function getInfo(process: DocumentType<ProcessClass>) {
   const baseFilter = { processId: process.pid };
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
-  const lastTriple = await Triple.findOne().sort({ updatedAt: -1 });
+  const lastLLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
+  const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
+  const lastTriple = [lastLLT, lastNNT].reduce((latest, t) => {
+    if (!t) return latest;
+    return !latest || t.updatedAt > latest.updatedAt ? t : latest;
+  }, null as (LiteralTripleClass | NamedNodeTripleClass | null));
   const lastPath = await TraversalPath.findOne({ status: 'active' }).sort({ updatedAt: -1 });
   const last = Math.max(
     lastResource?.updatedAt.getTime() || 0,
@@ -243,16 +260,16 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   }).lean();
   const avgPathLength = totalPaths
     ? await TraversalPath.aggregate([
-        { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-      ]).then((res) => res[0]?.avgLength || 0)
+      { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
+      { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+    ]).then((res) => res[0]?.avgLength || 0)
     : 0;
 
   const avgPathProps = totalPaths
     ? await TraversalPath.aggregate([
-        { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-      ]).then((res) => res[0]?.avgProps || 0)
+      { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
+      { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+    ]).then((res) => res[0]?.avgProps || 0)
     : 0;
 
   const timeToLastResource = lastResource
@@ -348,4 +365,5 @@ export function curPredsDirMetrics(
   }, new Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>());
 }
 
-import { type DocumentType } from '@typegoose/typegoose';
+import { type DocumentType } from '@typegoose/typegoose'; import { SimpleTriple } from '@derzis/common';
+

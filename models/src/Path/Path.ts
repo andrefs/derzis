@@ -1,8 +1,7 @@
 import { Types, FilterQuery } from 'mongoose';
 import { PathType, urlListValidator, urlValidator } from '@derzis/common';
-import { createLogger } from '@derzis/common/server';
 import { prop, PropType, Severity, modelOptions } from '@typegoose/typegoose';
-import { TripleClass } from '../Triple';
+import { NamedNodeTripleClass } from '../Triple';
 import { ProcessClass } from '../Process';
 import { type TraversalPathSkeleton } from './TraversalPath';
 import { type EndpointPathSkeleton } from './EndpointPath';
@@ -89,20 +88,24 @@ export abstract class PathClass {
   @prop({ default: 0, type: Number })
   public extensionCounter!: number;
 
-  public abstract shouldCreateNewPath(t: TripleClass): boolean;
+  public abstract shouldCreateNewPath(t: NamedNodeTripleClass): boolean;
 
-  public abstract tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean;
+  public abstract tripleIsOutOfBounds(t: NamedNodeTripleClass, process: ProcessClass): boolean;
 
-  public abstract genExistingTriplesFilter(process: ProcessClass): FilterQuery<TripleClass> | null;
+  public abstract genExistingTriplesFilter(process: ProcessClass): FilterQuery<NamedNodeTripleClass> | null;
 
   public abstract copy(): PathSkeleton;
 
   public abstract genExtended(
-    triples: TripleClass[],
+    triples: NamedNodeTripleClass[],
     process: ProcessClass
-  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }>;
+  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: ProcTripleIdType[] }>;
 
   public abstract extendWithExistingTriples(
     proc: ProcessClass
-  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }>;
+  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: ProcTripleIdType[] }>;
+}
+export interface ProcTripleIdType {
+  id: Types.ObjectId,
+  type: 'literal' | 'namedNode'
 }

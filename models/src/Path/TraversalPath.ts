@@ -1,12 +1,13 @@
 import { Types, Document, FilterQuery } from 'mongoose';
 import { prop, index, pre, getModelForClass, PropType } from '@typegoose/typegoose';
-import { TripleClass, Triple, type TripleDocument } from '../Triple';
+import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
-import { PathClass, type PathSkeleton, ResourceCount } from './Path';
+import { PathClass, ProcTripleIdType, ResourceCount } from './Path';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
+import { TripleType } from '@derzis/common';
 const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
 
 export type TraversalPathSkeleton = Pick<
@@ -84,7 +85,7 @@ class TraversalPathClass extends PathClass {
   @prop({ type: ResourceCount })
   public nodes!: ResourceCount;
 
-  @prop({ required: true, ref: 'Triple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
+  @prop({ required: true, ref: 'NamedNodeTriple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
   public triples!: Types.ObjectId[];
 
   // type is always 'traversal' for this class
@@ -110,24 +111,30 @@ class TraversalPathClass extends PathClass {
     return copy;
   }
 
+  /**
+   * Generates extended paths based on the provided triples and process configuration.
+   * @param triples The list of triples to consider for path extension.
+   * @param process The current process instance containing configuration for path extension.
+   * @returns An object containing the extended paths and the corresponding triples to be processed.
+   */
   public async genExtended(
-    triples: TripleClass[],
+    triples: NamedNodeTripleClass[],
     process: ProcessClass
-  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
+  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: ProcTripleIdType[] }> {
     let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
-    let procTriples: Types.ObjectId[] = [];
+    let procTriples: ProcTripleIdType[] = [];
     const predsDirMetrics = process.curPredsDirMetrics();
     const followDirection = process!.currentStep.followDirection;
 
     for (const t of triples.filter(
       (t) =>
-        t.object !== undefined &&
+        typeof t.object === 'string' &&
         this.shouldCreateNewPath(t) &&
         process?.whiteBlackListsAllow(t) &&
         t.directionOk(this.head.url, followDirection, predsDirMetrics)
     )) {
       log.silly('Extending path with triple', t);
-      const newHeadUrl: string = t.subject === this.head.url ? t.object! : t.subject;
+      const newHeadUrl: string = t.subject === this.head.url ? t.object : t.subject;
       const prop = t.predicate;
 
       extendedPaths[prop] = extendedPaths[prop] || {};
@@ -140,7 +147,7 @@ class TraversalPathClass extends PathClass {
         ep.nodes.elems.push(newHeadUrl);
         ep.status = 'active';
 
-        procTriples.push(t._id);
+        procTriples.push({ id: t._id, type: 'namedNode' as TripleType });
         log.silly('New path', ep);
         extendedPaths[prop][newHeadUrl] = ep;
       }
@@ -152,11 +159,7 @@ class TraversalPathClass extends PathClass {
     return { extendedPaths: eps, procTriples };
   }
 
-  public shouldCreateNewPath(this: TraversalPathClass, t: TripleClass): boolean {
-    if (t.object === undefined) {
-      return false;
-    }
-
+  public shouldCreateNewPath(this: TraversalPathClass, t: NamedNodeTripleClass): boolean {
     if (t.subject === t.object) {
       return false;
     }
@@ -174,7 +177,7 @@ class TraversalPathClass extends PathClass {
     return true;
   }
 
-  public tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean {
+  public tripleIsOutOfBounds(t: NamedNodeTripleClass, process: ProcessClass): boolean {
     const pathPreds: Set<string> = new Set(this.predicates.elems);
     return (
       this.nodes.count >= process.currentStep.maxPathLength ||
@@ -194,7 +197,7 @@ class TraversalPathClass extends PathClass {
     limType: string,
     limPredicates: string[],
     pathFull: boolean
-  ): { allowed: Set<string>; notAllowed: Set<string>; predFilter: FilterQuery<TripleClass> } | null {
+  ): { allowed: Set<string>; notAllowed: Set<string>; predFilter: FilterQuery<NamedNodeTripleClass> } | null {
     const allowed = new Set<string>();
     const notAllowed = new Set<string>();
 
@@ -260,7 +263,7 @@ class TraversalPathClass extends PathClass {
     limType: string,
     followDirection: boolean,
     predsDirMetrics: Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined
-  ): FilterQuery<TripleClass> {
+  ): FilterQuery<NamedNodeTripleClass> {
     if (!followDirection || !predsDirMetrics || predsDirMetrics.size === 0) {
       return {};
     }
@@ -346,7 +349,7 @@ class TraversalPathClass extends PathClass {
   * @param process The current process instance containing the current step's configuration.
   * @returns An object representing the filter for existing triples, or null if no triples should be returned based on the limits.
   */
-  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<TripleClass> | null {
+  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<NamedNodeTripleClass> | null {
     const limType = process.currentStep.predLimit.limType;
     const limPredicates = process.currentStep.predLimit.limPredicates || [];
     const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
@@ -389,19 +392,19 @@ class TraversalPathClass extends PathClass {
 
   public async extendWithExistingTriples(
     process: ProcessClass
-  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: Types.ObjectId[] }> {
+  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: ProcTripleIdType[] }> {
     const triplesFilter = this.genExistingTriplesFilter(process);
     if (!triplesFilter) {
       return { extendedPaths: [], procTriples: [] };
     }
-    let triples: TripleDocument[] = await Triple.find(triplesFilter);
+    let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
     if (!triples.length) {
       return { extendedPaths: [], procTriples: [] };
     }
     log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
     return this.genExtended(triples, process) as Promise<{
       extendedPaths: TraversalPathSkeleton[];
-      procTriples: Types.ObjectId[];
+      procTriples: ProcTripleIdType[];
     }>;
   }
 }

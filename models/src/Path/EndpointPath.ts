@@ -1,9 +1,9 @@
-import { Types, Document, type FilterQuery } from 'mongoose';
+import { Document, type FilterQuery } from 'mongoose';
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
-import { TripleClass, Triple, type TripleDocument } from '../Triple';
+import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
-import { PathClass } from './Path';
-import { type RecursivePartial } from '@derzis/common';
+import { PathClass, ProcTripleIdType } from './Path';
+import { TripleType, type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
 
@@ -49,11 +49,7 @@ class EndpointPathClass extends PathClass {
   @prop({ enum: ['endpoint'], required: true, type: String, default: 'endpoint' })
   public type!: 'endpoint';
 
-  public shouldCreateNewPath(this: EndpointPathClass, t: TripleClass): boolean {
-    if (t.object === undefined) {
-      return false;
-    }
-
+  public shouldCreateNewPath(this: EndpointPathClass, t: NamedNodeTripleClass): boolean {
     if (t.subject === t.object) {
       return false;
     }
@@ -65,13 +61,11 @@ class EndpointPathClass extends PathClass {
     return true;
   }
 
-  public tripleIsOutOfBounds(t: TripleClass, process: ProcessClass): boolean {
+  public tripleIsOutOfBounds(t: NamedNodeTripleClass, process: ProcessClass): boolean {
     return this.shortestPath.length + 1 > process.currentStep.maxPathLength;
   }
 
-  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<TripleClass> {
-
-    console.log('XXXXXXXXXXXXXX EndpointPath genExistingTriplesFilter');
+  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<NamedNodeTripleClass> {
     return {
       processId: this.processId,
       nodes: this.head.url
@@ -80,16 +74,13 @@ class EndpointPathClass extends PathClass {
 
   public async extendWithExistingTriples(
     process: ProcessClass
-  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: Types.ObjectId[] }> {
+  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: ProcTripleIdType[] }> {
     const triplesFilter = this.genExistingTriplesFilter(process);
-    let triples: TripleDocument[] = await Triple.find(triplesFilter);
+    let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
     if (!triples.length) {
       return { extendedPaths: [], procTriples: [] };
     }
-    return this.genExtended(triples, process) as Promise<{
-      extendedPaths: EndpointPathSkeleton[];
-      procTriples: Types.ObjectId[];
-    }>;
+    return this.genExtended(triples, process) as Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: ProcTripleIdType[] }>;
   }
 
   public copy(this: EndpointPathClass): EndpointPathSkeleton {
@@ -113,17 +104,17 @@ class EndpointPathClass extends PathClass {
   }
 
   public async genExtended(
-    triples: TripleClass[],
+    triples: NamedNodeTripleClass[],
     process: ProcessClass
-  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: Types.ObjectId[] }> {
+  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: ProcTripleIdType[] }> {
     let extendedPaths: { [prop: string]: { [newHead: string]: EndpointPathSkeleton } } = {};
-    let procTriples: Types.ObjectId[] = [];
+    let procTriples: ProcTripleIdType[] = [];
     const predsDirMetrics = process.curPredsDirMetrics();
     const followDirection = process!.currentStep.followDirection;
 
     for (const t of triples.filter(
       (t) =>
-        t.object !== undefined &&
+        typeof t.object === 'string' &&
         this.shouldCreateNewPath(t) &&
         process?.whiteBlackListsAllow(t) &&
         t.directionOk(this.head.url, followDirection, predsDirMetrics)
@@ -156,7 +147,7 @@ class EndpointPathClass extends PathClass {
         ep.frontier = true;
         ep.status = 'active';
 
-        procTriples.push(t._id);
+        procTriples.push({ id: t._id, type: 'literal' as TripleType });
         log.silly('New path', ep);
         extendedPaths[prop][newHeadUrl] = ep;
       }

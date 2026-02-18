@@ -23,4 +23,8 @@ export abstract class TripleClass {
 
   @prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)
   public sources?: string[];
+
+
+  @prop({ enum: ['literal', 'namedNode'], required: true, type: String })
+  public type!: 'literal' | 'namedNode';
 }

@@ -1,6 +1,5 @@
 import { Types, Document, FilterQuery } from 'mongoose';
 import { Resource } from '../Resource';
-import { TripleClass } from '../Triple';
 import { humanize } from 'humanize-digest';
 import {
   TraversalPath,
@@ -55,6 +54,7 @@ import config from '@derzis/config';
 @index({ status: 1 })
 @index({ createdAt: 1 })
 @index({ status: 1, createdAt: -1 })
+// Before saving a new process, set the pid and notification.ssePath if not already set
 @pre<ProcessClass>('save', async function () {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));
   const count = await Process.countDocuments({
@@ -75,6 +75,12 @@ import config from '@derzis/config';
   const ssePath = `/processes/${this.pid}/events`;
   this.notification.ssePath = ssePath;
 })
+
+/**
+ * Process model representing a crawling process with multiple steps, notifications and path management.
+ * Each process has a unique pid, a notification object for SSE notifications, a description, a current step with crawling limits, and a list of all steps.
+ * The process manages the crawling paths according to the current step's limits and notifies about step and process events.
+ */
 class ProcessClass extends Document {
   createdAt?: Date;
   updatedAt?: Date;
@@ -133,7 +139,12 @@ class ProcessClass extends Document {
   @prop({ default: 1, type: Number })
   public pathExtensionCounter!: number;
 
-  public whiteBlackListsAllow(this: ProcessClass, t: TripleClass) {
+  /**
+   * Check if a triple is allowed by the current step's white/blacklist
+   * @param t - Triple to check
+   * @returns {boolean} - Whether the triple is allowed
+   */
+  public whiteBlackListsAllow(this: ProcessClass, t: { predicate: string }): boolean {
     // triple predicate allowed by white/blacklist
     if (!this.currentStep.predLimit) {
       return true;

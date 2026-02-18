@@ -83,10 +83,11 @@ export type LiteralObject = {
   language?: string;
 };
 
+export type TripleType = 'literal' | 'namedNode';
 export interface BaseSimpleTriple {
   subject: string;
   predicate: string;
-  type: 'literal' | 'namedNode';
+  type: TripleType;
 }
 export type SimpleLiteralTriple = BaseSimpleTriple & {
   object: LiteralObject;
