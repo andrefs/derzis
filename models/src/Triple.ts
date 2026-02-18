@@ -1,7 +1,6 @@
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import { urlValidator, directionOk } from '@derzis/common';
-import type { SimpleTriple, LiteralObject } from '@derzis/common';
 const log = createLogger('Triple');
 import type { ResourceClass } from './Resource';
 import type { Types } from 'mongoose';
@@ -17,6 +16,17 @@ import { BranchFactorClass, SeedPosRatioClass } from './Process/aux-classes';
 
 type TripleSkeleton = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 'objectLiteral'>;
 type TripleWithSources = Pick<TripleClass, 'subject' | 'predicate' | 'object' | 'objectLiteral' | 'sources'>;
+
+class LiteralObject {
+  @prop({ required: true, type: String })
+  public value!: string;
+
+  @prop({ required: false, type: String })
+  public datatype?: string;
+
+  @prop({ required: false, type: String })
+  public language?: string;
+}
 
 @index({ nodes: 1 })
 // For keyset pagination
@@ -41,7 +51,7 @@ class TripleClass {
   @prop({ required: false, validate: urlValidator, type: String })
   public object?: string;
 
-  @prop({ required: false, type: Object })
+  @prop({ required: false, type: () => ({ value: { type: String, required: true }, language: String, datatype: String }) })
   public objectLiteral?: LiteralObject;
 
   @prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)
@@ -68,7 +78,7 @@ class TripleClass {
     for (const t of triples) {
       let key: string;
       let filterField: { object?: string; objectLiteral?: LiteralObject };
-      
+
       if (t.object !== undefined) {
         // NamedNode triple
         key = `${t.subject}\u0000${t.predicate}\u0000${t.object}`;
@@ -99,7 +109,7 @@ class TripleClass {
     const ops = [...tripleMap.values()].map((t) => {
       let nodes: string[];
       let updateSet: Record<string, unknown>;
-      
+
       if (t.object !== undefined) {
         // NamedNode triple - include object in nodes array for traversal
         nodes = [t.subject, t.object];

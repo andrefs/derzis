@@ -3,6 +3,17 @@ import { urlValidator } from '@derzis/common';
 
 import { prop, index, getModelForClass, PropType } from '@typegoose/typegoose';
 
+class LiteralObject {
+  @prop({ required: true, type: String })
+  public value!: string;
+
+  @prop({ required: false, type: String })
+  public datatype?: string;
+
+  @prop({ required: false, type: String })
+  public language?: string;
+}
+
 class TripClass {
   @prop({ required: true, type: String })
   public subject!: string;
@@ -10,8 +21,11 @@ class TripClass {
   @prop({ required: true, type: String })
   public predicate!: string;
 
-  @prop({ required: true, type: String })
-  public object!: string;
+  @prop({ required: false, validate: urlValidator, type: String })
+  public object?: string;
+
+  @prop({ required: false, type: LiteralObject })
+  public objectLiteral?: LiteralObject;
 }
 
 @index({ url: 1 })

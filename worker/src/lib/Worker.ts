@@ -284,12 +284,33 @@ export class Worker extends EventEmitter {
       }
       
       const rawTripleCount = triples.length;
+      
+      const invalidTriples = triples.filter(
+        (t) =>
+          !(t.subject?.termType === 'NamedNode' &&
+            t.predicate?.termType === 'NamedNode' &&
+            t.object !== undefined &&
+            t.object.termType !== undefined &&
+            (t.object.termType === 'NamedNode' || t.object.termType === 'Literal'))
+      );
+      if (invalidTriples.length > 0) {
+        log.debug(`Found ${invalidTriples.length} invalid triples, examples:`, 
+          invalidTriples.slice(0, 3).map(t => ({
+            subject: t.subject?.value,
+            predicate: t.predicate?.value,
+            object: t.object,
+            objectTermType: t.object?.termType
+          }))
+        );
+      }
+      
       const simpleTriples = triples
         .filter(
           (t) =>
             t.subject?.termType === 'NamedNode' &&
             t.predicate?.termType === 'NamedNode' &&
             t.object !== undefined &&
+            t.object.termType !== undefined &&
             (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
         )
         .map(
