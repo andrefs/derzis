@@ -143,7 +143,7 @@ export default class Manager {
    * @param triples Array of triples to process
    */
   async processNewTriples(sourceUrl: string, triples: SimpleTriple[]) {
-    log.silly('Triples:', triples);
+    log.info('processNewTriples called for:', sourceUrl, 'with', triples.length, 'triples');
 
     if (!triples.length) {
       log.warn('No triples found when dereferencing', sourceUrl);
@@ -171,11 +171,15 @@ export default class Manager {
     // add new resources
     await Resource.addFromTriples(filteredTriples);
 
+    log.info('Calling Triple.upsertMany with', filteredTriples.length, 'triples');
     // add new triples in batches
     const res = await Triple.upsertMany(source, filteredTriples);
+    log.info('Triple.upsertMany result:', res);
 
     // extend paths with source url as head
+    log.info('Calling updateAllPathsWithHead for:', source.url);
     await this.updateAllPathsWithHead(source.url);
+    log.info('updateAllPathsWithHead complete');
   }
 
   /**
@@ -193,9 +197,13 @@ export default class Manager {
         ? await TraversalPath.distinct('processId', query)
         : await EndpointPath.distinct('processId', query);
 
+    log.info('updateAllPathsWithHead - found pids:', pids, 'for headUrl:', headUrl);
+
     for (const pid of pids) {
       const proc = await Process.findOne({ pid });
+      log.info('Calling extendProcessPaths for pid:', pid, 'headUrl:', headUrl);
       await proc?.extendProcessPaths(headUrl, config.manager.pathType as PathType);
+      log.info('extendProcessPaths complete for pid:', pid);
     }
   }
 

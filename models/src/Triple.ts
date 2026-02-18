@@ -31,7 +31,10 @@ class LiteralObject {
 @index({ nodes: 1 })
 // For keyset pagination
 @index({ createdAt: 1, _id: 1 })
-@index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
+// Unique index for NamedNode triples only (when object is a string)
+@index({ subject: 1, predicate: 1, object: 1 }, { unique: true, partialFilterExpression: { object: { $type: 'string' } } })
+// Unique index for Literal triples only (when objectLiteral.value is a string)
+@index({ subject: 1, predicate: 1, 'objectLiteral.value': 1, 'objectLiteral.language': 1, 'objectLiteral.datatype': 1 }, { unique: true, partialFilterExpression: { 'objectLiteral.value': { $type: 'string' } } })
 @index({ predicate: 1 })
 @index({ predicate: 1, nodes: 1, subject: 1 })
 @index({ 'objectLiteral.language': 1, 'objectLiteral.value': 1 })
@@ -75,21 +78,24 @@ class TripleClass {
   ): Promise<BulkWriteResult[]> {
     // deduplicate triples and aggregate sources
     const tripleMap = new Map<string, TripleWithSources>();
+    let skippedInvalid = 0;
     for (const t of triples) {
       let key: string;
       let filterField: { object?: string; objectLiteral?: LiteralObject };
 
-      if (t.object !== undefined) {
+      // Skip triples with invalid object (null but not undefined, or empty)
+      if (t.object !== undefined && t.object !== null && t.object !== '') {
         // NamedNode triple
         key = `${t.subject}\u0000${t.predicate}\u0000${t.object}`;
         filterField = { object: t.object };
-      } else if (t.objectLiteral) {
+      } else if (t.objectLiteral && t.objectLiteral.value !== null && t.objectLiteral.value !== undefined && t.objectLiteral.value !== '') {
         // Literal triple - key includes hash of objectLiteral for uniqueness
         const litKey = JSON.stringify(t.objectLiteral);
         key = `${t.subject}\u0000${t.predicate}\u0000${litKey}`;
         filterField = { objectLiteral: t.objectLiteral };
       } else {
-        log.warn('Triple has neither object nor objectLiteral, skipping', t);
+        log.warn('Skipping invalid triple:', t.subject, t.predicate, { object: t.object, objectLiteral: t.objectLiteral });
+        skippedInvalid++;
         continue;
       }
 
@@ -106,11 +112,18 @@ class TripleClass {
       }
     }
 
+    log.debug(`Processed ${triples.length} triples, skipped ${skippedInvalid} invalid, unique: ${tripleMap.size}`);
+
+    if (tripleMap.size > 0) {
+      const sample = [...tripleMap.values()][0];
+      log.debug('Sample triple being saved:', JSON.stringify({ subject: sample.subject, predicate: sample.predicate, hasObject: 'object' in sample && sample.object !== null, hasObjectLiteral: !!sample.objectLiteral }));
+    }
+
     const ops = [...tripleMap.values()].map((t) => {
       let nodes: string[];
       let updateSet: Record<string, unknown>;
 
-      if (t.object !== undefined) {
+      if (t.object !== undefined && t.object !== null && t.object !== '') {
         // NamedNode triple - include object in nodes array for traversal
         nodes = [t.subject, t.object];
         updateSet = {
@@ -120,13 +133,12 @@ class TripleClass {
           objectLiteral: null,
           nodes
         };
-      } else if (t.objectLiteral) {
+      } else if (t.objectLiteral && t.objectLiteral.value !== null && t.objectLiteral.value !== undefined && t.objectLiteral.value !== '') {
         // Literal triple - only subject in nodes (literals can't be traversed)
         nodes = [t.subject];
         updateSet = {
           subject: t.subject,
           predicate: t.predicate,
-          object: null,
           objectLiteral: t.objectLiteral,
           nodes
         };
@@ -139,7 +151,9 @@ class TripleClass {
           filter: {
             subject: t.subject,
             predicate: t.predicate,
-            ...(t.object !== undefined ? { object: t.object } : { objectLiteral: t.objectLiteral })
+            ...(t.object !== undefined && t.object !== null && t.object !== '' 
+              ? { object: t.object } 
+              : { object: null, objectLiteral: t.objectLiteral })
           },
           update: {
             $setOnInsert: updateSet,
@@ -151,6 +165,13 @@ class TripleClass {
         }
       };
     });
+
+    // Log first few ops for debugging
+    for (let i = 0; i < Math.min(3, ops.length); i++) {
+      const op = ops[i];
+      log.debug('Op filter:', JSON.stringify(op.updateOne.filter));
+      log.debug('Op updateSet:', JSON.stringify((op.updateOne.update as any).$setOnInsert));
+    }
 
     const BATCH_SIZE = 500;
     const results: BulkWriteResult[] = [];

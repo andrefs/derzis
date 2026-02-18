@@ -427,6 +427,8 @@ export async function extendProcessPaths(
           .sort({ createdAt: 1, _id: 1 })
           .limit(batchSize);
 
+    log.info(`extendProcessPaths: Found ${paths.length} paths for headUrl: ${headUrl}`);
+
     if (!paths.length) {
       log.info(`No active paths found for process ${process.pid} with head URL: ${headUrl}`);
       hasMorePaths = false;
@@ -452,6 +454,8 @@ export async function extendProcessPaths(
       const triples = await Triple.find({ nodes: headUrl, ...tripleCursorCondition })
         .sort({ createdAt: 1, _id: 1 })
         .limit(batchSize);
+
+      log.info(`extendProcessPaths: Found ${triples.length} triples with nodes: ${headUrl}`);
 
       if (!triples.length) {
         log.info(`No triples found connected to head URL: ${headUrl}`);

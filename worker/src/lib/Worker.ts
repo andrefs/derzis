@@ -334,20 +334,47 @@ export class Worker extends EventEmitter {
               } as SimpleTriple;
             }
           }
-        );
+        )
+        .filter((t) => {
+          // Drop triples with invalid/missing object
+          const hasObject = t.object !== undefined && t.object !== null;
+          const hasObjectLiteral = t.objectLiteral?.value !== null && t.objectLiteral?.value !== undefined && t.objectLiteral?.value !== '';
+          
+          if (!hasObject && !hasObjectLiteral) {
+            log.debug(`Dropping triple with neither valid object nor objectLiteral: ${t.subject} ${t.predicate}`);
+            return false;
+          }
+          
+          if (hasObjectLiteral && (t.objectLiteral?.value === null || t.objectLiteral?.value === undefined || t.objectLiteral?.value === '')) {
+            log.debug(`Dropping triple with null/undefined/empty objectLiteral.value: ${t.subject} ${t.predicate}`);
+            return false;
+          }
+          
+          return true;
+        });
       
       const filteredCount = simpleTriples.length;
       const droppedCount = rawTripleCount - filteredCount;
       if (droppedCount > 0) {
         log.debug(`Dropped ${droppedCount} triples from ${url} (blank nodes, default graph, etc.)`);
       }
-      
+
       try {
         await ResourceCache.create({
           url,
           triples: simpleTriples
         });
       } catch (cacheErr) {
+        const err = cacheErr as Error & { errors?: Record<string, { path: string; value?: unknown }> };
+        if (err.errors) {
+          for (const [key, val] of Object.entries(err.errors)) {
+            const match = key.match(/triples\.(\d+)/);
+            if (match) {
+              const idx = parseInt(match[1], 10);
+              log.warn(`Offending triple at index ${idx}:`, simpleTriples[idx]);
+            }
+          }
+        }
         log.warn(`Failed to cache resource ${url}:`, cacheErr);
       }
       
