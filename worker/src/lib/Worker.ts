@@ -88,6 +88,9 @@ export class Worker extends EventEmitter {
    */
   crawlCounter!: number;
 
+  /**
+   * Connect to MongoDB
+   */
   async connect() {
     const dbName = DERZIS_WRK_DB_NAME || 'derzis-wrk-default';
     const dbPort = MONGO_PORT ? parseInt(MONGO_PORT) : 27017;
@@ -167,6 +170,11 @@ export class Worker extends EventEmitter {
     }
   }
 
+  /**
+  * Crawl a domain and its resources, yielding results for each resource crawl.
+  * Uses robots.txt to check if crawling is allowed and to respect crawl delays.
+  * Caches resource triples in MongoDB for future requests.
+  */
   async *crawlDomain({ jobId, domain, resources }: DomainCrawlJobRequest) {
     this.crawlTs = new Date();
     this.crawlCounter = 0;
@@ -200,6 +208,10 @@ export class Worker extends EventEmitter {
     return ResourceCache.findOne({ url });
   }
 
+  /**
+  * Crawl a single resource, checking robots.txt permissions and using cached triples if available.
+  * Returns structured results including status, crawl ID, triples, and errors if any.
+  */
   async crawlResource(
     jobId: number,
     origin: string,
@@ -274,17 +286,21 @@ export class Worker extends EventEmitter {
     return jobResult as CrawlResourceResult;
   }
 
+  /**
+   * Fetches a resource over HTTP, parses RDF content, filters and structures triples, and caches results.
+   * Handles HTTP errors, redirects, and RDF parsing issues gracefully, logging relevant information.
+   */
   async fetchResource(url: string) {
     const res = await this.getHttpContent(url);
     if (res.status === 'ok') {
       const { triples, errors } = await parseRdf(res.rdf, res.mime);
-      
+
       if (errors.length > 0) {
         log.warn(`RDF parsing errors for ${url}:`, errors.slice(0, 5));
       }
-      
+
       const rawTripleCount = triples.length;
-      
+
       const invalidTriples = triples.filter(
         (t) =>
           !(t.subject?.termType === 'NamedNode' &&
@@ -294,7 +310,7 @@ export class Worker extends EventEmitter {
             (t.object.termType === 'NamedNode' || t.object.termType === 'Literal'))
       );
       if (invalidTriples.length > 0) {
-        log.debug(`Found ${invalidTriples.length} invalid triples, examples:`, 
+        log.debug(`Found ${invalidTriples.length} invalid triples, examples:`,
           invalidTriples.slice(0, 3).map(t => ({
             subject: t.subject?.value,
             predicate: t.predicate?.value,
@@ -303,7 +319,7 @@ export class Worker extends EventEmitter {
           }))
         );
       }
-      
+
       const simpleTriples = triples
         .filter(
           (t) =>
@@ -313,46 +329,44 @@ export class Worker extends EventEmitter {
             t.object.termType !== undefined &&
             (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
         )
-        .map(
+        .flatMap(
           (t) => {
             if (t.object.termType === 'NamedNode') {
-              return {
+              const st: SimpleTriple = {
                 subject: t.subject.value,
                 predicate: t.predicate.value,
-                object: t.object.value
-              } as SimpleTriple;
-            } else {
-              const literal = t.object as import('@rdfjs/types').Literal;
-              return {
+                object: t.object.value,
+                type: 'namedNode' as const
+              };
+              return st;
+            } else if (t.object.termType === 'Literal') {
+              const st = {
                 subject: t.subject.value,
                 predicate: t.predicate.value,
-                objectLiteral: {
-                  value: literal.value,
-                  language: literal.language || undefined,
-                  datatype: literal.datatype?.value || undefined
-                }
-              } as SimpleTriple;
+                object: {
+                  value: t.object.value,
+                  language: t.object.language || undefined,
+                  datatype: t.object.datatype?.value || undefined
+                },
+                type: 'literal' as const
+              };
+              return st;
+            }
+            else {
+              // This case should not happen due to the filter,
+              // but we need to satisfy TypeScript
+              return [];
             }
           }
         )
+        // Filter out triples with empty object or object.value
         .filter((t) => {
-          // Drop triples with invalid/missing object
-          const hasObject = t.object !== undefined && t.object !== null;
-          const hasObjectLiteral = t.objectLiteral?.value !== null && t.objectLiteral?.value !== undefined && t.objectLiteral?.value !== '';
-          
-          if (!hasObject && !hasObjectLiteral) {
-            log.debug(`Dropping triple with neither valid object nor objectLiteral: ${t.subject} ${t.predicate}`);
-            return false;
+          if (t.type === 'namedNode') {
+            return t.object !== '';
           }
-          
-          if (hasObjectLiteral && (t.objectLiteral?.value === null || t.objectLiteral?.value === undefined || t.objectLiteral?.value === '')) {
-            log.debug(`Dropping triple with null/undefined/empty objectLiteral.value: ${t.subject} ${t.predicate}`);
-            return false;
-          }
-          
-          return true;
+          return t.object.value !== '';
         });
-      
+
       const filteredCount = simpleTriples.length;
       const droppedCount = rawTripleCount - filteredCount;
       if (droppedCount > 0) {
@@ -377,12 +391,15 @@ export class Worker extends EventEmitter {
         }
         log.warn(`Failed to cache resource ${url}:`, cacheErr);
       }
-      
+
       return { ...res, triples: simpleTriples };
     }
     return res;
   }
 
+  /**
+  * Fetches content from a URL, handling HTTP errors and redirects. Returns structured results or errors.
+  */
   getHttpContent = async (url: string, redirect = 0): Promise<HttpRequestResult> => {
     const resp = await this.makeHttpRequest(url);
     if (resp?.status === 'not_ok') {
@@ -392,6 +409,10 @@ export class Worker extends EventEmitter {
     return res?.status === 'ok' ? res : handleHttpError(url, res.err);
   };
 
+  /**
+  * Makes an HTTP GET request to the specified URL with appropriate headers and timeouts, handling retries and errors.
+  * Respects domain crawl delays between attempts and logs debug information for each request.
+  */
   makeHttpRequest = async (url: string) => {
     const timeout = config.http.domainCrawl.timeouts || 10 * 1000;
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
@@ -435,6 +456,10 @@ export class Worker extends EventEmitter {
     });
   };
 
+  /**
+  * Handles HTTP responses, checking MIME types, following redirects if necessary, and returning structured results or errors.
+  * Respects maximum redirect limits and logs relevant information for debugging.
+  */
   handleHttpResponse = async (resp: MinimalAxiosResponse, redirect: number, url: string) => {
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const mime = contentType.parse(resp.headers['content-type']).type;
