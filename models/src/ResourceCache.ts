@@ -21,11 +21,11 @@ class TripClass {
   @prop({ required: true, type: String })
   public predicate!: string;
 
-  @prop({ required: false, validate: urlValidator, type: String })
-  public object?: string;
+  @prop({ required: true, enum: ['literal', 'namedNode'], type: String })
+  public type!: 'literal' | 'namedNode';
 
-  @prop({ required: false, type: LiteralObject })
-  public objectLiteral?: LiteralObject;
+  @prop({ required: true, type: String })
+  public object!: string | LiteralObject;
 }
 
 @index({ url: 1 })
