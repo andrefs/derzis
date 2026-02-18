@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { ProcessTriple } from '@derzis/models';
+import { LiteralTripleClass, NamedNodeTripleClass, ProcessTriple } from '@derzis/models';
 import { info as processInfo } from '$lib/process-helper';
 import type { PageServerLoad } from './$types';
 
@@ -25,16 +25,18 @@ export const load: PageServerLoad = async ({ params, url }) => {
     .lean();
 
   const latestTriples = procTriples
-    .map((procTriple) => ({
-      _id: procTriple.triple._id.toString(),
-      processStep: procTriple.processStep,
-      sources: procTriple.triple.sources,
-      subject: procTriple.triple.subject,
-      predicate: procTriple.triple.predicate,
-      object: procTriple.triple.object,
-      objectLiteral: procTriple.triple.objectLiteral,
-      createdAt: procTriple.createdAt?.toISOString()
-    }));
+    .map((procTriple) => {
+      const triple = procTriple.triple as NamedNodeTripleClass | LiteralTripleClass;
+      return {
+        _id: procTriple.triple._id.toString(),
+        processStep: procTriple.processStep,
+        sources: triple.sources,
+        subject: triple.subject,
+        predicate: triple.predicate,
+        object: triple.object,
+        createdAt: procTriple.createdAt?.toISOString()
+      }
+    });
 
   return {
     proc,
