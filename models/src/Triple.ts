@@ -51,7 +51,7 @@ class TripleClass {
   @prop({ required: false, validate: urlValidator, type: String })
   public object?: string;
 
-  @prop({ required: false, type: () => ({ value: { type: String, required: true }, language: String, datatype: String }) })
+  @prop({ required: false, type: LiteralObject })
   public objectLiteral?: LiteralObject;
 
   @prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)

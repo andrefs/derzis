@@ -36,7 +36,7 @@ class ResourceClass {
   createdAt!: Date;
   updatedAt!: Date;
 
-  @prop({ required: true, index: true, unique: true, validate: urlValidator, type: String })
+  @prop({ required: true, unique: true, validate: urlValidator, type: String })
   public url!: string;
 
   @prop({ required: true, validate: urlValidator, type: String })
