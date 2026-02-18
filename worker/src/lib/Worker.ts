@@ -191,6 +191,7 @@ export class Worker extends EventEmitter {
       }
       delete this.currentJobs.domainCrawl[domain.origin];
     } catch (err) {
+      log.error('Error in crawlDomain:', err);
       delete this.currentJobs.domainCrawl[domain.origin];
     }
   }
@@ -277,11 +278,18 @@ export class Worker extends EventEmitter {
     const res = await this.getHttpContent(url);
     if (res.status === 'ok') {
       const { triples, errors } = await parseRdf(res.rdf, res.mime);
+      
+      if (errors.length > 0) {
+        log.warn(`RDF parsing errors for ${url}:`, errors.slice(0, 5));
+      }
+      
+      const rawTripleCount = triples.length;
       const simpleTriples = triples
         .filter(
           (t) =>
-            t.subject.termType === 'NamedNode' &&
-            t.predicate.termType === 'NamedNode' &&
+            t.subject?.termType === 'NamedNode' &&
+            t.predicate?.termType === 'NamedNode' &&
+            t.object !== undefined &&
             (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
         )
         .map(
@@ -306,11 +314,22 @@ export class Worker extends EventEmitter {
             }
           }
         );
-      const resCache = await ResourceCache.create({
-        url,
-        triples: simpleTriples
-      });
-      // TODO do something with errors
+      
+      const filteredCount = simpleTriples.length;
+      const droppedCount = rawTripleCount - filteredCount;
+      if (droppedCount > 0) {
+        log.debug(`Dropped ${droppedCount} triples from ${url} (blank nodes, default graph, etc.)`);
+      }
+      
+      try {
+        await ResourceCache.create({
+          url,
+          triples: simpleTriples
+        });
+      } catch (cacheErr) {
+        log.warn(`Failed to cache resource ${url}:`, cacheErr);
+      }
+      
       return { ...res, triples: simpleTriples };
     }
     return res;
