@@ -6,6 +6,8 @@ import { Domain } from '../Domain';
 import { PathClass, type PathSkeleton, ResourceCount } from './Path';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
+import config from '@derzis/config';
+const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
 
 export type TraversalPathSkeleton = Pick<
   TraversalPathClass,
@@ -276,9 +278,9 @@ class TraversalPathClass extends PathClass {
       }
 
       const bfRatio = bf.subj / bf.obj;
-      if (bfRatio >= 1.2) {
+      if (bfRatio >= bfNeutralZone.max) {
         subjPreds.add(pred);
-      } else if (bfRatio <= 0.83) {
+      } else if (bfRatio <= bfNeutralZone.min) {
         objPreds.add(pred);
       } else {
         noDirPreds.add(pred);

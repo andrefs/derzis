@@ -83,12 +83,20 @@ export type LiteralObject = {
   language?: string;
 };
 
-export type SimpleTriple = {
+export interface BaseSimpleTriple {
   subject: string;
   predicate: string;
-  object?: string;
-  objectLiteral?: LiteralObject;
+  type: 'literal' | 'namedNode';
+}
+export type SimpleLiteralTriple = BaseSimpleTriple & {
+  object: LiteralObject;
+  type: 'literal';
 };
+export type SimpleNamedNodeTriple = BaseSimpleTriple & {
+  object: string;
+  type: 'namedNode';
+};
+export type SimpleTriple = SimpleLiteralTriple | SimpleNamedNodeTriple;
 
 export type CrawlResourceResultOk = {
   details: { triples: SimpleTriple[] };
@@ -104,8 +112,8 @@ export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultErr
 
 export type RecursivePartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
-    ? RecursivePartial<U>[]
-    : T[P] extends object | undefined
-      ? RecursivePartial<T[P]>
-      : T[P];
+  ? RecursivePartial<U>[]
+  : T[P] extends object | undefined
+  ? RecursivePartial<T[P]>
+  : T[P];
 };
