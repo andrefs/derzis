@@ -1,3 +1,4 @@
+import { createLogger } from '@derzis/common/server';
 import { Process } from '@derzis/models';
 import { error } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
@@ -6,6 +7,7 @@ import { Writer, NamedNode, Literal } from 'n3';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import type { SimpleTriple } from '@derzis/common';
+const log = createLogger('api:processes:[pid]:triples');
 
 export async function GET({ params, setHeaders }: RequestEvent) {
   const p = await Process.findOne({ pid: params.pid });
@@ -23,18 +25,18 @@ export async function GET({ params, setHeaders }: RequestEvent) {
 
   const transformStream = new Readable({
     objectMode: true,
-    read() {}
+    read() { }
   });
 
   readableStream.on('data', (quad: SimpleTriple) => {
-    if (quad.object !== undefined) {
+    if (quad.type === 'namedNode') {
       writer.addQuad(
         new NamedNode(quad.subject),
         new NamedNode(quad.predicate),
         new NamedNode(quad.object)
       );
-    } else if (quad.objectLiteral) {
-      const { value, language, datatype } = quad.objectLiteral;
+    } else if (quad.type === 'literal') {
+      const { value, language, datatype } = quad.object;
       const LiteralConstructor = Literal as new (value: string, languageOrDatatype?: string | import('n3').NamedNode) => import('n3').Literal;
       if (language) {
         writer.addQuad(
@@ -55,6 +57,9 @@ export async function GET({ params, setHeaders }: RequestEvent) {
           new LiteralConstructor(value)
         );
       }
+    } else {
+      // Handle other types if necessary
+      log.warn(`Unknown quad type: ${quad}`);
     }
   });
 
