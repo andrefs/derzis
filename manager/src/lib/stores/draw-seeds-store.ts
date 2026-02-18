@@ -6,8 +6,7 @@ import type { LiteralObject } from '@derzis/common';
 export type Triple = {
   subject: string;
   predicate: string;
-  object?: string;
-  objectLiteral?: LiteralObject;
+  object: string | LiteralObject;
   createdAt: string;
 };
 
@@ -22,8 +21,7 @@ export const allTriples = writable<
   Array<{
     subject: string;
     predicate: string;
-    object?: string;
-    objectLiteral?: LiteralObject;
+    object: string | LiteralObject;
     createdAt: string;
   }>
 >([]);
@@ -31,8 +29,7 @@ export const filteredTriples = writable<
   Array<{
     subject: string;
     predicate: string;
-    object?: string;
-    objectLiteral?: LiteralObject;
+    object: string | LiteralObject;
     createdAt: string;
   }>
 >([]);
@@ -93,7 +90,7 @@ export async function loadAllTriples(pid: string) {
     const decompressedResponse = response.body!.pipeThrough(decompStream);
     const text = await new Response(decompressedResponse).text();
     const parsed = JSON.parse(text);
-    const namedNodeTriples = parsed.filter((t: Triple) => t.object !== undefined);
+    const namedNodeTriples = parsed.filter((t: Triple) => typeof t.object === 'string');
     allTriples.set(namedNodeTriples);
   }
 }
@@ -152,7 +149,7 @@ export const computedNodeMaxCreatedAt = derived([filteredTriples], ([$filteredTr
     if (!nodeMaxCreatedAt.has(subj) || nodeMaxCreatedAt.get(subj)! < date) {
       nodeMaxCreatedAt.set(subj, date);
     }
-    if (t.object !== undefined) {
+    if (typeof t.object === 'string') {
       const obj = t.object;
       if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
         nodeMaxCreatedAt.set(obj, date);

@@ -1,7 +1,17 @@
 import { error } from '@sveltejs/kit';
-import { TraversalPath, Triple, Process, ProcessTriple } from '@derzis/models';
+import { TraversalPath, NamedNodeTriple, Process, ProcessTriple } from '@derzis/models';
 import type { PageServerLoad } from './$types';
 
+/**
+ * Server-side load function to fetch path data for a given process ID, seed URL, and head URL.
+ * It retrieves the longest and shortest paths between the seed and head URLs, along with their triple details.
+ * It also counts how many paths exist with the same length as the longest and shortest paths.
+ *
+ * @param {Object} params - The parameters from the URL, including process ID (pid).
+ * @param {URL} url - The URL object to access query parameters for seedUrl and headUrl.
+ * @returns {Object} An object containing process info, seed/head URLs, path data for longest and shortest paths, and counts.
+ * @throws Will throw a 404 error if the process is not found or a 500 error if there is an issue loading path data.
+ */
 export const load: PageServerLoad = async ({ params, url }) => {
   const { pid } = params;
   const seedUrl = url.searchParams.get('seedUrl') || '';
@@ -82,7 +92,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
       .equals(minNodes);
 
     // Get the actual triple documents for the longest path
-    const longestTriples = await Triple.find({
+    const longestTriples = await NamedNodeTriple.find({
       _id: { $in: longestPath.triples }
     })
       .select('subject predicate object sources')
@@ -104,29 +114,29 @@ export const load: PageServerLoad = async ({ params, url }) => {
         const step = procTriple?.processStep || null;
         return foundTriple
           ? {
-              ...foundTriple,
-              _id: foundTriple._id?.toString(),
-              followDirection: step !== null ? stepFollowDirections[step] || false : false,
-              processStep: step,
-              sources: foundTriple.sources || []
-            }
+            ...foundTriple,
+            _id: foundTriple._id?.toString(),
+            followDirection: step !== null ? stepFollowDirections[step] || false : false,
+            processStep: step,
+            sources: foundTriple.sources || []
+          }
           : null;
       })
       .filter(Boolean) as Array<{
-      subject: string;
-      predicate: string;
-      object: string;
-      _id?: string;
-      followDirection: boolean;
-      processStep: number;
-      sources: string[];
-    }>;
+        subject: string;
+        predicate: string;
+        object: string;
+        _id?: string;
+        followDirection: boolean;
+        processStep: number;
+        sources: string[];
+      }>;
 
     // Process shortest path if found
     let shortestPathData = null;
     if (shortestPath) {
       // Get the actual triple documents for the shortest path
-      const shortestTriples = await Triple.find({
+      const shortestTriples = await NamedNodeTriple.find({
         _id: { $in: shortestPath.triples }
       })
         .select('subject predicate object sources')
@@ -150,23 +160,23 @@ export const load: PageServerLoad = async ({ params, url }) => {
           const step = procTriple?.processStep || 1;
           return foundTriple
             ? {
-                ...foundTriple,
-                _id: foundTriple._id?.toString(),
-                followDirection: stepFollowDirections[step] || false,
-                processStep: step,
-                sources: foundTriple.sources || []
-              }
+              ...foundTriple,
+              _id: foundTriple._id?.toString(),
+              followDirection: stepFollowDirections[step] || false,
+              processStep: step,
+              sources: foundTriple.sources || []
+            }
             : null;
         })
         .filter(Boolean) as Array<{
-        subject: string;
-        predicate: string;
-        object: string;
-        _id?: string;
-        followDirection: boolean;
-        processStep: number;
-        sources: string[];
-      }>;
+          subject: string;
+          predicate: string;
+          object: string;
+          _id?: string;
+          followDirection: boolean;
+          processStep: number;
+          sources: string[];
+        }>;
 
       shortestPathData = {
         nodes: shortestPath.nodes.elems,

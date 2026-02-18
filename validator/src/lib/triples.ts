@@ -46,12 +46,11 @@ export function triplesToTurtle(
     ([url, prefix]) => `@prefix ${prefix}: <${url}> .`
   );
   const lines = triples.map((triple) => {
-    if (triple.object !== undefined) {
+    if (typeof triple.object === 'string') {
       return `${triple.subject} ${triple.predicate} ${triple.object} .`;
-    } else if (triple.objectLiteral) {
-      return `${triple.subject} ${triple.predicate} ${literalToString(triple.objectLiteral)} .`;
+    } else {
+      return `${triple.subject} ${triple.predicate} ${literalToString(triple.object)} .`;
     }
-    return '';
   }).filter(Boolean);
   return [...prefixLines, '', ...lines].join('\n');
 }

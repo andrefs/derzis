@@ -8,8 +8,7 @@ import type { LiteralObject } from '@derzis/common';
 export type Triple = {
   subject: string;
   predicate: string;
-  object?: string;
-  objectLiteral?: LiteralObject;
+  object: string | LiteralObject;
   createdAt: string;
 };
 
@@ -19,7 +18,8 @@ export type Triple = {
  * @returns A string key in the format "subject-predicate-object".
  */
 export function getTripleKey(triple: Triple): string {
-  return `${triple.subject}-${triple.predicate}-${triple.object}`;
+  const objectValue = typeof triple.object === 'string' ? triple.object : triple.object.value;
+  return `${triple.subject}-${triple.predicate}-${objectValue}`;
 }
 
 /**
@@ -66,7 +66,7 @@ export function performBFSForHops(
       let connectedNode: string | null = null;
 
       // Skip literal triples - they don't have traversable objects
-      if (triple.object === undefined) continue;
+      if (typeof triple.object !== 'string') continue;
 
       if (triple.subject === node) {
         connectedNode = triple.object;
@@ -108,7 +108,7 @@ export function filterTriplesByConsecutiveHops(
 ): Triple[] {
   return allTriples.filter((triple) => {
     // Skip literal triples - they don't have traversable objects
-    if (triple.object === undefined) return false;
+    if (typeof triple.object !== 'string') return false;
 
     const subjectHop = nodeHops.get(triple.subject);
     const objectHop = nodeHops.get(triple.object);
