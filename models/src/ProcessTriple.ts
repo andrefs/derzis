@@ -3,7 +3,7 @@ import { NamedNodeTripleClass, LiteralTripleClass } from './Triple';
 import { prop, index, getModelForClass, type ReturnModelType, type Ref } from '@typegoose/typegoose';
 import { Types } from 'mongoose';
 
-@index({ processId: 1, triple: 1 }, { unique: true })
+@index({ processId: 1, tripleCollection: 1, triple: 1 }, { unique: true })
 class ProcessTripleClass extends TimeStamps {
   @prop({ required: true, type: String })
   public processId!: string;
@@ -23,13 +23,13 @@ class ProcessTripleClass extends TimeStamps {
   ) {
     const uniqueTriples = Array.from(
       new Map(
-        triples.map((t) => [`${t.processId}_${(t.triple as any)._id || t.triple}`, t])
+        triples.map((t) => [`${t.processId}_${t.tripleCollection}_${(t.triple as any)._id || t.triple}`, t])
       ).values()
     );
 
     const bulkOps = uniqueTriples.map((t) => ({
       updateOne: {
-        filter: { processId: t.processId, triple: t.triple },
+        filter: { processId: t.processId, tripleCollection: t.tripleCollection, triple: t.triple },
         update: { $set: t },
         upsert: true
       }

@@ -18,6 +18,7 @@ export async function GET({ params, setHeaders }: RequestEvent) {
   }
 
   const iter = p?.getTriples();
+  console.log('Iterating triples for process', params.pid);
 
   const readableStream = Readable.from(iter, { objectMode: true });
 
@@ -29,6 +30,7 @@ export async function GET({ params, setHeaders }: RequestEvent) {
   });
 
   readableStream.on('data', (quad: SimpleTriple) => {
+    console.log('Processing quad:', quad);
     if (quad.type === 'namedNode') {
       writer.addQuad(
         new NamedNode(quad.subject),

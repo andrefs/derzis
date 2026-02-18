@@ -24,7 +24,7 @@ class TripClass {
   @prop({ required: true, enum: ['literal', 'namedNode'], type: String })
   public type!: 'literal' | 'namedNode';
 
-  @prop({ required: true, type: String })
+  @prop({ required: true })
   public object!: string | LiteralObject;
 }
 

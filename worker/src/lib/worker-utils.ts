@@ -71,10 +71,17 @@ export const handleHttpError = (url: string, err: any): HttpRequestResultError =
   if (err instanceof WorkerError) {
     return { ...res, err, url };
   }
+  
+  // AggregateError (multiple errors) - extract useful info
+  let errorMessage = err.message;
+  if (err.name === 'AggregateError' && err.errors) {
+    errorMessage = err.errors.map((e: Error) => e.message).join('; ') || 'AggregateError';
+  }
+  
   return {
     ...res,
     err: new WorkerError(),
-    details: { message: err.message, stack: err.stack }
+    details: { message: errorMessage, stack: err.stack }
   };
 };
 

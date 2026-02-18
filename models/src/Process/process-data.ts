@@ -10,22 +10,38 @@ import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, type NamedNodeTripl
  * @param {ProcessClass} process - the process to get triples for
  * @returns {AsyncGenerator<SimpleTriple>} - an async generator yielding triples
  */
-export async function* getTriples(process: ProcessClass) {
+export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleTriple> {
+  console.log('XXXXXXXXXXXXx 2');
   const procTriples = ProcessTriple.find({
     processId: process.pid
   }).populate('triple');
   for await (const procTriple of procTriples) {
     const triple = procTriple.tripleCollection === 'NamedNodeTriple'
-      ? (procTriple.triple as NamedNodeTripleClass)
-      : (procTriple.triple as LiteralTripleClass);
+      ? (procTriple.triple as SimpleNamedNodeTriple)
+      : (procTriple.triple as SimpleLiteralTriple);
 
-    yield {
-      subject: triple.subject,
-      predicate: triple.predicate,
-      object: triple.object,
-      type: 'namedNode' as const,
-      createdAt: procTriple.createdAt
-    };
+    console.log('XXXXXXXXXXXXx 3', triple);
+    const st = triple.type === 'literal'
+      ? {
+        subject: triple.subject,
+        predicate: triple.predicate,
+        object: {
+          value: triple.object.value,
+          datatype: triple.object.datatype,
+          language: triple.object.language
+        },
+        type: 'literal' as const,
+        createdAt: procTriple.createdAt
+      }
+      : {
+        subject: triple.subject,
+        predicate: triple.predicate,
+        object: triple.object,
+        type: 'namedNode' as const,
+        createdAt: procTriple.createdAt
+      };
+    console.log('XXXXXXXXXXXXx 4', st);
+    yield st;
   }
 }
 
@@ -365,5 +381,5 @@ export function curPredsDirMetrics(
   }, new Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>());
 }
 
-import { type DocumentType } from '@typegoose/typegoose'; import { SimpleTriple } from '@derzis/common';
+import { type DocumentType } from '@typegoose/typegoose'; import { SimpleLiteralTriple, SimpleNamedNodeTriple, SimpleTriple } from '@derzis/common';
 
