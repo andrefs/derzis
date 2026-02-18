@@ -7,8 +7,8 @@ import {
   type TraversalPathDocument,
   type EndpointPathDocument
 } from './Path';
-import { Triple, type TripleClass, type TripleSkeleton } from './Triple';
-import type { CrawlResourceResultDetails } from '@derzis/common';
+import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
+import type { CrawlResourceResultDetails, SimpleTriple } from '@derzis/common';
 import config from '@derzis/config';
 
 import {
@@ -49,8 +49,8 @@ class ResourceClass {
   })
   public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
-  @prop({ ref: 'TripleClass', default: [], Type: [Triple] }, PropType.ARRAY)
-  public triples?: Types.DocumentArray<TripleClass>;
+  @prop({ ref: 'NamedNodeTripleClass', default: [], Type: [NamedNodeTriple] }, PropType.ARRAY)
+  public triples?: Types.DocumentArray<NamedNodeTripleClass>;
 
   @prop({ type: Number })
   public jobId?: number;
@@ -87,17 +87,17 @@ class ResourceClass {
 
   /**
    * Adds resources from an array of triples by extracting unique subjects and objects.
-   * @param triples - An array of TripleSkeleton objects containing subject and object URLs.
+   * @param triples - An array of SimpleTriple objects containing subject and object URLs.
    * @returns A promise that resolves to the added resources.
    */
   public static async addFromTriples(
     this: ReturnModelType<typeof ResourceClass>,
-    triples: TripleSkeleton[]
+    triples: SimpleTriple[]
   ) {
     const resources: { [pos: string]: boolean } = {};
     for (const t of triples) {
       resources[t.subject] = true;
-      if (t.object !== undefined) {
+      if (t.type === 'namedNode') {
         resources[t.object] = true;
       }
     }

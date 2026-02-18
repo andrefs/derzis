@@ -5,11 +5,6 @@ import {
 } from '@typegoose/typegoose';
 import { urlValidator } from '@derzis/common';
 
-export type TripleSkeleton = {
-  subject: string;
-  predicate: string;
-  object: string | { value: string; datatype?: string; language?: string };
-};
 
 export abstract class TripleClass {
   _id!: Types.ObjectId;

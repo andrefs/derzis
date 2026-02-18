@@ -1,5 +1,6 @@
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
+import { SimpleLiteralTriple, type SimpleTriple } from '@derzis/common';
 const log = createLogger('LiteralTriple');
 import type { ResourceClass } from '../Resource';
 import {
@@ -9,7 +10,7 @@ import {
   type ReturnModelType
 } from '@typegoose/typegoose';
 import type { Document } from 'mongoose';
-import { TripleClass, type TripleSkeleton } from './Triple';
+import { TripleClass } from './Triple';
 
 export class LiteralValue {
   @prop({ required: true, type: String })
@@ -36,25 +37,23 @@ export class LiteralTripleClass extends TripleClass {
   /**
   * Upsert multiple LiteralTriples efficiently by grouping them and using bulkWrite.
   * @param source The ResourceClass source URL to add to the sources array.
-  * @param triples An array of TripleSkeletons to upsert.
+  * @param triples An array of SimpleTriple to upsert.
   * @returns An array of BulkWriteResult objects for each batch operation.
   */
   public static async upsertMany(
     this: ReturnModelType<typeof LiteralTripleClass>,
     source: ResourceClass,
-    triples: TripleSkeleton[]
+    triples: SimpleTriple[]
   ): Promise<BulkWriteResult[]> {
-    const literalTriples = triples.filter(
-      (t): t is TripleSkeleton & { object: { value: string; datatype?: string; language?: string } } =>
-        typeof t.object !== 'string' && t.object.value !== ''
-    );
+    const literalTriples = triples.filter(t => t.type === 'literal');
 
     if (literalTriples.length === 0) {
       log.debug('No Literal triples to upsert');
       return [];
     }
 
-    const tripleMap = new Map<string, { subject: string; predicate: string; object: { value: string; datatype?: string; language?: string }; sources: string[] }>();
+    //const tripleMap = new Map<string, { subject: string; predicate: string; object: { value: string; datatype?: string; language?: string }; sources: string[] }>();
+    const tripleMap = new Map<string, SimpleLiteralTriple & { sources: string[] }>();
 
     for (const t of literalTriples) {
       const litKey = JSON.stringify(t.object);
@@ -67,6 +66,7 @@ export class LiteralTripleClass extends TripleClass {
           subject: t.subject,
           predicate: t.predicate,
           object: t.object,
+          type: 'literal',
           sources: [source.url]
         });
       }

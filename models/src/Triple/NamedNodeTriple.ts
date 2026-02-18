@@ -1,6 +1,6 @@
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
-import { urlValidator, directionOk } from '@derzis/common';
+import { urlValidator, directionOk, type SimpleTriple, SimpleNamedNodeTriple } from '@derzis/common';
 const log = createLogger('NamedNodeTriple');
 import type { ResourceClass } from '../Resource';
 import {
@@ -10,7 +10,7 @@ import {
   type ReturnModelType
 } from '@typegoose/typegoose';
 import type { Document } from 'mongoose';
-import { TripleClass, type TripleSkeleton } from './Triple';
+import { TripleClass } from './Triple';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process/aux-classes';
 
 @index({ nodes: 1 })
@@ -26,16 +26,16 @@ export class NamedNodeTripleClass extends TripleClass {
   /**
   * Upsert multiple NamedNode triples efficiently by grouping them and performing bulkWrite operations.
   * @param source The ResourceClass instance representing the source of the triples.
-  * @param triples An array of TripleSkeleton objects to be upserted as NamedNode triples.
+  * @param triples An array of SimpleTriple objects to be upserted as NamedNode triples.
   * @returns An array of BulkWriteResult objects corresponding to each batch of operations.
   */
   public static async upsertMany(
     this: ReturnModelType<typeof NamedNodeTripleClass>,
     source: ResourceClass,
-    triples: TripleSkeleton[]
+    triples: SimpleTriple[]
   ): Promise<BulkWriteResult[]> {
     const namedNodeTriples = triples.filter(
-      (t): t is TripleSkeleton & { object: string } =>
+      (t): t is SimpleTriple & { object: string } =>
         typeof t.object === 'string' && t.object !== ''
     );
 
@@ -44,7 +44,7 @@ export class NamedNodeTripleClass extends TripleClass {
       return [];
     }
 
-    const tripleMap = new Map<string, { subject: string; predicate: string; object: string; sources: string[] }>();
+    const tripleMap = new Map<string, SimpleNamedNodeTriple & { sources: string[] }>();
 
     for (const t of namedNodeTriples) {
       const key = `${t.subject}\u0000${t.predicate}\u0000${t.object}`;
@@ -56,6 +56,7 @@ export class NamedNodeTripleClass extends TripleClass {
           subject: t.subject,
           predicate: t.predicate,
           object: t.object,
+          type: 'namedNode',
           sources: [source.url]
         });
       }
