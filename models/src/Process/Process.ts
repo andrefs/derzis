@@ -365,6 +365,12 @@ class ProcessClass extends Document {
     // Before queuing, extend existing paths according to new step limits
     await process.extendExistingPaths(); // this potentially takes a lot of time
 
+    // Allow post-crawl path extension by incrementing the counter
+    await Process.updateOne(
+      { pid },
+      { $inc: { pathExtensionCounter: 1 } }
+    );
+
     // Set the process to queued
     await Process.updateOne(
       { pid, status: 'extending' },
