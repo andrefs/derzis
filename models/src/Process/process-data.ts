@@ -3,7 +3,7 @@ import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath } from '../Path';
-import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, type NamedNodeTripleClass } from '../Triple';
+import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass, TripleType, isNamedNode, isLiteral } from '../Triple';
 
 /**
  * Get triples for a process as an async generator
@@ -16,32 +16,47 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
     processId: process.pid
   }).populate('triple');
   for await (const procTriple of procTriples) {
-    const triple = procTriple.tripleCollection === 'NamedNodeTriple'
-      ? (procTriple.triple as SimpleNamedNodeTriple)
-      : (procTriple.triple as SimpleLiteralTriple);
+    const triple = procTriple.triple as TripleClass;
 
     console.log('XXXXXXXXXXXXx 3', triple);
-    const st = triple.type === 'literal'
-      ? {
-        subject: triple.subject,
-        predicate: triple.predicate,
+
+    if (triple.type === TripleType.LITERAL) {
+      const literalTriple = triple as LiteralTripleClass;
+      console.log('XXXXXXXXXXXXx 4', {
+        subject: literalTriple.subject,
+        predicate: literalTriple.predicate,
         object: {
-          value: triple.object.value,
-          datatype: triple.object.datatype,
-          language: triple.object.language
+          value: literalTriple.object.value,
+          datatype: literalTriple.object.datatype,
+          language: literalTriple.object.language
         },
-        type: 'literal' as const,
-        createdAt: procTriple.createdAt
-      }
-      : {
-        subject: triple.subject,
-        predicate: triple.predicate,
-        object: triple.object,
-        type: 'namedNode' as const,
-        createdAt: procTriple.createdAt
+        type: TripleType.LITERAL
+      });
+      yield {
+        subject: literalTriple.subject,
+        predicate: literalTriple.predicate,
+        object: {
+          value: literalTriple.object.value,
+          datatype: literalTriple.object.datatype,
+          language: literalTriple.object.language
+        },
+        type: TripleType.LITERAL
       };
-    console.log('XXXXXXXXXXXXx 4', st);
-    yield st;
+    } else {
+      const namedNodeTriple = triple as NamedNodeTripleClass;
+      console.log('XXXXXXXXXXXXx 4', {
+        subject: namedNodeTriple.subject,
+        predicate: namedNodeTriple.predicate,
+        object: namedNodeTriple.object,
+        type: TripleType.NAMED_NODE
+      });
+      yield {
+        subject: namedNodeTriple.subject,
+        predicate: namedNodeTriple.predicate,
+        object: namedNodeTriple.object,
+        type: TripleType.NAMED_NODE
+      };
+    }
   }
 }
 
@@ -261,13 +276,13 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
   const lastTriple = [lastLT, lastNNT].reduce((latest, t) => {
     if (!t) return latest;
-    return !latest || t.updatedAt > latest.updatedAt ? t : latest;
+    return !latest || (t.updatedAt ?? new Date(0)) > (latest.updatedAt ?? new Date(0)) ? t : latest;
   }, null as (LiteralTripleClass | NamedNodeTripleClass | null));
   const lastPath = await TraversalPath.findOne({ status: 'active' }).sort({ updatedAt: -1 });
   const last = Math.max(
-    lastResource?.updatedAt.getTime() || 0,
-    lastTriple?.updatedAt.getTime() || 0,
-    lastPath?.updatedAt.getTime() || 0
+    lastResource?.updatedAt?.getTime() || 0,
+    lastTriple?.updatedAt?.getTime() || 0,
+    lastPath?.updatedAt?.getTime() || 0
   );
 
   const totalPaths = await TraversalPath.countDocuments({
