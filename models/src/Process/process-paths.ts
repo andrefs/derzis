@@ -5,7 +5,6 @@ import {
   type EndpointPathDocument,
   TraversalPathClass,
   type PathSkeleton,
-  isTraversalPath,
   type PathDocument,
 } from '../Path';
 import { Process, ProcessClass } from './Process';
@@ -14,8 +13,7 @@ import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { FilterQuery, Types } from 'mongoose';
-import { NamedNodeTriple, TripleType } from '../Triple';
-import { PathClass } from '../Path';
+import { NamedNodeTriple } from '../Triple';
 import { type PathType } from '@derzis/common';
 
 /**

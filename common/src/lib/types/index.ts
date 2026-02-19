@@ -1,9 +1,15 @@
-import { TripleType } from '../../../../models/src';
 import { WorkerError } from '../errors';
 export * from './worker';
-import type * as RDF from '@rdfjs/types';
 
-export type PathType = 'traversal' | 'endpoint';
+export enum TripleType {
+  LITERAL = 'literal',
+  NAMED_NODE = 'namedNode'
+}
+export enum PathType {
+  TRAVERSAL = 'traversal',
+  ENDPOINT = 'endpoint'
+}
+
 
 export type CrawlResourceResultDetails = {
   crawlId: { domainTs: Date; counter: number };

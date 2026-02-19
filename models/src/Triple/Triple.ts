@@ -6,22 +6,15 @@ import {
   modelOptions,
   getDiscriminatorModelForClass,
 } from '@typegoose/typegoose';
-import { urlValidator, type SimpleTriple, directionOk } from '@derzis/common';
-import type { Document } from 'mongoose';
+import { urlValidator, type SimpleTriple, directionOk, TripleType } from '@derzis/common';
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import type { ResourceClass } from '../Resource';
-import mongoose from 'mongoose';
-import { DocumentType, type KeyStringAny } from '@typegoose/typegoose/lib/types';
+import { DocumentType } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 
 const log = createLogger('Triple');
-
-export enum TripleType {
-  LITERAL = 'literal',
-  NAMED_NODE = 'namedNode'
-}
 
 export class LiteralObject {
   @prop({ required: true, type: String })
@@ -153,9 +146,6 @@ export class NamedNodeTripleClass extends TripleClass {
   @prop({ required: true, validate: urlValidator, type: String })
   public object!: string;
 
-  @prop({ required: true, enum: TripleType })
-  declare public type: TripleType.NAMED_NODE;
-
   public directionOk(
     headUrl: string,
     followDirection: boolean,
@@ -191,9 +181,6 @@ export class NamedNodeTripleClass extends TripleClass {
 export class LiteralTripleClass extends TripleClass {
   @prop({ required: true, type: LiteralObject })
   public object!: LiteralObject;
-
-  @prop({ required: true, enum: TripleType })
-  declare public type: TripleType.LITERAL;
 }
 
 export const Triple = getModelForClass(TripleClass);

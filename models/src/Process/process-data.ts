@@ -3,7 +3,9 @@ import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath } from '../Path';
-import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass, TripleType, isNamedNode, isLiteral } from '../Triple';
+import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass } from '../Triple';
+import { type DocumentType } from '@typegoose/typegoose';
+import { SimpleTriple, TripleType } from '@derzis/common';
 
 /**
  * Get triples for a process as an async generator
@@ -396,5 +398,4 @@ export function curPredsDirMetrics(
   }, new Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>());
 }
 
-import { type DocumentType } from '@typegoose/typegoose'; import { SimpleLiteralTriple, SimpleNamedNodeTriple, SimpleTriple } from '@derzis/common';
 

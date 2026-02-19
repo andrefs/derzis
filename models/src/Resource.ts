@@ -1,14 +1,13 @@
 import type { Types, Document, UpdateQuery } from 'mongoose';
-import { urlValidator, WorkerError } from '@derzis/common';
+import { TripleType, urlValidator, WorkerError } from '@derzis/common';
 import { Domain, DomainClass } from './Domain';
 import {
   TraversalPath,
   EndpointPath,
   type TraversalPathDocument,
-  type EndpointPathDocument,
   EndpointPathClass
 } from './Path';
-import { isNamedNode, NamedNodeTriple, TripleType, type NamedNodeTripleClass } from './Triple';
+import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
 import type { CrawlResourceResultDetails, SimpleTriple } from '@derzis/common';
 import config from '@derzis/config';
 

@@ -1,5 +1,5 @@
 import { Types, FilterQuery } from 'mongoose';
-import { urlListValidator, urlValidator } from '@derzis/common';
+import { PathType, urlListValidator, urlValidator } from '@derzis/common';
 import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
@@ -8,11 +8,6 @@ import { ProcessClass } from '../Process';
 import { NamedNodeTriple, NamedNodeTripleClass, NamedNodeTripleDocument } from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
-
-export enum PathType {
-  TRAVERSAL = 'traversal',
-  ENDPOINT = 'endpoint'
-}
 
 class DomainClass {
   @prop({

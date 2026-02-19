@@ -1,5 +1,5 @@
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
-import { TripleClass, Triple, TripleType, NamedNodeTripleClass, LiteralTripleClass } from './Triple';
+import { TripleClass, Triple, NamedNodeTripleClass, LiteralTripleClass } from './Triple';
 import { prop, index, getModelForClass, type ReturnModelType, type Ref } from '@typegoose/typegoose';
 import { Types } from 'mongoose';
 
@@ -48,4 +48,4 @@ interface ProcessTripleInput {
   processStep: number;
 }
 
-export { ProcessTriple, ProcessTripleClass, TripleType };
+export { ProcessTriple, ProcessTripleClass };

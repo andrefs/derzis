@@ -1,6 +1,6 @@
 import type { Types, Document } from 'mongoose';
 import { LiteralObject, urlValidator } from '@derzis/common';
-import { TripleType } from './Triple';
+import { TripleType } from '@derzis/common';
 
 import { prop, index, getModelForClass, PropType } from '@typegoose/typegoose';
 

@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { ResourceCache, db, TripleType } from '@derzis/models';
+import { ResourceCache, db, LiteralObject } from '@derzis/models';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
 import Axios from './axios';
@@ -21,7 +21,8 @@ import {
   type JobType,
   type RobotsCheckResult,
   type CrawlResourceResult,
-  type CrawlResourceResultOk
+  type CrawlResourceResultOk,
+  TripleType
 } from '@derzis/common';
 const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
@@ -360,11 +361,12 @@ export class Worker extends EventEmitter {
           }
         )
         // Filter out triples with empty object or object.value
-        .filter((t) => {
+        .filter((t): t is SimpleTriple => {
           if (t.type === TripleType.NAMED_NODE) {
             return t.object !== '';
           }
-          return t.object.value !== '';
+          const litObj = t.object as LiteralObject;
+          return litObj.value !== '';
         });
 
       const filteredCount = simpleTriples.length;
