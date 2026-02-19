@@ -1,6 +1,6 @@
 import { Types, FilterQuery } from 'mongoose';
 import { PathType, urlListValidator, urlValidator, type TypedTripleId } from '@derzis/common';
-import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType } from '@typegoose/typegoose';
+import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType, index } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
@@ -65,6 +65,10 @@ export { DomainClass, ResourceCount, SeedClass, HeadClass };
     collection: 'paths'
   }
 })
+@index({ processId: 1, status: 1 })
+@index({ type: 1 })
+@index({ status: 1 })
+@index({ createdAt: 1 })
 export class PathClass extends TimeStamps {
   @prop({ type: Types.ObjectId, auto: true })
   public _id!: Types.ObjectId;
