@@ -98,11 +98,16 @@ function buildBulkOps(
     if (tripleMap.has(key)) {
       tripleMap.get(key)!.sources!.push(source.url);
     } else {
+      const nodes = t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
+        ? [t.subject, t.object]
+        : [t.subject];
       const obj = {
         subject: t.subject,
         predicate: t.predicate,
         object: t.object,
-        sources: [source.url]
+        sources: [source.url],
+        nodes,
+        type: t.type
       };
       tripleMap.set(key, t.type === TripleType.NAMED_NODE
         ? obj as NamedNodeTripleClass
@@ -112,28 +117,33 @@ function buildBulkOps(
 
   log.debug(`Processing triples: ${triples.length} input, ${tripleMap.size} unique`);
 
-  return [...tripleMap.values()].map((t) => ({
-    updateOne: {
-      filter: {
-        subject: t.subject,
-        predicate: t.predicate,
-        object: t.object
-      },
-      update: {
-        $setOnInsert: {
+  return [...tripleMap.values()].map((t) => {
+    const nodes = t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
+      ? [t.subject, t.object]
+      : [];
+    return {
+      updateOne: {
+        filter: {
           subject: t.subject,
           predicate: t.predicate,
-          object: t.object,
-          nodes: t.nodes,
-          type,
+          object: t.object
         },
-        $addToSet: {
-          sources: { $each: t.sources }
-        }
-      },
-      upsert: true
-    }
-  })) as any;
+        update: {
+          $setOnInsert: {
+            subject: t.subject,
+            predicate: t.predicate,
+            object: t.object,
+            nodes,
+            type,
+          },
+          $addToSet: {
+            sources: { $each: t.sources }
+          }
+        },
+        upsert: true
+      }
+    };
+  }) as any;
 }
 
 interface BulkWriteModel {
