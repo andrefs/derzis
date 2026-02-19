@@ -1,4 +1,5 @@
 import type { Types, Document } from 'mongoose';
+import { Schema } from 'mongoose';
 import { LiteralObject, urlValidator } from '@derzis/common';
 import { TripleType } from '@derzis/common';
 
@@ -14,7 +15,7 @@ class WorkerTripleClass {
   @prop({ required: true, enum: TripleType, type: String })
   public type!: TripleType;
 
-  @prop({ required: true })
+  @prop({ required: true, type: Schema.Types.Mixed })
   public object!: string | LiteralObject;
 }
 

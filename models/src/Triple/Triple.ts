@@ -61,8 +61,23 @@ export class TripleClass extends TimeStamps {
       log.debug('No triples to upsert');
       return [];
     }
-    const literalOps = buildBulkOps(triples, source, TripleType.LITERAL);
-    const results = await executeBulkOps(this, literalOps);
+
+    const namedNodeTriples = triples.filter(t => t.type === TripleType.NAMED_NODE);
+    const literalTriples = triples.filter(t => t.type === TripleType.LITERAL);
+
+    const results: BulkWriteResult[] = [];
+
+    if (namedNodeTriples.length > 0) {
+      const namedNodeOps = buildBulkOps(namedNodeTriples, source, TripleType.NAMED_NODE);
+      const namedNodeResults = await executeBulkOps(NamedNodeTriple, namedNodeOps);
+      results.push(...namedNodeResults);
+    }
+
+    if (literalTriples.length > 0) {
+      const literalOps = buildBulkOps(literalTriples, source, TripleType.LITERAL);
+      const literalResults = await executeBulkOps(LiteralTriple, literalOps);
+      results.push(...literalResults);
+    }
 
     return results;
   }
@@ -121,16 +136,20 @@ function buildBulkOps(
   })) as any;
 }
 
+interface BulkWriteModel {
+  bulkWrite(writes: any[], options?: any): Promise<BulkWriteResult>;
+}
+
 async function executeBulkOps(
-  model: ReturnModelType<typeof TripleClass>,
-  ops: ReturnModelType<typeof TripleClass>['bulkWrite'] extends (ops: infer T) => Promise<any> ? T : never
+  model: BulkWriteModel,
+  ops: any
 ): Promise<BulkWriteResult[]> {
   const BATCH_SIZE = 500;
   const results: BulkWriteResult[] = [];
 
   for (let i = 0; i < ops.length; i += BATCH_SIZE) {
     const batchOps = ops.slice(i, i + BATCH_SIZE);
-    const result = await model.bulkWrite(batchOps as any, { ordered: false });
+    const result = await model.bulkWrite(batchOps, { ordered: false });
     results.push(result);
   }
 
@@ -191,6 +210,10 @@ export type LiteralTripleDocument = DocumentType<LiteralTripleClass>;
 
 export const NamedNodeTriple = getDiscriminatorModelForClass(Triple, NamedNodeTripleClass, TripleType.NAMED_NODE);
 export type NamedNodeTripleDocument = DocumentType<NamedNodeTripleClass>;
+
+interface BulkWriteModel {
+  bulkWrite(writes: any[], options?: any): Promise<BulkWriteResult>;
+}
 
 
 export function checkForClass(
