@@ -5,6 +5,7 @@ import {
   type ReturnModelType,
   modelOptions,
   getDiscriminatorModelForClass,
+  index,
 } from '@typegoose/typegoose';
 import { urlValidator, type SimpleTriple, directionOk, TripleType } from '@derzis/common';
 import type { BulkWriteResult } from 'mongodb';
@@ -34,21 +35,25 @@ export class LiteralObject {
     collection: 'triples'
   }
 })
+@index({ nodes: 1, createdAt: 1 })
+@index({ sources: 1 })
+@index({ updatedAt: -1 })
+@index({ type: 1 })
 export class TripleClass extends TimeStamps {
-  @prop({ required: true, validate: urlValidator, type: String })
+  @prop({ required: true, validate: urlValidator, type: String, index: true })
   public subject!: string;
 
   @prop({ required: true, validate: urlValidator, type: String })
   public predicate!: string;
 
-  @prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)
+  @prop({ default: [], validate: urlValidator, type: [String], index: true }, PropType.ARRAY)
   public nodes!: string[];
 
-  @prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)
+  @prop({ default: [], validate: urlValidator, type: [String], index: true }, PropType.ARRAY)
   public sources?: string[];
 
 
-  @prop({ required: true, enum: TripleType, type: String })
+  @prop({ required: true, enum: TripleType, type: String, index: true })
   public type!: TripleType;
 
 
@@ -171,6 +176,7 @@ async function executeBulkOps(
     timestamps: true,
   }
 })
+@index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
 export class NamedNodeTripleClass extends TripleClass {
   @prop({ required: true, validate: urlValidator, type: String })
   public object!: string;
@@ -207,6 +213,7 @@ export class NamedNodeTripleClass extends TripleClass {
   }
 }
 
+@index({ subject: 1, predicate: 1, 'object.value': 1, 'object.language': 1, 'object.datatype': 1 }, { unique: true })
 export class LiteralTripleClass extends TripleClass {
   @prop({ required: true, type: LiteralObject })
   public object!: LiteralObject;
