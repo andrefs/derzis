@@ -8,7 +8,8 @@ import {
   Resource,
   Process,
   ResourceClass,
-  EndpointPath
+  EndpointPath,
+  Triple
 } from '@derzis/models';
 import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -173,19 +174,10 @@ export default class Manager {
     // add new resources
     await Resource.addFromTriples(filteredTriples);
 
-    // Split into NamedNode and Literal triples
-    const namedNodeTriples = filteredTriples.filter((t) => t.type === 'namedNode');
-    const literalTriples = filteredTriples.filter((t) => t.type === 'literal');
-
-    // Store NamedNode triples (used for path expansion)
-    log.info('Calling NamedNodeTriple.upsertMany with', namedNodeTriples.length, 'triples');
-    const namedNodeResult = await NamedNodeTriple.upsertMany(source, namedNodeTriples);
-    log.info('NamedNodeTriple.upsertMany result:', namedNodeResult);
-
-    // Store Literal triples (stored only, not used for path expansion)
-    log.info('Calling LiteralTriple.upsertMany with', literalTriples.length, 'triples');
-    const literalResult = await LiteralTriple.upsertMany(source, literalTriples);
-    log.info('LiteralTriple.upsertMany result:', literalResult);
+    // Store all triples using unified upsertMany
+    log.info('Calling Triple.upsertMany with', filteredTriples.length, 'triples');
+    const tripleResult = await Triple.upsertMany(source, filteredTriples);
+    log.info('Triple.upsertMany result:', tripleResult);
 
     // extend paths with source url as head
     log.info('Calling updateAllPathsWithHead for:', source.url);

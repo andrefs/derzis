@@ -1,3 +1,4 @@
+import { TripleType } from '../../../../models/src';
 import { WorkerError } from '../errors';
 export * from './worker';
 import type * as RDF from '@rdfjs/types';
@@ -83,7 +84,6 @@ export type LiteralObject = {
   language?: string;
 };
 
-export type TripleType = 'literal' | 'namedNode';
 export interface BaseSimpleTriple {
   subject: string;
   predicate: string;
@@ -91,11 +91,11 @@ export interface BaseSimpleTriple {
 }
 export type SimpleLiteralTriple = BaseSimpleTriple & {
   object: LiteralObject;
-  type: 'literal';
+  type: TripleType.LITERAL;
 };
 export type SimpleNamedNodeTriple = BaseSimpleTriple & {
   object: string;
-  type: 'namedNode';
+  type: TripleType.NAMED_NODE;
 };
 export type SimpleTriple = SimpleLiteralTriple | SimpleNamedNodeTriple;
 

@@ -1,18 +1,15 @@
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
-import { NamedNodeTripleClass, LiteralTripleClass } from './Triple';
+import { TripleClass, Triple, TripleType, NamedNodeTripleClass, LiteralTripleClass, isNamedNodeTriple, isLiteralTriple } from './Triple';
 import { prop, index, getModelForClass, type ReturnModelType, type Ref } from '@typegoose/typegoose';
 import { Types } from 'mongoose';
 
-@index({ processId: 1, tripleCollection: 1, triple: 1 }, { unique: true })
+@index({ processId: 1, triple: 1 }, { unique: true })
 class ProcessTripleClass extends TimeStamps {
   @prop({ required: true, type: String })
   public processId!: string;
 
-  @prop({ required: true, enum: ['NamedNodeTriple', 'LiteralTriple'], type: String })
-  public tripleCollection!: 'NamedNodeTriple' | 'LiteralTriple';
-
-  @prop({ required: true, refPath: 'tripleCollection' })
-  public triple!: Ref<NamedNodeTripleClass> | Ref<LiteralTripleClass>;
+  @prop({ required: true, ref: Triple })
+  public triple!: Ref<TripleClass>;
 
   @prop({ required: true, type: Number })
   public processStep!: number;
@@ -23,13 +20,13 @@ class ProcessTripleClass extends TimeStamps {
   ) {
     const uniqueTriples = Array.from(
       new Map(
-        triples.map((t) => [`${t.processId}_${t.tripleCollection}_${(t.triple as any)._id || t.triple}`, t])
+        triples.map((t) => [`${t.processId}_${(t.triple as any)._id || t.triple}`, t])
       ).values()
     );
 
     const bulkOps = uniqueTriples.map((t) => ({
       updateOne: {
-        filter: { processId: t.processId, tripleCollection: t.tripleCollection, triple: t.triple },
+        filter: { processId: t.processId, triple: t.triple },
         update: { $set: t },
         upsert: true
       }
@@ -47,9 +44,8 @@ const ProcessTriple = getModelForClass(ProcessTripleClass, {
 
 interface ProcessTripleInput {
   processId: string;
-  tripleCollection: 'NamedNodeTriple' | 'LiteralTriple';
   triple: NamedNodeTripleClass | LiteralTripleClass | Types.ObjectId;
   processStep: number;
 }
 
-export { ProcessTriple, ProcessTripleClass };
+export { ProcessTriple, ProcessTripleClass, isNamedNodeTriple, isLiteralTriple, TripleType };
