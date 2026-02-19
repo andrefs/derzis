@@ -6,6 +6,7 @@ import {
   TraversalPathClass,
   type PathSkeleton,
   isTraversalPath,
+  type PathDocument,
 } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
@@ -156,7 +157,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
  * @param proc ProcessClass instance
  * @param paths Array of PathClass documents to extend
  */
-export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: PathClass[]) {
+export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: PathDocument[]) {
   log.silly(`Extending ${paths.length} paths for process ${proc.pid} with existing triples...`);
 
   let newPaths = [];
@@ -165,11 +166,11 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
     const res = await path.extendWithExistingTriples(proc);
 
     if (!res.extendedPaths.length) {
-      const length = 
-          ? path.nodes.count
-          : path instanceof EndpointPath
-            ? path.shortestPath.length
-            : 'N/A';
+      const length = path instanceof TraversalPath
+        ? path.nodes.count
+        : path instanceof EndpointPath
+          ? path.shortestPath.length
+          : 'N/A';
       const predicates = path instanceof TraversalPath
         ? path.predicates.elems
         : null;
@@ -336,14 +337,13 @@ export async function extendExistingPaths(pid: string) {
  * @param procTriples Set of triple IDs to associate with the process
  * @param procStep Current step number of the process
  */
-async function insertProcTriples(pid: string, procTriples: { [id: string]: TripleType }, procStep: number) {
+async function insertProcTriples(pid: string, procTriples: Set<Types.ObjectId>, procStep: number) {
   if (Object.keys(procTriples).length > 0) {
     // add proc-triple associations
     await ProcessTriple.upsertMany(
-      Object.entries(procTriples).map(([id, tType]) => ({
+      Array.from(procTriples).map(tId => ({
         processId: pid,
-        tripleCollection: tType === 'literal' ? TripleType.LITERAL : TripleType.NAMED_NODE,
-        triple: new Types.ObjectId(id),
+        triple: tId,
         processStep: procStep
       }))
     );
@@ -489,12 +489,7 @@ export async function extendProcessPaths(
         log.silly('Extended paths:', res.extendedPaths);
         // make db operations immediately for each path to avoid keeping too many new paths in memory
         if (res.extendedPaths.length) {
-
-          const pts = res.procTriples.reduce((acc, t) => {
-            acc[t.id.toString()] = t.type;
-            return acc;
-          }, {} as { [id: string]: TripleType });
-          await insertProcTriples(process.pid, pts, process.steps.length);
+          await insertProcTriples(process.pid, new Set(res.procTriples), process.steps.length);
           newPaths.push(...(await createNewPaths(res.extendedPaths, pathType)));
           await deleteOldPaths(new Set([path._id]), pathType);
         }
