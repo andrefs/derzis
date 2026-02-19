@@ -12,7 +12,7 @@ import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import type { ResourceClass } from '../Resource';
 import mongoose from 'mongoose';
-import { KeyStringAny } from '@typegoose/typegoose/lib/types';
+import { type KeyStringAny } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
 
 const log = createLogger('Triple');
