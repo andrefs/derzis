@@ -1,9 +1,9 @@
-import { Document, type FilterQuery } from 'mongoose';
-import { prop, index, getModelForClass } from '@typegoose/typegoose';
+import { Document, Types, type FilterQuery } from 'mongoose';
+import { prop, index, getDiscriminatorModelForClass } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
-import { PathClass, ProcTripleIdType } from './Path';
-import { TripleType, type RecursivePartial } from '@derzis/common';
+import { PathClass, Path, ProcTripleIdType, PathType, isEndpointPath } from './Path';
+import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
 
@@ -35,7 +35,7 @@ export type EndpointPathSkeleton = Pick<
 @index({ 'head.status': 1, status: 1 })
 @index({ 'head.domain.status': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
-class EndpointPathClass extends PathClass {
+export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Boolean, default: false })
   public frontier!: boolean;
 
@@ -45,9 +45,9 @@ class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Object, default: {} })
   public seedPaths!: { [seedUrl: string]: number };
 
-  // type is always 'endpoint' for this class
-  @prop({ enum: ['endpoint'], required: true, type: String, default: 'endpoint' })
-  public type!: 'endpoint';
+
+  @prop({ enum: PathType, required: true })
+  public type!: PathType.ENDPOINT;
 
   public shouldCreateNewPath(this: EndpointPathClass, t: NamedNodeTripleClass): boolean {
     if (t.subject === t.object) {
@@ -86,7 +86,7 @@ class EndpointPathClass extends PathClass {
   public copy(this: EndpointPathClass): EndpointPathSkeleton {
     const copy: EndpointPathSkeleton = {
       processId: this.processId,
-      type: this.type,
+      type: PathType.ENDPOINT,
       seed: {
         url: this.seed.url
       },
@@ -104,11 +104,11 @@ class EndpointPathClass extends PathClass {
   }
 
   public async genExtended(
-    triples: NamedNodeTripleClass[],
+    triples: NamedNodeTripleDocument[],
     process: ProcessClass
   ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: ProcTripleIdType[] }> {
     let extendedPaths: { [prop: string]: { [newHead: string]: EndpointPathSkeleton } } = {};
-    let procTriples: ProcTripleIdType[] = [];
+    let procTriples: Types.ObjectId[] = [];
     const predsDirMetrics = process.curPredsDirMetrics();
     const followDirection = process!.currentStep.followDirection;
 
@@ -147,7 +147,7 @@ class EndpointPathClass extends PathClass {
         ep.frontier = true;
         ep.status = 'active';
 
-        procTriples.push({ id: t._id, type: 'literal' as TripleType });
+        procTriples.push(t._id);
         log.silly('New path', ep);
         extendedPaths[prop][newHeadUrl] = ep;
       }
@@ -161,10 +161,8 @@ class EndpointPathClass extends PathClass {
   }
 }
 
-const EndpointPath = getModelForClass(EndpointPathClass, {
-  schemaOptions: { timestamps: true, collection: 'endpointPaths' }
-});
+const EndpointPath = getDiscriminatorModelForClass(Path, EndpointPathClass, PathType.ENDPOINT);
 
 type EndpointPathDocument = EndpointPathClass & Document;
 
-export { EndpointPath, EndpointPathClass, type EndpointPathDocument };
+export { EndpointPath, type EndpointPathDocument, isEndpointPath };

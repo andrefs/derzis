@@ -12,7 +12,7 @@ import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import type { ResourceClass } from '../Resource';
 import mongoose from 'mongoose';
-import { type KeyStringAny } from '@typegoose/typegoose/lib/types';
+import { DocumentType, type KeyStringAny } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
 
 const log = createLogger('Triple');
@@ -52,6 +52,10 @@ export class TripleClass {
 
   @prop({ default: [], validate: urlValidator, type: [String] }, PropType.ARRAY)
   public sources?: string[];
+
+
+  @prop({ required: true, enum: TripleType })
+  public type!: TripleType;
 
 
   public static async upsertMany(
@@ -139,10 +143,17 @@ async function executeBulkOps(
   return results;
 }
 
+@modelOptions({
+  schemaOptions: {
+    timestamps: true,
+  }
+})
 export class NamedNodeTripleClass extends TripleClass {
   @prop({ required: true, validate: urlValidator, type: String })
   public object!: string;
 
+  @prop({ required: true, enum: TripleType })
+  declare public type: TripleType.NAMED_NODE;
 
   public directionOk(
     headUrl: string,
@@ -179,23 +190,34 @@ export class NamedNodeTripleClass extends TripleClass {
 export class LiteralTripleClass extends TripleClass {
   @prop({ required: true, type: LiteralObject })
   public object!: LiteralObject;
+
+  @prop({ required: true, enum: TripleType })
+  declare public type: TripleType.LITERAL;
 }
 
 export const Triple = getModelForClass(TripleClass);
-export type TripleDocument = TripleClass & Document;
+export type TripleDocument = DocumentType<TripleClass>;
 
 export const LiteralTriple = getDiscriminatorModelForClass(Triple, LiteralTripleClass, TripleType.LITERAL);
-export type LiteralTripleDocument = LiteralTripleClass & Document;
+export type LiteralTripleDocument = DocumentType<LiteralTripleClass>;
 
 export const NamedNodeTriple = getDiscriminatorModelForClass(Triple, NamedNodeTripleClass, TripleType.NAMED_NODE);
-export type NamedNodeTripleDocument = NamedNodeTripleClass & Document;
+export type NamedNodeTripleDocument = DocumentType<NamedNodeTripleClass>;
 
 
-export function checkForClass<T extends TripleClass>(
-  doc: mongoose.Document & KeyStringAny,
+export function checkForClass(
+  doc: TripleDocument,
+  type: TripleType.LITERAL
+): doc is LiteralTripleDocument;
+
+export function checkForClass(
+  doc: TripleDocument,
+  type: TripleType.NAMED_NODE
+): doc is NamedNodeTripleDocument;
+
+export function checkForClass(
+  doc: TripleDocument,
   type: TripleType
-): doc is T & mongoose.Document {
-  return doc?.__t === type;
+): boolean {
+  return doc?.type === type;
 }
-
-
