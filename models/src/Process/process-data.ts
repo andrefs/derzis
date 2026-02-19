@@ -435,4 +435,16 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
   };
 }
 
+export async function getCrawlRate(process: ProcessClass, windowMinutes: number = 5): Promise<number> {
+  const cutoffTime = new Date(Date.now() - windowMinutes * 60 * 1000);
+
+  const count = await Resource.countDocuments({
+    processId: process.pid,
+    status: 'done',
+    updatedAt: { $gte: cutoffTime }
+  });
+
+  return count / windowMinutes;
+}
+
 
