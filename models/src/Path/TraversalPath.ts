@@ -3,7 +3,8 @@ import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions
 import { NamedNodeTripleClass, type NamedNodeTripleDocument } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
-import { PathClass, Path, ResourceCount, PathType } from './Path';
+import { PathClass, Path, ResourceCount } from './Path';
+import { PathType } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
@@ -91,7 +92,7 @@ export class TraversalPathClass extends PathClass {
   @prop({ required: true, ref: 'NamedNodeTriple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
   public triples!: Types.ObjectId[];
 
-  @prop({ enum: PathType, required: true })
+  @prop({ enum: PathType, required: true, type: String })
   public type!: PathType.TRAVERSAL;
 
   public copy(this: TraversalPathClass): TraversalPathSkeleton {

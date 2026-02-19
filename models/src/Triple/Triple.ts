@@ -48,7 +48,7 @@ export class TripleClass extends TimeStamps {
   public sources?: string[];
 
 
-  @prop({ required: true, enum: TripleType })
+  @prop({ required: true, enum: TripleType, type: String })
   public type!: TripleType;
 
 

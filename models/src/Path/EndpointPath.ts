@@ -2,7 +2,8 @@ import { Types, type FilterQuery } from 'mongoose';
 import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, type NamedNodeTripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
-import { PathClass, Path, PathType } from './Path';
+import { PathClass, Path } from './Path';
+import { PathType } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
@@ -46,7 +47,7 @@ export class EndpointPathClass extends PathClass {
   public seedPaths!: { [seedUrl: string]: number };
 
 
-  @prop({ enum: PathType, required: true })
+  @prop({ enum: PathType, required: true, type: String })
   public type!: PathType.ENDPOINT;
 
   public shouldCreateNewPath(this: EndpointPathClass, t: NamedNodeTripleClass): boolean {

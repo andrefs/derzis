@@ -81,7 +81,7 @@ export class PathClass extends TimeStamps {
   @prop({ default: 0, type: Number })
   public extensionCounter!: number;
 
-  @prop({ enum: PathType, required: true })
+  @prop({ enum: PathType, required: true, type: String })
   public type!: PathType;
 
   public genExistingTriplesFilter(
