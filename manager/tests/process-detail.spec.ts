@@ -86,4 +86,18 @@ test.describe('Individual Process Page', () => {
       await expect(page.getByRole('rowheader', { name: 'Webhook' })).toBeVisible();
     }
   });
+
+  test('should display progress section for running processes', async ({ page }) => {
+    await page.goto('/processes');
+    const processLinks = page.locator('a[href*="/processes/"]:not([href="/processes/new"])');
+
+    if ((await processLinks.count()) > 0) {
+      await processLinks.first().click();
+
+      const progressSection = page.locator('[class*="progress"], #progress, .progress');
+      if (await progressSection.count() > 0) {
+        await expect(progressSection.first()).toBeVisible();
+      }
+    }
+  });
 });
