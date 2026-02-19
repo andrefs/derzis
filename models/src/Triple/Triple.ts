@@ -14,6 +14,7 @@ import type { ResourceClass } from '../Resource';
 import mongoose from 'mongoose';
 import { DocumentType, type KeyStringAny } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
+import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 
 const log = createLogger('Triple');
 
@@ -40,7 +41,7 @@ export class LiteralObject {
     collection: 'triples'
   }
 })
-export class TripleClass {
+export class TripleClass extends TimeStamps {
   @prop({ required: true, validate: urlValidator, type: String })
   public subject!: string;
 

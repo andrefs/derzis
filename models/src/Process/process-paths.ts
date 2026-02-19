@@ -292,7 +292,7 @@ export async function extendExistingPaths(pid: string) {
     }
 
     const lastPath = paths[paths.length - 1];
-    lastSeenCreatedAt = lastPath.createdAt;
+    lastSeenCreatedAt = lastPath.createdAt ?? null;
     lastSeenId = lastPath._id as Types.ObjectId;
 
     const percentage = Math.round((processedPaths / curPathsCount) * 100);
@@ -452,7 +452,7 @@ export async function extendProcessPaths(
     }
 
     const lastPath = paths[paths.length - 1];
-    lastPathCreatedAt = lastPath.createdAt;
+    lastPathCreatedAt = lastPath.createdAt ?? null;
     lastPathId = lastPath._id as Types.ObjectId;
 
     let hasMoreTriples = true;
@@ -480,7 +480,7 @@ export async function extendProcessPaths(
       }
 
       const lastTriple = triples[triples.length - 1];
-      lastTripleCreatedAt = lastTriple.createdAt;
+      lastTripleCreatedAt = lastTriple.createdAt ?? null;
       lastTripleId = lastTriple._id as Types.ObjectId;
 
       // extend each path with the new triples and gather new paths and proc-triple associations
