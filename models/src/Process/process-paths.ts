@@ -336,7 +336,7 @@ export async function extendExistingPaths(pid: string) {
  * @param procStep Current step number of the process
  */
 async function insertProcTriples(pid: string, procTriples: Set<Types.ObjectId>, procStep: number) {
-  if (Object.keys(procTriples).length > 0) {
+  if (procTriples.size > 0) {
     // add proc-triple associations
     await ProcessTriple.upsertMany(
       Array.from(procTriples).map(tId => ({
