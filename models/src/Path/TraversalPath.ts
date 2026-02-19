@@ -71,9 +71,10 @@ type RecursivePartial<T> = {
 })
 @index({ 'head.status': 1, status: 1 })
 @index({ 'head.domain.status': 1, status: 1 })
-@index({ 'head.domain.origin': 1, status: 1 })
+@index({ type: 1, 'head.domain.origin': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({ processId: 1, status: 1, extensionCounter: 1 })
+@index({ type: 1, processId: 1, status: 1, 'head.domain.status': 1 })
 @modelOptions({
   schemaOptions: {
     timestamps: true,

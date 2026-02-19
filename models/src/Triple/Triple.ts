@@ -35,6 +35,7 @@ export class LiteralObject {
     collection: 'triples'
   }
 })
+@index({ type: 1, nodes: 1, createdAt: 1 })
 @index({ nodes: 1, createdAt: 1 })
 @index({ sources: 1 })
 @index({ updatedAt: -1 })

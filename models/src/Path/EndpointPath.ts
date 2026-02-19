@@ -34,7 +34,7 @@ export type EndpointPathSkeleton = Pick<
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
-@index({ 'head.domain.status': 1, status: 1 })
+@index({ type: 1, 'head.domain.status': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Boolean, default: false })
