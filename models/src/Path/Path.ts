@@ -1,11 +1,11 @@
 import { Types, FilterQuery } from 'mongoose';
-import { PathType, urlListValidator, urlValidator } from '@derzis/common';
+import { PathType, urlListValidator, urlValidator, type TypedTripleId } from '@derzis/common';
 import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
-import { NamedNodeTriple, NamedNodeTripleClass, NamedNodeTripleDocument } from '../Triple';
+import { NamedNodeTripleDocument } from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
 
@@ -66,6 +66,9 @@ export { DomainClass, ResourceCount, SeedClass, HeadClass };
   }
 })
 export class PathClass extends TimeStamps {
+  @prop({ type: Types.ObjectId, auto: true })
+  public _id!: Types.ObjectId;
+
   @prop({ required: true, type: String })
   public processId!: string;
 
@@ -83,65 +86,23 @@ export class PathClass extends TimeStamps {
 
   @prop({ enum: PathType, required: true, type: String })
   public type!: PathType;
+}
 
-  public genExistingTriplesFilter(
-    this: PathDocument,
-    process: ProcessClass
-  ): FilterQuery<NamedNodeTripleDocument> | null {
-    throw new Error('genExistingTriplesFilter must be implemented by subclass');
-  }
-
-  public async genExtended(
-    this: PathDocument,
-    triples: NamedNodeTripleDocument[],
-    process: ProcessClass
-  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
-    throw new Error('genExtended must be implemented by subclass');
-  }
-
-
-  public async extendWithExistingTriples(
-    this: PathDocument,
-    process: ProcessClass
-  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
-    let triplesFilter;
-    if (isEndpoint(this)) {
-      triplesFilter = this.genExistingTriplesFilter(process);
-      if (!triplesFilter) {
-        return { extendedPaths: [], procTriples: [] };
-      }
-      let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
-      if (!triples.length) {
-        return { extendedPaths: [], procTriples: [] };
-      }
-      log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
-      return this.genExtended(triples, process) as Promise<{
-        extendedPaths: PathSkeleton[];
-        procTriples: Types.ObjectId[];
-      }>;
-    }
-    if (isTraversal(this)) {
-      triplesFilter = this.genExistingTriplesFilter(process);
-      if (!triplesFilter) {
-        return { extendedPaths: [], procTriples: [] };
-      }
-      let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
-      if (!triples.length) {
-        return { extendedPaths: [], procTriples: [] };
-      }
-      log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
-      return this.genExtended(triples, process) as Promise<{
-        extendedPaths: PathSkeleton[];
-        procTriples: Types.ObjectId[];
-      }>;
-    } else {
-      throw new Error(`Unknown path type: ${this.type}`);
-    }
-  }
+export interface IPath {
+  _id: Types.ObjectId;
+  processId: string;
+  seed: { url: string };
+  head: { url: string; status: string; domain?: { origin: string; status: string } };
+  status: 'active' | 'deleted';
+  type: PathType;
+  extensionCounter: number;
+  genExistingTriplesFilter: (process: ProcessClass) => FilterQuery<NamedNodeTripleDocument> | null;
+  genExtended: (triples: NamedNodeTripleDocument[], process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
+  extendWithExistingTriples: (process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
 }
 
 export const Path = getModelForClass(PathClass);
-export type PathDocument = DocumentType<PathClass>;
+export type PathDocument = DocumentType<PathClass> & IPath;
 
 
 export function isEndpoint(path: PathClass): path is EndpointPathClass {

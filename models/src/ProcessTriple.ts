@@ -1,7 +1,8 @@
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
-import { TripleClass, Triple, NamedNodeTripleClass, LiteralTripleClass, TripleType } from './Triple';
+import { TripleClass, Triple, NamedNodeTripleClass, LiteralTripleClass } from './Triple';
 import { prop, index, getModelForClass, type ReturnModelType, type Ref } from '@typegoose/typegoose';
 import { Types } from 'mongoose';
+import { TripleType } from '@derzis/common';
 
 @index({ processId: 1, triple: 1 }, { unique: true })
 class ProcessTripleClass extends TimeStamps {

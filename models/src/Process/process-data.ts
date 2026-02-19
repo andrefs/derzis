@@ -3,36 +3,49 @@ import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
 import { ProcessTriple, ProcessTripleClass } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath } from '../Path';
-import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass, Triple, TripleType } from '../Triple';
+import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass, Triple } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
-import { SimpleTriple, TripleType as CommonTripleType } from '@derzis/common';
+import { SimpleTriple, TripleType } from '@derzis/common';
 
 export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleTriple> {
-  const procTriples = await ProcessTriple.find({ processId: process.pid }).populate({
-    path: 'triple',
-    model: (doc: ProcessTripleClass) => doc.tripleType === CommonTripleType.NAMED_NODE ? NamedNodeTriple : LiteralTriple
-  });
+  const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();
+  const tripleIds = procTriples.map(pt => pt.triple);
+
+  if (tripleIds.length === 0) return;
+
+  const [namedNodeTriples, literalTriples] = await Promise.all([
+    NamedNodeTriple.find({ _id: { $in: tripleIds } }).lean(),
+    LiteralTriple.find({ _id: { $in: tripleIds } }).lean()
+  ]);
+
+  const tripleMap = new Map<string, { type: TripleType; data: any }>();
+  for (const t of namedNodeTriples) {
+    tripleMap.set(t._id.toString(), { type: TripleType.NAMED_NODE, data: t });
+  }
+  for (const t of literalTriples) {
+    tripleMap.set(t._id.toString(), { type: TripleType.LITERAL, data: t });
+  }
 
   for (const procTriple of procTriples) {
-    if (procTriple.triple) {
-      const triple = procTriple.triple as TripleClass;
-      if (triple.type === CommonTripleType.NAMED_NODE) {
-        const t = triple as NamedNodeTripleClass;
-        yield {
-          subject: t.subject,
-          predicate: t.predicate,
-          object: t.object,
-          type: CommonTripleType.NAMED_NODE
-        };
-      } else {
-        const t = triple as LiteralTripleClass;
-        yield {
-          subject: t.subject,
-          predicate: t.predicate,
-          object: t.object,
-          type: CommonTripleType.LITERAL
-        };
-      }
+    const entry = tripleMap.get(procTriple.triple.toString());
+    if (!entry) continue;
+
+    if (entry.type === TripleType.NAMED_NODE) {
+      const t = entry.data;
+      yield {
+        subject: t.subject,
+        predicate: t.predicate,
+        object: t.object as string,
+        type: TripleType.NAMED_NODE
+      };
+    } else {
+      const t = entry.data;
+      yield {
+        subject: t.subject,
+        predicate: t.predicate,
+        object: t.object as { value: string; datatype?: string; language?: string },
+        type: TripleType.LITERAL
+      };
     }
   }
 }

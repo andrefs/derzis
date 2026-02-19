@@ -1,9 +1,9 @@
 import { Types, type FilterQuery } from 'mongoose';
 import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, type NamedNodeTripleDocument } from '../Triple';
+import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
 import { PathClass, Path } from './Path';
-import { PathType } from '@derzis/common';
+import { PathType, type TypedTripleId, TripleType } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
@@ -98,9 +98,9 @@ export class EndpointPathClass extends PathClass {
   public async genExtended(
     triples: NamedNodeTripleDocument[],
     process: ProcessClass
-  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: Types.ObjectId[] }> {
+  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
     let extendedPaths: { [prop: string]: { [newHead: string]: EndpointPathSkeleton } } = {};
-    let procTriples: Types.ObjectId[] = [];
+    let procTriples: TypedTripleId[] = [];
     const predsDirMetrics = process.curPredsDirMetrics();
     const followDirection = process!.currentStep.followDirection;
 
@@ -139,7 +139,7 @@ export class EndpointPathClass extends PathClass {
         ep.frontier = true;
         ep.status = 'active';
 
-        procTriples.push(t._id);
+        procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
         log.silly('New path', ep);
         extendedPaths[prop][newHeadUrl] = ep;
       }
@@ -150,6 +150,21 @@ export class EndpointPathClass extends PathClass {
 
     log.silly('Extended paths', eps);
     return { extendedPaths: eps, procTriples };
+  }
+
+  public async extendWithExistingTriples(
+    process: ProcessClass
+  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
+    const triplesFilter = this.genExistingTriplesFilter(process);
+    if (!triplesFilter) {
+      return { extendedPaths: [], procTriples: [] };
+    }
+    let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
+    if (!triples.length) {
+      return { extendedPaths: [], procTriples: [] };
+    }
+    log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
+    return this.genExtended(triples, process);
   }
 }
 

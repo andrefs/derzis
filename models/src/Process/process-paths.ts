@@ -13,8 +13,8 @@ import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { FilterQuery, Types } from 'mongoose';
-import { NamedNodeTriple, TripleType } from '../Triple';
-import { type PathType, type TypedTripleId } from '@derzis/common';
+import { NamedNodeTriple } from '../Triple';
+import { type PathType, type TypedTripleId, TripleType } from '@derzis/common';
 
 /**
  * Get paths for a process that are ready for robots checking, based on the head domain status and path limits.
@@ -340,7 +340,7 @@ async function insertProcTriples(pid: string, procTriples: TypedTripleId[], proc
     await ProcessTriple.upsertMany(
       procTriples.map(t => ({
         processId: pid,
-        triple: t.id,
+        triple: new Types.ObjectId(t.id),
         tripleType: t.type,
         processStep: procStep
       }))

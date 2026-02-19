@@ -1,6 +1,6 @@
 import { Types, FilterQuery } from 'mongoose';
 import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, type NamedNodeTripleDocument } from '../Triple';
+import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
 import { PathClass, Path, ResourceCount } from './Path';
@@ -150,7 +150,7 @@ export class TraversalPathClass extends PathClass {
         ep.nodes.elems.push(newHeadUrl);
         ep.status = 'active';
 
-        procTriples.push({ id: t._id, type: TripleType.NAMED_NODE });
+        procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
         log.silly('New path', ep);
         extendedPaths[prop][newHeadUrl] = ep;
       }
@@ -353,7 +353,6 @@ export class TraversalPathClass extends PathClass {
   * @returns An object representing the filter for existing triples, or null if no triples should be returned based on the limits.
   */
   public genExistingTriplesFilter(
-    this: TraversalPathDocument,
     process: ProcessClass): FilterQuery<NamedNodeTripleDocument> | null {
     const limType = process.currentStep.predLimit.limType;
     const limPredicates = process.currentStep.predLimit.limPredicates || [];
@@ -391,6 +390,21 @@ export class TraversalPathClass extends PathClass {
     } else {
       return { ...baseFilter, ...predFilter };
     }
+  }
+
+  public async extendWithExistingTriples(
+    process: ProcessClass
+  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {
+    const triplesFilter = this.genExistingTriplesFilter(process);
+    if (!triplesFilter) {
+      return { extendedPaths: [], procTriples: [] };
+    }
+    let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
+    if (!triples.length) {
+      return { extendedPaths: [], procTriples: [] };
+    }
+    log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
+    return this.genExtended(triples, process);
   }
 }
 
