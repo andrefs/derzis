@@ -4,7 +4,7 @@ import { NamedNodeTripleClass, type NamedNodeTripleDocument } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
 import { PathClass, Path, ResourceCount } from './Path';
-import { PathType } from '@derzis/common';
+import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
@@ -123,9 +123,9 @@ export class TraversalPathClass extends PathClass {
   public async genExtended(
     triples: NamedNodeTripleDocument[],
     process: ProcessClass
-  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: Types.ObjectId[] }> {
+  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {
     let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
-    let procTriples: Types.ObjectId[] = [];
+    let procTriples: TypedTripleId[] = [];
     const predsDirMetrics = process.curPredsDirMetrics();
     const followDirection = process!.currentStep.followDirection;
 
@@ -150,7 +150,7 @@ export class TraversalPathClass extends PathClass {
         ep.nodes.elems.push(newHeadUrl);
         ep.status = 'active';
 
-        procTriples.push(t._id);
+        procTriples.push({ id: t._id, type: TripleType.NAMED_NODE });
         log.silly('New path', ep);
         extendedPaths[prop][newHeadUrl] = ep;
       }

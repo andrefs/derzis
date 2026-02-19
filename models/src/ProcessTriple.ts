@@ -1,5 +1,5 @@
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
-import { TripleClass, Triple, NamedNodeTripleClass, LiteralTripleClass } from './Triple';
+import { TripleClass, Triple, NamedNodeTripleClass, LiteralTripleClass, TripleType } from './Triple';
 import { prop, index, getModelForClass, type ReturnModelType, type Ref } from '@typegoose/typegoose';
 import { Types } from 'mongoose';
 
@@ -10,6 +10,9 @@ class ProcessTripleClass extends TimeStamps {
 
   @prop({ required: true, ref: Triple })
   public triple!: Ref<TripleClass>;
+
+  @prop({ required: true, enum: TripleType, type: String })
+  public tripleType!: TripleType;
 
   @prop({ required: true, type: Number })
   public processStep!: number;
@@ -45,6 +48,7 @@ const ProcessTriple = getModelForClass(ProcessTripleClass, {
 interface ProcessTripleInput {
   processId: string;
   triple: NamedNodeTripleClass | LiteralTripleClass | Types.ObjectId;
+  tripleType: TripleType;
   processStep: number;
 }
 

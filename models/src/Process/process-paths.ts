@@ -13,8 +13,8 @@ import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { FilterQuery, Types } from 'mongoose';
-import { NamedNodeTriple } from '../Triple';
-import { type PathType } from '@derzis/common';
+import { NamedNodeTriple, TripleType } from '../Triple';
+import { type PathType, type TypedTripleId } from '@derzis/common';
 
 /**
  * Get paths for a process that are ready for robots checking, based on the head domain status and path limits.
@@ -178,7 +178,7 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
       continue;
     }
 
-    await insertProcTriples(proc.pid, new Set(res.procTriples), proc.steps.length);
+    await insertProcTriples(proc.pid, res.procTriples, proc.steps.length);
     await deleteOldPaths(new Set([path._id]), path.type);
     // if new paths were created
     newPaths.push(...(await createNewPaths(res.extendedPaths, path.type)));
@@ -332,16 +332,16 @@ export async function extendExistingPaths(pid: string) {
 /**
  * Helper function to insert process-triple associations in bulk.
  * @param pid Process ID
- * @param procTriples Set of triple IDs to associate with the process
- * @param procStep Current step number of the process
- */
-async function insertProcTriples(pid: string, procTriples: Set<Types.ObjectId>, procStep: number) {
-  if (procTriples.size > 0) {
-    // add proc-triple associations
+  * @param procTriples Set of triple IDs to associate with the process
+  * @param procStep Current step number of the process
+  */
+async function insertProcTriples(pid: string, procTriples: TypedTripleId[], procStep: number) {
+  if (procTriples.length > 0) {
     await ProcessTriple.upsertMany(
-      Array.from(procTriples).map(tId => ({
+      procTriples.map(t => ({
         processId: pid,
-        triple: tId,
+        triple: t.id,
+        tripleType: t.type,
         processStep: procStep
       }))
     );
@@ -487,7 +487,7 @@ export async function extendProcessPaths(
         log.silly('Extended paths:', res.extendedPaths);
         // make db operations immediately for each path to avoid keeping too many new paths in memory
         if (res.extendedPaths.length) {
-          await insertProcTriples(process.pid, new Set(res.procTriples), process.steps.length);
+          await insertProcTriples(process.pid, res.procTriples, process.steps.length);
           newPaths.push(...(await createNewPaths(res.extendedPaths, pathType)));
           await deleteOldPaths(new Set([path._id]), pathType);
         }

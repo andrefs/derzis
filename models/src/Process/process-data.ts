@@ -1,63 +1,38 @@
 import { ProcessClass } from './Process';
 import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
-import { ProcessTriple } from '../ProcessTriple';
+import { ProcessTriple, ProcessTripleClass } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath } from '../Path';
-import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass } from '../Triple';
+import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass, Triple, TripleType } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
-import { SimpleTriple, TripleType } from '@derzis/common';
+import { SimpleTriple, TripleType as CommonTripleType } from '@derzis/common';
 
-/**
- * Get triples for a process as an async generator
- * @param {ProcessClass} process - the process to get triples for
- * @returns {AsyncGenerator<SimpleTriple>} - an async generator yielding triples
- */
 export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleTriple> {
-  console.log('XXXXXXXXXXXXx 2');
-  const procTriples = ProcessTriple.find({
-    processId: process.pid
-  }).populate('triple');
-  for await (const procTriple of procTriples) {
-    const triple = procTriple.triple as TripleClass;
+  const procTriples = await ProcessTriple.find({ processId: process.pid }).populate({
+    path: 'triple',
+    model: (doc: ProcessTripleClass) => doc.tripleType === CommonTripleType.NAMED_NODE ? NamedNodeTriple : LiteralTriple
+  });
 
-    console.log('XXXXXXXXXXXXx 3', triple);
-
-    if (triple.type === TripleType.LITERAL) {
-      const literalTriple = triple as LiteralTripleClass;
-      console.log('XXXXXXXXXXXXx 4', {
-        subject: literalTriple.subject,
-        predicate: literalTriple.predicate,
-        object: {
-          value: literalTriple.object.value,
-          datatype: literalTriple.object.datatype,
-          language: literalTriple.object.language
-        },
-        type: TripleType.LITERAL
-      });
-      yield {
-        subject: literalTriple.subject,
-        predicate: literalTriple.predicate,
-        object: {
-          value: literalTriple.object.value,
-          datatype: literalTriple.object.datatype,
-          language: literalTriple.object.language
-        },
-        type: TripleType.LITERAL
-      };
-    } else {
-      const namedNodeTriple = triple as NamedNodeTripleClass;
-      console.log('XXXXXXXXXXXXx 4', {
-        subject: namedNodeTriple.subject,
-        predicate: namedNodeTriple.predicate,
-        object: namedNodeTriple.object,
-        type: TripleType.NAMED_NODE
-      });
-      yield {
-        subject: namedNodeTriple.subject,
-        predicate: namedNodeTriple.predicate,
-        object: namedNodeTriple.object,
-        type: TripleType.NAMED_NODE
-      };
+  for (const procTriple of procTriples) {
+    if (procTriple.triple) {
+      const triple = procTriple.triple as TripleClass;
+      if (triple.type === CommonTripleType.NAMED_NODE) {
+        const t = triple as NamedNodeTripleClass;
+        yield {
+          subject: t.subject,
+          predicate: t.predicate,
+          object: t.object,
+          type: CommonTripleType.NAMED_NODE
+        };
+      } else {
+        const t = triple as LiteralTripleClass;
+        yield {
+          subject: t.subject,
+          predicate: t.predicate,
+          object: t.object,
+          type: CommonTripleType.LITERAL
+        };
+      }
     }
   }
 }

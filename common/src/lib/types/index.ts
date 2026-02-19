@@ -5,6 +5,11 @@ export enum TripleType {
   LITERAL = 'literal',
   NAMED_NODE = 'namedNode'
 }
+
+export type TypedTripleId = {
+  id: string;
+  type: TripleType;
+};
 export enum PathType {
   TRAVERSAL = 'traversal',
   ENDPOINT = 'endpoint'
