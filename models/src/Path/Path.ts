@@ -1,10 +1,13 @@
 import { Types } from 'mongoose';
 import { urlListValidator, urlValidator } from '@derzis/common';
-import { prop, PropType, Severity, modelOptions, getModelForClass } from '@typegoose/typegoose';
+import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
-import type { Document } from 'mongoose';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
+import { ProcessClass } from '../Process';
+import { NamedNodeTriple, NamedNodeTripleDocument } from '../Triple';
+import { createLogger } from '@derzis/common/server';
+const log = createLogger('Path');
 
 export enum PathType {
   TRAVERSAL = 'traversal',
@@ -85,21 +88,50 @@ export class PathClass extends TimeStamps {
 
   @prop({ enum: PathType, required: true })
   public type!: PathType;
+
+
+  public async extendWithExistingTriples(
+    this: PathDocument,
+    process: ProcessClass
+  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
+    let triplesFilter;
+    if (isEndpoint(this)) {
+      triplesFilter = this.genExistingTriplesFilter(process);
+      if (!triplesFilter) {
+        return { extendedPaths: [], procTriples: [] };
+      }
+      let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
+      if (!triples.length) {
+        return { extendedPaths: [], procTriples: [] };
+      }
+      log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
+      return this.genExtended(triples, process) as Promise<{
+        extendedPaths: PathSkeleton[];
+        procTriples: Types.ObjectId[];
+      }>;
+    }
+    if (isTraversal(this)) {
+      triplesFilter = this.genExistingTriplesFilter(process);
+      if (!triplesFilter) {
+        return { extendedPaths: [], procTriples: [] };
+      }
+      let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
+      if (!triples.length) {
+        return { extendedPaths: [], procTriples: [] };
+      }
+      log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
+      return this.genExtended(triples, process) as Promise<{
+        extendedPaths: PathSkeleton[];
+        procTriples: Types.ObjectId[];
+      }>;
+    } else {
+      throw new Error(`Unknown path type: ${this.type}`);
+    }
+  }
 }
 
 export const Path = getModelForClass(PathClass);
-export interface PathDocument extends PathClass, Document { createdAt: Date; updatedAt: Date }
-
-export function isTraversalPath(path: PathClass | PathDocument): path is TraversalPathClass & Document {
-  return path.type === PathType.TRAVERSAL;
-}
-
-export function isEndpointPath(path: PathClass | PathDocument): path is EndpointPathClass & Document {
-  return path.type === PathType.ENDPOINT;
-}
-
-export type ProcTripleIdType = Types.ObjectId;
-
+export type PathDocument = DocumentType<PathClass>;
 
 
 export function isEndpoint(path: PathClass): path is EndpointPathClass {

@@ -1,8 +1,8 @@
-import { Document, Types, type FilterQuery } from 'mongoose';
+import { Types, type FilterQuery } from 'mongoose';
 import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
+import { NamedNodeTripleClass, type NamedNodeTripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
-import { PathClass, Path, ProcTripleIdType, PathType, isEndpointPath } from './Path';
+import { PathClass, Path, PathType } from './Path';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
@@ -65,23 +65,14 @@ export class EndpointPathClass extends PathClass {
     return this.shortestPath.length + 1 > process.currentStep.maxPathLength;
   }
 
-  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<NamedNodeTripleClass> {
+  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<NamedNodeTripleClass> | null {
     return {
       processId: this.processId,
       nodes: this.head.url
     };
   }
 
-  public async extendWithExistingTriples(
-    process: ProcessClass
-  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: ProcTripleIdType[] }> {
-    const triplesFilter = this.genExistingTriplesFilter(process);
-    let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
-    if (!triples.length) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-    return this.genExtended(triples, process) as Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: ProcTripleIdType[] }>;
-  }
+
 
   public copy(this: EndpointPathClass): EndpointPathSkeleton {
     const copy: EndpointPathSkeleton = {
@@ -106,7 +97,7 @@ export class EndpointPathClass extends PathClass {
   public async genExtended(
     triples: NamedNodeTripleDocument[],
     process: ProcessClass
-  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: ProcTripleIdType[] }> {
+  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: Types.ObjectId[] }> {
     let extendedPaths: { [prop: string]: { [newHead: string]: EndpointPathSkeleton } } = {};
     let procTriples: Types.ObjectId[] = [];
     const predsDirMetrics = process.curPredsDirMetrics();
@@ -161,8 +152,7 @@ export class EndpointPathClass extends PathClass {
   }
 }
 
-const EndpointPath = getDiscriminatorModelForClass(Path, EndpointPathClass, PathType.ENDPOINT);
+export const EndpointPath = getDiscriminatorModelForClass(Path, EndpointPathClass, PathType.ENDPOINT);
 
-interface EndpointPathDocument extends DocumentType<EndpointPathClass> { createdAt: Date; updatedAt: Date }
+export type EndpointPathDocument = DocumentType<EndpointPathClass>;
 
-export { EndpointPath, type EndpointPathDocument, isEndpointPath };

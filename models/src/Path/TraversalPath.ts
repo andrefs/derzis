@@ -1,9 +1,9 @@
 import { Types, FilterQuery } from 'mongoose';
 import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
+import { NamedNodeTripleClass, type NamedNodeTripleDocument } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
-import { PathClass, Path, ProcTripleIdType, ResourceCount, PathType } from './Path';
+import { PathClass, Path, ResourceCount, PathType } from './Path';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
@@ -390,27 +390,6 @@ export class TraversalPathClass extends PathClass {
     } else {
       return { ...baseFilter, ...predFilter };
     }
-  }
-
-
-
-  public async extendWithExistingTriples(
-    this: TraversalPathDocument,
-    process: ProcessClass
-  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: ProcTripleIdType[] }> {
-    const triplesFilter = this.genExistingTriplesFilter(process);
-    if (!triplesFilter) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-    let triples: NamedNodeTripleDocument[] = await NamedNodeTriple.find(triplesFilter);
-    if (!triples.length) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-    log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
-    return this.genExtended(triples, process) as Promise<{
-      extendedPaths: TraversalPathSkeleton[];
-      procTriples: ProcTripleIdType[];
-    }>;
   }
 }
 

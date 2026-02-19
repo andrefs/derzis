@@ -4,10 +4,8 @@ import {
   EndpointPath,
   type EndpointPathDocument,
   TraversalPathClass,
-  EndpointPathClass,
   type PathSkeleton,
-  Path,
-  type PathDocument
+  isTraversalPath,
 } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
@@ -167,11 +165,11 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
     const res = await path.extendWithExistingTriples(proc);
 
     if (!res.extendedPaths.length) {
-      const length = path instanceof TraversalPath
-        ? path.nodes.count
-        : path instanceof EndpointPath
-          ? path.shortestPath.length
-          : 'N/A';
+      const length = 
+          ? path.nodes.count
+          : path instanceof EndpointPath
+            ? path.shortestPath.length
+            : 'N/A';
       const predicates = path instanceof TraversalPath
         ? path.predicates.elems
         : null;
@@ -181,11 +179,7 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
       continue;
     }
 
-    const pts = res.procTriples.reduce((acc, t) => {
-      acc[t.id.toString()] = t.type;
-      return acc;
-    }, {} as { [id: string]: TripleType });
-    await insertProcTriples(proc.pid, pts, proc.steps.length);
+    await insertProcTriples(proc.pid, new Set(res.procTriples), proc.steps.length);
     await deleteOldPaths(new Set([path._id]), path.type);
     // if new paths were created
     newPaths.push(...(await createNewPaths(res.extendedPaths, path.type)));
