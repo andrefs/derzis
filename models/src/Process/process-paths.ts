@@ -293,11 +293,11 @@ export async function extendExistingPaths(pid: string) {
     lastSeenCreatedAt = lastPath.createdAt ?? null;
     lastSeenId = lastPath._id as Types.ObjectId;
 
-    const percentage = Math.round((processedPaths / curPathsCount) * 100);
+    const percentage = Math.round((processedPaths / (processedPaths + curPathsCount)) * 100);
     const elapsedTime = (Date.now() - startTime) / 1000;
 
     log.info(
-      `Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${curPathsCount} - ${percentage}%)`
+      `Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${processedPaths + curPathsCount} - ${percentage}%)`
     );
 
     await extendPathsWithExistingTriples(process, paths);

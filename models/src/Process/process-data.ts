@@ -2,10 +2,11 @@ import { ProcessClass } from './Process';
 import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
 import { ProcessTriple, ProcessTripleClass } from '../ProcessTriple';
 import { Resource } from '../Resource';
-import { TraversalPath } from '../Path';
+import { TraversalPath, EndpointPath } from '../Path';
 import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass, Triple } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
-import { SimpleTriple, TripleType } from '@derzis/common';
+import { SimpleTriple, TripleType, type PathType } from '@derzis/common';
+import config from '@derzis/config';
 
 export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleTriple> {
   const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();
@@ -384,6 +385,54 @@ export function curPredsDirMetrics(
     });
     return map;
   }, new Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>());
+}
+
+export interface PathProgress {
+  done: number;
+  remaining: {
+    unvisited: number;
+    crawling: number;
+    checking: number;
+  };
+  total: number;
+}
+
+export async function getPathProgress(process: ProcessClass): Promise<PathProgress> {
+  const pathType = config.manager.pathType as PathType;
+  const seeds = process.currentStep.seeds;
+
+  const baseQuery = {
+    'seed.url': { $in: seeds },
+    status: 'active'
+  };
+
+  const pipeline = [
+    { $match: baseQuery },
+    { $group: { _id: '$head.status', count: { $sum: 1 } } }
+  ];
+
+  const PathModel = pathType === 'traversal' ? TraversalPath : EndpointPath;
+  const results = await PathModel.aggregate(pipeline);
+
+  const counts: Record<string, number> = {};
+  for (const r of results) {
+    counts[r._id as string] = r.count;
+  }
+
+  const done = counts['done'] || 0;
+  const crawling = counts['crawling'] || 0;
+  const checking = counts['checking'] || 0;
+  const unvisited = counts['unvisited'] || 0;
+
+  return {
+    done,
+    remaining: {
+      unvisited,
+      crawling,
+      checking
+    },
+    total: done + crawling + checking + unvisited
+  };
 }
 
 

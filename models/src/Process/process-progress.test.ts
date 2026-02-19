@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getPathProgress } from './process-data';
 import { TraversalPath } from '../Path/TraversalPath';
-import { EndpointPath } from '../Path/EndpointPath';
 import type { ProcessClass } from './Process';
 
 vi.mock('../Path/TraversalPath', () => ({
@@ -17,14 +16,6 @@ vi.mock('../Path/EndpointPath', () => ({
     aggregate: vi.fn(),
     countDocuments: vi.fn(),
   },
-}));
-
-vi.mock('@derzis/config', () => ({
-  default: {
-    manager: {
-      pathType: 'traversal'
-    }
-  }
 }));
 
 vi.mock('../Path/EndpointPath', () => ({
@@ -66,7 +57,7 @@ describe('getPathProgress', () => {
     expect(result.total).toBe(375);
   });
 
-  it('should return correct counts when EndpointPath is used', async () => {
+  it('should return correct counts for different path statuses', async () => {
     const mockAggregateResult = [
       { _id: 'done', count: 150 },
       { _id: 'crawling', count: 30 },
@@ -74,19 +65,14 @@ describe('getPathProgress', () => {
       { _id: 'unvisited', count: 300 },
     ];
 
-    vi.mocked(EndpointPath.aggregate).mockResolvedValue(mockAggregateResult as any);
-
-    vi.mock('@derzis/config', () => ({
-      default: {
-        manager: {
-          pathType: 'endpoint'
-        }
-      }
-    }));
+    vi.mocked(TraversalPath.aggregate).mockResolvedValue(mockAggregateResult as any);
 
     const result = await getPathProgress(mockProcess as any);
 
     expect(result.done).toBe(150);
+    expect(result.remaining.crawling).toBe(30);
+    expect(result.remaining.checking).toBe(20);
+    expect(result.remaining.unvisited).toBe(300);
     expect(result.total).toBe(500);
   });
 
