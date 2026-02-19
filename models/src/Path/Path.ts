@@ -1,11 +1,11 @@
-import { Types } from 'mongoose';
+import { Types, FilterQuery } from 'mongoose';
 import { urlListValidator, urlValidator } from '@derzis/common';
 import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
-import { NamedNodeTriple, NamedNodeTripleDocument } from '../Triple';
+import { NamedNodeTriple, NamedNodeTripleClass, NamedNodeTripleDocument } from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
 
@@ -88,6 +88,19 @@ export class PathClass extends TimeStamps {
 
   @prop({ enum: PathType, required: true })
   public type!: PathType;
+
+  public genExistingTriplesFilter(
+    process: ProcessClass
+  ): FilterQuery<NamedNodeTripleDocument> | null {
+    throw new Error('genExistingTriplesFilter must be implemented by subclass');
+  }
+
+  public async genExtended(
+    triples: NamedNodeTripleDocument[],
+    process: ProcessClass
+  ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
+    throw new Error('genExtended must be implemented by subclass');
+  }
 
 
   public async extendWithExistingTriples(
