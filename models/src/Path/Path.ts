@@ -90,12 +90,14 @@ export class PathClass extends TimeStamps {
   public type!: PathType;
 
   public genExistingTriplesFilter(
+    this: PathDocument,
     process: ProcessClass
   ): FilterQuery<NamedNodeTripleDocument> | null {
     throw new Error('genExistingTriplesFilter must be implemented by subclass');
   }
 
   public async genExtended(
+    this: PathDocument,
     triples: NamedNodeTripleDocument[],
     process: ProcessClass
   ): Promise<{ extendedPaths: PathSkeleton[]; procTriples: Types.ObjectId[] }> {
@@ -154,4 +156,6 @@ export function isEndpoint(path: PathClass): path is EndpointPathClass {
 export function isTraversal(path: PathClass): path is TraversalPathClass {
   return path.type === PathType.TRAVERSAL;
 }
+
+export const isTraversalPath = isTraversal;
 
