@@ -1,10 +1,43 @@
 <script lang="ts">
   export let data;
-  import { Col, Row, Table, Badge } from '@sveltestrap/sveltestrap';
+  import { Col, Row, Table, Badge, Alert } from '@sveltestrap/sveltestrap';
   import { Icon } from 'svelte-icons-pack';
   import { BsPencilSquare } from 'svelte-icons-pack/bs';
   import { BiDownload, BiNetworkChart } from 'svelte-icons-pack/bi';
   import { HiSolidMagnifyingGlass } from 'svelte-icons-pack/hi';
+  import { onMount, onDestroy } from 'svelte';
+
+  let progress: { step: number; paths: { done: number; remaining: number }; rate: number } | null = null;
+  let error: string | null = null;
+  let eventSource: EventSource | null = null;
+
+  $: isRunning = data.proc.status === 'running' || data.proc.status === 'extending';
+
+  onMount(() => {
+    if (!isRunning) return;
+
+    const ssePath = `/api/processes/${data.proc.pid}/events`;
+    eventSource = new EventSource(ssePath);
+
+    eventSource.onmessage = (event) => {
+      try {
+        progress = JSON.parse(event.data);
+      } catch (e) {
+        console.error('Failed to parse SSE event:', e);
+      }
+    };
+
+    eventSource.onerror = (e) => {
+      error = 'Lost connection to progress updates';
+      console.error('SSE error:', e);
+    };
+  });
+
+  onDestroy(() => {
+    if (eventSource) {
+      eventSource.close();
+    }
+  });
 </script>
 
 <header style="padding-bottom: 1rem">
@@ -13,6 +46,16 @@
     <a href="/processes/{data.proc.pid}/edit"><Icon src={BsPencilSquare} /></a>
   </h2>
 </header>
+
+{#if isRunning && progress}
+  <Alert color="info" class="mb-4">
+    <strong>Step {progress.step}:</strong>
+    {progress.paths.done} paths done | {progress.paths.remaining} remaining |
+    {progress.rate.toFixed(1)} resources/min
+  </Alert>
+{:else if isRunning && error}
+  <Alert color="warning" class="mb-4">{error}</Alert>
+{/if}
 
 <main>
   <Row>
