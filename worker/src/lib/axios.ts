@@ -71,6 +71,12 @@ export default function (logger: MonkeyPatchedLogger) {
             error.response.status + ' - ' + error.response.statusText
           );
         }
+      } else if (logger) {
+        const status = error.code === 'ECONNABORTED' ? 'TIMEOUT' : error.code;
+        logger.http(
+          error.config?.method?.toUpperCase() + ' ' + error.config?.url,
+          status
+        );
       }
       return Promise.reject(error);
     }
