@@ -349,9 +349,9 @@ class DomainClass {
           continue PROCESS_LOOP;
         }
 
-        const lastPath = paths[paths.length - 1];
+        const lastPath = paths[paths.length - 1] as any;
         lastSeenCreatedAt = lastPath.createdAt;
-        lastSeenId = lastPath._id as Types.ObjectId;
+        lastSeenId = lastPath._id;
 
         const origins = new Set<string>(paths.map((p) => p.head.domain.origin));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
@@ -493,8 +493,8 @@ class DomainClass {
         }
 
         const lastPath = paths[paths.length - 1];
-        lastSeenCreatedAt = lastPath.createdAt;
-        lastSeenId = lastPath._id as Types.ObjectId;
+        lastSeenCreatedAt = (lastPath as { createdAt: Date }).createdAt;
+        lastSeenId = (lastPath as { _id: Types.ObjectId })._id;
 
         // get only unvisited path heads
         const unvisHeads = paths.filter((p) => p.head.status === 'unvisited').map((p) => p.head);

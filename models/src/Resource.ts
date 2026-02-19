@@ -5,9 +5,10 @@ import {
   TraversalPath,
   EndpointPath,
   type TraversalPathDocument,
-  type EndpointPathDocument
+  type EndpointPathDocument,
+  EndpointPathClass
 } from './Path';
-import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
+import { isNamedNode, NamedNodeTriple, TripleType, type NamedNodeTripleClass } from './Triple';
 import type { CrawlResourceResultDetails, SimpleTriple } from '@derzis/common';
 import config from '@derzis/config';
 
@@ -97,7 +98,7 @@ class ResourceClass {
     const resources: { [pos: string]: boolean } = {};
     for (const t of triples) {
       resources[t.subject] = true;
-      if (t.type === 'namedNode') {
+      if (t.type === TripleType.NAMED_NODE) {
         resources[t.object] = true;
       }
     }
@@ -300,10 +301,10 @@ class ResourceClass {
    **/
   public static async addEpPaths(
     this: ReturnModelType<typeof ResourceClass>,
-    paths: EndpointPathDocument[]
+    paths: EndpointPathClass[]
   ) {
     const dom = await Domain.bulkWrite(
-      paths.map((p: EndpointPathDocument) => ({
+      paths.map((p: EndpointPathClass) => ({
         updateOne: {
           filter: { origin: p.head.domain.origin },
           update: { $inc: { 'crawl.pathHeads': 1 } }

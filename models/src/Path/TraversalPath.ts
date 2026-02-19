@@ -1,9 +1,9 @@
-import { Types, Document, FilterQuery } from 'mongoose';
-import { prop, index, pre, getDiscriminatorModelForClass, PropType } from '@typegoose/typegoose';
+import { Types, FilterQuery } from 'mongoose';
+import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
-import { PathClass, Path, ProcTripleIdType, ResourceCount, PathType, isTraversalPath } from './Path';
+import { PathClass, Path, ProcTripleIdType, ResourceCount, PathType } from './Path';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
@@ -73,6 +73,11 @@ type RecursivePartial<T> = {
 @index({ 'head.domain.origin': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({ processId: 1, status: 1, extensionCounter: 1 })
+@modelOptions({
+  schemaOptions: {
+    timestamps: true,
+  }
+})
 export class TraversalPathClass extends PathClass {
   @prop({ validate: (value: string) => !!value, type: String })
   public lastPredicate?: string;
@@ -409,8 +414,7 @@ export class TraversalPathClass extends PathClass {
   }
 }
 
-const TraversalPath = getDiscriminatorModelForClass(Path, TraversalPathClass, PathType.TRAVERSAL);
+export const TraversalPath = getDiscriminatorModelForClass(Path, TraversalPathClass, PathType.TRAVERSAL);
 
-type TraversalPathDocument = TraversalPathClass & Document;
+export type TraversalPathDocument = DocumentType<TraversalPathClass>;
 
-export { TraversalPath, type TraversalPathDocument, isTraversalPath };

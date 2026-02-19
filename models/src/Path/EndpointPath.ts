@@ -1,5 +1,5 @@
 import { Document, Types, type FilterQuery } from 'mongoose';
-import { prop, index, getDiscriminatorModelForClass } from '@typegoose/typegoose';
+import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
 import { PathClass, Path, ProcTripleIdType, PathType, isEndpointPath } from './Path';
@@ -163,6 +163,6 @@ export class EndpointPathClass extends PathClass {
 
 const EndpointPath = getDiscriminatorModelForClass(Path, EndpointPathClass, PathType.ENDPOINT);
 
-type EndpointPathDocument = EndpointPathClass & Document;
+interface EndpointPathDocument extends DocumentType<EndpointPathClass> { createdAt: Date; updatedAt: Date }
 
 export { EndpointPath, type EndpointPathDocument, isEndpointPath };

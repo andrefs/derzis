@@ -2,9 +2,12 @@ import {
   TraversalPath,
   type TraversalPathDocument,
   EndpointPath,
+  type EndpointPathDocument,
   TraversalPathClass,
   EndpointPathClass,
-  type PathSkeleton
+  type PathSkeleton,
+  Path,
+  type PathDocument
 } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
@@ -31,7 +34,7 @@ export async function getPathsForRobotsChecking(
   lastSeenCreatedAt: Date | null = null,
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
-): Promise<TraversalPathClass[] | EndpointPathClass[]> {
+) {
   const baseQuery = {
     processId: process.pid,
     status: 'active',
@@ -55,8 +58,7 @@ export async function getPathsForRobotsChecking(
     })
       .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
-      .select(select)
-      .lean();
+      .select(select);
     return paths;
   } else {
     const paths = await EndpointPath.find({
@@ -67,8 +69,7 @@ export async function getPathsForRobotsChecking(
     })
       .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
-      .select(select)
-      .lean();
+      .select(select);
     return paths;
   }
 }
@@ -90,7 +91,7 @@ export async function getPathsForDomainCrawl(
   lastSeenCreatedAt: Date | null = null,
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
-): Promise<TraversalPathClass[] | EndpointPathClass[]> {
+) {
   const select = 'head.status head.domain.origin head.url createdAt _id';
 
   // Compound cursor using $gte and $gt - requires compound index on {createdAt: 1, _id: 1}
@@ -366,7 +367,7 @@ async function insertProcTriples(pid: string, procTriples: { [id: string]: Tripl
 async function createNewPaths(
   pathsToCreate: PathSkeleton[],
   pathType: PathType
-): Promise<PathClass[]> {
+): Promise<TraversalPathDocument[] | EndpointPathDocument[]> {
   if (pathsToCreate.length) {
     // update head status of new paths
     await setNewPathHeadStatus(pathsToCreate);

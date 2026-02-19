@@ -6,7 +6,9 @@ import {
   EndpointPath,
   TraversalPathClass,
   EndpointPathClass,
-  PathClass
+  PathClass,
+  type TraversalPathDocument,
+  type EndpointPathDocument
 } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
@@ -269,7 +271,7 @@ class ProcessClass extends Document {
     lastSeenCreatedAt: Date | null = null,
     lastSeenId: Types.ObjectId | null = null,
     limit = 20
-  ): Promise<TraversalPathClass[] | EndpointPathClass[]> {
+  ) {
     return getPathsForDomainCrawl(this, pathType, domainBlacklist, lastSeenCreatedAt, lastSeenId, limit);
   }
 
@@ -464,12 +466,10 @@ class ProcessClass extends Document {
             .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
             .select('head.url head.domain.origin createdAt _id')
-            .lean()
           : await EndpointPath.find({ processId: this.pid, status: 'active', ...cursorCondition })
             .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
             .select('head.url head.domain.origin createdAt _id')
-            .lean();
 
       if (paths.length === 0) {
         hasMore = false;
@@ -477,7 +477,7 @@ class ProcessClass extends Document {
       }
 
       const lastPath = paths[paths.length - 1];
-      lastSeenCreatedAt = lastPath.createdAt;
+      lastSeenCreatedAt = lastPath.createdAt || null;
       lastSeenId = lastPath._id as Types.ObjectId;
 
       const headUrls = new Set(paths.map((p) => p.head.url));

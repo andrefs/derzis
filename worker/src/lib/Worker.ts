@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { ResourceCache, db } from '@derzis/models';
+import { ResourceCache, db, TripleType } from '@derzis/models';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
 import Axios from './axios';
@@ -336,11 +336,11 @@ export class Worker extends EventEmitter {
                 subject: t.subject.value,
                 predicate: t.predicate.value,
                 object: t.object.value,
-                type: 'namedNode' as const
+                type: TripleType.NAMED_NODE
               };
               return st;
             } else if (t.object.termType === 'Literal') {
-              const st = {
+              const st: SimpleTriple = {
                 subject: t.subject.value,
                 predicate: t.predicate.value,
                 object: {
@@ -348,7 +348,7 @@ export class Worker extends EventEmitter {
                   language: t.object.language || undefined,
                   datatype: t.object.datatype?.value || undefined
                 },
-                type: 'literal' as const
+                type: TripleType.LITERAL
               };
               return st;
             }
@@ -361,7 +361,7 @@ export class Worker extends EventEmitter {
         )
         // Filter out triples with empty object or object.value
         .filter((t) => {
-          if (t.type === 'namedNode') {
+          if (t.type === TripleType.NAMED_NODE) {
             return t.object !== '';
           }
           return t.object.value !== '';

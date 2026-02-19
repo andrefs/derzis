@@ -4,6 +4,7 @@ import { prop, PropType, Severity, modelOptions, getModelForClass } from '@typeg
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import type { Document } from 'mongoose';
+import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 
 export enum PathType {
   TRAVERSAL = 'traversal',
@@ -66,7 +67,7 @@ export { DomainClass, ResourceCount, SeedClass, HeadClass };
     collection: 'paths'
   }
 })
-export class PathClass {
+export class PathClass extends TimeStamps {
   @prop({ required: true, type: String })
   public processId!: string;
 
@@ -87,7 +88,7 @@ export class PathClass {
 }
 
 export const Path = getModelForClass(PathClass);
-export type PathDocument = PathClass & Document;
+export interface PathDocument extends PathClass, Document { createdAt: Date; updatedAt: Date }
 
 export function isTraversalPath(path: PathClass | PathDocument): path is TraversalPathClass & Document {
   return path.type === PathType.TRAVERSAL;
@@ -101,11 +102,11 @@ export type ProcTripleIdType = Types.ObjectId;
 
 
 
-function isEndpoint(path: PathClass): path is EndpointPathClass {
+export function isEndpoint(path: PathClass): path is EndpointPathClass {
   return path.type === PathType.ENDPOINT;
 }
 
-function isTraversal(path: PathClass): path is TraversalPathClass {
+export function isTraversal(path: PathClass): path is TraversalPathClass {
   return path.type === PathType.TRAVERSAL;
 }
 

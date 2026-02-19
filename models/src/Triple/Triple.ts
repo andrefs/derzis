@@ -221,3 +221,15 @@ export function checkForClass(
 ): boolean {
   return doc?.type === type;
 }
+
+
+
+
+export function isNamedNode(triple: TripleClass): triple is NamedNodeTripleClass {
+  return triple.type === TripleType.NAMED_NODE;
+}
+
+export function isLiteral(triple: TripleClass): triple is LiteralTripleClass {
+  return triple.type === TripleType.LITERAL;
+}
+
