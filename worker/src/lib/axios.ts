@@ -43,6 +43,14 @@ export default function (logger: MonkeyPatchedLogger) {
       response.headers['request-startTime'] = String(config.tsStart);
       response.headers['request-endTime'] = String(now);
       response.headers['request-duration'] = String(now - config.tsStart);
+
+      const finalUrl = (response.request as any).res?.responseUrl;
+      if (finalUrl && finalUrl !== config.url) {
+        if (logger) {
+          logger.http(`Redirect: ${config.url} -> ${finalUrl}`, '301/302');
+        }
+      }
+
       if (logger) {
         logger.http(
           response?.config?.method?.toUpperCase() + ' ' + response.config.url,
