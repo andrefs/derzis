@@ -22,3 +22,4 @@ manager/build
 test-results/
 manager/.server.pid
 */logs
+.sisyphus/

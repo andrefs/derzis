@@ -63,7 +63,7 @@ export default {
       resourcesPerDomain: 1
     },
     robotsCheck: {
-      capacity: 1
+      capacity: 10
     }
   },
   http: {
