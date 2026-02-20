@@ -109,13 +109,13 @@ export class PathClass extends TimeStamps {
 
   @prop({
     required: true,
-    type: UrlHead,
+    type: HeadBase,
     discriminators: () => [
       { type: UrlHead, value: HEAD_TYPE.URL },
       { type: LiteralHead, value: HEAD_TYPE.LITERAL }
     ]
   })
-  public head!: Head;
+  public head!: HeadBase;
 
   @prop({ enum: ['active', 'deleted'], default: 'active', type: String })
   public status!: 'active' | 'deleted';
@@ -154,7 +154,12 @@ export function isTraversal(path: PathClass): path is TraversalPathClass {
 
 export const isTraversalPath = isTraversal;
 
-export function isLiteralHead(path: PathClass): boolean {
+export function hasLiteralHead(path: PathClass): boolean {
   return path.head.type === HEAD_TYPE.LITERAL;
 }
+
+export function hasUrlHead(path: PathClass): boolean {
+  return path.head.type === HEAD_TYPE.URL;
+}
+
 

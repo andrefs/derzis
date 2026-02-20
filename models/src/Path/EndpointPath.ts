@@ -2,7 +2,7 @@ import { Types, type FilterQuery } from 'mongoose';
 import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument } from '../Triple';
 import { ProcessClass } from '../Process';
-import { PathClass, Path, isLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
+import { PathClass, Path, hasLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
 import { PathType, type TypedTripleId, TripleType, type LiteralObject } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -232,7 +232,7 @@ export class EndpointPathClass extends PathClass {
   public async extendWithExistingTriples(
     process: ProcessClass
   ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
-    if (isLiteralHead(this)) {
+    if (hasLiteralHead(this)) {
       return { extendedPaths: [], procTriples: [] };
     }
 
