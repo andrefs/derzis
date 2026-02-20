@@ -7,7 +7,8 @@ import {
   type PathSkeleton,
   type PathDocument,
   HEAD_TYPE,
-  UrlHead
+  UrlHead,
+  LiteralHead
 } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
@@ -175,8 +176,10 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
         ? path.predicates.elems
         : null;
 
-      const headUrl = path.head.type === HEAD_TYPE.URL ? (path.head as UrlHead).url : '<literal>';
-      log.silly(`No new paths created from path ${path._id} (seed ${path.seed.url}, head ${headUrl}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`);
+      const headVal = path.head.type === HEAD_TYPE.URL
+        ? (path.head as UrlHead).url
+        : `"${(path.head as LiteralHead).value}"`;
+      log.silly(`No new paths created from path ${path._id} (seed ${path.seed.url}, head ${headVal}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`);
 
       continue;
     }
@@ -525,7 +528,7 @@ async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
   // Only process paths with URL heads (not literal heads)
   const urlPaths = newPaths.filter((p) => p.head.type === HEAD_TYPE.URL) as (PathSkeleton & { head: UrlHead })[];
   const headUrls = urlPaths.map((p) => p.head.url);
-  
+
   if (!headUrls.length) {
     return;
   }
