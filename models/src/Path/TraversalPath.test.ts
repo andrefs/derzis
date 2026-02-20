@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { TraversalPathClass } from './TraversalPath';
 import { StepClass, PredicateLimitationClass, BranchFactorClass, SeedPosRatioClass } from '../Process/aux-classes';
+import { Head } from './Path';
 
 describe('TraversalPathClass.genExistingTriplesFilter', () => {
   const createMockPath = (overrides: {
@@ -18,7 +19,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       status: 'unvisited',
       domain: { origin: 'http://example.com', status: 'ready' },
       type: 'url'
-    };
+    } as Head;
     path.predicates = { count: 0, elems: [] };
     path.nodes = { count: 1, elems: ['http://example.com/node1'] };
     path.triples = [];
@@ -36,7 +37,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       status: 'unvisited',
       domain: { origin: 'http://example.com', status: 'ready' },
       type: 'url'
-    };
+    } as Head;
     path.predicates = { count: 0, elems: [] };
     path.nodes = { count: 1, elems: [] };
     path.triples = [];
@@ -524,7 +525,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
       status: 'unvisited',
       domain: { origin: 'http://example.com', status: 'ready' },
       type: 'url'
-    };
+    } as Head;
     path.predicates = { count: 0, elems: [] };
     path.nodes = {
       count: overrides.nodesCount ?? overrides.nodesElems?.length ?? 1,
@@ -638,7 +639,7 @@ describe('TraversalPathClass.tripleIsOutOfBounds', () => {
       status: 'unvisited',
       domain: { origin: 'http://example.com', status: 'ready' },
       type: 'url'
-    };
+    } as Head;
     path.predicates = {
       count: overrides.predicatesCount ?? overrides.predicatesElems?.length ?? 0,
       elems: overrides.predicatesElems ?? []

@@ -157,7 +157,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
  * @param proc ProcessClass instance
  * @param paths Array of PathClass documents to extend
  */
-export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: PathDocument[]) {
+export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: (TraversalPathDocument | EndpointPathDocument)[]) {
   log.silly(`Extending ${paths.length} paths for process ${proc.pid} with existing triples...`);
 
   let newPaths = [];

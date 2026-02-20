@@ -87,31 +87,13 @@ export class EndpointPathClass extends PathClass {
 
 
   public copy(this: EndpointPathClass): EndpointPathSkeleton {
-    let headCopy: Head;
-    if (this.head.type === HEAD_TYPE.LITERAL) {
-      headCopy = {
-        type: HEAD_TYPE.LITERAL,
-        value: (this.head as LiteralHead).value,
-        datatype: (this.head as LiteralHead).datatype,
-        language: (this.head as LiteralHead).language
-      };
-    } else {
-      const urlHead = this.head as UrlHead;
-      headCopy = {
-        type: HEAD_TYPE.URL,
-        url: urlHead.url,
-        status: urlHead.status,
-        domain: { origin: urlHead.domain.origin, status: urlHead.domain.status }
-      };
-    }
-
     const copy: EndpointPathSkeleton = {
       processId: this.processId,
       type: PathType.ENDPOINT,
       seed: {
         url: this.seed.url
       },
-      head: headCopy,
+      head: this.head as Head,
       status: this.status,
       shortestPath: { length: this.shortestPath.length, seed: this.shortestPath.seed },
       frontier: this.frontier,
@@ -168,7 +150,7 @@ export class EndpointPathClass extends PathClass {
           url: newHeadUrl,
           status: 'unvisited',
           domain: { origin: '', status: 'unvisited' }
-        };
+        } as Head;
         ep.shortestPath = shortestPath;
         ep.seedPaths = seedPaths;
         ep.frontier = true;
@@ -210,7 +192,7 @@ export class EndpointPathClass extends PathClass {
           value: t.object.value,
           datatype: t.object.datatype,
           language: t.object.language
-        };
+        } as Head;
         ep.shortestPath = shortestPath;
         ep.seedPaths = seedPaths;
         ep.frontier = true;
