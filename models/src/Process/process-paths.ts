@@ -175,7 +175,7 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
         ? path.predicates.elems
         : null;
 
-      const headUrl = path.head.headType === HEAD_TYPE.URL ? (path.head as UrlHead).url : '<literal>';
+      const headUrl = path.head.type === HEAD_TYPE.URL ? (path.head as UrlHead).url : '<literal>';
       log.silly(`No new paths created from path ${path._id} (seed ${path.seed.url}, head ${headUrl}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`);
 
       continue;
@@ -523,7 +523,7 @@ export async function extendProcessPaths(
  */
 async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
   // Only process paths with URL heads (not literal heads)
-  const urlPaths = newPaths.filter((p) => p.head.headType === HEAD_TYPE.URL) as (PathSkeleton & { head: UrlHead })[];
+  const urlPaths = newPaths.filter((p) => p.head.type === HEAD_TYPE.URL) as (PathSkeleton & { head: UrlHead })[];
   const headUrls = urlPaths.map((p) => p.head.url);
   
   if (!headUrls.length) {

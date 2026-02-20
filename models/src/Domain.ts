@@ -354,7 +354,7 @@ class DomainClass {
         lastSeenId = lastPath._id;
 
         const origins = new Set<string>(paths
-          .filter((p) => p.head.headType === HEAD_TYPE.URL)
+          .filter((p) => p.head.type === HEAD_TYPE.URL)
           .map((p) => (p.head as UrlHead).domain.origin));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
 
@@ -500,7 +500,7 @@ class DomainClass {
 
         // get only unvisited path heads
         const unvisHeads = paths
-          .filter((p) => p.head.headType === HEAD_TYPE.URL)
+          .filter((p) => p.head.type === HEAD_TYPE.URL)
           .map((p) => p.head as UrlHead)
           .filter((h) => h.status === 'unvisited');
         if (!unvisHeads.length) {

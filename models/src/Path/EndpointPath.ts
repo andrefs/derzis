@@ -74,7 +74,7 @@ export class EndpointPathClass extends PathClass {
   }
 
   public genExistingTriplesFilter(process: ProcessClass): FilterQuery<NamedNodeTripleClass> | null {
-    if (this.head.headType !== HEAD_TYPE.URL) {
+    if (this.head.type !== HEAD_TYPE.URL) {
       return null;
     }
     const urlHead = this.head as UrlHead;
@@ -88,9 +88,9 @@ export class EndpointPathClass extends PathClass {
 
   public copy(this: EndpointPathClass): EndpointPathSkeleton {
     let headCopy: Head;
-    if (this.head.headType === HEAD_TYPE.LITERAL) {
+    if (this.head.type === HEAD_TYPE.LITERAL) {
       headCopy = {
-        headType: HEAD_TYPE.LITERAL,
+        type: HEAD_TYPE.LITERAL,
         value: (this.head as LiteralHead).value,
         datatype: (this.head as LiteralHead).datatype,
         language: (this.head as LiteralHead).language
@@ -98,7 +98,7 @@ export class EndpointPathClass extends PathClass {
     } else {
       const urlHead = this.head as UrlHead;
       headCopy = {
-        headType: HEAD_TYPE.URL,
+        type: HEAD_TYPE.URL,
         url: urlHead.url,
         status: urlHead.status,
         domain: { origin: urlHead.domain.origin, status: urlHead.domain.status }
@@ -124,7 +124,7 @@ export class EndpointPathClass extends PathClass {
     triples: (NamedNodeTripleDocument | LiteralTripleDocument)[],
     process: ProcessClass
   ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
-    if (this.head.headType !== HEAD_TYPE.URL) {
+    if (this.head.type !== HEAD_TYPE.URL) {
       return { extendedPaths: [], procTriples: [] };
     }
 
@@ -164,7 +164,7 @@ export class EndpointPathClass extends PathClass {
         );
         const ep = this.copy();
         ep.head = {
-          headType: HEAD_TYPE.URL,
+          type: HEAD_TYPE.URL,
           url: newHeadUrl,
           status: 'unvisited',
           domain: { origin: '', status: 'unvisited' }
@@ -206,7 +206,7 @@ export class EndpointPathClass extends PathClass {
         );
         const ep = this.copy();
         ep.head = {
-          headType: HEAD_TYPE.LITERAL,
+          type: HEAD_TYPE.LITERAL,
           value: t.object.value,
           datatype: t.object.datatype,
           language: t.object.language

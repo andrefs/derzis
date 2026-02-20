@@ -488,7 +488,7 @@ class ProcessClass extends Document {
       lastSeenCreatedAt = lastPath.createdAt || null;
       lastSeenId = lastPath._id as Types.ObjectId;
 
-      const urlPaths = paths.filter((p) => p.head.headType === HEAD_TYPE.URL) as (EndpointPathDocument & { head: UrlHead })[];
+      const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (EndpointPathDocument & { head: UrlHead })[];
       const headUrls = new Set(urlPaths.map((p) => p.head.url));
       const origins = new Set(urlPaths.map((p) => p.head.domain.origin));
 

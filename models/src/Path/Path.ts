@@ -40,7 +40,7 @@ class SeedClass {
   public url!: string;
 }
 
-@modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'headType' } })
+@modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'type' } })
 export class UrlHead {
   @prop({ required: true, validate: urlValidator, type: String })
   public url!: string;
@@ -57,10 +57,10 @@ export class UrlHead {
   public domain!: DomainClass;
 
   @prop({ type: String, default: HEAD_TYPE.URL })
-  public headType!: typeof HEAD_TYPE.URL;
+  public type!: typeof HEAD_TYPE.URL;
 }
 
-@modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'headType' } })
+@modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'type' } })
 export class LiteralHead implements LiteralObject {
   @prop({ required: true, type: String })
   public value!: string;
@@ -72,7 +72,7 @@ export class LiteralHead implements LiteralObject {
   public language?: string;
 
   @prop({ type: String, default: HEAD_TYPE.LITERAL })
-  public headType!: typeof HEAD_TYPE.LITERAL;
+  public type!: typeof HEAD_TYPE.LITERAL;
 }
 
 export type Head = UrlHead | LiteralHead;
@@ -154,6 +154,6 @@ export function isTraversal(path: PathClass): path is TraversalPathClass {
 export const isTraversalPath = isTraversal;
 
 export function isLiteralHead(path: PathClass): boolean {
-  return path.head.headType === HEAD_TYPE.LITERAL;
+  return path.head.type === HEAD_TYPE.LITERAL;
 }
 

@@ -31,7 +31,7 @@ type RecursivePartial<T> = {
     this.lastPredicate = this.predicates.elems[this.predicates.count - 1];
   }
 
-  if (this.head.headType === HEAD_TYPE.URL) {
+  if (this.head.type === HEAD_TYPE.URL) {
     const urlHead = this.head as UrlHead;
     const origin = new URL(urlHead.url).origin;
     const d = await Domain.findOne({ origin });
@@ -101,9 +101,9 @@ export class TraversalPathClass extends PathClass {
 
   public copy(this: TraversalPathClass): TraversalPathSkeleton {
     let headCopy: Head;
-    if (this.head.headType === HEAD_TYPE.LITERAL) {
+    if (this.head.type === HEAD_TYPE.LITERAL) {
       headCopy = {
-        headType: HEAD_TYPE.LITERAL,
+        type: HEAD_TYPE.LITERAL,
         value: (this.head as LiteralHead).value,
         datatype: (this.head as LiteralHead).datatype,
         language: (this.head as LiteralHead).language
@@ -111,7 +111,7 @@ export class TraversalPathClass extends PathClass {
     } else {
       const urlHead = this.head as UrlHead;
       headCopy = {
-        headType: HEAD_TYPE.URL,
+        type: HEAD_TYPE.URL,
         url: urlHead.url,
         status: urlHead.status,
         domain: { origin: urlHead.domain.origin, status: urlHead.domain.status }
@@ -142,7 +142,7 @@ export class TraversalPathClass extends PathClass {
     triples: (NamedNodeTripleDocument | LiteralTripleDocument)[],
     process: ProcessClass
   ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {
-    if (this.head.headType === HEAD_TYPE.LITERAL) {
+    if (this.head.type === HEAD_TYPE.LITERAL) {
       return { extendedPaths: [], procTriples: [] };
     }
 
@@ -169,7 +169,7 @@ export class TraversalPathClass extends PathClass {
       if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
         const ep = this.copy();
         ep.head = {
-          headType: HEAD_TYPE.URL,
+          type: HEAD_TYPE.URL,
           url: newHeadUrl,
           status: 'unvisited',
           domain: { origin: '', status: 'unvisited' }
@@ -198,7 +198,7 @@ export class TraversalPathClass extends PathClass {
       if (!extendedPaths[prop][literalKey]) {
         const ep = this.copy();
         ep.head = {
-          headType: HEAD_TYPE.LITERAL,
+          type: HEAD_TYPE.LITERAL,
           value: t.object.value,
           datatype: t.object.datatype,
           language: t.object.language
@@ -221,7 +221,7 @@ export class TraversalPathClass extends PathClass {
   }
 
   public shouldCreateNewPath(this: TraversalPathClass, t: NamedNodeTripleClass | LiteralTripleDocument): boolean {
-    if (this.head.headType !== HEAD_TYPE.URL) {
+    if (this.head.type !== HEAD_TYPE.URL) {
       return false;
     }
 
@@ -431,7 +431,7 @@ export class TraversalPathClass extends PathClass {
   */
   public genExistingTriplesFilter(
     process: ProcessClass): FilterQuery<NamedNodeTripleDocument> | null {
-    if (this.head.headType !== HEAD_TYPE.URL) {
+    if (this.head.type !== HEAD_TYPE.URL) {
       return null;
     }
 

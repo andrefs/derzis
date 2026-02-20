@@ -304,7 +304,7 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: EndpointPathClass[]
   ) {
-    const urlPaths = paths.filter((p) => p.head.headType === HEAD_TYPE.URL) as (EndpointPathClass & { head: UrlHead })[];
+    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (EndpointPathClass & { head: UrlHead })[];
     if (!urlPaths.length) {
       return { dom: null };
     }
@@ -330,7 +330,7 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: TraversalPathDocument[]
   ) {
-    const urlPaths = paths.filter((p) => p.head.headType === HEAD_TYPE.URL) as (TraversalPathDocument & { head: UrlHead })[];
+    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (TraversalPathDocument & { head: UrlHead })[];
     
     if (!urlPaths.length) {
       return { res: null, dom: null };

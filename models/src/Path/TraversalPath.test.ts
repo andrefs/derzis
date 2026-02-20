@@ -17,7 +17,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       url: overrides.headUrl ?? 'http://example.com/head',
       status: 'unvisited',
       domain: { origin: 'http://example.com', status: 'ready' },
-      headType: 'url'
+      type: 'url'
     };
     path.predicates = { count: 0, elems: [] };
     path.nodes = { count: 1, elems: ['http://example.com/node1'] };
@@ -35,7 +35,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       url: headUrl,
       status: 'unvisited',
       domain: { origin: 'http://example.com', status: 'ready' },
-      headType: 'url'
+      type: 'url'
     };
     path.predicates = { count: 0, elems: [] };
     path.nodes = { count: 1, elems: [] };
@@ -523,7 +523,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
       url: overrides.headUrl ?? 'http://example.com/head',
       status: 'unvisited',
       domain: { origin: 'http://example.com', status: 'ready' },
-      headType: 'url'
+      type: 'url'
     };
     path.predicates = { count: 0, elems: [] };
     path.nodes = {
@@ -637,7 +637,7 @@ describe('TraversalPathClass.tripleIsOutOfBounds', () => {
       url: 'http://example.com/head',
       status: 'unvisited',
       domain: { origin: 'http://example.com', status: 'ready' },
-      headType: 'url'
+      type: 'url'
     };
     path.predicates = {
       count: overrides.predicatesCount ?? overrides.predicatesElems?.length ?? 0,
