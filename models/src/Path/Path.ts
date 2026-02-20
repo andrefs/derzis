@@ -41,7 +41,12 @@ class SeedClass {
 }
 
 @modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'type' } })
-export class UrlHead {
+export class HeadBase {
+  @prop({ type: String, default: HEAD_TYPE.URL })
+  public type!: typeof HEAD_TYPE.URL | typeof HEAD_TYPE.LITERAL;
+}
+
+export class UrlHead extends HeadBase {
   @prop({ required: true, validate: urlValidator, type: String })
   public url!: string;
 
@@ -55,13 +60,9 @@ export class UrlHead {
 
   @prop({ required: true, type: DomainClass })
   public domain!: DomainClass;
-
-  @prop({ type: String, default: HEAD_TYPE.URL })
-  public type!: typeof HEAD_TYPE.URL;
 }
 
-@modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'type' } })
-export class LiteralHead implements LiteralObject {
+export class LiteralHead extends HeadBase implements LiteralObject {
   @prop({ required: true, type: String })
   public value!: string;
 
