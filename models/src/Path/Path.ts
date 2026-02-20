@@ -1,13 +1,18 @@
 import { Types, FilterQuery } from 'mongoose';
-import { PathType, urlListValidator, urlValidator, type TypedTripleId } from '@derzis/common';
+import { PathType, urlListValidator, urlValidator, type TypedTripleId, type LiteralObject } from '@derzis/common';
 import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType, index } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
-import { NamedNodeTripleDocument } from '../Triple';
+import { NamedNodeTripleDocument, LiteralTripleDocument } from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
+
+export const HEAD_TYPE = {
+  URL: 'url',
+  LITERAL: 'literal'
+} as const;
 
 class DomainClass {
   @prop({
@@ -35,20 +40,42 @@ class SeedClass {
   public url!: string;
 }
 
-class HeadClass {
+@modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'headType' } })
+export class UrlHead {
   @prop({ required: true, validate: urlValidator, type: String })
   public url!: string;
 
   @prop({
+    required: true,
     enum: ['unvisited', 'done', 'crawling', 'error'],
     default: 'unvisited',
     type: String
   })
   public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
-  @prop({ type: DomainClass })
+  @prop({ required: true, type: DomainClass })
   public domain!: DomainClass;
+
+  @prop({ type: String, default: HEAD_TYPE.URL })
+  public headType!: typeof HEAD_TYPE.URL;
 }
+
+@modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'headType' } })
+export class LiteralHead implements LiteralObject {
+  @prop({ required: true, type: String })
+  public value!: string;
+
+  @prop({ type: String })
+  public datatype?: string;
+
+  @prop({ type: String })
+  public language?: string;
+
+  @prop({ type: String, default: HEAD_TYPE.LITERAL })
+  public headType!: typeof HEAD_TYPE.LITERAL;
+}
+
+export type Head = UrlHead | LiteralHead;
 
 export type PathSkeleton = TraversalPathSkeleton | EndpointPathSkeleton;
 
@@ -56,7 +83,7 @@ export type PathSkeletonConstructor<T extends PathSkeleton> = Omit<T, '_id'> & {
   _id?: Types.ObjectId;
 };
 
-export { DomainClass, ResourceCount, SeedClass, HeadClass };
+export { DomainClass, ResourceCount, SeedClass };
 
 @modelOptions({
   schemaOptions: {
@@ -79,8 +106,15 @@ export class PathClass extends TimeStamps {
   @prop({ required: true, type: SeedClass })
   public seed!: SeedClass;
 
-  @prop({ required: true, type: HeadClass })
-  public head!: HeadClass;
+  @prop({
+    required: true,
+    type: UrlHead,
+    discriminators: () => [
+      { type: UrlHead, value: HEAD_TYPE.URL },
+      { type: LiteralHead, value: HEAD_TYPE.LITERAL }
+    ]
+  })
+  public head!: Head;
 
   @prop({ enum: ['active', 'deleted'], default: 'active', type: String })
   public status!: 'active' | 'deleted';
@@ -96,12 +130,12 @@ export interface IPath {
   _id: Types.ObjectId;
   processId: string;
   seed: { url: string };
-  head: { url: string; status: string; domain?: { origin: string; status: string } };
+  head: Head;
   status: 'active' | 'deleted';
   type: PathType;
   extensionCounter: number;
   genExistingTriplesFilter: (process: ProcessClass) => FilterQuery<NamedNodeTripleDocument> | null;
-  genExtended: (triples: NamedNodeTripleDocument[], process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
+  genExtended: (triples: (NamedNodeTripleDocument | LiteralTripleDocument)[], process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
   extendWithExistingTriples: (process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
 }
 
@@ -118,4 +152,8 @@ export function isTraversal(path: PathClass): path is TraversalPathClass {
 }
 
 export const isTraversalPath = isTraversal;
+
+export function isLiteralHead(path: PathClass): boolean {
+  return path.head.headType === HEAD_TYPE.LITERAL;
+}
 

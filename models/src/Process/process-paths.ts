@@ -6,6 +6,8 @@ import {
   TraversalPathClass,
   type PathSkeleton,
   type PathDocument,
+  HEAD_TYPE,
+  UrlHead
 } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
@@ -13,7 +15,7 @@ import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { FilterQuery, Types } from 'mongoose';
-import { NamedNodeTriple } from '../Triple';
+import { NamedNodeTriple, LiteralTriple } from '../Triple';
 import { type PathType, type TypedTripleId, TripleType } from '@derzis/common';
 
 /**
@@ -173,7 +175,8 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
         ? path.predicates.elems
         : null;
 
-      log.silly(`No new paths created from path ${path._id} (seed ${path.seed.url}, head ${path.head.url}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`);
+      const headUrl = path.head.headType === HEAD_TYPE.URL ? (path.head as UrlHead).url : '<literal>';
+      log.silly(`No new paths created from path ${path._id} (seed ${path.seed.url}, head ${headUrl}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`);
 
       continue;
     }
@@ -456,7 +459,6 @@ export async function extendProcessPaths(
     let hasMoreTriples = true;
     let lastTripleCreatedAt: Date | null = null;
     let lastTripleId: Types.ObjectId | null = null;
-    // process triples in batches to avoid using up too much memory
     while (hasMoreTriples) {
       const tripleCursorCondition: FilterQuery<TraversalPathClass> = lastTripleCreatedAt && lastTripleId
         ? {
@@ -465,9 +467,21 @@ export async function extendProcessPaths(
         }
         : {};
 
-      const triples = await NamedNodeTriple.find({ nodes: headUrl, ...tripleCursorCondition })
-        .sort({ createdAt: 1, _id: 1 })
-        .limit(batchSize);
+      const [namedNodeTriples, literalTriples] = await Promise.all([
+        NamedNodeTriple.find({ nodes: headUrl, ...tripleCursorCondition })
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize),
+        LiteralTriple.find({ nodes: headUrl, ...tripleCursorCondition })
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize)
+      ]);
+
+      const triples = [...namedNodeTriples, ...literalTriples].sort((a, b) => {
+        const aDate = a.createdAt?.getTime() || 0;
+        const bDate = b.createdAt?.getTime() || 0;
+        if (aDate !== bDate) return aDate - bDate;
+        return a._id.toString().localeCompare(b._id.toString());
+      });
 
       log.info(`extendProcessPaths: Found ${triples.length} triples with nodes: ${headUrl}`);
 
@@ -508,7 +522,14 @@ export async function extendProcessPaths(
  * @param newPaths Array of TraversalPathSkeleton objects to update.
  */
 async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
-  const headUrls = newPaths.map((p) => p.head.url);
+  // Only process paths with URL heads (not literal heads)
+  const urlPaths = newPaths.filter((p) => p.head.headType === HEAD_TYPE.URL) as (PathSkeleton & { head: UrlHead })[];
+  const headUrls = urlPaths.map((p) => p.head.url);
+  
+  if (!headUrls.length) {
+    return;
+  }
+
   const resources = await Resource.find({ url: { $in: headUrls } })
     .select('url status')
     .lean();
@@ -518,7 +539,7 @@ async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
     resourceMap[r.url] = r.status;
   }
 
-  for (const np of newPaths) {
+  for (const np of urlPaths) {
     np.head.status = resourceMap[np.head.url] || 'unvisited';
   }
 }

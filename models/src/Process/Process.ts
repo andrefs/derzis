@@ -8,7 +8,9 @@ import {
   EndpointPathClass,
   PathClass,
   type TraversalPathDocument,
-  type EndpointPathDocument
+  type EndpointPathDocument,
+  HEAD_TYPE,
+  UrlHead
 } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
@@ -486,8 +488,9 @@ class ProcessClass extends Document {
       lastSeenCreatedAt = lastPath.createdAt || null;
       lastSeenId = lastPath._id as Types.ObjectId;
 
-      const headUrls = new Set(paths.map((p) => p.head.url));
-      const origins = new Set(paths.map((p) => p.head.domain.origin));
+      const urlPaths = paths.filter((p) => p.head.headType === HEAD_TYPE.URL) as (EndpointPathDocument & { head: UrlHead })[];
+      const headUrls = new Set(urlPaths.map((p) => p.head.url));
+      const origins = new Set(urlPaths.map((p) => p.head.domain.origin));
 
       const pathQuery = {
         processId: this.pid,

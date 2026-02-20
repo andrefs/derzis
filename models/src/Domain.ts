@@ -2,7 +2,7 @@ import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
 import type { PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
-import { TraversalPath } from './Path';
+import { TraversalPath, HEAD_TYPE, UrlHead } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type UpdateOneModel, Types } from 'mongoose';
@@ -353,7 +353,9 @@ class DomainClass {
         lastSeenCreatedAt = lastPath.createdAt;
         lastSeenId = lastPath._id;
 
-        const origins = new Set<string>(paths.map((p) => p.head.domain.origin));
+        const origins = new Set<string>(paths
+          .filter((p) => p.head.headType === HEAD_TYPE.URL)
+          .map((p) => (p.head as UrlHead).domain.origin));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
 
         // these paths returned no available domains, skip them
@@ -497,7 +499,10 @@ class DomainClass {
         lastSeenId = (lastPath as { _id: Types.ObjectId })._id;
 
         // get only unvisited path heads
-        const unvisHeads = paths.filter((p) => p.head.status === 'unvisited').map((p) => p.head);
+        const unvisHeads = paths
+          .filter((p) => p.head.headType === HEAD_TYPE.URL)
+          .map((p) => p.head as UrlHead)
+          .filter((h) => h.status === 'unvisited');
         if (!unvisHeads.length) {
           log.silly(
             `No unvisited path heads found for process ${proc.id} with current path batch, skipping to next batch.`

@@ -5,7 +5,9 @@ import {
   TraversalPath,
   EndpointPath,
   type TraversalPathDocument,
-  EndpointPathClass
+  EndpointPathClass,
+  HEAD_TYPE,
+  UrlHead
 } from './Path';
 import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
 import type { CrawlResourceResultDetails, SimpleTriple } from '@derzis/common';
@@ -302,8 +304,13 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: EndpointPathClass[]
   ) {
+    const urlPaths = paths.filter((p) => p.head.headType === HEAD_TYPE.URL) as (EndpointPathClass & { head: UrlHead })[];
+    if (!urlPaths.length) {
+      return { dom: null };
+    }
+
     const dom = await Domain.bulkWrite(
-      paths.map((p: EndpointPathClass) => ({
+      urlPaths.map((p) => ({
         updateOne: {
           filter: { origin: p.head.domain.origin },
           update: { $inc: { 'crawl.pathHeads': 1 } }
@@ -323,8 +330,14 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: TraversalPathDocument[]
   ) {
+    const urlPaths = paths.filter((p) => p.head.headType === HEAD_TYPE.URL) as (TraversalPathDocument & { head: UrlHead })[];
+    
+    if (!urlPaths.length) {
+      return { res: null, dom: null };
+    }
+
     const res = await this.bulkWrite(
-      paths.map((p: TraversalPathDocument) => ({
+      urlPaths.map((p) => ({
         updateOne: {
           filter: { url: p.head.url },
           update: {
@@ -338,7 +351,7 @@ class ResourceClass {
       }))
     );
     const dom = await Domain.bulkWrite(
-      paths.map((p: TraversalPathDocument) => ({
+      urlPaths.map((p) => ({
         updateOne: {
           filter: { origin: p.head.domain.origin },
           update: { $inc: { 'crawl.pathHeads': 1 } }
