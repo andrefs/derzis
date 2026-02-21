@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { directionOk, SimpleTriple } from '@derzis/common';
+import { directionOk, SimpleNamedNodeTriple, TripleType } from '@derzis/common';
 
 describe('directionOk', () => {
-  const triple: SimpleTriple = {
+  const triple: SimpleNamedNodeTriple = {
     subject: 'http://example.com/subject',
     predicate: 'http://example.com/predicate',
     object: 'http://example.com/object',
-    type: 'namedNode'
+    type: TripleType.NAMED_NODE
   };
 
   it('returns true when branch factor is 1 (no directionality)', () => {
