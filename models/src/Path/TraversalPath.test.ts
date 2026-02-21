@@ -3,6 +3,11 @@ import { TraversalPathClass } from './TraversalPath';
 import { StepClass, PredicateLimitationClass, BranchFactorClass, SeedPosRatioClass } from '../Process/aux-classes';
 import { Head } from './Path';
 
+const LITERAL_PREDS = [
+  'http://www.w3.org/2000/01/rdf-schema#label',
+  'http://www.w3.org/2000/01/rdf-schema#comment'
+];
+
 describe('TraversalPathClass.genExistingTriplesFilter', () => {
   const createMockPath = (overrides: {
     headUrl?: string;
@@ -103,8 +108,10 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).toHaveProperty('predicate', 'p1');
-      expect(result).toHaveProperty('subject', 'http://head.org');
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+      expect(result.$or).toContainEqual({ predicate: 'p1', subject: 'http://head.org' });
+      expect(result.$or).toContainEqual({ predicate: { $nin: LITERAL_PREDS } });
     });
 
     it('adds predicates to objPreds when bfRatio <= 0.83', () => {
@@ -122,8 +129,10 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).toHaveProperty('predicate', 'p1');
-      expect(result).toHaveProperty('object', 'http://head.org');
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+      expect(result.$or).toContainEqual({ predicate: 'p1', object: 'http://head.org' });
+      expect(result.$or).toContainEqual({ predicate: { $nin: LITERAL_PREDS } });
     });
 
     it('adds predicates to noDirPreds when bfRatio is between 0.83 and 1.2 (uses $ne for blacklist)', () => {
@@ -141,7 +150,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).toEqual({ predicate: { $ne: 'p1' } });
+      expect(result).toEqual({ predicate: { $nin: ['p1', ...LITERAL_PREDS] } });
     });
   });
 
@@ -164,7 +173,10 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         ])
       );
 
-      expect(result).toHaveProperty('predicate', 'allowed-p1');
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+      expect(result.$or).toContainEqual({ predicate: 'allowed-p1', subject: 'http://example.com/head' });
+      expect(result.$or).toContainEqual({ predicate: { $nin: LITERAL_PREDS } });
     });
 
     it('skips predicates in notAllowed set', () => {
@@ -185,7 +197,10 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         ])
       );
 
-      expect(result).toHaveProperty('predicate', 'allowed-p2');
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+      expect(result.$or).toContainEqual({ predicate: 'allowed-p2', subject: 'http://example.com/head' });
+      expect(result.$or).toContainEqual({ predicate: { $nin: LITERAL_PREDS } });
     });
 
     it('adds allowed predicates without metrics to noDirPreds', () => {
@@ -223,7 +238,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).toHaveProperty('predicate', 'p1');
+      expect(result).toHaveProperty('predicate');
+      expect(result.predicate).toEqual({ $in: ['p1', ...LITERAL_PREDS] });
     });
 
     it('uses $ne for noDirPreds when limType is blacklist', () => {
@@ -241,7 +257,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).toHaveProperty('predicate', { $ne: 'p1' });
+      expect(result).toHaveProperty('predicate', { $nin: ['p1', ...LITERAL_PREDS] });
     });
   });
 
@@ -261,8 +277,10 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result.predicate).toBe('p1');
-      expect(result.subject).toBe('http://head.org');
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+      expect(result.$or).toContainEqual({ predicate: 'p1', subject: 'http://head.org' });
+      expect(result.$or).toContainEqual({ predicate: { $nin: LITERAL_PREDS } });
     });
 
     it('uses $in for multiple predicates in subjPreds', () => {
@@ -283,7 +301,10 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         ])
       );
 
-      expect(result).toEqual({ predicate: { $in: ['p1', 'p2'] }, subject: 'http://head.org' });
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
+      expect(result.$or).toContainEqual({ predicate: { $in: ['p1', 'p2'] }, subject: 'http://head.org' });
+      expect(result.$or).toContainEqual({ predicate: { $nin: LITERAL_PREDS } });
     });
   });
 
@@ -303,7 +324,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['other-p2', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).toEqual({ predicate: { $ne: 'allowed-p1' } });
+      expect(result).toEqual({ predicate: { $nin: ['allowed-p1', ...LITERAL_PREDS] } });
     });
   });
 
@@ -322,9 +343,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).not.toHaveProperty('$or');
-      expect(result).toHaveProperty('predicate');
-      expect(result).toHaveProperty('subject');
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
     });
   });
 
@@ -358,9 +378,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).not.toHaveProperty('$or');
-      expect(result).toHaveProperty('predicate', 'p1');
-      expect(result).toHaveProperty('subject', 'http://head.org');
+      expect(result).toHaveProperty('$or');
+      expect(result.$or).toHaveLength(2);
     });
 
     it('returns $or when both subjPreds and objPreds have items', () => {
@@ -386,7 +405,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       );
 
       expect(result).toHaveProperty('$or');
-      expect(result.$or).toHaveLength(2);
+      expect(result.$or).toHaveLength(3);
     });
 
     it('returns $or when subjPreds and noDirPreds have items', () => {
@@ -487,7 +506,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['other-pred', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).toEqual({ predicate: { $ne: 'only-allowed' } });
+      expect(result).toEqual({ predicate: { $nin: ['only-allowed', ...LITERAL_PREDS] } });
     });
 
     it('returns empty object when all preds filtered out by notAllowed', () => {
@@ -505,7 +524,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Map([['blocked-pred', { bf, spr: new SeedPosRatioClass() }]])
       );
 
-      expect(result).toEqual({});
+      expect(result).toEqual({ predicate: { $nin: LITERAL_PREDS } });
     });
   });
 });
