@@ -3,11 +3,13 @@ import { Process } from '@derzis/models';
 import { error } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 import { Readable } from 'stream';
-import { Writer, NamedNode, Literal } from 'n3';
+import { Writer } from 'n3';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import type { SimpleTriple } from '@derzis/common';
 const log = createLogger('api:processes:[pid]:triples');
+import { DataFactory } from 'n3';
+const { literal, namedNode } = DataFactory;
 
 export async function GET({ params, setHeaders }: RequestEvent) {
   const p = await Process.findOne({ pid: params.pid });
@@ -33,30 +35,29 @@ export async function GET({ params, setHeaders }: RequestEvent) {
     console.log('Processing quad:', quad);
     if (quad.type === 'namedNode') {
       writer.addQuad(
-        new NamedNode(quad.subject),
-        new NamedNode(quad.predicate),
-        new NamedNode(quad.object)
+        namedNode(quad.subject),
+        namedNode(quad.predicate),
+        namedNode(quad.object)
       );
     } else if (quad.type === 'literal') {
       const { value, language, datatype } = quad.object;
-      const LiteralConstructor = Literal as new (value: string, languageOrDatatype?: string | import('n3').NamedNode) => import('n3').Literal;
       if (language) {
         writer.addQuad(
-          new NamedNode(quad.subject),
-          new NamedNode(quad.predicate),
-          new LiteralConstructor(value, language)
+          namedNode(quad.subject),
+          namedNode(quad.predicate),
+          literal(value, language)
         );
       } else if (datatype) {
         writer.addQuad(
-          new NamedNode(quad.subject),
-          new NamedNode(quad.predicate),
-          new LiteralConstructor(value, new NamedNode(datatype))
+          namedNode(quad.subject),
+          namedNode(quad.predicate),
+          literal(value, namedNode(datatype))
         );
       } else {
         writer.addQuad(
-          new NamedNode(quad.subject),
-          new NamedNode(quad.predicate),
-          new LiteralConstructor(value)
+          namedNode(quad.subject),
+          namedNode(quad.predicate),
+          literal(value)
         );
       }
     } else {
