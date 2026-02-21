@@ -9,7 +9,8 @@ import {
   Process,
   ResourceClass,
   EndpointPath,
-  Triple
+  Triple,
+  HEAD_TYPE
 } from '@derzis/models';
 import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -99,7 +100,7 @@ export default class Manager {
             }
           );
           await TraversalPath.updateMany(
-            { 'head.domain.origin': jobResult.origin, status: 'active' },
+            { 'head.domain.origin': jobResult.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
             {
               $set: { 'head.domain.status': 'ready' }
             }

@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import { Domain, DomainClass, Resource, TraversalPath } from '@derzis/models';
+import { Domain, DomainClass, HEAD_TYPE, Resource, TraversalPath } from '@derzis/models';
 import config from '@derzis/config';
 import { type JobType, type OngoingJobs } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -143,7 +143,7 @@ export default class RunningJobs extends EventEmitter {
 
       // update paths with head belonging to this domain
       await TraversalPath.updateMany(
-        { 'head.domain.origin': origin, status: 'active' },
+        { 'head.domain.origin': origin, status: 'active', 'head.type': HEAD_TYPE.URL },
         {
           $set: {
             'head.status': 'unvisited',
@@ -170,7 +170,8 @@ export default class RunningJobs extends EventEmitter {
         {
           'head.domain.origin': origin,
           status: 'active',
-          'head.status': 'crawling'
+          'head.status': 'crawling',
+          'head.type': HEAD_TYPE.URL
         },
         {
           $set: {
@@ -223,7 +224,7 @@ export default class RunningJobs extends EventEmitter {
     // Reset path head domains being checked
     log.debug('Resetting outstanding path head domains being checked');
     await TraversalPath.updateMany(
-      { 'head.domain.status': 'checking', status: 'active' },
+      { 'head.domain.status': 'checking', status: 'active', 'head.type': HEAD_TYPE.URL },
       { $set: { 'head.domain.status': 'unvisited' } }
     );
 
@@ -245,7 +246,8 @@ export default class RunningJobs extends EventEmitter {
     await TraversalPath.updateMany(
       {
         'head.domain.status': 'crawling',
-        status: 'active'
+        status: 'active',
+        'head.type': HEAD_TYPE.URL
       },
       {
         $set: {
@@ -261,7 +263,7 @@ export default class RunningJobs extends EventEmitter {
     // Reset path head resources being crawled
     log.debug('Resetting outstanding path head resources being crawled');
     await TraversalPath.updateMany(
-      { 'head.status': 'crawling', status: 'active' },
+      { 'head.status': 'crawling', status: 'active', 'head.type': HEAD_TYPE.URL },
       { $set: { 'head.status': 'unvisited' } }
     );
 
@@ -350,7 +352,7 @@ export default class RunningJobs extends EventEmitter {
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
       await TraversalPath.updateMany(
-        { 'head.domain.origin': { $in: domains }, status: 'active' },
+        { 'head.domain.origin': { $in: domains }, status: 'active', 'head.type': HEAD_TYPE.URL },
         { $set: { status: 'unvisited' } }
       );
     }
@@ -374,7 +376,7 @@ export default class RunningJobs extends EventEmitter {
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
       await TraversalPath.updateMany(
-        { 'head.domain.origin': { $in: domains }, status: 'active' },
+        { 'head.domain.origin': { $in: domains }, status: 'active', 'head.type': HEAD_TYPE.URL },
         {
           $set: {
             'head.domain.status': 'ready',
