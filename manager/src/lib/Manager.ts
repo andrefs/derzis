@@ -153,7 +153,10 @@ export default class Manager {
     }
 
     // TODO: eventually this whitelist will come from Process/Step configuration
-    const LITERAL_PREDICATE_WHITELIST = ['http://www.w3.org/2000/01/rdf-schema#label'];
+    const LITERAL_PREDICATE_WHITELIST = [
+      'http://www.w3.org/2000/01/rdf-schema#label',
+      'http://www.w3.org/2000/01/rdf-schema#comment'
+    ];
 
     // Filter triples: keep all NamedNode triples, and only keep literal triples with whitelisted predicates
     const filteredTriples = triples.filter((t) => {
