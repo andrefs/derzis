@@ -14,17 +14,14 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
 
   if (tripleIds.length === 0) return;
 
-  const [namedNodeTriples, literalTriples] = await Promise.all([
-    NamedNodeTriple.find({ _id: { $in: tripleIds } }).lean(),
-    LiteralTriple.find({ _id: { $in: tripleIds } }).lean()
-  ]);
+  const triples = await Triple.find({ _id: { $in: tripleIds } }).lean();
 
   const tripleMap = new Map<string, { type: TripleType; data: any }>();
-  for (const t of namedNodeTriples) {
-    tripleMap.set(t._id.toString(), { type: TripleType.NAMED_NODE, data: t });
-  }
-  for (const t of literalTriples) {
-    tripleMap.set(t._id.toString(), { type: TripleType.LITERAL, data: t });
+  for (const t of triples) {
+    tripleMap.set(t._id.toString(), {
+      type: t.type,
+      data: t
+    });
   }
 
   for (const procTriple of procTriples) {

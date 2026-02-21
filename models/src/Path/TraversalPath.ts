@@ -1,6 +1,6 @@
 import { Types, FilterQuery } from 'mongoose';
 import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument } from '../Triple';
+import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
 import { PathClass, Path, ResourceCount, hasLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
@@ -125,7 +125,7 @@ export class TraversalPathClass extends PathClass {
    * @returns An object containing the extended paths and the corresponding triples to be processed.
    */
   public async genExtended(
-    triples: (NamedNodeTripleDocument | LiteralTripleDocument)[],
+    triples: TripleDocument[],
     process: ProcessClass
   ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {
     // If the head is a literal, we cannot extend further, so return empty results.
@@ -140,7 +140,7 @@ export class TraversalPathClass extends PathClass {
     const followDirection = process!.currentStep.followDirection;
 
     const namedNodeTriples = triples
-      .filter((t): t is NamedNodeTripleDocument => t.type === TripleType.NAMED_NODE && typeof t.object === 'string')
+      .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
       .filter(t =>
         this.shouldCreateNewPath(t) &&
         process?.whiteBlackListsAllow(t) &&
@@ -172,7 +172,7 @@ export class TraversalPathClass extends PathClass {
     }
 
     const literalTriples = triples
-      .filter((t): t is LiteralTripleDocument => t.type === TripleType.LITERAL)
+      .filter((t): t is LiteralTripleDocument => isLiteral(t))
       .filter(t => this.shouldCreateNewPath(t));
 
     for (const t of literalTriples) {
@@ -502,12 +502,8 @@ export class TraversalPathClass extends PathClass {
       return { extendedPaths: [], procTriples: [] };
     }
 
-    const [namedNodeTriples, literalTriples] = await Promise.all([
-      NamedNodeTriple.find(triplesFilter),
-      LiteralTriple.find(triplesFilter)
-    ]);
+    const triples = await Triple.find(triplesFilter);
 
-    const triples = [...namedNodeTriples, ...literalTriples];
     if (!triples.length) {
       return { extendedPaths: [], procTriples: [] };
     }

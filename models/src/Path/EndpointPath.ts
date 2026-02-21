@@ -1,6 +1,6 @@
 import { Types, type FilterQuery } from 'mongoose';
 import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument } from '../Triple';
+import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { ProcessClass } from '../Process';
 import { PathClass, Path, hasLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
 import { PathType, type TypedTripleId, TripleType, type LiteralObject } from '@derzis/common';
@@ -103,7 +103,7 @@ export class EndpointPathClass extends PathClass {
   }
 
   public async genExtended(
-    triples: (NamedNodeTripleDocument | LiteralTripleDocument)[],
+    triples: TripleDocument[],
     process: ProcessClass
   ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
     if (this.head.type !== HEAD_TYPE.URL) {
@@ -117,7 +117,8 @@ export class EndpointPathClass extends PathClass {
     const followDirection = process!.currentStep.followDirection;
 
     const namedNodeTriples = triples
-      .filter((t): t is NamedNodeTripleDocument => t.type === TripleType.NAMED_NODE && typeof t.object === 'string')
+      .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
+      .filter((t): t is NamedNodeTripleDocument => typeof t.object === 'string')
       .filter(t =>
         this.shouldCreateNewPath(t, urlHead) &&
         process?.whiteBlackListsAllow(t) &&
@@ -163,7 +164,7 @@ export class EndpointPathClass extends PathClass {
     }
 
     const literalTriples = triples
-      .filter((t): t is LiteralTripleDocument => t.type === TripleType.LITERAL)
+      .filter((t): t is LiteralTripleDocument => isLiteral(t))
       .filter(t => this.shouldCreateNewPath(t, urlHead));
 
     for (const t of literalTriples) {
@@ -223,12 +224,8 @@ export class EndpointPathClass extends PathClass {
       return { extendedPaths: [], procTriples: [] };
     }
 
-    const [namedNodeTriples, literalTriples] = await Promise.all([
-      NamedNodeTriple.find(triplesFilter),
-      LiteralTriple.find(triplesFilter)
-    ]);
+    const triples = await Triple.find(triplesFilter);
 
-    const triples = [...namedNodeTriples, ...literalTriples];
     if (!triples.length) {
       return { extendedPaths: [], procTriples: [] };
     }

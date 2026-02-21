@@ -16,7 +16,7 @@ import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { FilterQuery, Types } from 'mongoose';
-import { NamedNodeTriple, LiteralTriple } from '../Triple';
+import { NamedNodeTriple, LiteralTriple, Triple, isNamedNode, isLiteral, type NamedNodeTripleDocument, type LiteralTripleDocument } from '../Triple';
 import { type PathType, type TypedTripleId, TripleType } from '@derzis/common';
 
 /**
@@ -470,21 +470,9 @@ export async function extendProcessPaths(
         }
         : {};
 
-      const [namedNodeTriples, literalTriples] = await Promise.all([
-        NamedNodeTriple.find({ nodes: headUrl, ...tripleCursorCondition })
-          .sort({ createdAt: 1, _id: 1 })
-          .limit(batchSize),
-        LiteralTriple.find({ nodes: headUrl, ...tripleCursorCondition })
-          .sort({ createdAt: 1, _id: 1 })
-          .limit(batchSize)
-      ]);
-
-      const triples = [...namedNodeTriples, ...literalTriples].sort((a, b) => {
-        const aDate = a.createdAt?.getTime() || 0;
-        const bDate = b.createdAt?.getTime() || 0;
-        if (aDate !== bDate) return aDate - bDate;
-        return a._id.toString().localeCompare(b._id.toString());
-      });
+      const triples = await Triple.find({ nodes: headUrl, ...tripleCursorCondition })
+        .sort({ createdAt: 1, _id: 1 })
+        .limit(batchSize);
 
       log.info(`extendProcessPaths: Found ${triples.length} triples with nodes: ${headUrl}`);
 
@@ -500,7 +488,7 @@ export async function extendProcessPaths(
 
       // extend each path with the new triples and gather new paths and proc-triple associations
       for (const path of paths) {
-        const res = await path.genExtended(triples, process);
+        const res = await path.genExtended(triples as (NamedNodeTripleDocument | LiteralTripleDocument)[], process);
         log.silly('Extended paths:', res.extendedPaths);
         // make db operations immediately for each path to avoid keeping too many new paths in memory
         if (res.extendedPaths.length) {

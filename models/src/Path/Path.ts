@@ -5,7 +5,7 @@ import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath'
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
-import { NamedNodeTripleDocument, LiteralTripleDocument } from '../Triple';
+import { NamedNodeTripleDocument, LiteralTripleDocument, type TripleDocument } from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
 
@@ -136,7 +136,7 @@ export interface IPath {
   type: PathType;
   extensionCounter: number;
   genExistingTriplesFilter: (process: ProcessClass) => FilterQuery<NamedNodeTripleDocument> | null;
-  genExtended: (triples: (NamedNodeTripleDocument | LiteralTripleDocument)[], process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
+  genExtended: (triples: TripleDocument[], process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
   extendWithExistingTriples: (process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
 }
 
