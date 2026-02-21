@@ -17,7 +17,7 @@ import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { FilterQuery, Types } from 'mongoose';
 import { NamedNodeTriple, LiteralTriple, Triple, isNamedNode, isLiteral, type NamedNodeTripleDocument, type LiteralTripleDocument } from '../Triple';
-import { type PathType, type TypedTripleId, TripleType } from '@derzis/common';
+import { type TypedTripleId, PathType, TripleType } from '@derzis/common';
 
 /**
  * Get paths for a process that are ready for robots checking, based on the head domain status and path limits.
@@ -38,9 +38,10 @@ export async function getPathsForRobotsChecking(
   const baseQuery = {
     processId: process.pid,
     status: 'active',
+    'head.type': HEAD_TYPE.URL,
     'head.domain.status': 'unvisited'
   };
-  const select = 'head.domain.origin createdAt _id';
+  const select = 'head.domain.origin head.type createdAt _id';
 
   const cursorCondition = lastSeenCreatedAt && lastSeenId
     ? {
@@ -92,7 +93,7 @@ export async function getPathsForDomainCrawl(
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
 ) {
-  const select = 'head.status head.domain.origin head.url createdAt _id';
+  const select = 'head.status head.type head.domain.origin head.url createdAt _id';
 
   // Compound cursor using $gte and $gt - requires compound index on {createdAt: 1, _id: 1}
   const cursorCondition = lastSeenCreatedAt && lastSeenId
@@ -102,7 +103,7 @@ export async function getPathsForDomainCrawl(
     }
     : {};
 
-  if (pathType === 'traversal') {
+  if (pathType === PathType.TRAVERSAL) {
     const traversalQuery = genTraversalPathQuery(process);
 
     const paths = await TraversalPath.find({
