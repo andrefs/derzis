@@ -15,8 +15,13 @@ export async function GET({ params }: RequestEvent) {
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
+      let isActive = true;
 
       const sendEvent = async () => {
+        if (!isActive || controller.desiredSize === null) {
+          return;
+        }
+
         try {
           const pathProgress = await getPathProgress(process);
           const crawlRate = await getCrawlRate(process, 5);
@@ -43,9 +48,11 @@ export async function GET({ params }: RequestEvent) {
       const intervalId = setInterval(sendEvent, PROGRESS_INTERVAL_MS);
 
       return () => {
+        isActive = false;
         clearInterval(intervalId);
       };
-    }
+    },
+    cancel() {}
   });
 
   return new Response(stream, {
