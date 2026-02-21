@@ -139,6 +139,7 @@ export class TraversalPathClass extends PathClass {
     const predsDirMetrics = process.curPredsDirMetrics();
     const followDirection = process!.currentStep.followDirection;
 
+    // Named node triples
     const namedNodeTriples = triples
       .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
       .filter(t =>
@@ -171,6 +172,7 @@ export class TraversalPathClass extends PathClass {
       }
     }
 
+    // Literal triples
     const literalTriples = triples
       .filter((t): t is LiteralTripleDocument => isLiteral(t))
       .filter(t => this.shouldCreateNewPath(t));
@@ -178,7 +180,7 @@ export class TraversalPathClass extends PathClass {
     for (const t of literalTriples) {
       log.silly('Extending path with LiteralTriple', t);
       const prop = t.predicate;
-      const literalKey = `literal:${t.object.value}`;
+      const literalKey = `literal:${t.object.value}|${t.object.datatype || ''}|${t.object.language || ''}`;
 
       extendedPaths[prop] = extendedPaths[prop] || {};
       if (!extendedPaths[prop][literalKey]) {
