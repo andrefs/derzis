@@ -1,5 +1,5 @@
-import { Types, Document, QueryFilter } from 'mongoose';
-import { Resource } from '../Resource';
+import { Types, Document, QueryFilter, QueryWithHelpers, UpdateWriteOpResult, UpdateQuery } from 'mongoose';
+import { Resource, ResourceClass, ResourceDocument } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
   TraversalPath,
@@ -10,7 +10,9 @@ import {
   type TraversalPathDocument,
   type EndpointPathDocument,
   HEAD_TYPE,
-  UrlHead
+  UrlHead,
+  PathDocument,
+  hasUrlHead
 } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
@@ -24,7 +26,7 @@ import {
   PropType,
   type DocumentType
 } from '@typegoose/typegoose';
-import { Domain } from '../Domain';
+import { Domain, DomainDocument } from '../Domain';
 import {
   getPathsForRobotsChecking,
   getPathsForDomainCrawl,
@@ -470,11 +472,11 @@ class ProcessClass extends Document {
       // Fetch a batch of paths for this process
       const paths =
         config.manager.pathType === 'traversal'
-          ? await TraversalPath.find({ processId: this.pid, status: 'active', ...cursorCondition } as QueryFilter<TraversalPathClass>)
+          ? await TraversalPath.find({ processId: this.pid, status: 'active', 'head.type': HEAD_TYPE.URL, ...cursorCondition } as QueryFilter<TraversalPathClass>)
             .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
             .select('head.url head.domain.origin createdAt _id')
-          : await EndpointPath.find({ processId: this.pid, status: 'active', ...cursorCondition } as QueryFilter<EndpointPathClass>)
+          : await EndpointPath.find({ processId: this.pid, status: 'active', 'head.type': HEAD_TYPE.URL, ...cursorCondition } as QueryFilter<EndpointPathClass>)
             .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
             .select('head.url head.domain.origin createdAt _id')
@@ -488,19 +490,20 @@ class ProcessClass extends Document {
       lastSeenCreatedAt = lastPath.createdAt || null;
       lastSeenId = lastPath._id as Types.ObjectId;
 
-      const urlPaths = paths.filter((p: any) => p.head.type === HEAD_TYPE.URL) as any;
-      const headUrls = new Set(urlPaths.map((p: any) => p.head.url));
-      const origins = new Set(urlPaths.map((p: any) => p.head.domain.origin));
+      const pathHeads = paths.map(p => p.head).filter((h): h is UrlHead => h.type === HEAD_TYPE.URL);
+      const headUrls = new Set(pathHeads.map(h => h.url));
+      const origins = new Set(pathHeads.map(h => h.domain.origin));
 
       const pathQuery = {
         processId: this.pid,
         status: 'active',
+        'head.type': HEAD_TYPE.URL,
         'head.status': 'error',
         'head.url': { $in: Array.from(headUrls) }
       };
       const pathUpdate = {
         $set: { 'head.status': 'unvisited', 'head.domain.status': 'ready' }
-      };
+      } as UpdateQuery<PathClass>;
       const [resourceRes, domainRes, pathRes] = await Promise.all([
         Resource.updateMany(
           { status: 'error', url: { $in: Array.from(headUrls) as string[] } },
@@ -508,7 +511,7 @@ class ProcessClass extends Document {
             $set: { status: 'unvisited' },
             $unset: { jobId: '', crawlId: '' }
           }
-        ) as any,
+        ) as QueryWithHelpers<UpdateWriteOpResult, ResourceDocument>,
         Domain.updateMany(
           { status: 'error', origin: { $in: Array.from(origins) as string[] } },
           {
@@ -519,10 +522,10 @@ class ProcessClass extends Document {
             },
             $unset: { workerId: '', jobId: '' }
           }
-        ) as any,
+        ) as QueryWithHelpers<UpdateWriteOpResult, DomainDocument>,
         config.manager.pathType === 'traversal'
-          ? TraversalPath.updateMany(pathQuery as QueryFilter<TraversalPathClass>, pathUpdate as any)
-          : EndpointPath.updateMany(pathQuery as QueryFilter<EndpointPathClass>, pathUpdate as any)
+          ? TraversalPath.updateMany(pathQuery as QueryFilter<TraversalPathClass>, pathUpdate)
+          : EndpointPath.updateMany(pathQuery as QueryFilter<EndpointPathClass>, pathUpdate)
       ]);
 
       summary.resources += resourceRes.modifiedCount ?? resourceRes.matchedCount ?? 0;
@@ -543,6 +546,6 @@ const Process = getModelForClass(ProcessClass, {
   schemaOptions: { timestamps: true, collection: 'processes' }
 });
 
-type ProcessDocument = ProcessClass & Document;
+export type ProcessDocument = DocumentType<ProcessClass>;
 
-export { Process, ProcessClass, type ProcessDocument };
+export { Process, ProcessClass };

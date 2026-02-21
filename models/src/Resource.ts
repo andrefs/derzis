@@ -138,7 +138,7 @@ class ResourceClass {
     if (config.manager.pathType === 'traversal') {
       // TraversalPath
       await TraversalPath.updateMany(
-        { 'head.url': url, status: 'active' },
+        { 'head.url': url, status: 'active', 'head.type': HEAD_TYPE.URL },
         {
           $set: {
             'head.status': error ? 'error' : 'done'
@@ -148,7 +148,7 @@ class ResourceClass {
     } else {
       // EndpointPath
       await EndpointPath.updateMany(
-        { 'head.url': url, status: 'active' },
+        { 'head.url': url, status: 'active', 'head.type': HEAD_TYPE.URL },
         {
           $set: {
             'head.status': error ? 'error' : 'done'
@@ -259,7 +259,7 @@ class ResourceClass {
       const paths = seeds.map((s) => ({
         processId: pid,
         seed: { url: s.url },
-        head: { url: s.url, status: s.status },
+        head: { url: s.url, status: s.status, type: HEAD_TYPE.URL },
         nodes: { elems: [s.url] },
         predicates: { elems: [] },
         triples: [],
@@ -277,7 +277,7 @@ class ResourceClass {
         head: {
           url: s.url,
           status: s.status,
-          domain: { origin: s.domain, status: 'active' }
+          domain: { origin: s.domain, status: 'active', type: HEAD_TYPE.URL },
         },
         status: 'active',
         frontier: true,
@@ -331,7 +331,7 @@ class ResourceClass {
     paths: TraversalPathDocument[]
   ) {
     const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (TraversalPathDocument & { head: UrlHead })[];
-    
+
     if (!urlPaths.length) {
       return { res: null, dom: null };
     }

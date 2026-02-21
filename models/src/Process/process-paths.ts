@@ -55,6 +55,7 @@ export async function getPathsForRobotsChecking(
     const paths = await TraversalPath.find({
       ...baseQuery,
       ...cursorCondition,
+      'head.type': HEAD_TYPE.URL,
       'nodes.count': { $lt: process.currentStep.maxPathLength },
       'predicates.count': { $lte: process.currentStep.maxPathProps }
     })
@@ -66,6 +67,7 @@ export async function getPathsForRobotsChecking(
     const paths = await EndpointPath.find({
       ...baseQuery,
       ...cursorCondition,
+      'head.type': HEAD_TYPE.URL,
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
@@ -110,6 +112,7 @@ export async function getPathsForDomainCrawl(
     const paths = await TraversalPath.find({
       ...traversalQuery,
       ...cursorCondition,
+      'head.type': HEAD_TYPE.URL,
       'head.domain.status': 'ready',
       'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited'
@@ -123,6 +126,7 @@ export async function getPathsForDomainCrawl(
       ...cursorCondition,
       processId: process.pid,
       status: 'active',
+      'head.type': HEAD_TYPE.URL,
       'head.domain.status': 'ready',
       'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited',
@@ -213,6 +217,7 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   const query: QueryFilter<TraversalPathDocument> = {
     processId: process.pid,
     status: 'active',
+    'head.type': HEAD_TYPE.URL,
     'nodes.count': { $lt: process.currentStep.maxPathLength },
     'predicates.count': { $lte: maxPathProps },
   };
@@ -391,6 +396,7 @@ async function deleteOldPaths(pathsToDelete: Set<Types.ObjectId>, pathType: Path
   if (pathsToDelete.size) {
     const pathQuery = {
       _id: { $in: Array.from(pathsToDelete) },
+      'head.type': HEAD_TYPE.URL,
       'head.status': 'done'
     };
     const pathUpdate = { $set: { status: 'deleted' } };
@@ -422,6 +428,7 @@ export async function extendProcessPaths(
   const pathQuery = {
     processId: process.pid,
     status: 'active',
+    'head.type': HEAD_TYPE.URL,
     'head.url': headUrl
   };
 
@@ -442,10 +449,10 @@ export async function extendProcessPaths(
 
     const paths =
       pathType === 'traversal'
-        ? await TraversalPath.find({ ...pathQuery, ...pathCursorCondition } as QueryFilter<TraversalPathClass>)
+        ? await TraversalPath.find({ ...pathQuery, 'head.type': HEAD_TYPE.URL, ...pathCursorCondition } as QueryFilter<TraversalPathClass>)
           .sort({ createdAt: 1, _id: 1 })
           .limit(batchSize)
-        : await EndpointPath.find({ ...pathQuery, ...pathCursorCondition } as QueryFilter<EndpointPathClass>)
+        : await EndpointPath.find({ ...pathQuery, 'head.type': HEAD_TYPE.URL, ...pathCursorCondition } as QueryFilter<EndpointPathClass>)
           .sort({ createdAt: 1, _id: 1 })
           .limit(batchSize);
 

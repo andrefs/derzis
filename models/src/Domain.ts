@@ -12,7 +12,8 @@ import {
   getModelForClass,
   type ReturnModelType,
   PropType,
-  post
+  post,
+  DocumentType
 } from '@typegoose/typegoose';
 import type { DomainCrawlJobInfo } from '@derzis/common';
 import config from '@derzis/config';
@@ -268,7 +269,11 @@ class DomainClass {
     const domains = await this.find({ jobId }).lean();
     if (domains.length) {
       await TraversalPath.updateMany(
-        { 'head.domain.origin': { $in: domains.map((d) => d.origin) }, status: 'active' },
+        {
+          'head.domain.origin': { $in: domains.map((d) => d.origin) },
+          status: 'active',
+          'head.type': HEAD_TYPE.URL
+        },
         { $set: { 'head.domain.status': 'checking' } }
       );
     }
@@ -310,7 +315,8 @@ class DomainClass {
       await TraversalPath.updateMany(
         {
           'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) },
-          status: 'active'
+          status: 'active',
+          'head.type': HEAD_TYPE.URL
         },
         { $set: { 'head.domain.status': 'crawling' } }
       );
@@ -418,7 +424,11 @@ class DomainClass {
       { status: 'crawling', jobId }
     ).lean();
     await TraversalPath.updateMany(
-      { 'head.url': { $in: resources.map((r) => r.url) }, status: 'active' },
+      {
+        'head.url': { $in: resources.map((r) => r.url) },
+        status: 'active',
+        'head.type': HEAD_TYPE.URL
+      },
       { $set: { 'head.status': 'crawling' } }
     ).lean();
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
@@ -719,4 +729,5 @@ const robotsHostNotFoundError = () => {
 const Domain = getModelForClass(DomainClass, {
   schemaOptions: { timestamps: true, collection: 'domains' }
 });
+export type DomainDocument = DocumentType<DomainClass>;
 export { Domain, DomainClass };
