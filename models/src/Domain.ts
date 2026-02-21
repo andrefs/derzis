@@ -89,8 +89,9 @@ class CrawlClass {
 
 @post<DomainClass>('findOneAndUpdate', async function (doc) {
   if (doc) {
+    // TODO what about EndpointPaths?
     await TraversalPath.updateMany(
-      { 'head.domain.origin': doc.origin, status: 'active' },
+      { 'head.domain.origin': doc.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
       { $set: { 'head.domain.status': doc.status } }
     );
   }
