@@ -126,7 +126,7 @@ function buildBulkOps(
   return [...tripleMap.values()].map((t) => {
     const nodes = t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
       ? [t.subject, t.object]
-      : [];
+      : [t.subject];
     return {
       updateOne: {
         filter: {
