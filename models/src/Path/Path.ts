@@ -1,4 +1,4 @@
-import { Types, FilterQuery } from 'mongoose';
+import { Types, QueryFilter } from 'mongoose';
 import { PathType, urlListValidator, urlValidator, type TypedTripleId, type LiteralObject } from '@derzis/common';
 import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType, index } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
@@ -135,7 +135,7 @@ export interface IPath {
   status: 'active' | 'deleted';
   type: PathType;
   extensionCounter: number;
-  genExistingTriplesFilter: (process: ProcessClass) => FilterQuery<NamedNodeTripleDocument> | null;
+  genExistingTriplesFilter: (process: ProcessClass) => QueryFilter<NamedNodeTripleDocument> | null;
   genExtended: (triples: TripleDocument[], process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
   extendWithExistingTriples: (process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
 }

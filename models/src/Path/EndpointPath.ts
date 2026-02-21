@@ -1,4 +1,4 @@
-import { Types, type FilterQuery } from 'mongoose';
+import { Types, type QueryFilter } from 'mongoose';
 import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { ProcessClass } from '../Process';
@@ -73,7 +73,7 @@ export class EndpointPathClass extends PathClass {
     return this.shortestPath.length + 1 > process.currentStep.maxPathLength;
   }
 
-  public genExistingTriplesFilter(process: ProcessClass): FilterQuery<NamedNodeTripleClass> | null {
+  public genExistingTriplesFilter(process: ProcessClass): QueryFilter<NamedNodeTripleClass> | null {
     if (this.head.type !== HEAD_TYPE.URL) {
       return null;
     }

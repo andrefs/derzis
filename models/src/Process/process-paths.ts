@@ -4,6 +4,7 @@ import {
   EndpointPath,
   type EndpointPathDocument,
   TraversalPathClass,
+  EndpointPathClass,
   type PathSkeleton,
   type PathDocument,
   HEAD_TYPE,
@@ -15,8 +16,8 @@ import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
-import { FilterQuery, Types } from 'mongoose';
-import { NamedNodeTriple, LiteralTriple, Triple, isNamedNode, isLiteral, type NamedNodeTripleDocument, type LiteralTripleDocument } from '../Triple';
+import { QueryFilter, Types } from 'mongoose';
+import { NamedNodeTriple, LiteralTriple, Triple, isNamedNode, isLiteral, type NamedNodeTripleDocument, type LiteralTripleDocument, type TripleClass } from '../Triple';
 import { type TypedTripleId, PathType, TripleType } from '@derzis/common';
 
 /**
@@ -204,12 +205,12 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
  * @param process ProcessClass instance
  * @returns MongoDB query object
  */
-export function genTraversalPathQuery(process: ProcessClass): FilterQuery<TraversalPathDocument> {
+export function genTraversalPathQuery(process: ProcessClass): QueryFilter<TraversalPathDocument> {
   const limType = process.currentStep.predLimit?.limType;
   const limPredicates = process.currentStep.predLimit?.limPredicates || [];
   const maxPathProps = process.currentStep.maxPathProps;
 
-  const query: FilterQuery<TraversalPathDocument> = {
+  const query: QueryFilter<TraversalPathDocument> = {
     processId: process.pid,
     status: 'active',
     'nodes.count': { $lt: process.currentStep.maxPathLength },
@@ -279,7 +280,7 @@ export async function extendExistingPaths(pid: string) {
     const batchStartTime = Date.now();
     const curPathsCount = await TraversalPath.countDocuments(query);
 
-    const cursorCondition: FilterQuery<TraversalPathDocument> = lastSeenCreatedAt && lastSeenId
+    const cursorCondition: QueryFilter<TraversalPathDocument> = lastSeenCreatedAt && lastSeenId
       ? {
         createdAt: { $gte: lastSeenCreatedAt },
         _id: { $gt: lastSeenId }
@@ -432,7 +433,7 @@ export async function extendProcessPaths(
   let newPaths = [];
   // process paths in batches to avoid using up too much memory
   while (hasMorePaths) {
-    const pathCursorCondition: FilterQuery<TraversalPathClass> = lastPathCreatedAt && lastPathId
+    const pathCursorCondition: QueryFilter<TraversalPathClass> = lastPathCreatedAt && lastPathId
       ? {
         createdAt: { $gte: lastPathCreatedAt },
         _id: { $gt: lastPathId }
@@ -441,10 +442,10 @@ export async function extendProcessPaths(
 
     const paths =
       pathType === 'traversal'
-        ? await TraversalPath.find({ ...pathQuery, ...pathCursorCondition })
+        ? await TraversalPath.find({ ...pathQuery, ...pathCursorCondition } as QueryFilter<TraversalPathClass>)
           .sort({ createdAt: 1, _id: 1 })
           .limit(batchSize)
-        : await EndpointPath.find({ ...pathQuery, ...pathCursorCondition })
+        : await EndpointPath.find({ ...pathQuery, ...pathCursorCondition } as QueryFilter<EndpointPathClass>)
           .sort({ createdAt: 1, _id: 1 })
           .limit(batchSize);
 
@@ -464,14 +465,14 @@ export async function extendProcessPaths(
     let lastTripleCreatedAt: Date | null = null;
     let lastTripleId: Types.ObjectId | null = null;
     while (hasMoreTriples) {
-      const tripleCursorCondition: FilterQuery<TraversalPathClass> = lastTripleCreatedAt && lastTripleId
+      const tripleCursorCondition: QueryFilter<TraversalPathClass> = lastTripleCreatedAt && lastTripleId
         ? {
           createdAt: { $gte: lastTripleCreatedAt },
           _id: { $gt: lastTripleId }
         }
         : {};
 
-      const triples = await Triple.find({ nodes: headUrl, ...tripleCursorCondition })
+      const triples = await Triple.find({ nodes: headUrl, ...tripleCursorCondition } as QueryFilter<TripleClass>)
         .sort({ createdAt: 1, _id: 1 })
         .limit(batchSize);
 
@@ -489,7 +490,7 @@ export async function extendProcessPaths(
 
       // extend each path with the new triples and gather new paths and proc-triple associations
       for (const path of paths) {
-        const res = await path.genExtended(triples as (NamedNodeTripleDocument | LiteralTripleDocument)[], process);
+        const res = await path.genExtended(triples as any, process);
         log.silly('Extended paths:', res.extendedPaths);
         // make db operations immediately for each path to avoid keeping too many new paths in memory
         if (res.extendedPaths.length) {

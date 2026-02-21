@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { genTraversalPathQuery } from './process-paths';
 import { StepClass, PredicateLimitationClass } from './aux-classes';
-import { FilterQuery } from 'mongoose';
+import { QueryFilter } from 'mongoose';
 import type { TraversalPathDocument } from '../Path/TraversalPath';
 import type { ProcessClass } from './Process';
 
-type TraversalPathQueryWithExpr = FilterQuery<TraversalPathDocument> & {
+type TraversalPathQueryWithExpr = QueryFilter<TraversalPathDocument> & {
   $expr: {
     $not: {
       $setIsSubset: unknown[];

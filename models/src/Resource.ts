@@ -266,7 +266,7 @@ class ResourceClass {
         status: 'active'
       }));
 
-      const insPaths = await TraversalPath.create(paths);
+      const insPaths = await TraversalPath.create(paths as any) as any;
       return this.addTvPaths(insPaths);
     }
     // Endpoint paths
@@ -290,7 +290,7 @@ class ResourceClass {
         }
       }));
 
-      const insPaths = await EndpointPath.create(paths);
+      const insPaths = await EndpointPath.create(paths as any) as any;
       return this.addEpPaths(insPaths);
     }
   }

@@ -37,7 +37,7 @@ class ProcessTripleClass extends TimeStamps {
     }));
 
     if (bulkOps.length > 0) {
-      await this.bulkWrite(bulkOps);
+      await this.bulkWrite(bulkOps as any);
     }
   }
 }

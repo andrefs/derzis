@@ -1,4 +1,4 @@
-import { Types, FilterQuery } from 'mongoose';
+import { Types, QueryFilter } from 'mongoose';
 import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
@@ -261,7 +261,7 @@ export class TraversalPathClass extends PathClass {
     limType: string,
     limPredicates: string[],
     pathFull: boolean
-  ): { allowed: Set<string>; notAllowed: Set<string>; predFilter: FilterQuery<NamedNodeTripleClass> } | null {
+  ): { allowed: Set<string>; notAllowed: Set<string>; predFilter: QueryFilter<NamedNodeTripleClass> } | null {
     const allowed = new Set<string>();
     const notAllowed = new Set<string>();
 
@@ -344,7 +344,7 @@ export class TraversalPathClass extends PathClass {
     limType: string,
     followDirection: boolean,
     predsDirMetrics: Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined
-  ): FilterQuery<NamedNodeTripleClass> {
+  ): QueryFilter<NamedNodeTripleClass> {
     if (this.head.type !== HEAD_TYPE.URL) {
       return {};
     }
@@ -443,7 +443,7 @@ export class TraversalPathClass extends PathClass {
   * @returns An object representing the filter for existing triples, or null if no triples should be returned based on the limits.
   */
   public genExistingTriplesFilter(
-    process: ProcessClass): FilterQuery<NamedNodeTripleDocument> | null {
+    process: ProcessClass): QueryFilter<NamedNodeTripleDocument> | null {
     if (this.head.type !== HEAD_TYPE.URL) {
       return null;
     }
@@ -481,9 +481,9 @@ export class TraversalPathClass extends PathClass {
     const hasDirectionFilter = directionFilter && Object.keys(directionFilter).length > 0;
 
     if (hasDirectionFilter) {
-      return { ...baseFilter, ...directionFilter };
+      return { ...baseFilter, ...directionFilter } as any;
     } else {
-      return { ...baseFilter, ...predFilter };
+      return { ...baseFilter, ...predFilter } as any;
     }
   }
 

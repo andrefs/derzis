@@ -20,7 +20,7 @@
     "preview": "node dist/src/worker/bin/worker"
   },
   "dependencies": {
-    "@typegoose/typegoose": "12.10.1",
+    "@typegoose/typegoose": "^13.0.0",
     "@types/mongodb-uri": "0.9.4",
     "axios": "^1.7.9",
     "bluebird": "^3.7.2",

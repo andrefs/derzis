@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@rdfjs/types": "2.0.1",
-    "@typegoose/typegoose": "12.10.1",
+    "@typegoose/typegoose": "^13.0.0",
     "cheerio": "1.0.0",
     "eslint": "9.19.0",
     "humanize-digest": "1.0.0",

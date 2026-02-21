@@ -230,7 +230,7 @@ class DomainClass {
           upsert: true
         };
       }
-      domains[u].update.$inc!['crawl.queued']++;
+      (domains[u].update as any).$inc!['crawl.queued']++;
     }
     return this.bulkWrite(Object.values(domains).map((d) => ({ updateOne: d })));
   }

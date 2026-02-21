@@ -1,4 +1,4 @@
-import { Types, Document, FilterQuery } from 'mongoose';
+import { Types, Document, QueryFilter } from 'mongoose';
 import { Resource } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
@@ -460,7 +460,7 @@ class ProcessClass extends Document {
     let hasMore = true;
 
     while (hasMore) {
-      const cursorCondition: FilterQuery<PathClass> = lastSeenCreatedAt && lastSeenId
+      const cursorCondition: QueryFilter<PathClass> = lastSeenCreatedAt && lastSeenId
         ? {
           createdAt: { $gte: lastSeenCreatedAt },
           _id: { $gt: lastSeenId }
@@ -470,11 +470,11 @@ class ProcessClass extends Document {
       // Fetch a batch of paths for this process
       const paths =
         config.manager.pathType === 'traversal'
-          ? await TraversalPath.find({ processId: this.pid, status: 'active', ...cursorCondition })
+          ? await TraversalPath.find({ processId: this.pid, status: 'active', ...cursorCondition } as QueryFilter<TraversalPathClass>)
             .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
             .select('head.url head.domain.origin createdAt _id')
-          : await EndpointPath.find({ processId: this.pid, status: 'active', ...cursorCondition })
+          : await EndpointPath.find({ processId: this.pid, status: 'active', ...cursorCondition } as QueryFilter<EndpointPathClass>)
             .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
             .select('head.url head.domain.origin createdAt _id')
@@ -488,9 +488,9 @@ class ProcessClass extends Document {
       lastSeenCreatedAt = lastPath.createdAt || null;
       lastSeenId = lastPath._id as Types.ObjectId;
 
-      const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (EndpointPathDocument & { head: UrlHead })[];
-      const headUrls = new Set(urlPaths.map((p) => p.head.url));
-      const origins = new Set(urlPaths.map((p) => p.head.domain.origin));
+      const urlPaths = paths.filter((p: any) => p.head.type === HEAD_TYPE.URL) as any;
+      const headUrls = new Set(urlPaths.map((p: any) => p.head.url));
+      const origins = new Set(urlPaths.map((p: any) => p.head.domain.origin));
 
       const pathQuery = {
         processId: this.pid,
@@ -503,14 +503,14 @@ class ProcessClass extends Document {
       };
       const [resourceRes, domainRes, pathRes] = await Promise.all([
         Resource.updateMany(
-          { status: 'error', url: { $in: Array.from(headUrls) } },
+          { status: 'error', url: { $in: Array.from(headUrls) as string[] } },
           {
             $set: { status: 'unvisited' },
             $unset: { jobId: '', crawlId: '' }
           }
-        ),
+        ) as any,
         Domain.updateMany(
-          { status: 'error', origin: { $in: Array.from(origins) } },
+          { status: 'error', origin: { $in: Array.from(origins) as string[] } },
           {
             $set: {
               status: 'ready',
@@ -519,10 +519,10 @@ class ProcessClass extends Document {
             },
             $unset: { workerId: '', jobId: '' }
           }
-        ),
+        ) as any,
         config.manager.pathType === 'traversal'
-          ? TraversalPath.updateMany(pathQuery, pathUpdate)
-          : EndpointPath.updateMany(pathQuery, pathUpdate)
+          ? TraversalPath.updateMany(pathQuery as QueryFilter<TraversalPathClass>, pathUpdate as any)
+          : EndpointPath.updateMany(pathQuery as QueryFilter<EndpointPathClass>, pathUpdate as any)
       ]);
 
       summary.resources += resourceRes.modifiedCount ?? resourceRes.matchedCount ?? 0;
