@@ -21,7 +21,16 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
 
   p.pathHeads = Object.fromEntries(pathHeads.entries());
 
-  const proc = await Process.create(p);
+  // Build the process creation object with required fields
+  const processData = {
+    steps: p.steps,
+    currentStep: p.currentStep,
+    notification: p.notification,
+    pathHeads: p.pathHeads,
+    pathType: p.pathType
+  };
+
+  const proc = await Process.create(processData);
   await proc.notifyProcessCreated();
 
   await Process.startNext();
@@ -95,15 +104,15 @@ export async function info(pid: string) {
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
   const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
   const lastTriple = [lastLT, lastNNT].reduce((latest, t) => {
-    if (!t) return latest;
-    return !latest || t.updatedAt > latest.updatedAt ? t : latest;
+    if (!t || !t.updatedAt) return latest;
+    return !latest || !latest.updatedAt || t.updatedAt > latest.updatedAt ? t : latest;
   }, null as (LiteralTripleClass | NamedNodeTripleClass | null));
 
   const lastPath = await TraversalPath.findOne({ status: 'active' }).sort({ updatedAt: -1 });
   const last = Math.max(
-    lastResource?.updatedAt.getTime() || 0,
-    lastTriple?.updatedAt.getTime() || 0,
-    lastPath?.updatedAt.getTime() || 0
+    lastResource?.updatedAt?.getTime() || 0,
+    lastTriple?.updatedAt?.getTime() || 0,
+    lastPath?.updatedAt?.getTime() || 0
   );
 
   const timeToLastResource = lastResource
