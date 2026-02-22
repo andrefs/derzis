@@ -156,7 +156,7 @@
       });
 
       const nodeReducer = (node: string, data: NodeDisplayData): NodeDisplayData => {
-        const res: NodeDisplayData = { ...data };
+        const res: Partial<NodeDisplayData> & { label?: string; forceLabel?: boolean; highlighted?: boolean } = { ...data };
         const isSeed = seeds.includes(node);
 
         if (
