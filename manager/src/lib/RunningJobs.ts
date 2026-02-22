@@ -185,6 +185,19 @@ export default class RunningJobs extends EventEmitter {
         }
       );
     }
+    if (jobType === 'domainLabelFetch') {
+      // update resources being labeled for this domain
+      await Resource.updateMany({ domain: origin, status: 'labeling' }, { status: 'unvisited' });
+
+      // update domain
+      const update = customUpdate || {};
+      update['$set'] = update['$set'] || {};
+      update['$set']['status'] = 'ready';
+      update['$unset'] = update['$unset'] || {};
+      update['$unset']['workerId'] = '';
+      update['$unset']['jobId'] = '';
+      await Domain.updateMany({ origin }, update);
+    }
   }
 
   /**

@@ -1,6 +1,6 @@
 import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
-import type { LabelFetchJobInfo, PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
+import type { DomainLabelFetchJobInfo, PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
 import { TraversalPath, HEAD_TYPE, UrlHead } from './Path';
 import { Process } from './Process';
@@ -15,7 +15,7 @@ import {
   post,
   DocumentType
 } from '@typegoose/typegoose';
-import type { DomainResourceJobInfo } from '@derzis/common';
+import type { DomainCrawlJobInfo } from '@derzis/common';
 import config from '@derzis/config';
 import { ResourceLabel } from './ResourceLabel';
 const log = createLogger('Domain');
@@ -118,11 +118,11 @@ class DomainClass {
   public origin!: string;
 
   @prop({
-    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling'],
+    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling', 'labelFetching'],
     default: 'unvisited',
     type: String
   })
-  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling';
+  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling' | 'labelFetching';
 
   @prop({ type: Boolean })
   public error?: boolean;
@@ -440,7 +440,7 @@ class DomainClass {
     wId: string,
     domLimit: number,
     resLimit: number
-  ): AsyncGenerator<DomainResourceJobInfo> {
+  ): AsyncGenerator<DomainLabelFetchJobInfo> {
     log.info(
       `Starting label fetch locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
     );
@@ -517,14 +517,14 @@ class DomainClass {
    * @param wId - The worker ID
    * @param domLimit - The maximum number of domains to crawl
    * @param resLimit - The maximum number of resources per domain
-   * @returns {AsyncGenerator<DomainResourceJobInfo>}
+   * @returns {AsyncGenerator<DomainCrawlJobInfo>}
    */
   public static async *domainsToCrawl2(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     domLimit: number,
     resLimit: number
-  ): AsyncGenerator<DomainResourceJobInfo> {
+  ): AsyncGenerator<DomainCrawlJobInfo> {
     log.info(
       `Starting domain crawl locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
     );
@@ -638,7 +638,7 @@ class DomainClass {
 
         domainsFound += domains.length;
 
-        const domainInfo: { [origin: string]: DomainResourceJobInfo } = {};
+        const domainInfo: { [origin: string]: DomainCrawlJobInfo } = {};
         for (const d of domains) {
           domainInfo[d.origin] = { domain: d, resources: [] };
         }

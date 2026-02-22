@@ -20,6 +20,9 @@ class ResourceLabelClass {
 
   @prop({ required: true, enum: ['web', 'cardea'], type: String })
   public source!: 'web' | 'cardea';
+
+  @prop({ required: true, type: Boolean, default: false })
+  public extend!: boolean;
 }
 
 const ResourceLabel = getModelForClass(ResourceLabelClass, {

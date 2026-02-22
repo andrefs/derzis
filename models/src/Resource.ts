@@ -45,11 +45,11 @@ class ResourceClass {
   public domain!: string;
 
   @prop({
-    enum: ['unvisited', 'done', 'crawling', 'error'],
+    enum: ['unvisited', 'done', 'crawling', 'labelFetching', 'error'],
     default: 'unvisited',
     type: String
   })
-  public status!: 'unvisited' | 'done' | 'crawling' | 'error';
+  public status!: 'unvisited' | 'done' | 'crawling' | 'labelFetching' | 'error';
 
   @prop({ ref: 'NamedNodeTripleClass', default: [], Type: [NamedNodeTriple] }, PropType.ARRAY)
   public triples?: Types.DocumentArray<NamedNodeTripleClass>;
