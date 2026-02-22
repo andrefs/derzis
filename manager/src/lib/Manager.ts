@@ -2,8 +2,6 @@ import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import {
   Domain,
-  NamedNodeTriple,
-  LiteralTriple,
   TraversalPath,
   Resource,
   Process,
@@ -34,6 +32,10 @@ export default class Manager {
     this.finished = 0;
   }
 
+  /**
+   * Update the database with the results of a completed job, and deregister the job
+   * @param jobResult Result of the completed job to process
+   */
   async updateJobResults(jobResult: JobResult) {
     log.debug('updateJobResults', {
       finished: this.finished,
@@ -252,18 +254,18 @@ export default class Manager {
     let assignedLabelFetch = 0;
 
 
-    // labelFetch jobs
-    if (workerAvail.labelFetch) {
-      if (!workerAvail.labelFetch.capacity) {
-        log.warn(`Worker ${workerId} has no capacity for labelFetch jobs`);
+    // domainLabelFetch jobs
+    if (workerAvail.domainLabelFetch) {
+      if (!workerAvail.domainLabelFetch.capacity) {
+        log.warn(`Worker ${workerId} has no capacity for domainLabelFetch jobs`);
       } else {
-        log.debug(`Getting ${workerAvail.labelFetch.capacity} labelFetch jobs for ${workerId}`);
+        log.debug(`Getting ${workerAvail.domainLabelFetch.capacity} domainLabelFetch jobs for ${workerId}`);
         let gotRes = false;
 
         for await (const labelJob of Domain.labelsToFetch(
           workerId,
-          workerAvail.labelFetch.capacity,
-          workerAvail.labelFetch.resourcesPerDomain
+          workerAvail.domainLabelFetch.capacity,
+          workerAvail.domainLabelFetch.resourcesPerDomain
         )) {
           gotRes = true;
           if (labelJob?.resources?.length &&

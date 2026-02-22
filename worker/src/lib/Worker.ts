@@ -419,12 +419,14 @@ export class Worker extends EventEmitter {
     const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
     for (const t of triples) {
       if (t.predicate === RDFS_LABEL && t.type === TripleType.LITERAL) {
-        if ((t.object as LiteralObject).language && (t.object as LiteralObject).language === 'en') {
+        const obj = t.object as LiteralObject;
+        if (obj.language && obj.language === 'en') {
           const obj = t.object as LiteralObject;
           labels.push(obj.value);
         }
       } else if (t.predicate === RDFS_COMMENT && t.type === TripleType.LITERAL) {
-        if ((t.object as LiteralObject).language && (t.object as LiteralObject).language === 'en') {
+        const obj = t.object as LiteralObject;
+        if (obj.language && obj.language === 'en') {
           const obj = t.object as LiteralObject;
           comments.push(obj.value);
         }
