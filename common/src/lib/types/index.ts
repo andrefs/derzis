@@ -57,7 +57,7 @@ export interface BaseJobResult {
   jobId: number;
 }
 
-export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
+export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl' | 'domainLabelFetch' | 'resourceLabelFetch';
 export interface JobResultError extends BaseJobResult {
   status: 'not_ok';
   err: object;

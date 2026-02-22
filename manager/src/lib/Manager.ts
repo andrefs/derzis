@@ -21,6 +21,7 @@ import type {
   JobRequest,
   PathType,
   ResourceCrawlJobRequest,
+  ResourceLabelFetchJobRequest,
   SimpleTriple
 } from '@derzis/common';
 
@@ -234,7 +235,7 @@ export default class Manager {
   async *assignJobs(
     workerId: string,
     workerAvail: JobCapacity
-  ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>> {
+  ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>> {
     if (this.jobs.beingSaved.count() > 0) {
       log.warn(
         `Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
@@ -248,6 +249,7 @@ export default class Manager {
     }
     let assignedCheck = 0;
     let assignedCrawl = 0;
+    let assignedLabelFetch = 0;
 
 
     // labelFetch jobs
@@ -258,10 +260,27 @@ export default class Manager {
         log.debug(`Getting ${workerAvail.labelFetch.capacity} labelFetch jobs for ${workerId}`);
         let gotRes = false;
 
-        for await (const labelJob of Domain.labelsToFetch(workerId, workerAvail.labelFetch.capacity, workerAvail.labelFetch.resourcesPerDomain)) {
+        for await (const labelJob of Domain.labelsToFetch(
+          workerId,
+          workerAvail.labelFetch.capacity,
+          workerAvail.labelFetch.resourcesPerDomain
+        )) {
+          gotRes = true;
+          if (labelJob?.resources?.length &&
+            (await this.jobs.registerJob(labelJob.domain.jobId, labelJob.domain.origin, 'domainLabelFetch'))) {
+            assignedLabelFetch++;
+            yield {
+              type: 'domainLabelFetch',
+              jobId: labelJob.domain.jobId,
+              ...labelJob
+            }
+          } else {
+            log.info(`No resources with labels to fetch for worker ${workerId}`);
+          }
         }
-
-
+        if (!gotRes) {
+          log.info(`No domains with labels to fetch for worker ${workerId}`);
+        }
       }
     }
 

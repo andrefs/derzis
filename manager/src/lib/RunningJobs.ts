@@ -10,6 +10,8 @@ interface JobsBeingSaved {
   domainCrawl: number;
   resourceCrawl: number;
   robotsCheck: number;
+  resourceLabelFetch: number;
+  domainLabelFetch: number;
   count: () => number;
 }
 
@@ -30,9 +32,11 @@ export default class RunningJobs extends EventEmitter {
       domainCrawl: 0,
       resourceCrawl: 0,
       robotsCheck: 0,
+      resourceLabelFetch: 0,
+      domainLabelFetch: 0,
       count: () => {
         const bs = this.beingSaved;
-        return bs.domainCrawl + bs.resourceCrawl + bs.robotsCheck;
+        return bs.domainCrawl + bs.resourceCrawl + bs.robotsCheck + bs.resourceLabelFetch + bs.domainLabelFetch;
       }
     };
     this.beingSavedByDomain = {};

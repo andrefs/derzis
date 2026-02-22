@@ -38,7 +38,16 @@ export type DomainCrawlJobRequest = BaseJobRequest &
   DomainResourceJobInfo & {
     type: 'domainCrawl';
   };
-export type JobRequest = RobotsCheckJobRequest | ResourceCrawlJobRequest | DomainCrawlJobRequest;
+export type DomainLabelFetchJobRequest = BaseJobRequest &
+  DomainResourceJobInfo & {
+    type: 'domainLabelFetch';
+  };
+export type ResourceLabelFetchJobRequest = BaseJobRequest & {
+  type: 'resourceLabelFetch';
+  url: string;
+  domain: string;
+};
+export type JobRequest = RobotsCheckJobRequest | ResourceCrawlJobRequest | DomainCrawlJobRequest | DomainLabelFetchJobRequest | ResourceLabelFetchJobRequest;
 
 export type MessageType =
   | 'askCurCap'
