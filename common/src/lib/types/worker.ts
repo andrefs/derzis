@@ -24,6 +24,9 @@ export interface OngoingJobs {
   robotsCheck: {
     [domain: string]: boolean;
   };
+  domainLabelFetch: {
+    [domain: string]: boolean;
+  };
 }
 
 export interface BaseJobRequest {

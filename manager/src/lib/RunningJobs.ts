@@ -258,6 +258,18 @@ export default class RunningJobs extends EventEmitter {
       }
     );
 
+    log.debug('Resetting outstanding domain label fetches');
+    await Domain.updateMany(
+      { status: 'labelFetching' },
+      {
+        $set: { status: 'ready' },
+        $unset: {
+          workerId: '',
+          jobId: ''
+        }
+      }
+    );
+
     // Reset path head domains being crawled
     log.debug('Resetting outstanding path head domains being crawled');
     await TraversalPath.updateMany(
@@ -401,6 +413,26 @@ export default class RunningJobs extends EventEmitter {
           }
         }
       );
+    }
+
+    log.info(`Canceling worker ${workerId} domainLabelFetch jobs on ${domains.join(', ')}`);
+    domains = Object.keys(ongoingJobs.domainLabelFetch);
+    if (domains.length) {
+      for (const d in domains) {
+        delete this._running[d];
+      }
+      const update = {
+        $set: { status: 'ready' },
+        $unset: {
+          workerId: '',
+          jobId: ''
+        }
+      };
+      let filter = { origin: { $in: domains }, workerId: '' };
+      if (workerId) {
+        filter.workerId = workerId;
+      }
+      await Domain.updateMany({ origin: { $in: domains } }, update);
     }
   }
 
