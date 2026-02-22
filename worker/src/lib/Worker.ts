@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { ResourceCache, db, LiteralObject, WorkerTripleClass } from '@derzis/models';
+import { ResourceCache, db, LiteralObject, WorkerTripleClass, LiteralTripleDocument } from '@derzis/models';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
 import Axios from './axios';
@@ -46,6 +46,10 @@ export interface Availability {
 interface JobsTimedOut {
   [domain: string]: boolean;
 }
+
+
+const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
 
 export class Worker extends EventEmitter {
   /**
@@ -369,16 +373,14 @@ export class Worker extends EventEmitter {
 
     const cachedRes = await this.getResourceFromCache(url);
     if (cachedRes) {
-      const { labels, comments } = this.getLabelsAndComments(cachedRes.triples || []);
       return {
         ...jobInfo,
         status: 'ok',
         details: {
           labelFetchId,
-          labels,
-          comments,
-          ts: labelFetchId.domainTs.getTime(),
-          cached: true
+          triples: cachedRes.triples?.filter(
+            (t) => t.predicate === RDFS_LABEL || t.predicate === RDFS_COMMENT
+          ).filter((t) => (t.object as LiteralObject).language === 'en')
         }
       } as FetchLabelsResourceResult;
     }
@@ -392,8 +394,9 @@ export class Worker extends EventEmitter {
         status: 'ok',
         details: {
           labelFetchId,
-          labels,
-          comments,
+          triples: res.triples?.filter(
+            (t) => t.predicate === RDFS_LABEL || t.predicate === RDFS_COMMENT
+          ).filter((t) => (t.object as LiteralObject).language === 'en'),
           ts: res.ts
         }
       }
@@ -415,8 +418,6 @@ export class Worker extends EventEmitter {
   getLabelsAndComments(triples: WorkerTripleClass[]) {
     const labels: string[] = [];
     const comments: string[] = [];
-    const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
-    const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
     for (const t of triples) {
       if (t.predicate === RDFS_LABEL && t.type === TripleType.LITERAL) {
         const obj = t.object as LiteralObject;

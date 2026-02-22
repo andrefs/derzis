@@ -1,3 +1,4 @@
+import { LiteralTripleClass } from '@derzis/models';
 import { WorkerError } from '../errors';
 export * from './worker';
 
@@ -163,10 +164,7 @@ export type BaseFetchLabelsResourceResult = {
 } & BaseJobResult;
 
 export type FetchLabelsResourceResultOk = {
-  details: {
-    labels: string[];
-    comments?: string[]
-  };
+  details: { triples: SimpleTriple[] };
 } & BaseFetchLabelsResourceResult & JobResultOk;
 
 export type FetchLabelsResourceResultError = {
