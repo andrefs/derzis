@@ -1,4 +1,4 @@
-import { type Types, type Document, type QueryFilter, type QueryWithHelpers, type UpdateWriteOpResult, type UpdateQuery } from 'mongoose';
+import { type Types, Document, type QueryFilter, type QueryWithHelpers, type UpdateWriteOpResult, type UpdateQuery } from 'mongoose';
 import { Resource, ResourceClass, type ResourceDocument } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {

@@ -5,7 +5,7 @@ import { Resource } from '../Resource';
 import { TraversalPath, EndpointPath } from '../Path';
 import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass, Triple } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
-import { SimpleTriple, TripleType, type PathType } from '@derzis/common';
+import { type SimpleTriple, TripleType, type PathType } from '@derzis/common';
 import config from '@derzis/config';
 
 export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleTriple> {

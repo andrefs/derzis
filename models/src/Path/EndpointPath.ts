@@ -48,7 +48,7 @@ export class EndpointPathClass extends PathClass {
 
 
   @prop({ enum: PathType, required: true, type: String })
-  public declare type!: PathType.ENDPOINT;
+  public type: PathType.ENDPOINT = PathType.ENDPOINT;
 
   public shouldCreateNewPath(this: EndpointPathClass, t: NamedNodeTripleClass | LiteralTripleDocument, urlHead: UrlHead): boolean {
     if (t.type === TripleType.LITERAL) {
