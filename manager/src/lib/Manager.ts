@@ -9,7 +9,11 @@ import {
   EndpointPath,
   Triple,
   HEAD_TYPE,
-  ResourceLabel
+  ResourceLabel,
+  NamedNodeTriple,
+  LiteralTriple,
+  ProcessTriple,
+  Path
 } from '@derzis/models';
 import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -201,15 +205,55 @@ export default class Manager {
     }
 
     const { triples } = jobResult.details;
-    await ResourceLabel.findOneAndUpdate(
+
+    // Get the ResourceLabel to check the extend flag
+    const resourceLabel = await ResourceLabel.findOne({ url: jobResult.url });
+    const extend = resourceLabel?.extend ?? false;
+
+    // Update ResourceLabel status to done
+    const rl = await ResourceLabel.findOneAndUpdate(
       { url: jobResult.url },
-      {
-        $set: {
-          triples: triples,
-          status: 'done',
-        }
-      }
+      { status: 'done' },
+      { new: true }
     );
+
+    if (!rl) {
+      log.error(`ResourceLabel not found for url ${jobResult.url} when saving label fetch results`);
+      return;
+    }
+    if (!triples.length) {
+      return;
+    }
+
+    // Get the source Resource
+    const source = (await Resource.findOne({
+      url: jobResult.url
+    })) as ResourceClass;
+
+    // Store triples in Triple collection
+    log.info('Calling Triple.upsertMany with', triples.length, 'label triples');
+    const tripleResult = await Triple.upsertMany(source, triples);
+    log.info('Triple.upsertMany result:', tripleResult);
+
+    if (extend) {
+      // Extend paths with this resource as head (normal flow)
+      await this.updateAllPathsWithHead(jobResult.url);
+    } else {
+      // Get the saved triples to link to ProcessTriple
+      const savedIds = tripleResult.flatMap(r => r.upsertedIds ? Object.values(r.upsertedIds) : []);
+      const savedTriples = await Triple
+        .find({ _id: { $in: savedIds } })
+        .select('_id type')
+        .lean();
+
+      const procTripleInputs = savedTriples.map(t => ({
+        processId: rl.pid,
+        triple: t._id,
+        tripleType: t.type,
+        processStep: -1 // label fetch triples are not associated with a specific step, so we can use a placeholder value
+      }));
+      await ProcessTriple.upsertMany(procTripleInputs);
+    }
   }
 
   /**
