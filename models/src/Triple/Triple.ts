@@ -14,6 +14,7 @@ import type { ResourceClass } from '../Resource';
 import { type DocumentType } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
+import { WorkerTripleClass } from '../ResourceCache';
 
 const log = createLogger('Triple');
 
@@ -258,7 +259,7 @@ export function isNamedNode(triple: TripleClass | TripleDocument): triple is Nam
   return triple.type === TripleType.NAMED_NODE;
 }
 
-export function isLiteral(triple: TripleClass | TripleDocument): triple is LiteralTripleClass | LiteralTripleDocument {
+export function isLiteral(triple: TripleClass | TripleDocument | WorkerTripleClass): triple is LiteralTripleClass | LiteralTripleDocument {
   return triple.type === TripleType.LITERAL;
 }
 

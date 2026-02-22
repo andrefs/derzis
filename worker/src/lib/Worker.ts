@@ -3,7 +3,7 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { ResourceCache, db, LiteralObject } from '@derzis/models';
+import { ResourceCache, db, LiteralObject, WorkerTripleClass } from '@derzis/models';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
 import Axios from './axios';
@@ -28,7 +28,7 @@ const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import { v4 as uuidv4 } from 'uuid';
-import type { DomainCrawlJobRequest } from '@derzis/common';
+import type { DomainCrawlJobRequest, DomainLabelFetchJobRequest, FetchLabelsResourceResult } from '@derzis/common';
 import type { JobCapacity, OngoingJobs, SimpleTriple } from '@derzis/common';
 import {
   type AxiosResponseHeaders,
@@ -211,6 +211,39 @@ export class Worker extends EventEmitter {
     }
   }
 
+  /**
+   * Get labels for the resources of a domain, yielding results for each resource label fetch.
+   * USes robots.txt to check if fetching is allowed and to respect crawl delays.
+   */
+  async *fetchDomainLabels({ jobId, domain, resources }: DomainLabelFetchJobRequest) {
+    this.crawlTs = new Date();
+    this.crawlCounter = 0;
+    this.currentJobs.domainLabelFetch[domain.origin] = true;
+    const robotsText = domain?.robots?.text || '';
+    const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
+
+    this.emit('httpDebug', {
+      type: 'delay',
+      domain: domain.origin,
+      delay: domain.crawl.delay
+    });
+    delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
+
+    try {
+      for (const r of resources) {
+        const res = await this.fetchResourceLabels(jobId, domain.origin, r.url, robots);
+        if (!res) {
+          break;
+        }
+        yield res;
+      }
+      delete this.currentJobs.domainLabelFetch[domain.origin];
+    } catch (err) {
+      log.error('Error in fetchDomainLabels:', err);
+      delete this.currentJobs.domainLabelFetch[domain.origin];
+    }
+  }
+
   async getResourceFromCache(url: string) {
     return ResourceCache.findOne({ url });
   }
@@ -291,6 +324,113 @@ export class Worker extends EventEmitter {
       };
     }
     return jobResult as CrawlResourceResult;
+  }
+
+  /**
+   * Fetch labels for a single resource, checking robots.txt permissions and using cached triples if available.
+   * Returns structured results including labels, comments, and errors if any.
+   */
+  async fetchResourceLabels(
+    jobId: number,
+    origin: string,
+    url: string,
+    robots: Robot
+  ): Promise<FetchLabelsResourceResult> {
+    const jobInfo = {
+      jobType: 'resourceLabelFetch' as const,
+      jobId,
+      origin: origin,
+      url
+    };
+    const labelFetchId = { domainTs: this.crawlTs, counter: this.crawlCounter };
+    if (this.jobsTimedout[origin]) {
+      delete this.jobsTimedout[origin];
+      delete this.currentJobs.domainLabelFetch[origin];
+      log.warn(`Stopping domain ${origin} because Manager removed job #${jobId})`);
+      return {
+        ...jobInfo,
+        status: 'not_ok' as const,
+        details: { labelFetchId, ts: Date.now() },
+        err: new JobTimeoutError()
+      };
+    }
+    this.crawlCounter++;
+    this.currentJobs.domainLabelFetch[origin] = true;
+    let jobResult: FetchLabelsResourceResult;
+
+    if (robots.isDisallowed(url, config.http.userAgent)) {
+      return {
+        ...jobInfo,
+        status: 'not_ok' as const,
+        details: { labelFetchId, ts: Date.now() },
+        err: new RobotsForbiddenError()
+      };
+    }
+
+    const cachedRes = await this.getResourceFromCache(url);
+    if (cachedRes) {
+      const { labels, comments } = this.getLabelsAndComments(cachedRes.triples || []);
+      return {
+        ...jobInfo,
+        status: 'ok',
+        details: {
+          labelFetchId,
+          labels,
+          comments,
+          ts: labelFetchId.domainTs.getTime(),
+          cached: true
+        }
+      } as FetchLabelsResourceResult;
+    }
+
+    const res = await this.fetchResource(url);
+
+    if (res.status === 'ok') {
+      const { labels, comments } = this.getLabelsAndComments(res.triples || []);
+      jobResult = {
+        ...jobInfo,
+        status: 'ok',
+        details: {
+          labelFetchId,
+          labels,
+          comments,
+          ts: res.ts
+        }
+      }
+    } else {
+      jobResult = {
+        ...jobInfo,
+        status: 'not_ok' as const,
+        details: { labelFetchId, ts: Date.now() },
+        err: res.err
+      };
+    }
+    return jobResult as FetchLabelsResourceResult;
+  }
+
+  /**
+   * Extracts labels and comments from a list of RDF triples based on standard RDF Schema predicates.
+   * Returns an object containing arrays of labels and comments found in the triples.
+   */
+  getLabelsAndComments(triples: WorkerTripleClass[]) {
+    const labels: string[] = [];
+    const comments: string[] = [];
+    const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+    const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
+    for (const t of triples) {
+      if (t.predicate === RDFS_LABEL && t.type === TripleType.LITERAL) {
+        if ((t.object as LiteralObject).language && (t.object as LiteralObject).language === 'en') {
+          const obj = t.object as LiteralObject;
+          labels.push(obj.value);
+        }
+      } else if (t.predicate === RDFS_COMMENT && t.type === TripleType.LITERAL) {
+        if ((t.object as LiteralObject).language && (t.object as LiteralObject).language === 'en') {
+          const obj = t.object as LiteralObject;
+          comments.push(obj.value);
+        }
+      }
+    }
+    return { labels, comments };
   }
 
   /**

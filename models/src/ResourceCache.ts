@@ -5,7 +5,7 @@ import { TripleType } from '@derzis/common';
 
 import { prop, index, getModelForClass, PropType } from '@typegoose/typegoose';
 
-class WorkerTripleClass {
+export class WorkerTripleClass {
   @prop({ required: true, validate: urlValidator, type: String })
   public subject!: string;
 

@@ -11,7 +11,8 @@ import type {
   JobRequest,
   ResourceCrawlJobRequest,
   CrawlDomainResult,
-  ResourceLabelFetchJobRequest
+  ResourceLabelFetchJobRequest,
+  FetchLabelsDomainResult
 } from '@derzis/common';
 import type { MonkeyPatchedLogger } from '@derzis/common/server';
 let log: MonkeyPatchedLogger;
@@ -202,18 +203,30 @@ export class WorkerPubSub {
       const resourcesToDo = new Set<string>(job.resources.map((r) => r.url));
       const resourcesDone = new Set<string>();
       let i = 0;
-      //for await (const x of this.w.fetchDomainLabels(job)) {
-      //  log.info(
-      //    `Finished resourceLabelFetch ${++i}/${total} of ${job.domain.origin} (job #${job.jobId})`
-      //  );
-      //  if (x.status === 'ok') {
-      //    resourcesToDo.delete(x.url);
-      //    resourcesDone.add(x.url);
-      //  }
-      //  this.pub({ type: 'jobDone', payload: x });
-      //}
-      //const jobResult: FetchDomainLabelsResult = {
-      //}
+      for await (const x of this.w.fetchDomainLabels(job)) {
+        log.info(
+          `Finished resourceLabelFetch ${++i}/${total} of ${job.domain.origin} (job #${job.jobId})`
+        );
+        if (x.status === 'ok') {
+          resourcesToDo.delete(x.url);
+          resourcesDone.add(x.url);
+        }
+        this.pub({ type: 'jobDone', payload: x });
+      }
+      const jobResult: FetchLabelsDomainResult = {
+        jobId: job.jobId,
+        status: 'ok' as const,
+        jobType: 'domainLabelFetch' as const,
+        origin: job.domain.origin,
+        details: {
+          labeledResources: Array.from(resourcesDone),
+          nonLabeledResources: Array.from(resourcesToDo)
+        }
+      };
+      this.pub({
+        type: 'jobDone',
+        payload: jobResult
+      });
     }
   }
 

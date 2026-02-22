@@ -115,7 +115,7 @@ export type CrawlDomainResult = BaseCrawlDomainResultOk | BaseCrawlDomainResultE
  */
 export type FetchLabelsDomainResultDetails = {
   labeledResources?: string[];
-  nonLabeldResources?: string[];
+  nonLabeledResources?: string[];
 };
 export type BaseFetchLabelsDomainResult = {
   jobType: 'domainLabelFetch';
@@ -140,13 +140,11 @@ export type BaseCrawlResourceResult = {
 
 export type CrawlResourceResultOk = {
   details: { triples: SimpleTriple[] };
-} & BaseCrawlResourceResult &
-  JobResultOk;
+} & BaseCrawlResourceResult & JobResultOk;
 
 export type CrawlResourceResultError = {
   err: WorkerError;
-} & BaseCrawlResourceResult &
-  JobResultError;
+} & BaseCrawlResourceResult & JobResultError;
 
 export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
 
@@ -163,17 +161,16 @@ export type BaseFetchLabelsResourceResult = {
   url: string;
   details: FetchLabelsResourceResultDetails;
 } & BaseJobResult;
+
 export type FetchLabelsResourceResultOk = {
   details: {
-    [url: string]: {
-      labels: string[];
-      comments?: string[]
-    }
+    labels: string[];
+    comments?: string[]
   };
 } & BaseFetchLabelsResourceResult & JobResultOk;
+
 export type FetchLabelsResourceResultError = {
   err: WorkerError;
 } & BaseFetchLabelsResourceResult & JobResultError;
-export type BaseFetchLabelsResourceResultOk = BaseFetchLabelsResourceResult & JobResultOk;
-export type BaseFetchLabelsResourceResultError = BaseFetchLabelsResourceResult & JobResultError;
-export type FetchLabelsResourceResult = BaseFetchLabelsResourceResultOk | BaseFetchLabelsResourceResultError;
+
+export type FetchLabelsResourceResult = FetchLabelsResourceResultOk | FetchLabelsResourceResultError;
