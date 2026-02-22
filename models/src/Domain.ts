@@ -13,7 +13,7 @@ import {
   type ReturnModelType,
   PropType,
   post,
-  DocumentType
+  type DocumentType
 } from '@typegoose/typegoose';
 import type { DomainCrawlJobInfo } from '@derzis/common';
 import config from '@derzis/config';
