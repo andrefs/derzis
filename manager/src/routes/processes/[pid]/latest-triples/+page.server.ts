@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { LiteralTripleClass, NamedNodeTripleClass, ProcessTriple } from '@derzis/models';
 import { info as processInfo } from '$lib/process-helper';
 import type { PageServerLoad } from './$types';
+import { Types } from 'mongoose';
 
 export const load: PageServerLoad = async ({ params, url }) => {
   const proc = await processInfo(params.pid);
@@ -26,17 +27,20 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
   const latestTriples = procTriples
     .map((procTriple) => {
-      const triple = procTriple.triple as NamedNodeTripleClass | LiteralTripleClass;
+      // Access properties directly - after populate, procTriple.triple has the actual document
+      const tripleAny = procTriple.triple as unknown as { _id: Types.ObjectId; subject: string; predicate: string; object: unknown; sources?: string[] } | undefined;
+      if (!tripleAny || !('_id' in tripleAny)) return null;
       return {
-        _id: procTriple.triple._id.toString(),
+        _id: tripleAny._id.toString(),
         processStep: procTriple.processStep,
-        sources: triple.sources,
-        subject: triple.subject,
-        predicate: triple.predicate,
-        object: triple.object,
+        sources: tripleAny.sources ?? [],
+        subject: tripleAny.subject,
+        predicate: tripleAny.predicate,
+        object: tripleAny.object,
         createdAt: procTriple.createdAt?.toISOString()
-      }
-    });
+      };
+    })
+    .filter((t): t is NonNullable<typeof t> => t !== null);
 
   return {
     proc,

@@ -1,5 +1,5 @@
-import { StepClass, Process, ProcessClass, Resource, NamedNodeTriple, TraversalPath, LiteralTriple, LiteralTripleClass, NamedNodeTripleClass } from '@derzis/models';
-import { type RecursivePartial } from '@derzis/common';
+import { StepClass, Process, ProcessClass, Resource, NamedNodeTriple, TraversalPath, LiteralTriple, LiteralTripleClass, NamedNodeTripleClass, type ProcessDocument } from '@derzis/models';
+import { type RecursivePartial, TripleType } from '@derzis/common';
 import { sendInitEmail } from '@derzis/common/server';
 import { secondsToString, type MakeOptional } from './utils';
 import { createLogger } from '@derzis/common/server';
@@ -9,7 +9,7 @@ const log = createLogger('process-helper');
  * Create a new process and queue it for execution.
  * @param p Process parameters
  */
-export async function newProcess(p: RecursivePartial<ProcessClass>) {
+export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<ProcessDocument> {
   const pathHeads: Map<string, number> = new Map();
   for (const s of p.currentStep!.seeds!) {
     const domain = new URL(s).origin;
@@ -22,13 +22,14 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
   p.pathHeads = Object.fromEntries(pathHeads.entries());
 
   // Build the process creation object with required fields
+  // Use type assertion to satisfy Process.create requirements
   const processData = {
-    steps: p.steps,
-    currentStep: p.currentStep,
-    notification: p.notification,
+    steps: p.steps!,
+    currentStep: p.currentStep!,
+    notification: p.notification!,
     pathHeads: p.pathHeads,
-    pathType: p.pathType
-  };
+    pathType: p.pathType ?? 'traversal'
+  } as Parameters<typeof Process.create>[0];
 
   const proc = await Process.create(processData);
   await proc.notifyProcessCreated();

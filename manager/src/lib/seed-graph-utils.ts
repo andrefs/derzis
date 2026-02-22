@@ -2,7 +2,7 @@
  * Utilities for seed graph rendering and triple filtering.
  */
 
-import { directionOk } from '@derzis/common';
+import { directionOk, TripleType } from '@derzis/common';
 import type { LiteralObject } from '@derzis/common';
 
 export type Triple = {
@@ -77,10 +77,12 @@ export function performBFSForHops(
       // Check if the direction is allowed by the branching factor
       let directionAllowed = false;
       if (connectedNode) {
-        const simpleTriple = {
+        // Cast to SimpleNamedNodeTriple to satisfy directionOk type requirements
+        const simpleTriple: import('@derzis/common').SimpleNamedNodeTriple = {
           subject: triple.subject,
           predicate: triple.predicate,
-          object: triple.object
+          object: triple.object as string,
+          type: TripleType.NAMED_NODE
         };
         directionAllowed = directionOk(simpleTriple, node, branchingFactor);
       }
