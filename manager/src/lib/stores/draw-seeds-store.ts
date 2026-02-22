@@ -1,12 +1,11 @@
 import { writable, derived, get } from 'svelte/store';
 import { formatDateLabel } from '$lib/utils';
 import { getTriplesWithinHops } from '$lib/seed-graph-utils';
-import type { LiteralObject } from '@derzis/common';
 
 export type Triple = {
   subject: string;
   predicate: string;
-  object: string | LiteralObject;
+  object: string;
   createdAt: string;
 };
 
@@ -17,22 +16,8 @@ export const isLoading = writable(true);
 export const allPredicates = writable<Array<{ predicate: string; count: number }>>([]);
 export const selectedPredicates = writable<string[]>([]);
 export const currentHop = writable(0);
-export const allTriples = writable<
-  Array<{
-    subject: string;
-    predicate: string;
-    object: string | LiteralObject;
-    createdAt: string;
-  }>
->([]);
-export const filteredTriples = writable<
-  Array<{
-    subject: string;
-    predicate: string;
-    object: string | LiteralObject;
-    createdAt: string;
-  }>
->([]);
+export const allTriples = writable<Triple[]>([]);
+export const filteredTriples = writable<Triple[]>([]);
 export const nodeHops = writable(new Map<string, number>());
 export const nodeMaxCreatedAt = writable(new Map<string, Date>());
 export const minDate = writable(new Date());
