@@ -15,6 +15,7 @@ import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
 import type {
+  FetchLabelsResourceResult,
   JobCapacity,
   JobRequest,
   PathType,
@@ -116,14 +117,88 @@ export default class Manager {
         }
       }
     }
+    if (jobResult.jobType === 'resourceLabelFetch') {
+      log.info(
+        `Saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
+      );
+      if (this.jobs.postponeTimeout(jobResult.origin)) {
+        this.jobs.addToBeingSaved(jobResult.origin, jobResult.jobType);
+        try {
+          await this.saveLabelFetch(jobResult);
+          await Domain.findOneAndUpdate(
+            { origin: jobResult.origin },
+            { $inc: { 'crawl.ongoing': -1 } }
+          );
+        } catch (e) {
+          log.error(
+            `Error saving resource label fetch (job #${jobResult.jobId}) for ${jobResult.url}`,
+            e
+          );
+          log.info(JSON.stringify(jobResult, null, 2));
+          // Reset statuses to prevent stuck state
+        } finally {
+          this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
+          log.debug(
+            `Done saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
+          );
+          const res = await Domain.updateOne(
+            {
+              origin: jobResult.origin,
+              jobId: jobResult.jobId,
+              'crawl.ongoing': 0
+            },
+            {
+              $set: { status: 'ready' },
+              $unset: {
+                workerId: '',
+                jobId: ''
+              }
+            }
+          );
+          await TraversalPath.updateMany(
+            { 'head.domain.origin': jobResult.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
+            {
+              $set: { 'head.domain.status': 'ready' }
+            }
+          );
+
+          if (res.acknowledged && res.modifiedCount) {
+            this.jobs.deregisterJob(jobResult.origin);
+            log.debug(
+              `Done saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
+            );
+          }
+        }
+      }
+    }
     if (jobResult.jobType === 'domainCrawl') {
       log.warn(
         `Received completion of domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}:`,
         jobResult.details
       );
     }
+    if (jobResult.jobType === 'domainLabelFetch') {
+      log.warn(
+        `Received completion of domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}:`,
+        jobResult.details
+      );
+    }
   }
 
+  /**
+   * Save results of a resource label fetch job to the database, including new labels and any errors
+   * @param jobResult Result of the resource label fetch job to save
+   */
+  async saveLabelFetch(jobResult: FetchLabelsResourceResult) {
+    // update ResourceLabel
+    // add triples to Triple
+    // add triples to ProcessTriple
+  }
+
+  /**
+   * Save results of a resource crawl job to the database, including new triples and any errors
+   * @param jobResult Result of the resource crawl job to save
+   */
   async saveCrawl2(jobResult: CrawlResourceResult) {
     if (jobResult.status === 'not_ok') {
       return await Resource.markAsCrawled(jobResult.url, jobResult.details, jobResult.err);
@@ -234,7 +309,7 @@ export default class Manager {
     return;
   }
 
-  async *assignJobs(
+  async * assignJobs(
     workerId: string,
     workerAvail: JobCapacity
   ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>> {

@@ -445,6 +445,22 @@ class DomainClass {
   }
 
   /**
+   * Updates the domain's crawl ongoing count
+   * @param domain - The domain to update
+   * @param resources - The resources being crawled
+   * @param jobId - The job ID of the crawl
+   * @returns {Promise<void>}
+   */
+  static async markLabelFetching(
+    this: ReturnModelType<typeof DomainClass>,
+    domain: string,
+    resources: { url: string }[],
+    jobId: number
+  ): Promise<void> {
+    await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
+  }
+
+  /**
    * Marks resources and paths as crawling and updates the domain's ongoing count
    * @param domain - The domain to mark as crawling
    * @param resources - The resources to mark as crawling
@@ -537,6 +553,10 @@ class DomainClass {
 
         // 1.5 For each locked domain, yield it + its urls limited to resLimit
         for (const d of dsLocked) {
+          await this.markLabelFetching(
+            d.origin,
+            labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url })),
+            d.jobId);
           yield {
             domain: d,
             resources: labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }))
