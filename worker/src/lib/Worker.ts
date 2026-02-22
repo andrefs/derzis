@@ -3,7 +3,8 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { ResourceCache, db, LiteralObject, WorkerTripleClass, LiteralTripleDocument } from '@derzis/models';
+import { ResourceCache, db, type WorkerTriple, type WorkerLiteralTriple } from '@derzis/models';
+import type { LiteralObject } from '@derzis/common';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
 import Axios from './axios';
@@ -378,9 +379,7 @@ export class Worker extends EventEmitter {
         status: 'ok',
         details: {
           labelFetchId,
-          triples: cachedRes.triples?.filter(
-            (t) => t.predicate === RDFS_LABEL || t.predicate === RDFS_COMMENT
-          ).filter((t) => (t.object as LiteralObject).language === 'en')
+          triples: this.getLabelTriples(cachedRes.triples || [])
         }
       } as FetchLabelsResourceResult;
     }
@@ -388,15 +387,12 @@ export class Worker extends EventEmitter {
     const res = await this.fetchResource(url);
 
     if (res.status === 'ok') {
-      const { labels, comments } = this.getLabelsAndComments(res.triples || []);
       jobResult = {
         ...jobInfo,
         status: 'ok',
         details: {
           labelFetchId,
-          triples: res.triples?.filter(
-            (t) => t.predicate === RDFS_LABEL || t.predicate === RDFS_COMMENT
-          ).filter((t) => (t.object as LiteralObject).language === 'en'),
+          triples: this.getLabelTriples(res.triples || []),
           ts: res.ts
         }
       }
@@ -412,28 +408,22 @@ export class Worker extends EventEmitter {
   }
 
   /**
-   * Extracts labels and comments from a list of RDF triples based on standard RDF Schema predicates.
-   * Returns an object containing arrays of labels and comments found in the triples.
+   * Returns literal triples with rdfs:label or rdfs:comment predicates that have language 'en'.
+   * Returns them as SimpleTriple format for compatibility with the result type.
    */
-  getLabelsAndComments(triples: WorkerTripleClass[]) {
-    const labels: string[] = [];
-    const comments: string[] = [];
-    for (const t of triples) {
-      if (t.predicate === RDFS_LABEL && t.type === TripleType.LITERAL) {
-        const obj = t.object as LiteralObject;
-        if (obj.language && obj.language === 'en') {
-          const obj = t.object as LiteralObject;
-          labels.push(obj.value);
-        }
-      } else if (t.predicate === RDFS_COMMENT && t.type === TripleType.LITERAL) {
-        const obj = t.object as LiteralObject;
-        if (obj.language && obj.language === 'en') {
-          const obj = t.object as LiteralObject;
-          comments.push(obj.value);
-        }
-      }
-    }
-    return { labels, comments };
+  getLabelTriples(triples: WorkerTriple[]): SimpleTriple[] {
+    return triples
+      .filter((t): t is WorkerLiteralTriple => {
+        if (t.predicate !== RDFS_LABEL && t.predicate !== RDFS_COMMENT) return false;
+        const lit = t as WorkerLiteralTriple;
+        return lit.object.language === 'en';
+      })
+      .map((t): SimpleTriple => ({
+        subject: t.subject,
+        predicate: t.predicate,
+        type: TripleType.LITERAL,
+        object: t.object
+      }));
   }
 
   /**
@@ -482,7 +472,7 @@ export class Worker extends EventEmitter {
         .flatMap(
           (t) => {
             if (t.object.termType === 'NamedNode') {
-              const st: SimpleTriple = {
+              const st: WorkerTriple = {
                 subject: t.subject.value,
                 predicate: t.predicate.value,
                 object: t.object.value,
@@ -490,7 +480,7 @@ export class Worker extends EventEmitter {
               };
               return st;
             } else if (t.object.termType === 'Literal') {
-              const st: SimpleTriple = {
+              const st: WorkerLiteralTriple = {
                 subject: t.subject.value,
                 predicate: t.predicate.value,
                 object: {
