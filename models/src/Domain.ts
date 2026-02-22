@@ -304,7 +304,17 @@ class DomainClass {
       fields: 'origin jobId'
     };
     await this.findOneAndUpdate(query, update, options);
-    const domains = this.find({ jobId }).lean();
+    const domains = await this.find({ jobId }).lean();
+    if (domains.length) {
+      await TraversalPath.updateMany(
+        {
+          'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) },
+          status: 'active',
+          'head.type': HEAD_TYPE.URL
+        },
+        { $set: { 'head.domain.status': 'labelFetching' } }
+      );
+    }
     return domains;
   }
 
@@ -462,6 +472,13 @@ class DomainClass {
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
   }
 
+  /**
+   * Generator function to get domains with resources to fetch labels for
+   * @param wId - The worker ID
+   * @param domLimit - The maximum number of domains to fetch labels for
+   * @param resLimit - The maximum number of resources per domain to fetch labels for
+   * @returns {AsyncGenerator<DomainLabelFetchJobInfo>}
+   */
   public static async *labelsToFetch(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
@@ -473,66 +490,84 @@ class DomainClass {
     );
 
     let domainsFound = 0;
+    let lastSeenCreatedAt: Date | null = null;
     const labelsByDomain: { [domain: string]: string[] } = {};
+    const BATCH_SIZE = 100;
 
     let hasMore = true;
     while (hasMore) {
-      const domainsReady = Object.entries(labelsByDomain)
-        .filter(([_, urls]) => urls.length >= resLimit) // should be only resLimit
-        .map(([d, _]) => d)
-      const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
-
-      // remove domains that were not locked 
-      for (const d of domainsReady) {
-        if (!dsLocked.find((dl) => dl.origin === d)) {
-          delete labelsByDomain[d];
-        }
+      // 1.1 Query BATCH_SIZE ResourceLabels
+      const query: any = { labels: { $size: 0 } };
+      if (lastSeenCreatedAt) {
+        query.createdAt = { $gt: lastSeenCreatedAt };
       }
-      // yield locked domains with their resources
-      for (const d of dsLocked) {
-        yield {
-          domain: d,
-          resources: labelsByDomain[d.origin].map((url) => ({ url }))
-        };
-        domainsFound++;
-        delete labelsByDomain[d.origin];
-      }
-
-      if (domainsFound >= domLimit) {
-        break;
-      }
-
-      const rls = await ResourceLabel.find({ labels: { $size: 0 } })
-        .limit(resLimit)
-        .select('url domain')
+      const rls = await ResourceLabel.find(query)
+        .sort({ createdAt: 1 })
+        .limit(BATCH_SIZE)
+        .select('url domain createdAt')
         .lean();
 
       if (!rls.length) {
         hasMore = false;
-        break;
-      }
+      } else {
+        lastSeenCreatedAt = rls[rls.length - 1].createdAt ?? null;
 
-      for (const rl of rls) {
-        if (!labelsByDomain[rl.domain]) {
-          labelsByDomain[rl.domain] = [];
+        // 1.2 Split them by domain
+        for (const rl of rls) {
+          if (!labelsByDomain[rl.domain]) {
+            labelsByDomain[rl.domain] = [];
+          }
+          if (labelsByDomain[rl.domain].length < resLimit) {
+            labelsByDomain[rl.domain].push(rl.url);
+          }
         }
-        if (labelsByDomain[rl.domain].length < resLimit) {
-          labelsByDomain[rl.domain].push(rl.url);
+
+        // 1.3 Try to lock domains which already have enough urls (>= resLimit)
+        const domainsReady = Object.entries(labelsByDomain)
+          .filter(([_, urls]) => urls.length >= resLimit)
+          .map(([d, _]) => d);
+        const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
+
+        // 1.4 Ignore (drop) domains not locked
+        for (const d of domainsReady) {
+          if (!dsLocked.find((dl) => dl.origin === d)) {
+            delete labelsByDomain[d];
+          }
+        }
+
+        // 1.5 For each locked domain, yield it + its urls limited to resLimit
+        for (const d of dsLocked) {
+          yield {
+            domain: d,
+            resources: labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }))
+          };
+          domainsFound++;
+          delete labelsByDomain[d.origin];
+        }
+
+        // 1.6 If domLimit number of domains have been yielded, return
+        if (domainsFound >= domLimit) {
+          return;
+        }
+
+        // Check if we should continue (did we get a full batch?)
+        if (rls.length < BATCH_SIZE) {
+          hasMore = false;
         }
       }
     }
 
+    // 1.7 If there are no more ResourceLabels to query, yield whatever domains are left that can be locked
     const domainsReady = Object.entries(labelsByDomain)
       .filter(([_, urls]) => urls.length >= resLimit)
       .map(([d, _]) => d)
       .slice(0, domLimit - domainsFound);
     const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
 
-    // yield locked domains with their resources
     for (const d of dsLocked) {
       yield {
         domain: d,
-        resources: labelsByDomain[d.origin].map((url) => ({ url }))
+        resources: labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }))
       };
       domainsFound++;
       delete labelsByDomain[d.origin];

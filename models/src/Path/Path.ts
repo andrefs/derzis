@@ -16,11 +16,11 @@ export const HEAD_TYPE = {
 
 class DomainClass {
   @prop({
-    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling'],
+    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling', 'labelFetching'],
     default: 'unvisited',
     type: String
   })
-  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling';
+  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling' | 'labelFetching';
 
   @prop({ required: true, validate: urlValidator, type: String })
   public origin!: string;

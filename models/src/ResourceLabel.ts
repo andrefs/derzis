@@ -1,8 +1,10 @@
 import { urlValidator } from '@derzis/common';
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
+import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 
 @index({ pid: 1, url: 1 }, { unique: true })
-class ResourceLabelClass {
+@index({ createdAt: 1 })
+class ResourceLabelClass extends TimeStamps {
   @prop({ required: true, type: String })
   public pid!: string;
 
@@ -26,7 +28,7 @@ class ResourceLabelClass {
 }
 
 const ResourceLabel = getModelForClass(ResourceLabelClass, {
-  schemaOptions: { timestamps: true, collection: 'resourceLabels' }
+  schemaOptions: { collection: 'resourceLabels' }
 });
 
 export { ResourceLabel, ResourceLabelClass };

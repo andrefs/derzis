@@ -197,6 +197,21 @@ export default class RunningJobs extends EventEmitter {
       update['$unset']['workerId'] = '';
       update['$unset']['jobId'] = '';
       await Domain.updateMany({ origin }, update);
+
+      // update paths with head belonging to this domain
+      await TraversalPath.updateMany(
+        {
+          'head.domain.origin': origin,
+          status: 'active',
+          'head.domain.status': 'labelFetching',
+          'head.type': HEAD_TYPE.URL
+        },
+        {
+          $set: {
+            'head.domain.status': 'ready'
+          }
+        }
+      );
     }
   }
 
@@ -266,6 +281,21 @@ export default class RunningJobs extends EventEmitter {
         $unset: {
           workerId: '',
           jobId: ''
+        }
+      }
+    );
+
+    // Reset path head domains being labeled
+    log.debug('Resetting outstanding path head domains being labeled');
+    await TraversalPath.updateMany(
+      {
+        'head.domain.status': 'labelFetching',
+        status: 'active',
+        'head.type': HEAD_TYPE.URL
+      },
+      {
+        $set: {
+          'head.domain.status': 'ready'
         }
       }
     );
@@ -433,6 +463,19 @@ export default class RunningJobs extends EventEmitter {
         filter.workerId = workerId;
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
+      await TraversalPath.updateMany(
+        {
+          'head.domain.origin': { $in: domains },
+          status: 'active',
+          'head.domain.status': 'labelFetching',
+          'head.type': HEAD_TYPE.URL
+        },
+        {
+          $set: {
+            'head.domain.status': 'ready'
+          }
+        }
+      );
     }
   }
 
