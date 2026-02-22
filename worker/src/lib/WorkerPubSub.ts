@@ -10,7 +10,8 @@ import type {
   Message,
   JobRequest,
   ResourceCrawlJobRequest,
-  CrawlDomainResult
+  CrawlDomainResult,
+  ResourceLabelFetchJobRequest
 } from '@derzis/common';
 import type { MonkeyPatchedLogger } from '@derzis/common/server';
 let log: MonkeyPatchedLogger;
@@ -128,8 +129,12 @@ export class WorkerPubSub {
     this._pub.publish(this._pubChannel, JSON.stringify({ type, payload }));
   }
 
-  async doJob(job: Exclude<JobRequest, ResourceCrawlJobRequest>) {
-    const origin = job.type === 'domainCrawl' ? job.domain.origin : job.origin;
+  async doJob(job: Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>) {
+    const origin = job.type === 'domainCrawl'
+      ? job.domain.origin
+      : job.type === 'robotsCheck'
+        ? job.origin
+        : job.domain;
     // Check if job can be done
     if (this.w.alreadyBeingDone(origin, job.type)) {
       log.error(
@@ -191,6 +196,24 @@ export class WorkerPubSub {
       });
       // this.reportCurrentCapacity();
       return;
+    }
+    if (job.type === 'domainLabelFetch') {
+      const total = job.resources.length;
+      const resourcesToDo = new Set<string>(job.resources.map((r) => r.url));
+      const resourcesDone = new Set<string>();
+      let i = 0;
+      //for await (const x of this.w.fetchDomainLabels(job)) {
+      //  log.info(
+      //    `Finished resourceLabelFetch ${++i}/${total} of ${job.domain.origin} (job #${job.jobId})`
+      //  );
+      //  if (x.status === 'ok') {
+      //    resourcesToDo.delete(x.url);
+      //    resourcesDone.add(x.url);
+      //  }
+      //  this.pub({ type: 'jobDone', payload: x });
+      //}
+      //const jobResult: FetchDomainLabelsResult = {
+      //}
     }
   }
 

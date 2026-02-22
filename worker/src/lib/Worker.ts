@@ -118,22 +118,24 @@ export class Worker extends EventEmitter {
     log = createLogger(this.wShortId);
     axios = Axios(log);
     this.jobCapacity = config.jobs;
-    this.currentJobs = { domainCrawl: {}, robotsCheck: {} };
+    this.currentJobs = { domainCrawl: {}, robotsCheck: {}, domainLabelFetch: {} };
     this.accept = acceptedMimeTypes
       .map((m, i) => `${m}; q=${Math.round(100 / (i + 2)) / 100}`)
       .join(', ');
     this.jobsTimedout = {};
   }
 
-  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl'>) {
+  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl' | 'resourceLabelFetch'>): boolean {
     return !!this.currentJobs[jobType][domain];
   }
 
   currentCapacity(): JobCapacity {
     const domCrawlCap = this.jobCapacity.domainCrawl.capacity;
     const robCheckCap = this.jobCapacity.robotsCheck.capacity;
+    const domLFCheckCap = this.jobCapacity.domainLabelFetch.capacity;
     const curDomCrawl = Object.keys(this.currentJobs.domainCrawl).length;
     const curRobCheck = Object.keys(this.currentJobs.robotsCheck).length;
+    const curDomLFCheck = Object.keys(this.currentJobs.domainLabelFetch).length;
     const av = {
       domainCrawl: {
         capacity: domCrawlCap - curDomCrawl,
@@ -141,6 +143,10 @@ export class Worker extends EventEmitter {
       },
       robotsCheck: {
         capacity: robCheckCap - curRobCheck
+      },
+      domainLabelFetch: {
+        capacity: domLFCheckCap - curDomLFCheck,
+        resourcesPerDomain: this.jobCapacity.domainLabelFetch.resourcesPerDomain
       }
     };
     return av;
@@ -153,7 +159,7 @@ export class Worker extends EventEmitter {
     };
   }
 
-  hasCapacity(jobType: 'domainCrawl' | 'robotsCheck'): boolean {
+  hasCapacity(jobType: 'domainCrawl' | 'robotsCheck' | 'domainLabelFetch'): boolean {
     return Object.keys(this.currentJobs[jobType]).length < this.jobCapacity[jobType].capacity;
   }
 

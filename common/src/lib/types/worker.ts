@@ -12,7 +12,7 @@ export interface DomainLabelFetchJobInfo {
 }
 
 export interface JobCapacity {
-  labelFetch: { capacity: number; resourcesPerDomain: number };
+  domainLabelFetch: { capacity: number; resourcesPerDomain: number };
   domainCrawl: { capacity: number; resourcesPerDomain: number };
   robotsCheck: { capacity: number };
 }
@@ -92,7 +92,7 @@ export interface AskJobsMessage extends BaseMessage {
 }
 export interface DoJobMessage extends BaseMessage {
   type: 'doJob';
-  payload: Exclude<JobRequest, ResourceCrawlJobRequest>;
+  payload: Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>;
 }
 export interface JobDoneMessage extends BaseMessage {
   type: 'jobDone';
