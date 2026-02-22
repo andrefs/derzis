@@ -249,6 +249,22 @@ export default class Manager {
     let assignedCheck = 0;
     let assignedCrawl = 0;
 
+
+    // labelFetch jobs
+    if (workerAvail.labelFetch) {
+      if (!workerAvail.labelFetch.capacity) {
+        log.warn(`Worker ${workerId} has no capacity for labelFetch jobs`);
+      } else {
+        log.debug(`Getting ${workerAvail.labelFetch.capacity} labelFetch jobs for ${workerId}`);
+        let gotRes = false;
+
+        for await (const labelJob of Domain.labelsToFetch(workerId, workerAvail.labelFetch.capacity, workerAvail.labelFetch.resourcesPerDomain)) {
+        }
+
+
+      }
+    }
+
     // domainCrawl jobs
     if (workerAvail.domainCrawl) {
       if (!workerAvail.domainCrawl.capacity) {

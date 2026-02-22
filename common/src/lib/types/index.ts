@@ -15,7 +15,6 @@ export enum PathType {
   ENDPOINT = 'endpoint'
 }
 
-
 export type CrawlResourceResultDetails = {
   crawlId: { domainTs: Date; counter: number };
   ts: number;

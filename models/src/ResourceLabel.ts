@@ -9,6 +9,9 @@ class ResourceLabelClass {
   @prop({ required: true, validate: urlValidator, type: String })
   public url!: string;
 
+  @prop({ required: true, type: String })
+  public domain!: string;
+
   @prop({ type: [String], default: [] })
   public labels?: string[];
 

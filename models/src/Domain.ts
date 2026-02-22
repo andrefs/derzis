@@ -1,6 +1,6 @@
 import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
-import type { PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
+import type { LabelFetchJobInfo, PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
 import { TraversalPath, HEAD_TYPE, UrlHead } from './Path';
 import { Process } from './Process';
@@ -15,8 +15,9 @@ import {
   post,
   DocumentType
 } from '@typegoose/typegoose';
-import type { DomainCrawlJobInfo } from '@derzis/common';
+import type { DomainResourceJobInfo } from '@derzis/common';
 import config from '@derzis/config';
+import { ResourceLabel } from './ResourceLabel';
 const log = createLogger('Domain');
 
 type DomainErrorType =
@@ -434,19 +435,96 @@ class DomainClass {
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
   }
 
+  public static async *labelsToFetch(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    domLimit: number,
+    resLimit: number
+  ): AsyncGenerator<DomainResourceJobInfo> {
+    log.info(
+      `Starting label fetch locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
+    );
+
+    let domainsFound = 0;
+    const labelsByDomain: { [domain: string]: string[] } = {};
+
+    let hasMore = true;
+    while (hasMore) {
+      const domainsReady = Object.entries(labelsByDomain)
+        .filter(([_, urls]) => urls.length >= resLimit) // should be only resLimit
+        .map(([d, _]) => d)
+      const dsLocked = await this.lockForCrawl(wId, domainsReady);
+
+      // remove domains that were not locked 
+      for (const d of domainsReady) {
+        if (!dsLocked.find((dl) => dl.origin === d)) {
+          delete labelsByDomain[d];
+        }
+      }
+      // yield locked domains with their resources
+      for (const d of dsLocked) {
+        yield {
+          domain: d,
+          resources: labelsByDomain[d.origin].map((url) => ({ url }))
+        };
+        domainsFound++;
+        delete labelsByDomain[d.origin];
+      }
+
+      if (domainsFound >= domLimit) {
+        break;
+      }
+
+      const rls = await ResourceLabel.find({ labels: { $size: 0 } })
+        .limit(resLimit)
+        .select('url domain')
+        .lean();
+
+      if (!rls.length) {
+        hasMore = false;
+        break;
+      }
+
+      for (const rl of rls) {
+        if (!labelsByDomain[rl.domain]) {
+          labelsByDomain[rl.domain] = [];
+        }
+        if (labelsByDomain[rl.domain].length < resLimit) {
+          labelsByDomain[rl.domain].push(rl.url);
+        }
+      }
+    }
+
+    const domainsReady = Object.entries(labelsByDomain)
+      .filter(([_, urls]) => urls.length >= resLimit)
+      .map(([d, _]) => d)
+      .slice(0, domLimit - domainsFound);
+    const dsLocked = await this.lockForCrawl(wId, domainsReady);
+
+    // yield locked domains with their resources
+    for (const d of dsLocked) {
+      yield {
+        domain: d,
+        resources: labelsByDomain[d.origin].map((url) => ({ url }))
+      };
+      domainsFound++;
+      delete labelsByDomain[d.origin];
+    }
+  }
+
   /**
    * Generator function to get domains to crawl
    * @param wId - The worker ID
    * @param domLimit - The maximum number of domains to crawl
    * @param resLimit - The maximum number of resources per domain
-   * @returns {AsyncGenerator<DomainCrawlJobInfo>}
+   * @returns {AsyncGenerator<DomainResourceJobInfo>}
    */
   public static async *domainsToCrawl2(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     domLimit: number,
     resLimit: number
-  ): AsyncGenerator<DomainCrawlJobInfo> {
+  ): AsyncGenerator<DomainResourceJobInfo> {
     log.info(
       `Starting domain crawl locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
     );
@@ -560,7 +638,7 @@ class DomainClass {
 
         domainsFound += domains.length;
 
-        const domainInfo: { [origin: string]: DomainCrawlJobInfo } = {};
+        const domainInfo: { [origin: string]: DomainResourceJobInfo } = {};
         for (const d of domains) {
           domainInfo[d.origin] = { domain: d, resources: [] };
         }

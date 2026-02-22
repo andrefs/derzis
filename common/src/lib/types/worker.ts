@@ -1,11 +1,13 @@
 import { type JobResult, type JobType } from '.';
 
-export interface DomainCrawlJobInfo {
+
+export interface DomainResourceJobInfo {
   domain: Record<string, any>;
   resources: { url: string }[];
 }
 
 export interface JobCapacity {
+  labelFetch: { capacity: number; resourcesPerDomain: number };
   domainCrawl: { capacity: number; resourcesPerDomain: number };
   robotsCheck: { capacity: number };
 }
@@ -33,7 +35,7 @@ export interface ResourceCrawlJobRequest extends BaseJobRequest {
   url: string;
 }
 export type DomainCrawlJobRequest = BaseJobRequest &
-  DomainCrawlJobInfo & {
+  DomainResourceJobInfo & {
     type: 'domainCrawl';
   };
 export type JobRequest = RobotsCheckJobRequest | ResourceCrawlJobRequest | DomainCrawlJobRequest;
