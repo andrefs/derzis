@@ -28,15 +28,27 @@ export const load: PageServerLoad = async ({ params, url }) => {
   const latestTriples = procTriples
     .map((procTriple) => {
       // Access properties directly - after populate, procTriple.triple has the actual document
-      const tripleAny = procTriple.triple as unknown as { _id: Types.ObjectId; subject: string; predicate: string; object: unknown; sources?: string[] } | undefined;
+      const tripleAny = procTriple.triple as unknown as { _id: Types.ObjectId; subject: string; predicate: string; object: unknown; sources?: string[]; type?: string } | undefined;
       if (!tripleAny || !('_id' in tripleAny)) return null;
+      
+      // Convert object to string representation
+      let objectStr: string;
+      if (typeof tripleAny.object === 'string') {
+        objectStr = tripleAny.object;
+      } else if (tripleAny.object && typeof tripleAny.object === 'object') {
+        const litObj = tripleAny.object as { value?: string; datatype?: string; language?: string };
+        objectStr = litObj.value ?? String(tripleAny.object);
+      } else {
+        objectStr = String(tripleAny.object);
+      }
+      
       return {
         _id: tripleAny._id.toString(),
         processStep: procTriple.processStep,
         sources: tripleAny.sources ?? [],
         subject: tripleAny.subject,
         predicate: tripleAny.predicate,
-        object: tripleAny.object,
+        object: objectStr,
         createdAt: procTriple.createdAt?.toISOString()
       };
     })
