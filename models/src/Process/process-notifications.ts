@@ -1,8 +1,76 @@
-import { ProcessClass } from './Process';
+import { Process, ProcessClass } from './Process';
+import { ResourceLabel } from '../ResourceLabel';
 import { createLogger } from '@derzis/common/server';
 import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
+import { LiteralTriple, type LiteralTripleDocument } from '../Triple';
 const log = createLogger('ProcessNotifications');
+
+const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
+
+/**
+ * Notify Cardea that all labels for a process have been fetched and are ready to be sent.
+ * This will fetch all labels with status 'done' for the given process, and send them to Cardea via the process webhook.
+ * If no labels are found, it will log that and return without sending a notification.
+ * If the process is not found, it will log an error and return without sending a notification.
+ * If the process has no webhook, it will log that and return without sending a notification.
+ * If the notification is sent successfully, it will log that.
+ * @param pid The process ID for which to notify that labels have been fetched.
+ */
+export async function notifyLabelsFetched(pid: string) {
+  // Fetch all done labels for this process
+  const labels = await ResourceLabel
+    .find({ pid, status: 'done' })
+    .select('url -_id')
+    .lean();
+
+  if (!labels.length) {
+    log.info(`No done labels to send for process ${pid}`);
+    return;
+  }
+
+  // Get process to access webhook
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.error(`Process ${pid} not found when sending labels to Cardea`);
+    return;
+  }
+
+  const triples: LiteralTripleDocument[] = await LiteralTriple
+    .find({
+      subject: { $in: labels.map(l => l.url) },
+      predicate: {
+        $in: [RDFS_LABEL, RDFS_COMMENT]
+      }
+    });
+  const res: { [url: string]: LiteralTripleDocument[] } = {};
+  for (const triple of triples) {
+    if (!res[triple.subject]) {
+      res[triple.subject] = [];
+    }
+    res[triple.subject].push(triple);
+  }
+
+  const notif = {
+    ok: true,
+    data: {
+      pid,
+      messageType: 'OK_LABELS_FETCHED' as const,
+      message: `Process ${pid} has ${Object.keys(res).length} labels from ${triples.length} triples ready to send to Cardea.`,
+      details: { labels: res }
+    } as LabelsFetchedNotification
+  };
+
+  log.info(
+    `Sending labels to Cardea for process ${pid}`,
+    process.notification.webhook ?? ''
+  );
+
+  if (process.notification.webhook) {
+    await notifyWebhook(process.notification.webhook, notif);
+  }
+}
 
 export async function notifyStepStarted(process: ProcessClass) {
   const notif = {
@@ -173,15 +241,9 @@ type StepStartedNotification = BaseProcNotification & {
 };
 export type LabelsFetchedNotification = BaseProcNotification & {
   details: {
-    labels: Array<{
-      url: string;
-      triples: Array<{
-        subject: string;
-        predicate: string;
-        object: string | { value: string; language?: string; datatype?: string };
-        type: string;
-      }>;
-    }>;
+    labels: {
+      [url: string]: LiteralTripleDocument[];
+    };
   };
   messageType: 'OK_LABELS_FETCHED';
 };
@@ -189,9 +251,9 @@ export type LabelsFetchedNotification = BaseProcNotification & {
 type ProcessNotification = {
   ok: boolean;
   data:
-    | StepStartedNotification
-    | StepFinishedNotification
-    | ProcStartNotification
-    | ProcCreatedNotification
-    | LabelsFetchedNotification;
+  | StepStartedNotification
+  | StepFinishedNotification
+  | ProcStartNotification
+  | ProcCreatedNotification
+  | LabelsFetchedNotification;
 };
