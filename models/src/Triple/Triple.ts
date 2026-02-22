@@ -11,7 +11,7 @@ import { urlValidator, type SimpleTriple, directionOk, TripleType } from '@derzi
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import type { ResourceClass } from '../Resource';
-import { DocumentType } from '@typegoose/typegoose/lib/types';
+import { type DocumentType } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 
