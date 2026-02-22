@@ -1,5 +1,5 @@
-import { Types, Document, QueryFilter, QueryWithHelpers, UpdateWriteOpResult, UpdateQuery } from 'mongoose';
-import { Resource, ResourceClass, ResourceDocument } from '../Resource';
+import { type Types, type Document, type QueryFilter, type QueryWithHelpers, type UpdateWriteOpResult, type UpdateQuery } from 'mongoose';
+import { Resource, ResourceClass, type ResourceDocument } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
   TraversalPath,

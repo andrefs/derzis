@@ -101,7 +101,7 @@ export class TraversalPathClass extends PathClass {
   public triples!: Types.ObjectId[];
 
   @prop({ enum: PathType, required: true, type: String })
-  public type!: PathType.TRAVERSAL;
+  public declare type!: PathType.TRAVERSAL;
 
   public copy(this: TraversalPathClass): TraversalPathSkeleton {
     const copy: TraversalPathSkeleton = {
