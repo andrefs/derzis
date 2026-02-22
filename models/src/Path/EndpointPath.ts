@@ -1,5 +1,5 @@
 import { Types, type QueryFilter } from 'mongoose';
-import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
+import { prop, index, getDiscriminatorModelForClass, type DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { ProcessClass } from '../Process';
 import { PathClass, Path, hasLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
@@ -48,7 +48,7 @@ export class EndpointPathClass extends PathClass {
 
 
   @prop({ enum: PathType, required: true, type: String })
-  public type!: PathType.ENDPOINT;
+  public declare type!: PathType.ENDPOINT;
 
   public shouldCreateNewPath(this: EndpointPathClass, t: NamedNodeTripleClass | LiteralTripleDocument, urlHead: UrlHead): boolean {
     if (t.type === TripleType.LITERAL) {
