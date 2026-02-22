@@ -3,12 +3,11 @@
  */
 
 import { directionOk, TripleType } from '@derzis/common';
-import type { LiteralObject } from '@derzis/common';
 
 export type Triple = {
   subject: string;
   predicate: string;
-  object: string | LiteralObject;
+  object: string;
   createdAt: string;
 };
 
@@ -18,8 +17,7 @@ export type Triple = {
  * @returns A string key in the format "subject-predicate-object".
  */
 export function getTripleKey(triple: Triple): string {
-  const objectValue = typeof triple.object === 'string' ? triple.object : triple.object.value;
-  return `${triple.subject}-${triple.predicate}-${objectValue}`;
+  return `${triple.subject}-${triple.predicate}-${triple.object}`;
 }
 
 /**
@@ -65,9 +63,6 @@ export function performBFSForHops(
 
       let connectedNode: string | null = null;
 
-      // Skip literal triples - they don't have traversable objects
-      if (typeof triple.object !== 'string') continue;
-
       if (triple.subject === node) {
         connectedNode = triple.object;
       } else if (triple.object === node) {
@@ -109,9 +104,6 @@ export function filterTriplesByConsecutiveHops(
   nodeHops: Map<string, number>
 ): Triple[] {
   return allTriples.filter((triple) => {
-    // Skip literal triples - they don't have traversable objects
-    if (typeof triple.object !== 'string') return false;
-
     const subjectHop = nodeHops.get(triple.subject);
     const objectHop = nodeHops.get(triple.object);
 
