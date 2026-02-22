@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
-import { LiteralTripleClass, NamedNodeTripleClass, ProcessTriple } from '@derzis/models';
+import { ProcessTriple, type LiteralTripleDocument, type NamedNodeTripleDocument } from '@derzis/models';
 import { info as processInfo } from '$lib/process-helper';
 import type { PageServerLoad } from './$types';
-import { Types } from 'mongoose';
+import type { Types } from 'mongoose';
 
 export const load: PageServerLoad = async ({ params, url }) => {
   const proc = await processInfo(params.pid);
@@ -27,27 +27,26 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
   const latestTriples = procTriples
     .map((procTriple) => {
-      // Access properties directly - after populate, procTriple.triple has the actual document
-      const tripleAny = procTriple.triple as unknown as { _id: Types.ObjectId; subject: string; predicate: string; object: unknown; sources?: string[]; type?: string } | undefined;
-      if (!tripleAny || !('_id' in tripleAny)) return null;
-      
-      // Convert object to string representation
+      // After populate, triple can be a document or just an ObjectId
+      // We know it's populated because we called .populate('triple'), so we cast
+      const triple = procTriple.triple as NamedNodeTripleDocument | LiteralTripleDocument | undefined;
+      if (!triple || !('_id' in triple)) return null;
+
+      // Check object type directly - NamedNodeTriple has string, LiteralTriple has LiteralObject
       let objectStr: string;
-      if (typeof tripleAny.object === 'string') {
-        objectStr = tripleAny.object;
-      } else if (tripleAny.object && typeof tripleAny.object === 'object') {
-        const litObj = tripleAny.object as { value?: string; datatype?: string; language?: string };
-        objectStr = litObj.value ?? String(tripleAny.object);
+      if (typeof triple.object === 'string') {
+        objectStr = triple.object;
       } else {
-        objectStr = String(tripleAny.object);
+        // LiteralObject case
+        objectStr = triple.object.value ?? String(triple.object);
       }
-      
+
       return {
-        _id: tripleAny._id.toString(),
+        _id: triple._id.toString(),
         processStep: procTriple.processStep,
-        sources: tripleAny.sources ?? [],
-        subject: tripleAny.subject,
-        predicate: tripleAny.predicate,
+        sources: triple.sources ?? [],
+        subject: triple.subject,
+        predicate: triple.predicate,
         object: objectStr,
         createdAt: procTriple.createdAt?.toISOString()
       };

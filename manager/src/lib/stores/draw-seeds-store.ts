@@ -134,11 +134,9 @@ export const computedNodeMaxCreatedAt = derived([filteredTriples], ([$filteredTr
     if (!nodeMaxCreatedAt.has(subj) || nodeMaxCreatedAt.get(subj)! < date) {
       nodeMaxCreatedAt.set(subj, date);
     }
-    if (typeof t.object === 'string') {
-      const obj = t.object;
-      if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
-        nodeMaxCreatedAt.set(obj, date);
-      }
+    const obj = t.object;
+    if (!nodeMaxCreatedAt.has(obj) || nodeMaxCreatedAt.get(obj)! < date) {
+      nodeMaxCreatedAt.set(obj, date);
     }
   }
   return nodeMaxCreatedAt;
