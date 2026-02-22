@@ -16,7 +16,7 @@ import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
-import { QueryFilter, Types } from 'mongoose';
+import { type QueryFilter, Types } from 'mongoose';
 import { NamedNodeTriple, LiteralTriple, Triple, isNamedNode, isLiteral, type NamedNodeTripleDocument, type LiteralTripleDocument, type TripleClass } from '../Triple';
 import { type TypedTripleId, PathType, TripleType } from '@derzis/common';
 

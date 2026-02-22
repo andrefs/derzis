@@ -11,7 +11,7 @@ import {
   type EndpointPathDocument,
   HEAD_TYPE,
   UrlHead,
-  PathDocument,
+  type PathDocument,
   hasUrlHead
 } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
@@ -26,7 +26,7 @@ import {
   PropType,
   type DocumentType
 } from '@typegoose/typegoose';
-import { Domain, DomainDocument } from '../Domain';
+import { Domain, type DomainDocument } from '../Domain';
 import {
   getPathsForRobotsChecking,
   getPathsForDomainCrawl,
@@ -54,7 +54,7 @@ import {
   curPredsDirMetrics
 } from './process-data';
 import { BranchFactorClass, SeedPosRatioClass, NotificationClass, StepClass } from './aux-classes';
-import { SimpleTriple, type PathType } from '@derzis/common';
+import { type SimpleTriple, type PathType } from '@derzis/common';
 import config from '@derzis/config';
 
 @index({ status: 1 })
