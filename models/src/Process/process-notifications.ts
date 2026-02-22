@@ -3,7 +3,7 @@ import { ResourceLabel } from '../ResourceLabel';
 import { createLogger } from '@derzis/common/server';
 import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
-import { LiteralTriple, type LiteralTripleDocument } from '../Triple';
+import { LiteralTriple, LiteralTripleClass, type LiteralTripleDocument } from '../Triple';
 const log = createLogger('ProcessNotifications');
 
 const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
@@ -21,7 +21,12 @@ const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
 export async function notifyLabelsFetched(pid: string) {
   // Fetch all done labels for this process
   const labels = await ResourceLabel
-    .find({ pid, status: 'done' })
+    .find({
+      pid,
+      status: 'done',
+      source: 'cardea',
+      extend: false
+    })
     .select('url -_id')
     .lean();
 
@@ -44,23 +49,32 @@ export async function notifyLabelsFetched(pid: string) {
         $in: [RDFS_LABEL, RDFS_COMMENT]
       }
     });
-  const res: { [url: string]: LiteralTripleDocument[] } = {};
+  const triplesBySubj: { [url: string]: LiteralTripleDocument[] } = {};
   for (const triple of triples) {
-    if (!res[triple.subject]) {
-      res[triple.subject] = [];
+    if (!triplesBySubj[triple.subject]) {
+      triplesBySubj[triple.subject] = [];
     }
-    res[triple.subject].push(triple);
+    triplesBySubj[triple.subject].push(triple);
+  }
+  const res: { url: string, triples: LiteralTripleDocument[] }[] = [];
+  // need to cross-reference the labels with the triples to only send triples for the labels that are done and from cardea source
+  for (const url of labels.map(l => l.url)) {
+    if (triplesBySubj[url]) {
+      res.push({
+        url,
+        triples: triplesBySubj[url]
+      });
+    }
   }
 
-  const notif = {
-    ok: true,
-    data: {
-      pid,
-      messageType: 'OK_LABELS_FETCHED' as const,
-      message: `Process ${pid} has ${Object.keys(res).length} labels from ${triples.length} triples ready to send to Cardea.`,
-      details: { labels: res }
-    } as LabelsFetchedNotification
-  };
+  const data: LabelsFetchedNotification = {
+    pid,
+    messageType: 'OK_LABELS_FETCHED' as const,
+    message: `Process ${pid} has ${Object.keys(triplesBySubj).length} labels from ${triples.length} triples ready to send to Cardea.`,
+    details: { labels: res }
+  }
+
+  const notif: ProcessNotification = { ok: true, data };
 
   log.info(
     `Sending labels to Cardea for process ${pid}`,
@@ -241,9 +255,10 @@ type StepStartedNotification = BaseProcNotification & {
 };
 export type LabelsFetchedNotification = BaseProcNotification & {
   details: {
-    labels: {
-      [url: string]: LiteralTripleDocument[];
-    };
+    labels: Array<{
+      url: string;
+      triples: LiteralTripleDocument[]
+    }>;
   };
   messageType: 'OK_LABELS_FETCHED';
 };
