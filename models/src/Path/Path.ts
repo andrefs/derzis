@@ -1,11 +1,11 @@
-import { Types, QueryFilter } from 'mongoose';
+import { Types, type QueryFilter } from 'mongoose';
 import { PathType, urlListValidator, urlValidator, type TypedTripleId, type LiteralObject } from '@derzis/common';
-import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType, index } from '@typegoose/typegoose';
+import { prop, PropType, Severity, modelOptions, getModelForClass, type DocumentType, index } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
-import { NamedNodeTripleDocument, LiteralTripleDocument, type TripleDocument } from '../Triple';
+import { type NamedNodeTripleDocument, type LiteralTripleDocument, type TripleDocument } from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
 
@@ -59,7 +59,7 @@ export class UrlHead extends HeadBase {
   public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
   @prop({ type: DomainClass })
-  public domain: DomainClass;
+  public domain!: DomainClass;
 }
 
 export class LiteralHead extends HeadBase implements LiteralObject {
@@ -73,7 +73,7 @@ export class LiteralHead extends HeadBase implements LiteralObject {
   public language?: string;
 
   @prop({ type: String, default: HEAD_TYPE.LITERAL })
-  public type!: typeof HEAD_TYPE.LITERAL;
+  public declare type!: typeof HEAD_TYPE.LITERAL;
 }
 
 export type Head = UrlHead | LiteralHead;

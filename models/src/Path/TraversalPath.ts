@@ -1,5 +1,5 @@
-import { Types, QueryFilter } from 'mongoose';
-import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, DocumentType } from '@typegoose/typegoose';
+import { Types, type QueryFilter } from 'mongoose';
+import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, type DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
