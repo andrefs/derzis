@@ -171,6 +171,20 @@ type StepStartedNotification = BaseProcNotification & {
   details: any;
   messageType: 'OK_STEP_STARTED';
 };
+export type LabelsFetchedNotification = BaseProcNotification & {
+  details: {
+    labels: Array<{
+      url: string;
+      triples: Array<{
+        subject: string;
+        predicate: string;
+        object: string | { value: string; language?: string; datatype?: string };
+        type: string;
+      }>;
+    }>;
+  };
+  messageType: 'OK_LABELS_FETCHED';
+};
 
 type ProcessNotification = {
   ok: boolean;
@@ -178,5 +192,6 @@ type ProcessNotification = {
     | StepStartedNotification
     | StepFinishedNotification
     | ProcStartNotification
-    | ProcCreatedNotification;
+    | ProcCreatedNotification
+    | LabelsFetchedNotification;
 };
