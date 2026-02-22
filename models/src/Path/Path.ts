@@ -52,11 +52,11 @@ export class UrlHead extends HeadBase {
 
   @prop({
     required: true,
-    enum: ['unvisited', 'done', 'crawling', 'error', 'labelFetching'],
+    enum: ['unvisited', 'done', 'crawling', 'error'],
     default: 'unvisited',
     type: String
   })
-  public status!: 'unvisited' | 'done' | 'crawling' | 'error' | 'labelFetching';
+  public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
   @prop({ type: DomainClass })
   public domain: DomainClass;

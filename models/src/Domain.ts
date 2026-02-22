@@ -281,6 +281,33 @@ class DomainClass {
     return domains;
   }
 
+  public static async lockForLabelFetch(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    origins: string[]
+  ): Promise<DomainClass[]> {
+    const jobId = await Counter.genId('jobs');
+    const query = {
+      origin: { $in: origins },
+      status: 'ready',
+      'crawl.nextAllowed': { $lte: Date.now() }
+    };
+    const update = {
+      $set: {
+        status: 'labelFetching',
+        jobId,
+        workerId: wId
+      }
+    };
+    const options = {
+      new: true,
+      fields: 'origin jobId'
+    };
+    await this.findOneAndUpdate(query, update, options);
+    const domains = this.find({ jobId }).lean();
+    return domains;
+  }
+
   /**
    * Locks domains for crawling
    * Also updates the status of associated path head origins to 'crawling'
@@ -453,7 +480,7 @@ class DomainClass {
       const domainsReady = Object.entries(labelsByDomain)
         .filter(([_, urls]) => urls.length >= resLimit) // should be only resLimit
         .map(([d, _]) => d)
-      const dsLocked = await this.lockForCrawl(wId, domainsReady);
+      const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
 
       // remove domains that were not locked 
       for (const d of domainsReady) {
@@ -499,7 +526,7 @@ class DomainClass {
       .filter(([_, urls]) => urls.length >= resLimit)
       .map(([d, _]) => d)
       .slice(0, domLimit - domainsFound);
-    const dsLocked = await this.lockForCrawl(wId, domainsReady);
+    const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
 
     // yield locked domains with their resources
     for (const d of dsLocked) {
