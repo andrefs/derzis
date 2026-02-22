@@ -8,7 +8,8 @@ import {
   ResourceClass,
   EndpointPath,
   Triple,
-  HEAD_TYPE
+  HEAD_TYPE,
+  ResourceLabel
 } from '@derzis/models';
 import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -190,9 +191,25 @@ export default class Manager {
    * @param jobResult Result of the resource label fetch job to save
    */
   async saveLabelFetch(jobResult: FetchLabelsResourceResult) {
-    // update ResourceLabel
-    // add triples to Triple
-    // add triples to ProcessTriple
+    if (jobResult.status === 'not_ok') {
+      // Update ResourceLabel status to error
+      await ResourceLabel.findOneAndUpdate(
+        { url: jobResult.url },
+        { status: 'error' }
+      );
+      return;
+    }
+
+    const { triples } = jobResult.details;
+    await ResourceLabel.findOneAndUpdate(
+      { url: jobResult.url },
+      {
+        $set: {
+          triples: triples,
+          status: 'done',
+        }
+      }
+    );
   }
 
   /**
