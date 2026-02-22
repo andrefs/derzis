@@ -497,7 +497,7 @@ class DomainClass {
     let hasMore = true;
     while (hasMore) {
       // 1.1 Query BATCH_SIZE ResourceLabels
-      const query: any = { labels: { $size: 0 } };
+      const query: any = { status: 'new', labels: { $size: 0 } };
       if (lastSeenCreatedAt) {
         query.createdAt = { $gt: lastSeenCreatedAt };
       }

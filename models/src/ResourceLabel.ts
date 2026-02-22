@@ -4,6 +4,7 @@ import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 
 @index({ pid: 1, url: 1 }, { unique: true })
 @index({ createdAt: 1 })
+@index({ status: 1 })
 class ResourceLabelClass extends TimeStamps {
   @prop({ required: true, type: String })
   public pid!: string;
@@ -22,6 +23,9 @@ class ResourceLabelClass extends TimeStamps {
 
   @prop({ required: true, enum: ['web', 'cardea'], type: String })
   public source!: 'web' | 'cardea';
+
+  @prop({ required: true, enum: ['new', 'done', 'error'], default: 'new', type: String })
+  public status!: 'new' | 'done' | 'error';
 
   @prop({ required: true, type: Boolean, default: false })
   public extend!: boolean;
