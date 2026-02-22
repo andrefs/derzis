@@ -100,9 +100,6 @@ export class TraversalPathClass extends PathClass {
   @prop({ required: true, ref: 'NamedNodeTriple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
   public triples!: Types.ObjectId[];
 
-  @prop({ enum: PathType, required: true, type: String })
-  public type: PathType.TRAVERSAL = PathType.TRAVERSAL;
-
   public copy(this: TraversalPathClass): TraversalPathSkeleton {
     const copy: TraversalPathSkeleton = {
       processId: this.processId,

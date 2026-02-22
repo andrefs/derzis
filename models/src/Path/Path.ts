@@ -71,9 +71,6 @@ export class LiteralHead extends HeadBase implements LiteralObject {
 
   @prop({ type: String })
   public language?: string;
-
-  @prop({ type: String, default: HEAD_TYPE.LITERAL })
-  public type: typeof HEAD_TYPE.LITERAL = HEAD_TYPE.LITERAL;
 }
 
 export type Head = UrlHead | LiteralHead;
