@@ -8,7 +8,6 @@ import {
   ResourceClass,
   EndpointPath,
   Triple,
-  HEAD_TYPE,
   ResourceLabel,
   ProcessTriple,
 } from '@derzis/models';
@@ -106,12 +105,6 @@ export default class Manager {
               }
             }
           );
-          await TraversalPath.updateMany(
-            { 'head.domain.origin': jobResult.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
-            {
-              $set: { 'head.domain.status': 'ready' }
-            }
-          );
 
           if (res.acknowledged && res.modifiedCount) {
             this.jobs.deregisterJob(jobResult.origin);
@@ -158,12 +151,6 @@ export default class Manager {
               }
             }
           );
-          await TraversalPath.updateMany(
-            { 'head.domain.origin': jobResult.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
-            {
-              $set: { 'head.domain.status': 'ready' }
-            }
-          );
 
           if (res.acknowledged && res.modifiedCount) {
             this.jobs.deregisterJob(jobResult.origin);
@@ -197,12 +184,6 @@ export default class Manager {
             workerId: '',
             jobId: ''
           }
-        }
-      );
-      await TraversalPath.updateMany(
-        { 'head.domain.origin': jobResult.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
-        {
-          $set: { 'head.domain.status': 'ready' }
         }
       );
 
