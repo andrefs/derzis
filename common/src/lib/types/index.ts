@@ -1,4 +1,3 @@
-import { LiteralTripleClass } from '@derzis/models';
 import { WorkerError } from '../errors';
 export * from './worker';
 

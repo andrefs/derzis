@@ -7,7 +7,7 @@ interface LabelsRequest {
   ok: boolean;
   err?: string;
   data: {
-    labels: string[];
+    resources: string[];
     source: 'cardea' | 'web';
     extend: boolean;
   };
@@ -49,18 +49,19 @@ export async function POST({ params, request }: RequestEvent) {
   if (!body.ok) {
     throw error(424, body.err ?? 'Unknown error');
   }
+  console.log('XXXXXXXXXXx', body.data);
 
-  const { labels, source, extend } = body.data;
+  const { resources, source, extend } = body.data;
 
-  if (!Array.isArray(labels) || labels.length === 0) {
+  if (!Array.isArray(resources) || resources.length === 0) {
     return json({ ok: true, created: 0 });
   }
 
   try {
-    const labelData = labels.map(url => ({ pid, url, source, extend }));
-    await ResourceLabel.upsertMany(labelData);
+    const resData = resources.map(url => ({ pid, url, source, extend }));
+    await ResourceLabel.upsertMany(resData);
 
-    return json({ ok: true, created: labelData.length });
+    return json({ ok: true, created: resData.length });
   } catch (e) {
     return json({ ok: false, err: String(e) }, { status: 500 });
   }
