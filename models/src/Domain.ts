@@ -89,15 +89,7 @@ class CrawlClass {
   public nextAllowed!: Date;
 }
 
-@post<DomainClass>('findOneAndUpdate', async function (doc) {
-  if (doc) {
-    // TODO what about EndpointPaths?
-    await TraversalPath.updateMany(
-      { 'head.domain.origin': doc.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
-      { $set: { 'head.domain.status': doc.status } }
-    );
-  }
-})
+@index({ delay: 1 })
 @index({ delay: 1 })
 @index({ nextAllowed: 1 })
 @index({
@@ -268,16 +260,6 @@ class DomainClass {
     };
     await this.findOneAndUpdate(query, update, options);
     const domains = await this.find({ jobId }).lean();
-    if (domains.length) {
-      await TraversalPath.updateMany(
-        {
-          'head.domain.origin': { $in: domains.map((d) => d.origin) },
-          status: 'active',
-          'head.type': HEAD_TYPE.URL
-        },
-        { $set: { 'head.domain.status': 'checking' } }
-      );
-    }
     return domains;
   }
 
@@ -308,16 +290,6 @@ class DomainClass {
     };
     await this.findOneAndUpdate(query, update, options);
     const domains = await this.find({ jobId }).lean();
-    if (domains.length) {
-      await TraversalPath.updateMany(
-        {
-          'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) },
-          status: 'active',
-          'head.type': HEAD_TYPE.URL
-        },
-        { $set: { 'head.domain.status': 'labelFetching' } }
-      );
-    }
     return domains;
   }
 
