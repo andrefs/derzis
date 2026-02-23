@@ -3,7 +3,7 @@ import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath, EndpointPath } from '../Path';
-import { LiteralTriple, LiteralTripleClass, LiteralTripleDocument, NamedNodeTriple, NamedNodeTripleClass, Triple } from '../Triple';
+import { LiteralTriple, LiteralTripleClass, type LiteralTripleDocument, NamedNodeTriple, NamedNodeTripleClass, Triple } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
 import { type SimpleTriple, TripleType, type PathType } from '@derzis/common';
 import config from '@derzis/config';

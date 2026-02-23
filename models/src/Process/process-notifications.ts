@@ -19,7 +19,7 @@ const log = createLogger('ProcessNotifications');
 export async function notifyLabelsFetched(pid: string) {
   const labelData = await getLabelDataForProcess(pid);
 
-  if (!labelData) {
+  if (!labelData || labelData.length === 0) {
     log.info(`No done labels to send for process ${pid}`);
     return;
   }
@@ -30,11 +30,13 @@ export async function notifyLabelsFetched(pid: string) {
     return;
   }
 
+  const totalTriples = labelData.reduce((sum, item) => sum + item.triples.length, 0);
+
   const data: LabelsFetchedNotification = {
     pid,
     messageType: 'OK_LABELS_FETCHED' as const,
-    message: `Process ${pid} has ${labelData.labels.length} labels from ${labelData.tripleCount} triples ready to send to Cardea.`,
-    details: { labels: labelData.labels }
+    message: `Process ${pid} has ${labelData.length} labels from ${totalTriples} triples ready to send to Cardea.`,
+    details: { labels: labelData }
   };
 
   const notif: ProcessNotification = { ok: true, data };

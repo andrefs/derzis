@@ -13,11 +13,6 @@ interface LabelsRequest {
   };
 }
 
-
-/**
- * GET /api/processes/[pid]/labels
- * Fetch done labels for the process
- */
 export async function GET({ params }: RequestEvent) {
   const { pid } = params;
 
@@ -37,22 +32,6 @@ export async function GET({ params }: RequestEvent) {
   }
 }
 
-
-
-
-/**
- * POST /api/processes/[pid]/labels
- * Add new labels for the process. This will upsert labels based on the URL, so if a label with the same URL already exists for the process, it will not create a duplicate.
- * The request body should be a JSON object with the following structure:
- * {
- *   "ok": true,
- *   "data": {
- *     "labels": ["http://example.com/resource1", "http://example.com/resource2"],
- *     "source": "cardea",
- *     "extend": false
- *   }
- * }
- */
 export async function POST({ params, request }: RequestEvent) {
   const { pid } = params;
 
@@ -78,28 +57,10 @@ export async function POST({ params, request }: RequestEvent) {
   }
 
   try {
-    const results = await Promise.all(
-      labels.map(async (url) => {
-        const label = await ResourceLabel.findOneAndUpdate(
-          { pid, url, source },
-          {
-            $setOnInsert: {
-              pid,
-              url,
-              source,
-              extend,
-              status: 'new'
-            }
-          },
-          { upsert: true, new: true }
-        );
-        return label;
-      })
-    );
+    const labelData = labels.map(url => ({ pid, url, source, extend }));
+    await ResourceLabel.upsertMany(labelData);
 
-    const created = results.filter((r: unknown) => r).length;
-
-    return json({ ok: true, created });
+    return json({ ok: true, created: labelData.length });
   } catch (e) {
     return json({ ok: false, err: String(e) }, { status: 500 });
   }
