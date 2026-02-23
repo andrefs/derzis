@@ -58,8 +58,8 @@ export class UrlHead extends HeadBase {
   })
   public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
-  @prop({ type: DomainClass })
-  public domain!: DomainClass;
+  @prop({ required: true, type: String })
+  public domain!: string;
 }
 
 export class LiteralHead extends HeadBase implements LiteralObject {
