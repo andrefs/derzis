@@ -59,7 +59,7 @@ class ResourceLabelClass extends TimeStamps {
       if (domainCache.has(url)) return domainCache.get(url)!;
       let domain = '';
       try {
-        domain = new URL(url).hostname;
+        domain = new URL(url).origin;
       } catch {
         domain = url;
       }

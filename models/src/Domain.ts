@@ -287,8 +287,11 @@ class DomainClass {
     origins: string[]
   ): Promise<DomainClass[]> {
     const jobId = await Counter.genId('jobs');
+    if (origins.length === 0) {
+      return [];
+    }
     const query = {
-      origin: { $in: origins },
+      origin: origins.length === 1 ? origins[0] : { $in: origins },
       status: 'ready',
       'crawl.nextAllowed': { $lte: Date.now() }
     };
@@ -513,7 +516,7 @@ class DomainClass {
     let hasMore = true;
     while (hasMore) {
       // 1.1 Query BATCH_SIZE ResourceLabels
-      const query: any = { status: 'new', labels: { $size: 0 } };
+      const query: any = { status: 'new' };
       if (lastSeenCreatedAt) {
         query.createdAt = { $gt: lastSeenCreatedAt };
       }
