@@ -6,6 +6,8 @@ import type { UpdateOneModel } from 'mongoose';
 @index({ pid: 1, url: 1 }, { unique: true })
 @index({ createdAt: 1 })
 @index({ status: 1 })
+@index({ status: 1, createdAt: 1 }) // For pagination in labelsToFetch
+@index({ pid: 1, status: 1, source: 1, extend: 1 }) // For checking pending cardea labels
 class ResourceLabelClass extends TimeStamps {
   @prop({ required: true, type: String })
   public pid!: string;
