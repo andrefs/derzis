@@ -312,7 +312,7 @@ class ResourceClass {
     const dom = await Domain.bulkWrite(
       urlPaths.map((p) => ({
         updateOne: {
-          filter: { origin: p.head.domain.origin },
+          filter: { origin: p.head.domain },
           update: { $inc: { 'crawl.pathHeads': 1 } }
         }
       }))
@@ -353,7 +353,7 @@ class ResourceClass {
     const dom = await Domain.bulkWrite(
       urlPaths.map((p) => ({
         updateOne: {
-          filter: { origin: p.head.domain.origin },
+          filter: { origin: p.head.domain },
           update: { $inc: { 'crawl.pathHeads': 1 } }
         }
       }))

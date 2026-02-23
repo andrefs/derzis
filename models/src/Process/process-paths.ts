@@ -41,7 +41,7 @@ export async function getPathsForRobotsChecking(
     status: 'active',
     'head.type': HEAD_TYPE.URL
   };
-  const select = 'head.domain.origin head.type createdAt _id';
+  const select = 'head.domain head.type createdAt _id';
 
   const cursorCondition = lastSeenCreatedAt && lastSeenId
     ? {
@@ -95,7 +95,7 @@ export async function getPathsForDomainCrawl(
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
 ) {
-  const select = 'head.status head.type head.domain.origin head.url createdAt _id';
+  const select = 'head.status head.type head.domain head.url createdAt _id';
 
   // Compound cursor using $gte and $gt - requires compound index on {createdAt: 1, _id: 1}
   const cursorCondition = lastSeenCreatedAt && lastSeenId
@@ -112,7 +112,7 @@ export async function getPathsForDomainCrawl(
       ...traversalQuery,
       ...cursorCondition,
       'head.type': HEAD_TYPE.URL,
-      'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
+      'head.domain': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited'
     })
       .sort({ createdAt: 1, _id: 1 })
@@ -125,7 +125,7 @@ export async function getPathsForDomainCrawl(
       processId: process.pid,
       status: 'active',
       'head.type': HEAD_TYPE.URL,
-      'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
+      'head.domain': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited',
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
