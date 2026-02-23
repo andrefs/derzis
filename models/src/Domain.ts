@@ -89,7 +89,6 @@ class CrawlClass {
 }
 
 @index({ delay: 1 })
-@index({ delay: 1 })
 @index({ nextAllowed: 1 })
 @index({
   status: 1,

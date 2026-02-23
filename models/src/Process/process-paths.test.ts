@@ -50,6 +50,7 @@ describe('genTraversalPathQuery', () => {
       expect(query).toEqual({
         processId: 'test-pid',
         status: 'active',
+        'head.type': 'url',
         'nodes.count': { $lt: 4 },
         'predicates.count': { $lte: 1 },
       });

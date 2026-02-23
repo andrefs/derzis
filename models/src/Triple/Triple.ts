@@ -38,9 +38,7 @@ export class LiteralObject {
 })
 @index({ type: 1, nodes: 1, createdAt: 1 })
 @index({ nodes: 1, createdAt: 1 })
-@index({ sources: 1 })
 @index({ updatedAt: -1 })
-@index({ type: 1 })
 export class TripleClass extends TimeStamps {
   @prop({ required: true, validate: urlValidator, type: String, index: true })
   public subject!: string;
