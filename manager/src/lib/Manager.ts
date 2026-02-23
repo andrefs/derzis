@@ -10,11 +10,9 @@ import {
   Triple,
   HEAD_TYPE,
   ResourceLabel,
-  NamedNodeTriple,
-  LiteralTriple,
   ProcessTriple,
-  Path
 } from '@derzis/models';
+import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
 import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
@@ -253,6 +251,19 @@ export default class Manager {
         processStep: -1 // label fetch triples are not associated with a specific step, so we can use a placeholder value
       }));
       await ProcessTriple.upsertMany(procTripleInputs);
+    }
+
+    // Check if all cardea labels with extend=false are done for this process
+    if (rl.source === 'cardea' && rl.extend === false) {
+      const remaining = await ResourceLabel.countDocuments({
+        pid: rl.pid,
+        status: 'new',
+        source: 'cardea',
+        extend: false
+      });
+      if (remaining === 0) {
+        await notifyLabelsFetched(rl.pid);
+      }
     }
   }
 
