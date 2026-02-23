@@ -323,18 +323,7 @@ class DomainClass {
       fields: 'origin jobId'
     };
     await this.findOneAndUpdate(query, update, options);
-    const domains = this.find({ jobId }).lean();
-    if (domains.length) {
-      await TraversalPath.updateMany(
-        {
-          'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) },
-          status: 'active',
-          'head.type': HEAD_TYPE.URL
-        },
-        { $set: { 'head.domain.status': 'crawling' } }
-      );
-    }
-
+    const domains = await this.find({ jobId }).lean();
     return domains;
   }
 
@@ -451,14 +440,6 @@ class DomainClass {
     await Resource.updateMany(
       { url: { $in: resources.map((r) => r.url) } },
       { status: 'crawling', jobId }
-    ).lean();
-    await TraversalPath.updateMany(
-      {
-        'head.url': { $in: resources.map((r) => r.url) },
-        status: 'active',
-        'head.type': HEAD_TYPE.URL
-      },
-      { $set: { 'head.status': 'crawling' } }
     ).lean();
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
   }
