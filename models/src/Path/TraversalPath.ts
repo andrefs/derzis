@@ -1,10 +1,10 @@
 import { Types, type QueryFilter } from 'mongoose';
 import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, type DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
+import { NamedNodeTripleClass, type NamedNodeTripleDocument, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
-import { PathClass, Path, ResourceCount, hasLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
-import { PathType, TripleType, type TypedTripleId, type LiteralObject } from '@derzis/common';
+import { PathClass, Path, ResourceCount, hasLiteralHead, HEAD_TYPE, UrlHead, type Head } from './Path';
+import { PathType, TripleType, type TypedTripleId, } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
@@ -44,8 +44,6 @@ type RecursivePartial<T> = {
     }
   }
 })
-  }
-})
 
 // Primary query efficiency
 @index({ "processId": 1, "status": 1 })
@@ -79,7 +77,6 @@ type RecursivePartial<T> = {
 @index({ type: 1, 'head.domain': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({ processId: 1, status: 1, extensionCounter: 1 })
-@modelOptions({
 @modelOptions({
   schemaOptions: {
     timestamps: true,

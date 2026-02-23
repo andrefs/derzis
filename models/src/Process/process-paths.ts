@@ -6,7 +6,6 @@ import {
   TraversalPathClass,
   EndpointPathClass,
   type PathSkeleton,
-  type PathDocument,
   HEAD_TYPE,
   UrlHead,
   LiteralHead
@@ -17,8 +16,9 @@ import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { type QueryFilter, Types } from 'mongoose';
-import { NamedNodeTriple, LiteralTriple, Triple, isNamedNode, isLiteral, type NamedNodeTripleDocument, type LiteralTripleDocument, type TripleClass } from '../Triple';
-import { type TypedTripleId, PathType, TripleType } from '@derzis/common';
+import { Triple, type TripleClass } from '../Triple';
+import { type TypedTripleId, PathType } from '@derzis/common';
+import { Domain } from '../Domain';
 
 /**
  * Get paths for a process that are ready for robots checking, based on the head domain status and path limits.
@@ -39,8 +39,7 @@ export async function getPathsForRobotsChecking(
   const baseQuery = {
     processId: process.pid,
     status: 'active',
-    'head.type': HEAD_TYPE.URL,
-    'head.domain.status': 'unvisited'
+    'head.type': HEAD_TYPE.URL
   };
   const select = 'head.domain.origin head.type createdAt _id';
 
@@ -113,7 +112,6 @@ export async function getPathsForDomainCrawl(
       ...traversalQuery,
       ...cursorCondition,
       'head.type': HEAD_TYPE.URL,
-      'head.domain.status': 'ready',
       'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited'
     })
@@ -127,7 +125,6 @@ export async function getPathsForDomainCrawl(
       processId: process.pid,
       status: 'active',
       'head.type': HEAD_TYPE.URL,
-      'head.domain.status': 'ready',
       'head.domain.origin': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited',
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
@@ -141,10 +138,15 @@ export async function getPathsForDomainCrawl(
 }
 
 export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promise<boolean> {
+  // Get domains currently checking robots.txt
+  const domains = await Domain.find({ status: 'checking' }).select('origin').lean();
+
+  // Count how many active paths have head domains that are currently being checked for robots.txt
   const pathsCount = await TraversalPath.countDocuments({
     processId: process.pid,
     status: 'active',
-    'head.domain.status': 'checking'
+    'head.type': HEAD_TYPE.URL,
+    'head.domain': { $in: domains.map(d => d.origin) },
   });
   return !!pathsCount;
 }

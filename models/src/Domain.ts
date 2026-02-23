@@ -2,7 +2,7 @@ import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
 import type { DomainLabelFetchJobInfo, PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
-import { TraversalPath, HEAD_TYPE, UrlHead } from './Path';
+import { HEAD_TYPE, UrlHead } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type UpdateOneModel, Types } from 'mongoose';
@@ -12,7 +12,6 @@ import {
   getModelForClass,
   type ReturnModelType,
   PropType,
-  post,
   type DocumentType
 } from '@typegoose/typegoose';
 import type { DomainCrawlJobInfo } from '@derzis/common';
@@ -364,7 +363,7 @@ class DomainClass {
 
         const origins = new Set<string>(paths
           .filter((p) => p.head.type === HEAD_TYPE.URL)
-          .map((p) => (p.head as UrlHead).domain.origin));
+          .map((p) => (p.head as UrlHead).domain));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
 
         // these paths returned no available domains, skip them
@@ -641,7 +640,7 @@ class DomainClass {
           `Preparing to lock for crawl domains from the following resources`,
           Array.from(new Set(unvisHeads.map((h) => h.url)))
         );
-        const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
+        const origins = new Set<string>(unvisHeads.map((h) => h.domain));
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
 
         // these paths returned no available domains, skip them
@@ -681,8 +680,8 @@ class DomainClass {
           domainInfo[d.origin] = { domain: d, resources: [] };
         }
         for (const h of unvisHeads) {
-          if (h.domain.origin in domainInfo) {
-            domainInfo[h.domain.origin].resources!.push({ url: h.url });
+          if (h.domain in domainInfo) {
+            domainInfo[h.domain].resources!.push({ url: h.url });
           }
         }
 
