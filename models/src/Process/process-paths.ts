@@ -21,6 +21,32 @@ import { type TypedTripleId, PathType } from '@derzis/common';
 import { Domain } from '../Domain';
 
 /**
+ * Get locked domain filter to exclude from path selection.
+ * Locked domains are those with status: checking, labelFetching, or crawling.
+ */
+async function getLockedDomainFilter(domainBlacklist: string[] = []) {
+  const lockedDomains = await Domain
+    .find({ status: { $in: ['checking', 'labelFetching', 'crawling'] } })
+    .select('origin')
+    .lean();
+  const lockedOrigins = [
+    ...lockedDomains.map(d => d.origin),
+    ...domainBlacklist
+  ];
+
+  if (!lockedOrigins.length) {
+    return {};
+  }
+
+  if (lockedOrigins.length === 1) {
+    return { 'head.domain': { $ne: lockedOrigins[0] } };
+  }
+
+  return { 'head.domain': { $nin: lockedOrigins } };
+}
+
+
+/**
  * Get paths for a process that are ready for robots checking, based on the head domain status and path limits.
  * @param process ProcessClass instance
  * @param pathType Type of paths to retrieve ('traversal' or 'endpoint')
@@ -36,6 +62,7 @@ export async function getPathsForRobotsChecking(
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
 ) {
+  const lockedFilter = await getLockedDomainFilter();
   const baseQuery = {
     processId: process.pid,
     status: 'active',
@@ -50,14 +77,16 @@ export async function getPathsForRobotsChecking(
     }
     : {};
 
-  if (pathType === 'traversal') {
-    const paths = await TraversalPath.find({
-      ...baseQuery,
-      ...cursorCondition,
-      'head.type': HEAD_TYPE.URL,
-      'nodes.count': { $lt: process.currentStep.maxPathLength },
-      'predicates.count': { $lte: process.currentStep.maxPathProps }
-    })
+  if (pathType === PathType.TRAVERSAL) {
+    const paths = await TraversalPath
+      .find({
+        ...baseQuery,
+        ...cursorCondition,
+        ...lockedFilter,
+        'head.type': HEAD_TYPE.URL,
+        'nodes.count': { $lt: process.currentStep.maxPathLength },
+        'predicates.count': { $lte: process.currentStep.maxPathProps }
+      })
       .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
@@ -66,6 +95,7 @@ export async function getPathsForRobotsChecking(
     const paths = await EndpointPath.find({
       ...baseQuery,
       ...cursorCondition,
+      ...lockedFilter,
       'head.type': HEAD_TYPE.URL,
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
@@ -95,6 +125,8 @@ export async function getPathsForDomainCrawl(
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
 ) {
+  // Get locked domains and combine with domainBlacklist
+  const domainFilter = await getLockedDomainFilter(domainBlacklist)
   const select = 'head.status head.type head.domain head.url createdAt _id';
 
   // Compound cursor using $gte and $gt - requires compound index on {createdAt: 1, _id: 1}
@@ -111,8 +143,8 @@ export async function getPathsForDomainCrawl(
     const paths = await TraversalPath.find({
       ...traversalQuery,
       ...cursorCondition,
+      ...domainFilter,
       'head.type': HEAD_TYPE.URL,
-      'head.domain': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited'
     })
       .sort({ createdAt: 1, _id: 1 })
@@ -122,10 +154,10 @@ export async function getPathsForDomainCrawl(
   } else {
     const paths = await EndpointPath.find({
       ...cursorCondition,
+      ...domainFilter,
       processId: process.pid,
       status: 'active',
       'head.type': HEAD_TYPE.URL,
-      'head.domain': domainBlacklist.length ? { $nin: domainBlacklist } : { $exists: true },
       'head.status': 'unvisited',
       'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
