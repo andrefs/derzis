@@ -185,6 +185,31 @@ export default class Manager {
         `Received completion of domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}:`,
         jobResult.details
       );
+      // Reset domain status from 'labelFetching' to 'ready'
+      const res = await Domain.updateOne(
+        {
+          origin: jobResult.origin,
+          jobId: jobResult.jobId
+        },
+        {
+          $set: { status: 'ready' },
+          $unset: {
+            workerId: '',
+            jobId: ''
+          }
+        }
+      );
+      await TraversalPath.updateMany(
+        { 'head.domain.origin': jobResult.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
+        {
+          $set: { 'head.domain.status': 'ready' }
+        }
+      );
+
+      if (res.acknowledged && res.modifiedCount) {
+        this.jobs.deregisterJob(jobResult.origin);
+        log.debug(`Done saving domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}`);
+      }
     }
   }
 

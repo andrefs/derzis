@@ -273,6 +273,7 @@ export default class RunningJobs extends EventEmitter {
       }
     );
 
+    // Reset domain label fetches
     log.debug('Resetting outstanding domain label fetches');
     await Domain.updateMany(
       { status: 'labelFetching' },
