@@ -40,11 +40,10 @@ type RecursivePartial<T> = {
     const origin = new URL(urlHead.url).origin;
     const d = await Domain.findOne({ origin });
     if (d) {
-      urlHead.domain = {
-        origin: d.origin,
-        status: d.status
-      };
+      urlHead.domain = d.origin;
     }
+  }
+})
   }
 })
 
@@ -77,11 +76,10 @@ type RecursivePartial<T> = {
   "predicates.count": 1
 })
 @index({ 'head.status': 1, status: 1 })
-@index({ 'head.domain.status': 1, status: 1 })
-@index({ type: 1, 'head.domain.origin': 1, status: 1 })
+@index({ type: 1, 'head.domain': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({ processId: 1, status: 1, extensionCounter: 1 })
-@index({ type: 1, processId: 1, status: 1, 'head.domain.status': 1 })
+@modelOptions({
 @modelOptions({
   schemaOptions: {
     timestamps: true,
