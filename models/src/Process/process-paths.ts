@@ -8,7 +8,8 @@ import {
   type PathSkeleton,
   HEAD_TYPE,
   UrlHead,
-  LiteralHead
+  LiteralHead,
+  Path
 } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
@@ -177,9 +178,11 @@ export async function getPathsForDomainCrawl(
 export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promise<boolean> {
   // Get domains currently checking robots.txt
   const domains = await Domain.find({ status: 'checking' }).select('origin').lean();
+  if (domains.length === 0) return false;
 
   // Count how many active paths have head domains that are currently being checked for robots.txt
-  const pathsCount = await TraversalPath.countDocuments({
+  // Using base Path model (all paths for this process are of the same type configured in process)
+  const pathsCount = await Path.countDocuments({
     processId: process.pid,
     status: 'active',
     'head.type': HEAD_TYPE.URL,
@@ -189,10 +192,15 @@ export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promi
 }
 
 export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<boolean> {
-  const pathsCount = await TraversalPath.countDocuments({
+  // Check if any active path's head domain is currently in 'crawling' status.
+  const domains = await Domain.find({ status: 'crawling' }).select('origin').lean();
+  if (domains.length === 0) return false;
+
+  const pathsCount = await Path.countDocuments({
     processId: process.pid,
     status: 'active',
-    'head.status': 'crawling'
+    'head.type': HEAD_TYPE.URL,
+    'head.domain': { $in: domains.map(d => d.origin) },
   });
   return !!pathsCount;
 }

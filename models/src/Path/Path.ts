@@ -14,18 +14,6 @@ export const HEAD_TYPE = {
   LITERAL: 'literal'
 } as const;
 
-class DomainClass {
-  @prop({
-    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling', 'labelFetching'],
-    default: 'unvisited',
-    type: String
-  })
-  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling' | 'labelFetching';
-
-  @prop({ required: true, validate: urlValidator, type: String })
-  public origin!: string;
-}
-
 @modelOptions({ options: { allowMixed: Severity.ERROR } })
 class ResourceCount {
   @prop({ default: 0, type: Number })
@@ -81,7 +69,7 @@ export type PathSkeletonConstructor<T extends PathSkeleton> = Omit<T, '_id'> & {
   _id?: Types.ObjectId;
 };
 
-export { DomainClass, ResourceCount, SeedClass };
+export { ResourceCount, SeedClass };
 
 @modelOptions({
   schemaOptions: {

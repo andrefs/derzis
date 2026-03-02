@@ -1,9 +1,15 @@
-import { describe, it, expect } from 'vitest';
-import { genTraversalPathQuery } from './process-paths';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  genTraversalPathQuery,
+  hasPathsDomainRobotsChecking,
+  hasPathsHeadBeingCrawled
+} from './process-paths';
 import { StepClass, PredicateLimitationClass } from './aux-classes';
 import { QueryFilter } from 'mongoose';
 import type { TraversalPathDocument } from '../Path/TraversalPath';
 import type { ProcessClass } from './Process';
+import { Path, HEAD_TYPE } from '../Path/Path';
+import { Domain } from '../Domain';
 
 type TraversalPathQueryWithExpr = QueryFilter<TraversalPathDocument> & {
   $expr: {
@@ -227,4 +233,121 @@ describe('genTraversalPathQuery', () => {
       expect(query['nodes.count']).toEqual({ $lt: 10 });
     });
   });
+
+  describe('hasPathsDomainRobotsChecking', () => {
+    const mockDomains = [{ origin: 'http://example.com' }, { origin: 'http://test.com' }];
+    const mockProcess = (
+      pid: string = 'test-pid',
+      pathType: 'traversal' | 'endpoint' = 'traversal'
+    ): ProcessClass => ({
+      pid,
+      config: { manager: { pathType } },
+    });
+
+    beforeEach(() => {
+      Domain.find.mockResolvedValue(mockDomains);
+      vi.clearAllMocks();
+    });
+
+    it('returns true when endpoint paths match domain filter', async () => {
+      const process = mockProcess('pid-1', 'endpoint');
+      Path.countDocuments.mockResolvedValueOnce(5);
+
+      const result = await hasPathsDomainRobotsChecking(process);
+      expect(result).toBe(true);
+      expect(Path.countDocuments).toHaveBeenCalledWith({
+        processId: 'pid-1',
+        status: 'active',
+        'head.type': 'url',
+        'head.domain': { $in: mockDomains.map(d => d.origin) },
+      });
+    });
+
+    it('returns true when traversal paths match domain filter', async () => {
+      const process = mockProcess('pid-2', 'traversal');
+      Path.countDocuments.mockResolvedValueOnce(3);
+
+      const result = await hasPathsDomainRobotsChecking(process);
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no paths match domain filter', async () => {
+      const process = mockProcess('pid-3', 'endpoint');
+      Path.countDocuments.mockResolvedValueOnce(0);
+
+      const result = await hasPathsDomainRobotsChecking(process);
+      expect(result).toBe(false);
+    });
+
+    it('returns false when no domains are checking (early return)', async () => {
+      Domain.find.mockResolvedValue([]);
+      const process = mockProcess('pid-4', 'traversal');
+
+      const result = await hasPathsDomainRobotsChecking(process);
+      expect(result).toBe(false);
+      expect(Path.countDocuments).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('hasPathsHeadBeingCrawled', () => {
+    const mockCrawlingDomains = [{ origin: 'http://crawling1.com' }, { origin: 'http://crawling2.com' }];
+    const mockProcess = (
+      pid: string = 'test-pid',
+      pathType: 'traversal' | 'endpoint' = 'traversal'
+    ): ProcessClass => ({
+      pid,
+      config: { manager: { pathType } },
+    });
+
+    beforeEach(() => {
+      Domain.find.mockResolvedValue(mockCrawlingDomains);
+      vi.clearAllMocks();
+    });
+
+    it('returns true when endpoint paths have head in crawling domains', async () => {
+      const process = mockProcess('pid-1', 'endpoint');
+      Path.countDocuments.mockResolvedValueOnce(2);
+
+      const result = await hasPathsHeadBeingCrawled(process);
+      expect(result).toBe(true);
+      expect(Path.countDocuments).toHaveBeenCalledWith({
+        processId: 'pid-1',
+        status: 'active',
+        'head.type': HEAD_TYPE.URL,
+        'head.domain': { $in: mockCrawlingDomains.map(d => d.origin) },
+      });
+    });
+
+    it('returns true when traversal paths have head in crawling domains', async () => {
+      const process = mockProcess('pid-2', 'traversal');
+      Path.countDocuments.mockResolvedValueOnce(1);
+
+      const result = await hasPathsHeadBeingCrawled(process);
+      expect(result).toBe(true);
+      expect(Path.countDocuments).toHaveBeenCalledWith({
+        processId: 'pid-2',
+        status: 'active',
+        'head.type': HEAD_TYPE.URL,
+        'head.domain': { $in: mockCrawlingDomains.map(d => d.origin) },
+      });
+    });
+
+    it('returns false when no paths have head in crawling domains', async () => {
+      const process = mockProcess('pid-3', 'endpoint');
+      Path.countDocuments.mockResolvedValueOnce(0);
+
+      const result = await hasPathsHeadBeingCrawled(process);
+      expect(result).toBe(false);
+    });
+
+    it('returns false when no domains are crawling (early return)', async () => {
+      Domain.find.mockResolvedValue([]);
+      const process = mockProcess('pid-4', 'traversal');
+
+      const result = await hasPathsHeadBeingCrawled(process);
+      expect(result).toBe(false);
+      expect(Path.countDocuments).not.toHaveBeenCalled();
+    });
+  });
+});
 });
