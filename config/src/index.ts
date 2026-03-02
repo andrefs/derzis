@@ -20,7 +20,7 @@ export default {
     },
     // this must be defined before ever running Derzis
     // and cannot ever be changed!
-    pathType: process.env.DERZIS_PATH_TYPE || 'traversal',
+    pathType: process.env.DERZIS_PATH_TYPE || 'endpoint',
     predicates: {
       branchingFactor: {
         neutralZone: {

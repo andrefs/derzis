@@ -17,14 +17,24 @@ import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
 import type {
+  DomainCrawlJobRequest,
+  DomainLabelFetchJobRequest,
   FetchLabelsResourceResult,
   JobCapacity,
   JobRequest,
   PathType,
   ResourceCrawlJobRequest,
   ResourceLabelFetchJobRequest,
+  RobotsCheckJobRequest,
   SimpleTriple
 } from '@derzis/common';
+
+
+interface AssignedJobs {
+  check: number;
+  crawl: number;
+  labelFetch: number;
+}
 
 export default class Manager {
   jobs: RunningJobs;
@@ -387,27 +397,19 @@ export default class Manager {
     return;
   }
 
-  async * assignJobs(
+  /**
+   * Assign domain label fetch jobs to a worker based on its reported availability, and update the assigned jobs count
+   * @param workerId ID of the worker to assign jobs to
+   * @param workerAvail Object describing the worker's available job capacities
+   * @param assigned Object tracking the count of assigned jobs by type for this worker
+   * @returns An async iterable of domain label fetch job requests to assign to the worker
+   */
+  async * assignLabelFetch(
     workerId: string,
-    workerAvail: JobCapacity
-  ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>> {
-    if (this.jobs.beingSaved.count() > 0) {
-      log.warn(
-        `Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
-      );
-      return; // TODO check if this is correct
-    }
-    else {
-      log.debug(
-        `Only ${this.jobs.beingSaved.count()} jobs being saved, proceeding to assign new jobs for worker ${workerId}`
-      );
-    }
-    let assignedCheck = 0;
-    let assignedCrawl = 0;
-    let assignedLabelFetch = 0;
+    workerAvail: JobCapacity,
+    assigned: AssignedJobs
+  ): AsyncIterable<DomainLabelFetchJobRequest> {
 
-
-    // domainLabelFetch jobs
     if (workerAvail.domainLabelFetch) {
       if (!workerAvail.domainLabelFetch.capacity) {
         log.warn(`Worker ${workerId} has no capacity for domainLabelFetch jobs`);
@@ -423,7 +425,7 @@ export default class Manager {
           gotRes = true;
           if (labelJob?.resources?.length &&
             (await this.jobs.registerJob(labelJob.domain.jobId, labelJob.domain.origin, 'domainLabelFetch'))) {
-            assignedLabelFetch++;
+            assigned.labelFetch++;
             yield {
               type: 'domainLabelFetch',
               jobId: labelJob.domain.jobId,
@@ -438,8 +440,17 @@ export default class Manager {
         }
       }
     }
+  }
 
-    // domainCrawl jobs
+
+  /**
+   * Assign domain crawl jobs to a worker based on its reported availability, and update the assigned jobs count
+   * @param workerId ID of the worker to assign jobs to
+   * @param workerAvail Object describing the worker's available job capacities
+   * @param assigned Object tracking the count of assigned jobs by type for this worker
+   * @returns An async iterable of domain crawl job requests to assign to the worker
+   */
+  async * assignDomainCrawl(workerId: string, workerAvail: JobCapacity, assigned: AssignedJobs): AsyncIterable<DomainCrawlJobRequest> {
     if (workerAvail.domainCrawl) {
       if (!workerAvail.domainCrawl.capacity) {
         log.warn(`Worker ${workerId} has no capacity for domainCrawl jobs`);
@@ -456,7 +467,7 @@ export default class Manager {
             crawl?.resources?.length &&
             (await this.jobs.registerJob(crawl.domain.jobId, crawl.domain.origin, 'domainCrawl'))
           ) {
-            assignedCrawl++;
+            assigned.crawl++;
             yield {
               type: 'domainCrawl',
               jobId: crawl.domain.jobId,
@@ -471,8 +482,18 @@ export default class Manager {
         }
       }
     }
-    // robotsCheck jobs
-    if (!assignedCrawl && workerAvail.robotsCheck) {
+  }
+
+
+  /**
+   * Assign robots check jobs to a worker based on its reported availability, and update the assigned jobs count
+   * @param workerId ID of the worker to assign jobs to
+   * @param workerAvail Object describing the worker's available job capacities
+   * @param assigned Object tracking the count of assigned jobs by type for this worker
+   * @returns An async iterable of robots check job requests to assign to the worker
+   */
+  async * assignRobotsCheck(workerId: string, workerAvail: JobCapacity, assigned: AssignedJobs): AsyncIterable<RobotsCheckJobRequest> {
+    if (!assigned.crawl && workerAvail.robotsCheck) {
       if (!workerAvail.robotsCheck.capacity) {
         log.warn(`Worker ${workerId} has no capacity for robotsCheck jobs`);
       } else {
@@ -489,7 +510,7 @@ export default class Manager {
               workerAvail,
               check
             });
-            assignedCheck++;
+            assigned.check++;
             yield {
               type: 'robotsCheck',
               jobId: check.jobId,
@@ -502,8 +523,47 @@ export default class Manager {
         }
       }
     }
+  }
 
-    if (!assignedCheck && !assignedCrawl && !this.jobs.count() && !this.jobs.beingSaved.count()) {
+  /**
+  * Assign jobs to a worker based on its reported availability, prioritizing domain label fetch, then domain crawl, then robots check jobs
+  * @param workerId ID of the worker to assign jobs to
+  * @param workerAvail Object describing the worker's available job capacities
+  * @returns An async iterable of job requests to assign to the worker
+  */
+  async * assignJobs(
+    workerId: string,
+    workerAvail: JobCapacity
+  ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>> {
+    if (this.jobs.beingSaved.count() > 0) {
+      log.warn(
+        `Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
+      );
+      return; // TODO check if this is correct
+    }
+    else {
+      log.debug(
+        `Only ${this.jobs.beingSaved.count()} jobs being saved, proceeding to assign new jobs for worker ${workerId}`
+      );
+    }
+    let assigned = {
+      check: 0,
+      crawl: 0,
+      labelFetch: 0
+    }
+
+
+
+    // domainLabelFetch jobs
+    yield* this.assignLabelFetch(workerId, workerAvail, assigned);
+
+    // domainCrawl jobs
+    yield* this.assignDomainCrawl(workerId, workerAvail, assigned);
+
+    // robotsCheck jobs
+    yield* this.assignRobotsCheck(workerId, workerAvail, assigned);
+
+    if (!assigned.check && !assigned.crawl && !this.jobs.count() && !this.jobs.beingSaved.count()) {
       log.info(
         'Could not find any domains to check or crawl *right now* and there are no outstanding jobs',
         this.jobs.toObject()
@@ -523,8 +583,8 @@ export default class Manager {
         'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX this should be the end!',
         this.finished,
         workerAvail,
-        assignedCheck,
-        assignedCrawl,
+        assigned.check,
+        assigned.crawl,
         this.jobs.toString()
       );
     }
