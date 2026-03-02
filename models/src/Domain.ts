@@ -261,6 +261,28 @@ class DomainClass {
     return domains;
   }
 
+  /**
+   * Unlocks domains that were locked for robots.txt checking but not processed
+   * @param wId - The worker ID
+   * @param origins - The origins to unlock
+   * @returns {Promise<void>}
+   */
+  public static async unlockFromRobotsCheck(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    origins: string[]
+  ): Promise<void> {
+    const query = {
+      origin: { $in: origins },
+      status: 'checking',
+      workerId: wId
+    };
+    const update = {
+      $set: { status: 'unvisited' },
+      $unset: { jobId: '', workerId: '' }
+    };
+    await this.updateMany(query, update);
+  }
   public static async lockForLabelFetch(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
@@ -399,6 +421,12 @@ class DomainClass {
           continue PATHS_LOOP;
         }
 
+        const remainingCapacity = limit - domainsFound;
+        if (domains.length > remainingCapacity) {
+          const domainsToUnlock = domains.slice(remainingCapacity).map((d) => d.origin);
+          await this.unlockFromRobotsCheck(wId, domainsToUnlock);
+          domains.splice(remainingCapacity);
+        }
         for (const d of domains) {
           domainsFound++;
           yield d;
