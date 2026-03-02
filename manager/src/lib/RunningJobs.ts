@@ -10,6 +10,8 @@ interface JobsBeingSaved {
   domainCrawl: number;
   resourceCrawl: number;
   robotsCheck: number;
+  resourceLabelFetch: number;
+  domainLabelFetch: number;
   count: () => number;
 }
 
@@ -30,9 +32,11 @@ export default class RunningJobs extends EventEmitter {
       domainCrawl: 0,
       resourceCrawl: 0,
       robotsCheck: 0,
+      resourceLabelFetch: 0,
+      domainLabelFetch: 0,
       count: () => {
         const bs = this.beingSaved;
-        return bs.domainCrawl + bs.resourceCrawl + bs.robotsCheck;
+        return bs.domainCrawl + bs.resourceCrawl + bs.robotsCheck + bs.resourceLabelFetch + bs.domainLabelFetch;
       }
     };
     this.beingSavedByDomain = {};
@@ -143,11 +147,14 @@ export default class RunningJobs extends EventEmitter {
 
       // update paths with head belonging to this domain
       await TraversalPath.updateMany(
-        { 'head.domain.origin': origin, status: 'active', 'head.type': HEAD_TYPE.URL },
+        {
+          'head.domain': origin,
+          status: 'active',
+          'head.type': HEAD_TYPE.URL
+        },
         {
           $set: {
-            'head.status': 'unvisited',
-            'head.domain.status': 'unvisited'
+            'head.status': 'unvisited'
           }
         }
       );
@@ -168,18 +175,30 @@ export default class RunningJobs extends EventEmitter {
       // update paths with head belonging to this domain
       await TraversalPath.updateMany(
         {
-          'head.domain.origin': origin,
+          'head.domain': origin,
           status: 'active',
           'head.status': 'crawling',
           'head.type': HEAD_TYPE.URL
         },
         {
           $set: {
-            'head.status': 'unvisited',
-            'head.domain.status': 'ready'
+            'head.status': 'unvisited'
           }
         }
       );
+    }
+    if (jobType === 'domainLabelFetch') {
+      // update resources being labeled for this domain
+      await Resource.updateMany({ domain: origin, status: 'labeling' }, { status: 'unvisited' });
+
+      // update domain
+      const update = customUpdate || {};
+      update['$set'] = update['$set'] || {};
+      update['$set']['status'] = 'ready';
+      update['$unset'] = update['$unset'] || {};
+      update['$unset']['workerId'] = '';
+      update['$unset']['jobId'] = '';
+      await Domain.updateMany({ origin }, update);
     }
   }
 
@@ -221,13 +240,6 @@ export default class RunningJobs extends EventEmitter {
       }
     );
 
-    // Reset path head domains being checked
-    log.debug('Resetting outstanding path head domains being checked');
-    await TraversalPath.updateMany(
-      { 'head.domain.status': 'checking', status: 'active', 'head.type': HEAD_TYPE.URL },
-      { $set: { 'head.domain.status': 'unvisited' } }
-    );
-
     // Reset domain crawls
     log.debug('Resetting outstanding domain crawls');
     await Domain.updateMany(
@@ -241,21 +253,19 @@ export default class RunningJobs extends EventEmitter {
       }
     );
 
-    // Reset path head domains being crawled
-    log.debug('Resetting outstanding path head domains being crawled');
-    await TraversalPath.updateMany(
+    // Reset domain label fetches
+    log.debug('Resetting outstanding domain label fetches');
+    await Domain.updateMany(
+      { status: 'labelFetching' },
       {
-        'head.domain.status': 'crawling',
-        status: 'active',
-        'head.type': HEAD_TYPE.URL
-      },
-      {
-        $set: {
-          status: 'unvisited',
-          'head.domain.status': 'ready'
+        $set: { status: 'ready' },
+        $unset: {
+          workerId: '',
+          jobId: ''
         }
       }
     );
+
 
     // Reset resources being crawled
     log.debug('Resetting outstanding resources being crawled');
@@ -352,7 +362,7 @@ export default class RunningJobs extends EventEmitter {
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
       await TraversalPath.updateMany(
-        { 'head.domain.origin': { $in: domains }, status: 'active', 'head.type': HEAD_TYPE.URL },
+        { 'head.domain': { $in: domains }, status: 'active', 'head.type': HEAD_TYPE.URL },
         { $set: { status: 'unvisited' } }
       );
     }
@@ -376,14 +386,33 @@ export default class RunningJobs extends EventEmitter {
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
       await TraversalPath.updateMany(
-        { 'head.domain.origin': { $in: domains }, status: 'active', 'head.type': HEAD_TYPE.URL },
+        { 'head.domain': { $in: domains }, status: 'active', 'head.type': HEAD_TYPE.URL },
         {
           $set: {
-            'head.domain.status': 'ready',
             'head.status': 'unvisited'
           }
         }
       );
+    }
+
+    log.info(`Canceling worker ${workerId} domainLabelFetch jobs on ${domains.join(', ')}`);
+    domains = Object.keys(ongoingJobs.domainLabelFetch);
+    if (domains.length) {
+      for (const d in domains) {
+        delete this._running[d];
+      }
+      const update = {
+        $set: { status: 'ready' },
+        $unset: {
+          workerId: '',
+          jobId: ''
+        }
+      };
+      let filter = { origin: { $in: domains }, workerId: '' };
+      if (workerId) {
+        filter.workerId = workerId;
+      }
+      await Domain.updateMany({ origin: { $in: domains } }, update);
     }
   }
 

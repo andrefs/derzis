@@ -1,8 +1,55 @@
-import { ProcessClass } from './Process';
+import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
 import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
+import { type LiteralTripleDocument } from '../Triple';
+import { getLabelDataForProcess } from './process-data';
 const log = createLogger('ProcessNotifications');
+
+
+/**
+ * Notify Cardea that all labels for a process have been fetched and are ready to be sent.
+ * This will fetch all labels with status 'done' for the given process, and send them to Cardea via the process webhook.
+ * If no labels are found, it will log that and return without sending a notification.
+ * If the process is not found, it will log an error and return without sending a notification.
+ * If the process has no webhook, it will log that and return without sending a notification.
+ * If the notification is sent successfully, it will log that.
+ * @param pid The process ID for which to notify that labels have been fetched.
+ */
+export async function notifyLabelsFetched(pid: string) {
+  const labelData = await getLabelDataForProcess(pid);
+
+  if (!labelData || labelData.length === 0) {
+    log.info(`No done labels to send for process ${pid}`);
+    return;
+  }
+
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.error(`Process ${pid} not found when sending labels to Cardea`);
+    return;
+  }
+
+  const totalTriples = labelData.reduce((sum, item) => sum + item.triples.length, 0);
+
+  const data: LabelsFetchedNotification = {
+    pid,
+    messageType: 'OK_LABELS_FETCHED' as const,
+    message: `Process ${pid} has ${labelData.length} labels from ${totalTriples} triples ready to send to Cardea.`,
+    details: { labels: labelData }
+  };
+
+  const notif: ProcessNotification = { ok: true, data };
+
+  log.info(
+    `Sending labels to Cardea for process ${pid}`,
+    process.notification.webhook ?? ''
+  );
+
+  if (process.notification.webhook) {
+    await notifyWebhook(process.notification.webhook, notif);
+  }
+}
 
 export async function notifyStepStarted(process: ProcessClass) {
   const notif = {
@@ -171,12 +218,22 @@ type StepStartedNotification = BaseProcNotification & {
   details: any;
   messageType: 'OK_STEP_STARTED';
 };
+export type LabelsFetchedNotification = BaseProcNotification & {
+  details: {
+    labels: Array<{
+      url: string;
+      triples: LiteralTripleDocument[]
+    }>;
+  };
+  messageType: 'OK_LABELS_FETCHED';
+};
 
 type ProcessNotification = {
   ok: boolean;
   data:
-    | StepStartedNotification
-    | StepFinishedNotification
-    | ProcStartNotification
-    | ProcCreatedNotification;
+  | StepStartedNotification
+  | StepFinishedNotification
+  | ProcStartNotification
+  | ProcCreatedNotification
+  | LabelsFetchedNotification;
 };

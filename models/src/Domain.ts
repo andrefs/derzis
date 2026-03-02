@@ -1,8 +1,8 @@
 import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
-import type { PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
+import type { DomainLabelFetchJobInfo, PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
 import { Counter } from './Counter';
-import { TraversalPath, HEAD_TYPE, UrlHead } from './Path';
+import { HEAD_TYPE, UrlHead } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type UpdateOneModel, Types } from 'mongoose';
@@ -12,11 +12,11 @@ import {
   getModelForClass,
   type ReturnModelType,
   PropType,
-  post,
-  DocumentType
+  type DocumentType
 } from '@typegoose/typegoose';
 import type { DomainCrawlJobInfo } from '@derzis/common';
 import config from '@derzis/config';
+import { ResourceLabel } from './ResourceLabel';
 const log = createLogger('Domain');
 
 type DomainErrorType =
@@ -88,15 +88,6 @@ class CrawlClass {
   public nextAllowed!: Date;
 }
 
-@post<DomainClass>('findOneAndUpdate', async function (doc) {
-  if (doc) {
-    // TODO what about EndpointPaths?
-    await TraversalPath.updateMany(
-      { 'head.domain.origin': doc.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
-      { $set: { 'head.domain.status': doc.status } }
-    );
-  }
-})
 @index({ delay: 1 })
 @index({ nextAllowed: 1 })
 @index({
@@ -117,11 +108,11 @@ class DomainClass {
   public origin!: string;
 
   @prop({
-    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling'],
+    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling', 'labelFetching'],
     default: 'unvisited',
     type: String
   })
-  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling';
+  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling' | 'labelFetching';
 
   @prop({ type: Boolean })
   public error?: boolean;
@@ -267,16 +258,36 @@ class DomainClass {
     };
     await this.findOneAndUpdate(query, update, options);
     const domains = await this.find({ jobId }).lean();
-    if (domains.length) {
-      await TraversalPath.updateMany(
-        {
-          'head.domain.origin': { $in: domains.map((d) => d.origin) },
-          status: 'active',
-          'head.type': HEAD_TYPE.URL
-        },
-        { $set: { 'head.domain.status': 'checking' } }
-      );
+    return domains;
+  }
+
+  public static async lockForLabelFetch(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    origins: string[]
+  ): Promise<DomainClass[]> {
+    const jobId = await Counter.genId('jobs');
+    if (origins.length === 0) {
+      return [];
     }
+    const query = {
+      origin: origins.length === 1 ? origins[0] : { $in: origins },
+      status: 'ready',
+      'crawl.nextAllowed': { $lte: Date.now() }
+    };
+    const update = {
+      $set: {
+        status: 'labelFetching',
+        jobId,
+        workerId: wId
+      }
+    };
+    const options = {
+      new: true,
+      fields: 'origin jobId'
+    };
+    await this.findOneAndUpdate(query, update, options);
+    const domains = await this.find({ jobId }).lean();
     return domains;
   }
 
@@ -310,18 +321,7 @@ class DomainClass {
       fields: 'origin jobId'
     };
     await this.findOneAndUpdate(query, update, options);
-    const domains = this.find({ jobId }).lean();
-    if (domains.length) {
-      await TraversalPath.updateMany(
-        {
-          'head.domain.origin': { $in: domains.map((d: DomainClass) => d.origin) },
-          status: 'active',
-          'head.type': HEAD_TYPE.URL
-        },
-        { $set: { 'head.domain.status': 'crawling' } }
-      );
-    }
-
+    const domains = await this.find({ jobId }).lean();
     return domains;
   }
 
@@ -362,7 +362,7 @@ class DomainClass {
 
         const origins = new Set<string>(paths
           .filter((p) => p.head.type === HEAD_TYPE.URL)
-          .map((p) => (p.head as UrlHead).domain.origin));
+          .map((p) => (p.head as UrlHead).domain));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
 
         // these paths returned no available domains, skip them
@@ -407,6 +407,22 @@ class DomainClass {
   }
 
   /**
+   * Updates the domain's crawl ongoing count
+   * @param domain - The domain to update
+   * @param resources - The resources being crawled
+   * @param jobId - The job ID of the crawl
+   * @returns {Promise<void>}
+   */
+  static async markLabelFetching(
+    this: ReturnModelType<typeof DomainClass>,
+    domain: string,
+    resources: { url: string }[],
+    jobId: number
+  ): Promise<void> {
+    await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
+  }
+
+  /**
    * Marks resources and paths as crawling and updates the domain's ongoing count
    * @param domain - The domain to mark as crawling
    * @param resources - The resources to mark as crawling
@@ -423,15 +439,113 @@ class DomainClass {
       { url: { $in: resources.map((r) => r.url) } },
       { status: 'crawling', jobId }
     ).lean();
-    await TraversalPath.updateMany(
-      {
-        'head.url': { $in: resources.map((r) => r.url) },
-        status: 'active',
-        'head.type': HEAD_TYPE.URL
-      },
-      { $set: { 'head.status': 'crawling' } }
-    ).lean();
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
+  }
+
+  /**
+   * Generator function to get domains with resources to fetch labels for
+   * @param wId - The worker ID
+   * @param domLimit - The maximum number of domains to fetch labels for
+   * @param resLimit - The maximum number of resources per domain to fetch labels for
+   * @returns {AsyncGenerator<DomainLabelFetchJobInfo>}
+   */
+  public static async *labelsToFetch(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    domLimit: number,
+    resLimit: number
+  ): AsyncGenerator<DomainLabelFetchJobInfo> {
+    log.info(
+      `Starting label fetch locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
+    );
+
+    let domainsFound = 0;
+    let lastSeenCreatedAt: Date | null = null;
+    const labelsByDomain: { [domain: string]: string[] } = {};
+    const BATCH_SIZE = 100;
+
+    let hasMore = true;
+    while (hasMore) {
+      // 1.1 Query BATCH_SIZE ResourceLabels
+      const query: any = { status: 'new' };
+      if (lastSeenCreatedAt) {
+        query.createdAt = { $gt: lastSeenCreatedAt };
+      }
+      const rls = await ResourceLabel.find(query)
+        .sort({ createdAt: 1 })
+        .limit(BATCH_SIZE)
+        .select('url domain createdAt')
+        .lean();
+
+      if (!rls.length) {
+        hasMore = false;
+      } else {
+        lastSeenCreatedAt = rls[rls.length - 1].createdAt ?? null;
+
+        // 1.2 Split them by domain
+        for (const rl of rls) {
+          if (!labelsByDomain[rl.domain]) {
+            labelsByDomain[rl.domain] = [];
+          }
+          if (labelsByDomain[rl.domain].length < resLimit) {
+            labelsByDomain[rl.domain].push(rl.url);
+          }
+        }
+
+        // 1.3 Try to lock domains which already have enough urls (>= resLimit)
+        const domainsReady = Object.entries(labelsByDomain)
+          .filter(([_, urls]) => urls.length >= resLimit)
+          .map(([d, _]) => d);
+        const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
+
+        // 1.4 Ignore (drop) domains not locked
+        for (const d of domainsReady) {
+          if (!dsLocked.find((dl) => dl.origin === d)) {
+            delete labelsByDomain[d];
+          }
+        }
+
+        // 1.5 For each locked domain, yield it + its urls limited to resLimit
+        for (const d of dsLocked) {
+          await this.markLabelFetching(
+            d.origin,
+            labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url })),
+            d.jobId);
+          yield {
+            domain: d,
+            resources: labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }))
+          };
+          domainsFound++;
+          delete labelsByDomain[d.origin];
+        }
+
+        // 1.6 If domLimit number of domains have been yielded, return
+        if (domainsFound >= domLimit) {
+          return;
+        }
+
+        // Check if we should continue (did we get a full batch?)
+        if (rls.length < BATCH_SIZE) {
+          hasMore = false;
+        }
+      }
+    }
+
+    // 1.7 If there are no more ResourceLabels to query, yield whatever domains are left that can be locked
+    const domainsReady = Object.entries(labelsByDomain)
+      .filter(([_, urls]) => urls.length >= resLimit)
+      .map(([d, _]) => d)
+      .slice(0, domLimit - domainsFound);
+    const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
+
+    for (const d of dsLocked) {
+      yield {
+        domain: d,
+        resources: labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }))
+      };
+      domainsFound++;
+      delete labelsByDomain[d.origin];
+    }
   }
 
   /**
@@ -525,7 +639,7 @@ class DomainClass {
           `Preparing to lock for crawl domains from the following resources`,
           Array.from(new Set(unvisHeads.map((h) => h.url)))
         );
-        const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
+        const origins = new Set<string>(unvisHeads.map((h) => h.domain));
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
 
         // these paths returned no available domains, skip them
@@ -565,8 +679,8 @@ class DomainClass {
           domainInfo[d.origin] = { domain: d, resources: [] };
         }
         for (const h of unvisHeads) {
-          if (h.domain.origin in domainInfo) {
-            domainInfo[h.domain.origin].resources!.push({ url: h.url });
+          if (h.domain in domainInfo) {
+            domainInfo[h.domain].resources!.push({ url: h.url });
           }
         }
 

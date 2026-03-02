@@ -15,11 +15,36 @@ export enum PathType {
   ENDPOINT = 'endpoint'
 }
 
-
-export type CrawlResourceResultDetails = {
-  crawlId: { domainTs: Date; counter: number };
-  ts: number;
+export type LiteralObject = {
+  value: string;
+  datatype?: string;
+  language?: string;
 };
+
+
+export interface BaseSimpleTriple {
+  subject: string;
+  predicate: string;
+  type: TripleType;
+}
+export type SimpleLiteralTriple = BaseSimpleTriple & {
+  object: LiteralObject;
+  type: TripleType.LITERAL;
+};
+export type SimpleNamedNodeTriple = BaseSimpleTriple & {
+  object: string;
+  type: TripleType.NAMED_NODE;
+};
+export type SimpleTriple = SimpleLiteralTriple | SimpleNamedNodeTriple;
+
+export type RecursivePartial<T> = {
+  [P in keyof T]?: T[P] extends (infer U)[]
+  ? RecursivePartial<U>[]
+  : T[P] extends object | undefined
+  ? RecursivePartial<T[P]>
+  : T[P];
+};
+
 
 export type RobotsCheckResultError = {
   err: WorkerError;
@@ -35,7 +60,7 @@ export type RobotsCheckResultError = {
 
 export type RobotsCheckResult = RobotsCheckResultOk | RobotsCheckResultError;
 
-export type JobResult = CrawlResourceResult | RobotsCheckResult | CrawlDomainResult;
+export type JobResult = CrawlResourceResult | RobotsCheckResult | CrawlDomainResult | FetchLabelsDomainResult | FetchLabelsResourceResult;
 
 export type BaseRobotsCheckResult = {
   jobType: 'robotsCheck';
@@ -58,7 +83,7 @@ export interface BaseJobResult {
   jobId: number;
 }
 
-export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl';
+export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl' | 'domainLabelFetch' | 'resourceLabelFetch';
 export interface JobResultError extends BaseJobResult {
   status: 'not_ok';
   err: object;
@@ -70,11 +95,13 @@ export interface JobResultOk extends BaseJobResult {
   details: object;
 }
 
+/**
+ * Crawl domain
+ */
 export type CrawlDomainResultDetails = {
   crawledResources?: string[];
   nonCrawledResources?: string[];
 };
-
 export type BaseCrawlDomainResult = {
   jobType: 'domainCrawl';
   details: CrawlDomainResultDetails;
@@ -83,49 +110,64 @@ export type BaseCrawlDomainResultOk = BaseCrawlDomainResult & JobResultOk;
 export type BaseCrawlDomainResultError = BaseCrawlDomainResult & JobResultError;
 export type CrawlDomainResult = BaseCrawlDomainResultOk | BaseCrawlDomainResultError;
 
+/**
+ * Fetch domain labels
+ */
+export type FetchLabelsDomainResultDetails = {
+  labeledResources?: string[];
+  nonLabeledResources?: string[];
+};
+export type BaseFetchLabelsDomainResult = {
+  jobType: 'domainLabelFetch';
+  details: FetchLabelsDomainResultDetails;
+} & BaseJobResult;
+export type BaseFetchLabelsDomainResultOk = BaseFetchLabelsDomainResult & JobResultOk;
+export type BaseFetchLabelsDomainResultError = BaseFetchLabelsDomainResult & JobResultError;
+export type FetchLabelsDomainResult = BaseFetchLabelsDomainResultOk | BaseFetchLabelsDomainResultError;
+
+/**
+ * Crawl resource
+ */
+export type CrawlResourceResultDetails = {
+  crawlId: { domainTs: Date; counter: number };
+  ts: number;
+};
 export type BaseCrawlResourceResult = {
   jobType: 'resourceCrawl';
   url: string;
   details: CrawlResourceResultDetails;
 } & BaseJobResult;
 
-export type LiteralObject = {
-  value: string;
-  datatype?: string;
-  language?: string;
-};
-
-export interface BaseSimpleTriple {
-  subject: string;
-  predicate: string;
-  type: TripleType;
-}
-export type SimpleLiteralTriple = BaseSimpleTriple & {
-  object: LiteralObject;
-  type: TripleType.LITERAL;
-};
-export type SimpleNamedNodeTriple = BaseSimpleTriple & {
-  object: string;
-  type: TripleType.NAMED_NODE;
-};
-export type SimpleTriple = SimpleLiteralTriple | SimpleNamedNodeTriple;
-
 export type CrawlResourceResultOk = {
   details: { triples: SimpleTriple[] };
-} & BaseCrawlResourceResult &
-  JobResultOk;
+} & BaseCrawlResourceResult & JobResultOk;
 
 export type CrawlResourceResultError = {
   err: WorkerError;
-} & BaseCrawlResourceResult &
-  JobResultError;
+} & BaseCrawlResourceResult & JobResultError;
 
 export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
 
-export type RecursivePartial<T> = {
-  [P in keyof T]?: T[P] extends (infer U)[]
-  ? RecursivePartial<U>[]
-  : T[P] extends object | undefined
-  ? RecursivePartial<T[P]>
-  : T[P];
+
+/**
+ * Fetch resource labels
+ */
+export type FetchLabelsResourceResultDetails = {
+  labelFetchId: { domainTs: Date; counter: number };
+  ts: number;
 };
+export type BaseFetchLabelsResourceResult = {
+  jobType: 'resourceLabelFetch';
+  url: string;
+  details: FetchLabelsResourceResultDetails;
+} & BaseJobResult;
+
+export type FetchLabelsResourceResultOk = {
+  details: { triples: SimpleTriple[] };
+} & BaseFetchLabelsResourceResult & JobResultOk;
+
+export type FetchLabelsResourceResultError = {
+  err: WorkerError;
+} & BaseFetchLabelsResourceResult & JobResultError;
+
+export type FetchLabelsResourceResult = FetchLabelsResourceResultOk | FetchLabelsResourceResultError;

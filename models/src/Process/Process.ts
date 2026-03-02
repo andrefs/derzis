@@ -1,5 +1,5 @@
-import { Types, Document, QueryFilter, QueryWithHelpers, UpdateWriteOpResult, UpdateQuery } from 'mongoose';
-import { Resource, ResourceClass, ResourceDocument } from '../Resource';
+import { type Types, Document, type QueryFilter, type QueryWithHelpers, type UpdateWriteOpResult, type UpdateQuery } from 'mongoose';
+import { Resource, ResourceClass, type ResourceDocument } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
   TraversalPath,
@@ -11,7 +11,7 @@ import {
   type EndpointPathDocument,
   HEAD_TYPE,
   UrlHead,
-  PathDocument,
+  type PathDocument,
   hasUrlHead
 } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
@@ -26,7 +26,7 @@ import {
   PropType,
   type DocumentType
 } from '@typegoose/typegoose';
-import { Domain, DomainDocument } from '../Domain';
+import { Domain, type DomainDocument } from '../Domain';
 import {
   getPathsForRobotsChecking,
   getPathsForDomainCrawl,
@@ -54,7 +54,7 @@ import {
   curPredsDirMetrics
 } from './process-data';
 import { BranchFactorClass, SeedPosRatioClass, NotificationClass, StepClass } from './aux-classes';
-import { SimpleTriple, type PathType } from '@derzis/common';
+import { type SimpleTriple, type PathType } from '@derzis/common';
 import config from '@derzis/config';
 
 @index({ status: 1 })
@@ -475,11 +475,11 @@ class ProcessClass extends Document {
           ? await TraversalPath.find({ processId: this.pid, status: 'active', 'head.type': HEAD_TYPE.URL, ...cursorCondition } as QueryFilter<TraversalPathClass>)
             .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
-            .select('head.url head.domain.origin createdAt _id')
+            .select('head.url head.domain createdAt _id')
           : await EndpointPath.find({ processId: this.pid, status: 'active', 'head.type': HEAD_TYPE.URL, ...cursorCondition } as QueryFilter<EndpointPathClass>)
             .sort({ createdAt: 1, _id: 1 })
             .limit(batchSize)
-            .select('head.url head.domain.origin createdAt _id')
+            .select('head.url head.domain createdAt _id')
 
       if (paths.length === 0) {
         hasMore = false;
@@ -492,7 +492,7 @@ class ProcessClass extends Document {
 
       const pathHeads = paths.map(p => p.head).filter((h): h is UrlHead => h.type === HEAD_TYPE.URL);
       const headUrls = new Set(pathHeads.map(h => h.url));
-      const origins = new Set(pathHeads.map(h => h.domain.origin));
+      const origins = new Set(pathHeads.map(h => h.domain));
 
       const pathQuery = {
         processId: this.pid,
@@ -502,7 +502,7 @@ class ProcessClass extends Document {
         'head.url': { $in: Array.from(headUrls) }
       };
       const pathUpdate = {
-        $set: { 'head.status': 'unvisited', 'head.domain.status': 'ready' }
+        $set: { 'head.status': 'unvisited' }
       } as UpdateQuery<PathClass>;
       const [resourceRes, domainRes, pathRes] = await Promise.all([
         Resource.updateMany(

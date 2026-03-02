@@ -1,11 +1,11 @@
-import { Types, QueryFilter } from 'mongoose';
+import { Types, type QueryFilter } from 'mongoose';
 import { PathType, urlListValidator, urlValidator, type TypedTripleId, type LiteralObject } from '@derzis/common';
-import { prop, PropType, Severity, modelOptions, getModelForClass, DocumentType, index } from '@typegoose/typegoose';
+import { prop, PropType, Severity, modelOptions, getModelForClass, type DocumentType, index } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
-import { NamedNodeTripleDocument, LiteralTripleDocument, type TripleDocument } from '../Triple';
+import { type NamedNodeTripleDocument, type LiteralTripleDocument, type TripleDocument } from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
 
@@ -16,11 +16,11 @@ export const HEAD_TYPE = {
 
 class DomainClass {
   @prop({
-    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling'],
+    enum: ['unvisited', 'checking', 'error', 'ready', 'crawling', 'labelFetching'],
     default: 'unvisited',
     type: String
   })
-  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling';
+  public status!: 'unvisited' | 'checking' | 'error' | 'ready' | 'crawling' | 'labelFetching';
 
   @prop({ required: true, validate: urlValidator, type: String })
   public origin!: string;
@@ -58,8 +58,8 @@ export class UrlHead extends HeadBase {
   })
   public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
-  @prop({ type: DomainClass })
-  public domain: DomainClass;
+  @prop({ required: true, type: String })
+  public domain!: string;
 }
 
 export class LiteralHead extends HeadBase implements LiteralObject {
@@ -71,9 +71,6 @@ export class LiteralHead extends HeadBase implements LiteralObject {
 
   @prop({ type: String })
   public language?: string;
-
-  @prop({ type: String, default: HEAD_TYPE.LITERAL })
-  public type!: typeof HEAD_TYPE.LITERAL;
 }
 
 export type Head = UrlHead | LiteralHead;
@@ -94,8 +91,6 @@ export { DomainClass, ResourceCount, SeedClass };
   }
 })
 @index({ processId: 1, status: 1 })
-@index({ type: 1 })
-@index({ status: 1 })
 @index({ createdAt: 1 })
 export class PathClass extends TimeStamps {
   @prop({ type: Types.ObjectId, auto: true })

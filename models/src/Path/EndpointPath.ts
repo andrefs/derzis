@@ -1,5 +1,5 @@
 import { Types, type QueryFilter } from 'mongoose';
-import { prop, index, getDiscriminatorModelForClass, DocumentType } from '@typegoose/typegoose';
+import { prop, index, getDiscriminatorModelForClass, type DocumentType } from '@typegoose/typegoose';
 import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { ProcessClass } from '../Process';
 import { PathClass, Path, hasLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
@@ -34,7 +34,7 @@ export type EndpointPathSkeleton = Pick<
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
-@index({ type: 1, 'head.domain.status': 1, status: 1 })
+@index({ type: 1, 'head.domain': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Boolean, default: false })
@@ -45,10 +45,6 @@ export class EndpointPathClass extends PathClass {
 
   @prop({ required: true, type: Object, default: {} })
   public seedPaths!: { [seedUrl: string]: number };
-
-
-  @prop({ enum: PathType, required: true, type: String })
-  public type!: PathType.ENDPOINT;
 
   public shouldCreateNewPath(this: EndpointPathClass, t: NamedNodeTripleClass | LiteralTripleDocument, urlHead: UrlHead): boolean {
     if (t.type === TripleType.LITERAL) {
@@ -150,7 +146,7 @@ export class EndpointPathClass extends PathClass {
           type: HEAD_TYPE.URL,
           url: newHeadUrl,
           status: 'unvisited',
-          domain: { origin: '', status: 'unvisited' }
+          domain: ''
         } as Head;
         ep.shortestPath = shortestPath;
         ep.seedPaths = seedPaths;

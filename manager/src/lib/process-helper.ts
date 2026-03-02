@@ -1,5 +1,5 @@
-import { StepClass, Process, ProcessClass, Resource, NamedNodeTriple, TraversalPath, LiteralTriple, LiteralTripleClass, NamedNodeTripleClass } from '@derzis/models';
-import { type RecursivePartial } from '@derzis/common';
+import { StepClass, Process, ProcessClass, Resource, NamedNodeTriple, TraversalPath, LiteralTriple, LiteralTripleClass, NamedNodeTripleClass, type ProcessDocument } from '@derzis/models';
+import { type RecursivePartial, TripleType } from '@derzis/common';
 import { sendInitEmail } from '@derzis/common/server';
 import { secondsToString, type MakeOptional } from './utils';
 import { createLogger } from '@derzis/common/server';
@@ -9,7 +9,7 @@ const log = createLogger('process-helper');
  * Create a new process and queue it for execution.
  * @param p Process parameters
  */
-export async function newProcess(p: RecursivePartial<ProcessClass>) {
+export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<ProcessDocument> {
   const pathHeads: Map<string, number> = new Map();
   for (const s of p.currentStep!.seeds!) {
     const domain = new URL(s).origin;
@@ -21,7 +21,17 @@ export async function newProcess(p: RecursivePartial<ProcessClass>) {
 
   p.pathHeads = Object.fromEntries(pathHeads.entries());
 
-  const proc = await Process.create(p);
+  // Build the process creation object with required fields
+  // Use type assertion to satisfy Process.create requirements
+  const processData = {
+    steps: p.steps!,
+    currentStep: p.currentStep!,
+    notification: p.notification!,
+    pathHeads: p.pathHeads,
+    pathType: p.pathType ?? 'traversal'
+  } as Parameters<typeof Process.create>[0];
+
+  const proc = await Process.create(processData);
   await proc.notifyProcessCreated();
 
   await Process.startNext();
@@ -95,15 +105,15 @@ export async function info(pid: string) {
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
   const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
   const lastTriple = [lastLT, lastNNT].reduce((latest, t) => {
-    if (!t) return latest;
-    return !latest || t.updatedAt > latest.updatedAt ? t : latest;
+    if (!t || !t.updatedAt) return latest;
+    return !latest || !latest.updatedAt || t.updatedAt > latest.updatedAt ? t : latest;
   }, null as (LiteralTripleClass | NamedNodeTripleClass | null));
 
   const lastPath = await TraversalPath.findOne({ status: 'active' }).sort({ updatedAt: -1 });
   const last = Math.max(
-    lastResource?.updatedAt.getTime() || 0,
-    lastTriple?.updatedAt.getTime() || 0,
-    lastPath?.updatedAt.getTime() || 0
+    lastResource?.updatedAt?.getTime() || 0,
+    lastTriple?.updatedAt?.getTime() || 0,
+    lastPath?.updatedAt?.getTime() || 0
   );
 
   const timeToLastResource = lastResource

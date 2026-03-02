@@ -22,7 +22,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     path.head = { 
       url: overrides.headUrl ?? 'http://example.com/head',
       status: 'unvisited',
-      domain: { origin: 'http://example.com', status: 'ready' },
+      domain: 'http://example.com',
       type: 'url'
     } as Head;
     path.predicates = { count: 0, elems: [] };
@@ -40,7 +40,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     path.head = { 
       url: headUrl,
       status: 'unvisited',
-      domain: { origin: 'http://example.com', status: 'ready' },
+      domain: 'http://example.com',
       type: 'url'
     } as Head;
     path.predicates = { count: 0, elems: [] };
@@ -542,7 +542,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
     path.head = { 
       url: overrides.headUrl ?? 'http://example.com/head',
       status: 'unvisited',
-      domain: { origin: 'http://example.com', status: 'ready' },
+      domain: 'http://example.com',
       type: 'url'
     } as Head;
     path.predicates = { count: 0, elems: [] };
@@ -656,7 +656,7 @@ describe('TraversalPathClass.tripleIsOutOfBounds', () => {
     path.head = { 
       url: 'http://example.com/head',
       status: 'unvisited',
-      domain: { origin: 'http://example.com', status: 'ready' },
+      domain: 'http://example.com',
       type: 'url'
     } as Head;
     path.predicates = {

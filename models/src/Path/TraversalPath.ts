@@ -1,10 +1,10 @@
-import { Types, QueryFilter } from 'mongoose';
-import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
+import { Types, type QueryFilter } from 'mongoose';
+import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, type DocumentType } from '@typegoose/typegoose';
+import { NamedNodeTripleClass, type NamedNodeTripleDocument, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
-import { PathClass, Path, ResourceCount, hasLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
-import { PathType, TripleType, type TypedTripleId, type LiteralObject } from '@derzis/common';
+import { PathClass, Path, ResourceCount, hasLiteralHead, HEAD_TYPE, UrlHead, type Head } from './Path';
+import { PathType, TripleType, type TypedTripleId, } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
@@ -40,16 +40,11 @@ type RecursivePartial<T> = {
     const origin = new URL(urlHead.url).origin;
     const d = await Domain.findOne({ origin });
     if (d) {
-      urlHead.domain = {
-        origin: d.origin,
-        status: d.status
-      };
+      urlHead.domain = d.origin;
     }
   }
 })
 
-// Primary query efficiency
-@index({ "processId": 1, "status": 1 })
 // For keyset pagination (cursor-based pagination)
 @index({ createdAt: 1, _id: 1 })
 // For the predicates count/elems filtering
@@ -77,11 +72,9 @@ type RecursivePartial<T> = {
   "predicates.count": 1
 })
 @index({ 'head.status': 1, status: 1 })
-@index({ 'head.domain.status': 1, status: 1 })
-@index({ type: 1, 'head.domain.origin': 1, status: 1 })
+@index({ type: 1, 'head.domain': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({ processId: 1, status: 1, extensionCounter: 1 })
-@index({ type: 1, processId: 1, status: 1, 'head.domain.status': 1 })
 @modelOptions({
   schemaOptions: {
     timestamps: true,
@@ -99,9 +92,6 @@ export class TraversalPathClass extends PathClass {
 
   @prop({ required: true, ref: 'NamedNodeTriple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
   public triples!: Types.ObjectId[];
-
-  @prop({ enum: PathType, required: true, type: String })
-  public type!: PathType.TRAVERSAL;
 
   public copy(this: TraversalPathClass): TraversalPathSkeleton {
     const copy: TraversalPathSkeleton = {

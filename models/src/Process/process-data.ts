@@ -1,12 +1,62 @@
 import { ProcessClass } from './Process';
 import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
-import { ProcessTriple, ProcessTripleClass } from '../ProcessTriple';
+import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath, EndpointPath } from '../Path';
-import { LiteralTriple, LiteralTripleClass, NamedNodeTriple, NamedNodeTripleClass, TripleClass, Triple } from '../Triple';
+import { LiteralTriple, LiteralTripleClass, type LiteralTripleDocument, NamedNodeTriple, NamedNodeTripleClass, Triple } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
-import { SimpleTriple, TripleType, type PathType } from '@derzis/common';
+import { type SimpleTriple, TripleType, type PathType } from '@derzis/common';
 import config from '@derzis/config';
+import { ResourceLabel } from '../ResourceLabel';
+
+const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
+
+
+export async function getLabelDataForProcess(pid: string) {
+  const labels = await ResourceLabel
+    .find({
+      pid,
+      status: 'done',
+      source: 'cardea',
+      extend: false
+    })
+    .select('url -_id')
+    .lean();
+
+  if (!labels.length) {
+    return [];
+  }
+
+  const triples: LiteralTripleDocument[] = await LiteralTriple
+    .find({
+      subject: { $in: labels.map(l => l.url) },
+      predicate: {
+        $in: [RDFS_LABEL, RDFS_COMMENT]
+      }
+    });
+
+  const triplesBySubj: { [url: string]: LiteralTripleDocument[] } = {};
+  for (const triple of triples) {
+    if (!triplesBySubj[triple.subject]) {
+      triplesBySubj[triple.subject] = [];
+    }
+    triplesBySubj[triple.subject].push(triple);
+  }
+
+  const res: { url: string, triples: LiteralTripleDocument[] }[] = [];
+  for (const url of labels.map(l => l.url)) {
+    if (triplesBySubj[url]) {
+      res.push({
+        url,
+        triples: triplesBySubj[url]
+      });
+    }
+  }
+
+  return res;
+}
+
 
 export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleTriple> {
   const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();

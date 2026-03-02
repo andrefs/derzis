@@ -3,7 +3,8 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { ResourceCache, db, LiteralObject } from '@derzis/models';
+import { ResourceCache, db, type WorkerTriple, type WorkerLiteralTriple } from '@derzis/models';
+import type { LiteralObject } from '@derzis/common';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
 import Axios from './axios';
@@ -28,7 +29,7 @@ const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import { v4 as uuidv4 } from 'uuid';
-import type { DomainCrawlJobRequest } from '@derzis/common';
+import type { DomainCrawlJobRequest, DomainLabelFetchJobRequest, FetchLabelsResourceResult } from '@derzis/common';
 import type { JobCapacity, OngoingJobs, SimpleTriple } from '@derzis/common';
 import {
   type AxiosResponseHeaders,
@@ -46,6 +47,10 @@ export interface Availability {
 interface JobsTimedOut {
   [domain: string]: boolean;
 }
+
+
+const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
 
 export class Worker extends EventEmitter {
   /**
@@ -118,22 +123,24 @@ export class Worker extends EventEmitter {
     log = createLogger(this.wShortId);
     axios = Axios(log);
     this.jobCapacity = config.jobs;
-    this.currentJobs = { domainCrawl: {}, robotsCheck: {} };
+    this.currentJobs = { domainCrawl: {}, robotsCheck: {}, domainLabelFetch: {} };
     this.accept = acceptedMimeTypes
       .map((m, i) => `${m}; q=${Math.round(100 / (i + 2)) / 100}`)
       .join(', ');
     this.jobsTimedout = {};
   }
 
-  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl'>) {
+  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl' | 'resourceLabelFetch'>): boolean {
     return !!this.currentJobs[jobType][domain];
   }
 
   currentCapacity(): JobCapacity {
     const domCrawlCap = this.jobCapacity.domainCrawl.capacity;
     const robCheckCap = this.jobCapacity.robotsCheck.capacity;
+    const domLFCheckCap = this.jobCapacity.domainLabelFetch.capacity;
     const curDomCrawl = Object.keys(this.currentJobs.domainCrawl).length;
     const curRobCheck = Object.keys(this.currentJobs.robotsCheck).length;
+    const curDomLFCheck = Object.keys(this.currentJobs.domainLabelFetch).length;
     const av = {
       domainCrawl: {
         capacity: domCrawlCap - curDomCrawl,
@@ -141,6 +148,10 @@ export class Worker extends EventEmitter {
       },
       robotsCheck: {
         capacity: robCheckCap - curRobCheck
+      },
+      domainLabelFetch: {
+        capacity: domLFCheckCap - curDomLFCheck,
+        resourcesPerDomain: this.jobCapacity.domainLabelFetch.resourcesPerDomain
       }
     };
     return av;
@@ -153,7 +164,7 @@ export class Worker extends EventEmitter {
     };
   }
 
-  hasCapacity(jobType: 'domainCrawl' | 'robotsCheck'): boolean {
+  hasCapacity(jobType: 'domainCrawl' | 'robotsCheck' | 'domainLabelFetch'): boolean {
     return Object.keys(this.currentJobs[jobType]).length < this.jobCapacity[jobType].capacity;
   }
 
@@ -202,6 +213,39 @@ export class Worker extends EventEmitter {
     } catch (err) {
       log.error('Error in crawlDomain:', err);
       delete this.currentJobs.domainCrawl[domain.origin];
+    }
+  }
+
+  /**
+   * Get labels for the resources of a domain, yielding results for each resource label fetch.
+   * USes robots.txt to check if fetching is allowed and to respect crawl delays.
+   */
+  async *fetchDomainLabels({ jobId, domain, resources }: DomainLabelFetchJobRequest) {
+    this.crawlTs = new Date();
+    this.crawlCounter = 0;
+    this.currentJobs.domainLabelFetch[domain.origin] = true;
+    const robotsText = domain?.robots?.text || '';
+    const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
+
+    this.emit('httpDebug', {
+      type: 'delay',
+      domain: domain.origin,
+      delay: domain.crawl.delay
+    });
+    delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
+
+    try {
+      for (const r of resources) {
+        const res = await this.fetchResourceLabels(jobId, domain.origin, r.url, robots);
+        if (!res) {
+          break;
+        }
+        yield res;
+      }
+      delete this.currentJobs.domainLabelFetch[domain.origin];
+    } catch (err) {
+      log.error('Error in fetchDomainLabels:', err);
+      delete this.currentJobs.domainLabelFetch[domain.origin];
     }
   }
 
@@ -288,6 +332,101 @@ export class Worker extends EventEmitter {
   }
 
   /**
+   * Fetch labels for a single resource, checking robots.txt permissions and using cached triples if available.
+   * Returns structured results including labels, comments, and errors if any.
+   */
+  async fetchResourceLabels(
+    jobId: number,
+    origin: string,
+    url: string,
+    robots: Robot
+  ): Promise<FetchLabelsResourceResult> {
+    const jobInfo = {
+      jobType: 'resourceLabelFetch' as const,
+      jobId,
+      origin: origin,
+      url
+    };
+    const labelFetchId = { domainTs: this.crawlTs, counter: this.crawlCounter };
+    if (this.jobsTimedout[origin]) {
+      delete this.jobsTimedout[origin];
+      delete this.currentJobs.domainLabelFetch[origin];
+      log.warn(`Stopping domain ${origin} because Manager removed job #${jobId})`);
+      return {
+        ...jobInfo,
+        status: 'not_ok' as const,
+        details: { labelFetchId, ts: Date.now() },
+        err: new JobTimeoutError()
+      };
+    }
+    this.crawlCounter++;
+    this.currentJobs.domainLabelFetch[origin] = true;
+    let jobResult: FetchLabelsResourceResult;
+
+    if (robots.isDisallowed(url, config.http.userAgent)) {
+      return {
+        ...jobInfo,
+        status: 'not_ok' as const,
+        details: { labelFetchId, ts: Date.now() },
+        err: new RobotsForbiddenError()
+      };
+    }
+
+    const cachedRes = await this.getResourceFromCache(url);
+    if (cachedRes) {
+      return {
+        ...jobInfo,
+        status: 'ok',
+        details: {
+          labelFetchId,
+          triples: this.getLabelTriples(cachedRes.triples || [])
+        }
+      } as FetchLabelsResourceResult;
+    }
+
+    const res = await this.fetchResource(url);
+
+    if (res.status === 'ok') {
+      jobResult = {
+        ...jobInfo,
+        status: 'ok',
+        details: {
+          labelFetchId,
+          triples: this.getLabelTriples(res.triples || []),
+          ts: res.ts
+        }
+      }
+    } else {
+      jobResult = {
+        ...jobInfo,
+        status: 'not_ok' as const,
+        details: { labelFetchId, ts: Date.now() },
+        err: res.err
+      };
+    }
+    return jobResult as FetchLabelsResourceResult;
+  }
+
+  /**
+   * Returns literal triples with rdfs:label or rdfs:comment predicates that have language 'en'.
+   * Returns them as SimpleTriple format for compatibility with the result type.
+   */
+  getLabelTriples(triples: WorkerTriple[]): SimpleTriple[] {
+    return triples
+      .filter((t): t is WorkerLiteralTriple => {
+        if (t.predicate !== RDFS_LABEL && t.predicate !== RDFS_COMMENT) return false;
+        const lit = t as WorkerLiteralTriple;
+        return lit.object.language === 'en';
+      })
+      .map((t): SimpleTriple => ({
+        subject: t.subject,
+        predicate: t.predicate,
+        type: TripleType.LITERAL,
+        object: t.object
+      }));
+  }
+
+  /**
    * Fetches a resource over HTTP, parses RDF content, filters and structures triples, and caches results.
    * Handles HTTP errors, redirects, and RDF parsing issues gracefully, logging relevant information.
    */
@@ -333,7 +472,7 @@ export class Worker extends EventEmitter {
         .flatMap(
           (t) => {
             if (t.object.termType === 'NamedNode') {
-              const st: SimpleTriple = {
+              const st: WorkerTriple = {
                 subject: t.subject.value,
                 predicate: t.predicate.value,
                 object: t.object.value,
@@ -341,7 +480,7 @@ export class Worker extends EventEmitter {
               };
               return st;
             } else if (t.object.termType === 'Literal') {
-              const st: SimpleTriple = {
+              const st: WorkerLiteralTriple = {
                 subject: t.subject.value,
                 predicate: t.predicate.value,
                 object: {

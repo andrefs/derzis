@@ -1,11 +1,18 @@
 import { type JobResult, type JobType } from '.';
 
+
 export interface DomainCrawlJobInfo {
   domain: Record<string, any>;
   resources: { url: string }[];
 }
 
+export interface DomainLabelFetchJobInfo {
+  domain: Record<string, any>;
+  resources: { url: string }[];
+}
+
 export interface JobCapacity {
+  domainLabelFetch: { capacity: number; resourcesPerDomain: number };
   domainCrawl: { capacity: number; resourcesPerDomain: number };
   robotsCheck: { capacity: number };
 }
@@ -17,17 +24,20 @@ export interface OngoingJobs {
   robotsCheck: {
     [domain: string]: boolean;
   };
+  domainLabelFetch: {
+    [domain: string]: boolean;
+  };
 }
 
 export interface BaseJobRequest {
   type: JobType;
   jobId: number;
 }
-export interface RobotsCheckJobRequest extends BaseJobRequest {
+export type RobotsCheckJobRequest = BaseJobRequest & {
   type: 'robotsCheck';
   origin: string;
 }
-export interface ResourceCrawlJobRequest extends BaseJobRequest {
+export type ResourceCrawlJobRequest = BaseJobRequest & {
   type: 'resourceCrawl';
   origin: string;
   url: string;
@@ -36,7 +46,16 @@ export type DomainCrawlJobRequest = BaseJobRequest &
   DomainCrawlJobInfo & {
     type: 'domainCrawl';
   };
-export type JobRequest = RobotsCheckJobRequest | ResourceCrawlJobRequest | DomainCrawlJobRequest;
+export type DomainLabelFetchJobRequest = BaseJobRequest &
+  DomainLabelFetchJobInfo & {
+    type: 'domainLabelFetch';
+  };
+export type ResourceLabelFetchJobRequest = BaseJobRequest & {
+  type: 'resourceLabelFetch';
+  url: string;
+  domain: string;
+};
+export type JobRequest = RobotsCheckJobRequest | ResourceCrawlJobRequest | DomainCrawlJobRequest | DomainLabelFetchJobRequest | ResourceLabelFetchJobRequest;
 
 export type MessageType =
   | 'askCurCap'
@@ -73,7 +92,7 @@ export interface AskJobsMessage extends BaseMessage {
 }
 export interface DoJobMessage extends BaseMessage {
   type: 'doJob';
-  payload: Exclude<JobRequest, ResourceCrawlJobRequest>;
+  payload: Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>;
 }
 export interface JobDoneMessage extends BaseMessage {
   type: 'jobDone';
@@ -91,7 +110,7 @@ export interface AlreadyBeingDoneMessage extends BaseMessage {
   type: 'alreadyBeingDone';
   payload: {
     origin: string;
-    jobType: Exclude<JobType, 'resourceCrawl'>;
+    jobType: Exclude<JobType, 'resourceCrawl' | 'resourceLabelFetch'>;
     jobId: number;
   };
 }

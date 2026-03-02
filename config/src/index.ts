@@ -64,6 +64,10 @@ export default {
     },
     robotsCheck: {
       capacity: 10
+    },
+    domainLabelFetch: {
+      capacity: 1,
+      resourcesPerDomain: 20
     }
   },
   http: {
@@ -77,6 +81,13 @@ export default {
     },
     domainCrawl: {
       timeouts: 35 * 1000,
+      maxRedirects: 5
+    },
+    resourceLabelFetch: {
+      timeouts: 15 * 1000
+    },
+    domainLabelFetch: {
+      timeouts: 15 * 1000,
       maxRedirects: 5
     },
     userAgent: `FCUP-INESCTEC/Derzis +http://github.com/andrefs/derzis DerzisBot/${version}`,

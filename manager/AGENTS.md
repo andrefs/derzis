@@ -48,6 +48,7 @@ Derzis Manager is a web application for managing Linked Data crawling processes.
 - **Target**: ES modules with modern JavaScript features
 - **Module resolution**: Node.js style with path mapping
 - **Source maps**: Enabled for debugging
+- **Follow each project's linting/formatting rules** - Run `npm run lint` or check project config to ensure code follows project conventions
 
 ### Import Organization
 

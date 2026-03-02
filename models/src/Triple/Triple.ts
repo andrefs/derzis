@@ -11,9 +11,10 @@ import { urlValidator, type SimpleTriple, directionOk, TripleType } from '@derzi
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import type { ResourceClass } from '../Resource';
-import { DocumentType } from '@typegoose/typegoose/lib/types';
+import { type DocumentType } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
+import { type WorkerTriple } from '../ResourceCache';
 
 const log = createLogger('Triple');
 
@@ -37,9 +38,7 @@ export class LiteralObject {
 })
 @index({ type: 1, nodes: 1, createdAt: 1 })
 @index({ nodes: 1, createdAt: 1 })
-@index({ sources: 1 })
 @index({ updatedAt: -1 })
-@index({ type: 1 })
 export class TripleClass extends TimeStamps {
   @prop({ required: true, validate: urlValidator, type: String, index: true })
   public subject!: string;
@@ -258,7 +257,7 @@ export function isNamedNode(triple: TripleClass | TripleDocument): triple is Nam
   return triple.type === TripleType.NAMED_NODE;
 }
 
-export function isLiteral(triple: TripleClass | TripleDocument): triple is LiteralTripleClass | LiteralTripleDocument {
+export function isLiteral(triple: TripleClass | TripleDocument | WorkerTriple): triple is LiteralTripleClass | LiteralTripleDocument {
   return triple.type === TripleType.LITERAL;
 }
 

@@ -2,25 +2,27 @@ import robotsParser from 'robots-parser';
 import config from '@derzis/config';
 import {
   Domain,
-  NamedNodeTriple,
-  LiteralTriple,
   TraversalPath,
   Resource,
   Process,
   ResourceClass,
   EndpointPath,
   Triple,
-  HEAD_TYPE
+  ResourceLabel,
+  ProcessTriple,
 } from '@derzis/models';
+import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
 import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
 import type {
+  FetchLabelsResourceResult,
   JobCapacity,
   JobRequest,
   PathType,
   ResourceCrawlJobRequest,
+  ResourceLabelFetchJobRequest,
   SimpleTriple
 } from '@derzis/common';
 
@@ -33,6 +35,10 @@ export default class Manager {
     this.finished = 0;
   }
 
+  /**
+   * Update the database with the results of a completed job, and deregister the job
+   * @param jobResult Result of the completed job to process
+   */
   async updateJobResults(jobResult: JobResult) {
     log.debug('updateJobResults', {
       finished: this.finished,
@@ -99,16 +105,58 @@ export default class Manager {
               }
             }
           );
-          await TraversalPath.updateMany(
-            { 'head.domain.origin': jobResult.origin, status: 'active', 'head.type': HEAD_TYPE.URL },
+
+          if (res.acknowledged && res.modifiedCount) {
+            this.jobs.deregisterJob(jobResult.origin);
+            log.debug(`Done saving domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}`);
+          }
+        }
+      }
+    }
+    if (jobResult.jobType === 'resourceLabelFetch') {
+      log.info(
+        `Saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
+      );
+      if (this.jobs.postponeTimeout(jobResult.origin)) {
+        this.jobs.addToBeingSaved(jobResult.origin, jobResult.jobType);
+        try {
+          await this.saveLabelFetch(jobResult);
+          await Domain.findOneAndUpdate(
+            { origin: jobResult.origin },
+            { $inc: { 'crawl.ongoing': -1 } }
+          );
+        } catch (e) {
+          log.error(
+            `Error saving resource label fetch (job #${jobResult.jobId}) for ${jobResult.url}`,
+            e
+          );
+          log.info(JSON.stringify(jobResult, null, 2));
+          // Reset statuses to prevent stuck state
+        } finally {
+          this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
+          log.debug(
+            `Done saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
+          );
+          const res = await Domain.updateOne(
             {
-              $set: { 'head.domain.status': 'ready' }
+              origin: jobResult.origin,
+              jobId: jobResult.jobId,
+              'crawl.ongoing': 0
+            },
+            {
+              $set: { status: 'ready' },
+              $unset: {
+                workerId: '',
+                jobId: ''
+              }
             }
           );
 
           if (res.acknowledged && res.modifiedCount) {
             this.jobs.deregisterJob(jobResult.origin);
-            log.debug(`Done saving domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}`);
+            log.debug(
+              `Done saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
+            );
           }
         }
       }
@@ -119,8 +167,116 @@ export default class Manager {
         jobResult.details
       );
     }
+    if (jobResult.jobType === 'domainLabelFetch') {
+      log.warn(
+        `Received completion of domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}:`,
+        jobResult.details
+      );
+      // Reset domain status from 'labelFetching' to 'ready'
+      const res = await Domain.updateOne(
+        {
+          origin: jobResult.origin,
+          jobId: jobResult.jobId
+        },
+        {
+          $set: { status: 'ready' },
+          $unset: {
+            workerId: '',
+            jobId: ''
+          }
+        }
+      );
+
+      if (res.acknowledged && res.modifiedCount) {
+        this.jobs.deregisterJob(jobResult.origin);
+        log.debug(`Done saving domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}`);
+      }
+    }
   }
 
+  /**
+   * Save results of a resource label fetch job to the database, including new labels and any errors
+   * @param jobResult Result of the resource label fetch job to save
+   */
+  async saveLabelFetch(jobResult: FetchLabelsResourceResult) {
+    if (jobResult.status === 'not_ok') {
+      // Update ResourceLabel status to error
+      await ResourceLabel.findOneAndUpdate(
+        { url: jobResult.url },
+        { status: 'error' }
+      );
+      return;
+    }
+
+    const { triples } = jobResult.details;
+
+    // Get the ResourceLabel to check the extend flag
+    const resourceLabel = await ResourceLabel.findOne({ url: jobResult.url });
+    const extend = resourceLabel?.extend ?? false;
+
+    // Update ResourceLabel status to done
+    const rl = await ResourceLabel.findOneAndUpdate(
+      { url: jobResult.url },
+      { status: 'done' },
+      { new: true }
+    );
+
+    if (!rl) {
+      log.error(`ResourceLabel not found for url ${jobResult.url} when saving label fetch results`);
+      return;
+    }
+    if (!triples.length) {
+      return;
+    }
+
+    // Get the source Resource
+    const source = (await Resource.findOne({
+      url: jobResult.url
+    })) as ResourceClass;
+
+    // Store triples in Triple collection
+    log.info('Calling Triple.upsertMany with', triples.length, 'label triples');
+    const tripleResult = await Triple.upsertMany(source, triples);
+    log.info('Triple.upsertMany result:', tripleResult);
+
+    if (extend) {
+      // Extend paths with this resource as head (normal flow)
+      await this.updateAllPathsWithHead(jobResult.url);
+    } else {
+      // Get the saved triples to link to ProcessTriple
+      const savedIds = tripleResult.flatMap(r => r.upsertedIds ? Object.values(r.upsertedIds) : []);
+      const savedTriples = await Triple
+        .find({ _id: { $in: savedIds } })
+        .select('_id type')
+        .lean();
+
+      const procTripleInputs = savedTriples.map(t => ({
+        processId: rl.pid,
+        triple: t._id,
+        tripleType: t.type,
+        processStep: -1 // label fetch triples are not associated with a specific step, so we can use a placeholder value
+      }));
+      await ProcessTriple.upsertMany(procTripleInputs);
+    }
+
+    // Check if all cardea labels with extend=false are done for this process
+    if (rl.source === 'cardea' && rl.extend === false) {
+      const remaining = await ResourceLabel.countDocuments({
+        pid: rl.pid,
+        status: 'new',
+        source: 'cardea',
+        extend: false
+      });
+      if (remaining === 0) {
+        await notifyLabelsFetched(rl.pid);
+      }
+    }
+  }
+
+  /**
+   * Save results of a resource crawl job to the database, including new triples and any errors
+   * @param jobResult Result of the resource crawl job to save
+   */
   async saveCrawl2(jobResult: CrawlResourceResult) {
     if (jobResult.status === 'not_ok') {
       return await Resource.markAsCrawled(jobResult.url, jobResult.details, jobResult.err);
@@ -231,10 +387,10 @@ export default class Manager {
     return;
   }
 
-  async *assignJobs(
+  async * assignJobs(
     workerId: string,
     workerAvail: JobCapacity
-  ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest>> {
+  ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>> {
     if (this.jobs.beingSaved.count() > 0) {
       log.warn(
         `Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
@@ -248,6 +404,40 @@ export default class Manager {
     }
     let assignedCheck = 0;
     let assignedCrawl = 0;
+    let assignedLabelFetch = 0;
+
+
+    // domainLabelFetch jobs
+    if (workerAvail.domainLabelFetch) {
+      if (!workerAvail.domainLabelFetch.capacity) {
+        log.warn(`Worker ${workerId} has no capacity for domainLabelFetch jobs`);
+      } else {
+        log.debug(`Getting ${workerAvail.domainLabelFetch.capacity} domainLabelFetch jobs for ${workerId}`);
+        let gotRes = false;
+
+        for await (const labelJob of Domain.labelsToFetch(
+          workerId,
+          workerAvail.domainLabelFetch.capacity,
+          workerAvail.domainLabelFetch.resourcesPerDomain
+        )) {
+          gotRes = true;
+          if (labelJob?.resources?.length &&
+            (await this.jobs.registerJob(labelJob.domain.jobId, labelJob.domain.origin, 'domainLabelFetch'))) {
+            assignedLabelFetch++;
+            yield {
+              type: 'domainLabelFetch',
+              jobId: labelJob.domain.jobId,
+              ...labelJob
+            }
+          } else {
+            log.info(`No resources with labels to fetch for worker ${workerId}`);
+          }
+        }
+        if (!gotRes) {
+          log.info(`No domains with labels to fetch for worker ${workerId}`);
+        }
+      }
+    }
 
     // domainCrawl jobs
     if (workerAvail.domainCrawl) {
