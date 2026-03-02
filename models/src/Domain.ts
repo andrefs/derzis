@@ -398,11 +398,18 @@ class DomainClass {
     await this.updateMany(query, update);
   }
 
+  /**
+   * Generator function to get domains that need robots.txt checking
+   * Iterates over processes and their paths to find domains to check, locking them in the process
+   * @param wId - The worker ID
+   * @param limit - The maximum number of domains to yield
+   * @returns {AsyncGenerator<DomainClass>}
+   */
   public static async *domainsToCheck(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     limit: number
-  ) {
+  ): AsyncGenerator<DomainClass> {
     let domainsFound = 0;
     let procSkip = 0;
     let pathLimit = 20;

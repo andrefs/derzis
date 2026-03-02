@@ -61,7 +61,7 @@ export async function getPathsForRobotsChecking(
   lastSeenCreatedAt: Date | null = null,
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
-) {
+): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
   const lockedFilter = await getLockedDomainFilter();
   const baseQuery = {
     processId: process.pid,
@@ -78,6 +78,7 @@ export async function getPathsForRobotsChecking(
     : {};
 
   if (pathType === PathType.TRAVERSAL) {
+    // get paths that have head domains that are not locked and have not exceeded path limits for the current step (nodes.count and predicates.count)
     const paths = await TraversalPath
       .find({
         ...baseQuery,
@@ -92,6 +93,7 @@ export async function getPathsForRobotsChecking(
       .select(select);
     return paths;
   } else {
+    // get paths that have head domains that are not locked and have not exceeded path limits for the current step (shortestPath.length)
     const paths = await EndpointPath.find({
       ...baseQuery,
       ...cursorCondition,
@@ -125,6 +127,12 @@ export async function getPathsForDomainCrawl(
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
+  const baseQuery = {
+    'head.type': HEAD_TYPE.URL,
+    'head.status': 'unvisited',
+    processId: process.pid,
+    status: 'active',
+  };
   // Get locked domains and combine with domainBlacklist
   const domainFilter = await getLockedDomainFilter(domainBlacklist)
   const select = 'head.status head.type head.domain head.url createdAt _id';
@@ -136,33 +144,30 @@ export async function getPathsForDomainCrawl(
       _id: { $gt: lastSeenId }
     }
     : {};
+  const sort = { createdAt: 1, _id: 1 } as const;
 
   if (pathType === PathType.TRAVERSAL) {
     const traversalQuery = genTraversalPathQuery(process);
 
     const paths = await TraversalPath.find({
+      ...baseQuery,
       ...traversalQuery,
       ...cursorCondition,
       ...domainFilter,
-      'head.type': HEAD_TYPE.URL,
-      'head.status': 'unvisited'
     })
-      .sort({ createdAt: 1, _id: 1 })
+      .sort(sort)
       .limit(limit)
       .select(select);
     return paths;
   } else {
     const paths = await EndpointPath.find({
+      ...baseQuery,
+      'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       ...cursorCondition,
       ...domainFilter,
-      processId: process.pid,
-      status: 'active',
-      'head.type': HEAD_TYPE.URL,
-      'head.status': 'unvisited',
-      'shortestPath.length': { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
-      .sort({ createdAt: 1, _id: 1 })
+      .sort(sort)
       .limit(limit)
       .select(select);
     return paths;
