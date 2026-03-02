@@ -314,6 +314,28 @@ class DomainClass {
   }
 
   /**
+   * Unlocks domains that were locked for label fetching but not processed
+   * @param wId - The worker ID
+   * @param origins - The origins to unlock
+   * @returns {Promise<void>}
+   */
+  public static async unlockFromLabelFetch(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    origins: string[]
+  ): Promise<void> {
+    const query = {
+      origin: { $in: origins },
+      status: 'labelFetching',
+      workerId: wId
+    };
+    const update = {
+      $set: { status: 'ready' },
+      $unset: { jobId: '', workerId: '' }
+    };
+    await this.updateMany(query, update);
+  }
+  /**
    * Locks domains for crawling
    * Also updates the status of associated path head origins to 'crawling'
    * @param wId - The worker ID
@@ -562,6 +584,12 @@ class DomainClass {
           }
         }
 
+        const remainingCapacity = domLimit - domainsFound;
+        if (dsLocked.length > remainingCapacity) {
+          const domainsToUnlock = dsLocked.slice(remainingCapacity).map(d => d.origin);
+          await this.unlockFromLabelFetch(wId, domainsToUnlock);
+          dsLocked.splice(remainingCapacity);
+        }
         // For each locked domain, yield it + its urls limited to resLimit
         for (const d of dsLocked) {
           const resources = labelsByDomain[d.origin]
