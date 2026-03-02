@@ -2,17 +2,25 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getPathProgress } from './process-data';
 import { TraversalPath } from '../Path/TraversalPath';
+import { EndpointPath } from '../Path/EndpointPath';
 import type { ProcessClass } from './Process';
 
-vi.mock('../Path/TraversalPath', () => ({
-  TraversalPath: {
-    aggregate: vi.fn(),
-    countDocuments: vi.fn(),
+// Mock config
+vi.mock('@derzis/config', () => ({
+  default: {
+    manager: {
+      pathType: 'traversal',
+      predicates: {
+        branchingFactor: {
+          neutralZone: { min: 0.5, max: 2 }
+        }
+      },
+    },
   },
 }));
 
-vi.mock('../Path/EndpointPath', () => ({
-  EndpointPath: {
+vi.mock('../Path/TraversalPath', () => ({
+  TraversalPath: {
     aggregate: vi.fn(),
     countDocuments: vi.fn(),
   },
