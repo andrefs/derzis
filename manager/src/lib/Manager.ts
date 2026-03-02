@@ -409,36 +409,34 @@ export default class Manager {
     workerAvail: JobCapacity,
     assigned: AssignedJobs
   ): AsyncIterable<DomainLabelFetchJobRequest> {
+    if (!workerAvail?.domainLabelFetch?.capacity) {
+      log.warn(`Worker ${workerId} has no capacity for domainLabelFetch jobs`);
+      return;
+    }
 
-    if (workerAvail.domainLabelFetch) {
-      if (!workerAvail.domainLabelFetch.capacity) {
-        log.warn(`Worker ${workerId} has no capacity for domainLabelFetch jobs`);
+    log.debug(`Getting ${workerAvail.domainLabelFetch.capacity} domainLabelFetch jobs for ${workerId}`);
+    let gotRes = false;
+
+    for await (const labelJob of Domain.labelsToFetch(
+      workerId,
+      workerAvail.domainLabelFetch.capacity,
+      workerAvail.domainLabelFetch.resourcesPerDomain
+    )) {
+      gotRes = true;
+      if (labelJob?.resources?.length &&
+        (await this.jobs.registerJob(labelJob.domain.jobId, labelJob.domain.origin, 'domainLabelFetch'))) {
+        assigned.labelFetch++;
+        yield {
+          type: 'domainLabelFetch',
+          jobId: labelJob.domain.jobId,
+          ...labelJob
+        }
       } else {
-        log.debug(`Getting ${workerAvail.domainLabelFetch.capacity} domainLabelFetch jobs for ${workerId}`);
-        let gotRes = false;
-
-        for await (const labelJob of Domain.labelsToFetch(
-          workerId,
-          workerAvail.domainLabelFetch.capacity,
-          workerAvail.domainLabelFetch.resourcesPerDomain
-        )) {
-          gotRes = true;
-          if (labelJob?.resources?.length &&
-            (await this.jobs.registerJob(labelJob.domain.jobId, labelJob.domain.origin, 'domainLabelFetch'))) {
-            assigned.labelFetch++;
-            yield {
-              type: 'domainLabelFetch',
-              jobId: labelJob.domain.jobId,
-              ...labelJob
-            }
-          } else {
-            log.info(`No resources with labels to fetch for worker ${workerId}`);
-          }
-        }
-        if (!gotRes) {
-          log.info(`No domains with labels to fetch for worker ${workerId}`);
-        }
+        log.info(`No resources with labels to fetch for worker ${workerId}`);
       }
+    }
+    if (!gotRes) {
+      log.info(`No domains with labels to fetch for worker ${workerId}`);
     }
   }
 
@@ -451,36 +449,35 @@ export default class Manager {
    * @returns An async iterable of domain crawl job requests to assign to the worker
    */
   async * assignDomainCrawl(workerId: string, workerAvail: JobCapacity, assigned: AssignedJobs): AsyncIterable<DomainCrawlJobRequest> {
-    if (workerAvail.domainCrawl) {
-      if (!workerAvail.domainCrawl.capacity) {
-        log.warn(`Worker ${workerId} has no capacity for domainCrawl jobs`);
+    if (!workerAvail?.domainCrawl?.capacity) {
+      log.warn(`Worker ${workerId} has no capacity for domainCrawl jobs`);
+      return;
+    }
+
+    log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
+    let gotRes = false;
+    for await (const crawl of Domain.domainsToCrawl2(
+      workerId,
+      workerAvail.domainCrawl.capacity,
+      workerAvail.domainCrawl.resourcesPerDomain
+    )) {
+      gotRes = true;
+      if (
+        crawl?.resources?.length &&
+        (await this.jobs.registerJob(crawl.domain.jobId, crawl.domain.origin, 'domainCrawl'))
+      ) {
+        assigned.crawl++;
+        yield {
+          type: 'domainCrawl',
+          jobId: crawl.domain.jobId,
+          ...crawl
+        };
       } else {
-        log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
-        let gotRes = false;
-        for await (const crawl of Domain.domainsToCrawl2(
-          workerId,
-          workerAvail.domainCrawl.capacity,
-          workerAvail.domainCrawl.resourcesPerDomain
-        )) {
-          gotRes = true;
-          if (
-            crawl?.resources?.length &&
-            (await this.jobs.registerJob(crawl.domain.jobId, crawl.domain.origin, 'domainCrawl'))
-          ) {
-            assigned.crawl++;
-            yield {
-              type: 'domainCrawl',
-              jobId: crawl.domain.jobId,
-              ...crawl
-            };
-          } else {
-            log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
-          }
-        }
-        if (!gotRes) {
-          log.info(`No domains to crawl for worker ${workerId}`);
-        }
+        log.info(`No resources to crawl from domain ${crawl.domain.origin}`);
       }
+    }
+    if (!gotRes) {
+      log.info(`No domains to crawl for worker ${workerId}`);
     }
   }
 
@@ -493,35 +490,34 @@ export default class Manager {
    * @returns An async iterable of robots check job requests to assign to the worker
    */
   async * assignRobotsCheck(workerId: string, workerAvail: JobCapacity, assigned: AssignedJobs): AsyncIterable<RobotsCheckJobRequest> {
-    if (!assigned.crawl && workerAvail.robotsCheck) {
-      if (!workerAvail.robotsCheck.capacity) {
-        log.warn(`Worker ${workerId} has no capacity for robotsCheck jobs`);
-      } else {
-        log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
-        let gotRes = false;
-        for await (const check of Domain.domainsToCheck(
+    if (!workerAvail?.robotsCheck?.capacity) {
+      log.warn(`Worker ${workerId} has no capacity for robotsCheck jobs`);
+      return;
+    }
+
+    log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
+    let gotRes = false;
+    for await (const check of Domain.domainsToCheck(
+      workerId,
+      workerAvail.robotsCheck.capacity
+    )) {
+      gotRes = true;
+      if (await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')) {
+        log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning robotsCheck', {
           workerId,
-          workerAvail.robotsCheck.capacity
-        )) {
-          gotRes = true;
-          if (await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')) {
-            log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning robotsCheck', {
-              workerId,
-              workerAvail,
-              check
-            });
-            assigned.check++;
-            yield {
-              type: 'robotsCheck',
-              jobId: check.jobId,
-              origin: check.origin
-            };
-          }
-        }
-        if (!gotRes) {
-          log.info(`No domains to check for worker ${workerId}`);
-        }
+          workerAvail,
+          check
+        });
+        assigned.check++;
+        yield {
+          type: 'robotsCheck',
+          jobId: check.jobId,
+          origin: check.origin
+        };
       }
+    }
+    if (!gotRes) {
+      log.info(`No domains to check for worker ${workerId}`);
     }
   }
 
