@@ -32,6 +32,22 @@ export async function GET({ params }: RequestEvent) {
   }
 }
 
+/**
+ * Receives a list of resource URLs to label for a given process. The request body should be in the format:
+ * {
+ *   "ok": true,
+ *   "data": {
+ *     "resources": ["http://example.com/resource1", "http://example.com/resource2"],
+ *     "source": "cardea",
+ *     "extend": false
+ *   }
+ * }
+ *
+ * The `source` field indicates where the labels are coming from (e.g., 'cardea' or 'web').
+ * The `extend` field indicates whether to crawl the resources (and subsequent path expansion) or just dereference to find label triples.
+ *
+ * The endpoint will upsert the provided resources as labels for the specified process.
+ */
 export async function POST({ params, request }: RequestEvent) {
   const { pid } = params;
 
@@ -49,8 +65,6 @@ export async function POST({ params, request }: RequestEvent) {
   if (!body.ok) {
     throw error(424, body.err ?? 'Unknown error');
   }
-  console.log('XXXXXXXXXXx', body.data);
-
   const { resources, source, extend } = body.data;
 
   if (!Array.isArray(resources) || resources.length === 0) {
