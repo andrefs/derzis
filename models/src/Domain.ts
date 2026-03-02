@@ -325,6 +325,35 @@ class DomainClass {
     return domains;
   }
 
+
+  /**
+   * Unlocks domains that were locked for crawling but not processed
+   * @param wId - The worker ID
+   * @param origins - The origins to unlock
+   * @returns {Promise<void>}
+   */
+  public static async unlockFromCrawl(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    origins: string[]
+  ): Promise<void> {
+    const query = {
+      origin: { $in: origins },
+      status: 'crawling',
+      workerId: wId
+    };
+    const update = {
+      $set: {
+        status: 'ready'
+      },
+      $unset: {
+        jobId: '',
+        workerId: ''
+      }
+    };
+    await this.updateMany(query, update);
+  }
+
   public static async *domainsToCheck(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
@@ -579,8 +608,10 @@ class DomainClass {
         continue PROCESS_LOOP;
       }
 
+      // for pagination of paths within the process
       let lastSeenCreatedAt: Date | null = null;
       let lastSeenId: Types.ObjectId | null = null;
+
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
         log.info(
@@ -630,6 +661,7 @@ class DomainClass {
           continue PATHS_LOOP;
         }
 
+        // lock domains for crawling based on unvisited path heads
         log.info(
           `Preparing to lock for crawl domains from the following resources`,
           Array.from(new Set(unvisHeads.map((h) => h.url)))
@@ -662,8 +694,10 @@ class DomainClass {
         if (domainsFound + domains.length > domLimit) {
           const allowed = domLimit - domainsFound;
           log.info(
-            `Domain limit reached, only processing ${allowed} out of ${domains.length} locked domains.`
+            `Domain limit reached, only processing ${allowed} out of ${domains.length} locked domains, unlocking the rest.`
           );
+          const domainsToUnlock = domains.slice(allowed).map((d) => d.origin);
+          await this.unlockFromCrawl(wId, domainsToUnlock);
           domains.splice(allowed);
         }
 

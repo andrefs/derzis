@@ -124,7 +124,7 @@ export async function getPathsForDomainCrawl(
   lastSeenCreatedAt: Date | null = null,
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
-) {
+): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
   // Get locked domains and combine with domainBlacklist
   const domainFilter = await getLockedDomainFilter(domainBlacklist)
   const select = 'head.status head.type head.domain head.url createdAt _id';
