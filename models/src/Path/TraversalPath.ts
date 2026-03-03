@@ -148,14 +148,14 @@ export class TraversalPathClass extends PathClass {
       return { extendedPaths: [], procTriples: [] };
     }
 
-    // If triples not provided, fetch them using the existing triples filter
-    if (!triples) {
+    let triplesToExtend = triples;
+    if (!triplesToExtend) {
       const triplesFilter = this.genExistingTriplesFilter(process);
       if (!triplesFilter) {
         return { extendedPaths: [], procTriples: [] };
       }
-      triples = await Triple.find(triplesFilter);
-      if (!triples.length) {
+      triplesToExtend = await Triple.find(triplesFilter);
+      if (!triplesToExtend.length) {
         return { extendedPaths: [], procTriples: [] };
       }
     }
@@ -167,7 +167,7 @@ export class TraversalPathClass extends PathClass {
     const followDirection = process!.currentStep.followDirection;
 
     // Named node triples
-    const namedNodeTriples = triples
+    const namedNodeTriples = triplesToExtend
       .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
       .filter(
         (t) =>
@@ -203,98 +203,7 @@ export class TraversalPathClass extends PathClass {
     }
 
     // Literal triples
-    const literalTriples = triples
-      .filter((t): t is LiteralTripleDocument => isLiteral(t))
-      .filter((t) => this.shouldCreateNewPath(t));
-
-    for (const t of literalTriples) {
-      log.silly('Extending path with LiteralTriple', t);
-      const prop = t.predicate;
-      const literalKey = `literal:${t.object.value}|${t.object.datatype || ''}|${t.object.language || ''}`;
-
-      extendedPaths[prop] = extendedPaths[prop] || {};
-      if (!extendedPaths[prop][literalKey]) {
-        const ep = this.copy();
-        ep.head = {
-          type: HEAD_TYPE.LITERAL,
-          value: t.object.value,
-          datatype: t.object.datatype,
-          language: t.object.language
-        } as Head;
-        ep.triples = [...this.triples, t._id];
-        ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
-        ep.status = 'active';
-
-        procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
-        log.silly('New path with literal head', ep);
-        extendedPaths[prop][literalKey] = ep;
-      }
-    }
-
-    const eps: TraversalPathSkeleton[] = [];
-    Object.values(extendedPaths).forEach((x) => Object.values(x).forEach((y) => eps.push(y)));
-
-    log.silly('Extended paths', eps);
-    return { extendedPaths: eps, procTriples };
-  }
-}
-
-    // If triples not provided, fetch them using the existing triples filter
-    if (!triples) {
-      const triplesFilter = this.genExistingTriplesFilter(process);
-      if (!triplesFilter) {
-        return { extendedPaths: [], procTriples: [] };
-      }
-      triples = await Triple.find(triplesFilter);
-      if (!triples.length) {
-        return { extendedPaths: [], procTriples: [] };
-      }
-    }
-
-    const urlHead = this.head as UrlHead;
-    let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
-    let procTriples: TypedTripleId[] = [];
-    const predsDirMetrics = process.curPredsDirMetrics();
-    const followDirection = process!.currentStep.followDirection;
-
-    // Named node triples
-    const namedNodeTriples = triples
-      .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
-      .filter(
-        (t) =>
-          this.shouldCreateNewPath(t) &&
-          process?.whiteBlackListsAllow(t) &&
-          t.directionOk(urlHead.url, followDirection, predsDirMetrics)
-      );
-
-    for (const t of namedNodeTriples) {
-      log.silly('Extending path with NamedNodeTriple', t);
-      const newHeadUrl: string = t.subject === urlHead.url ? t.object : t.subject;
-      const prop = t.predicate;
-
-      extendedPaths[prop] = extendedPaths[prop] || {};
-      if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
-        const ep = this.copy();
-        const domain = new URL(newHeadUrl).origin;
-        ep.head = {
-          type: HEAD_TYPE.URL,
-          url: newHeadUrl,
-          domain,
-          status: 'unvisited'
-        } as Head;
-        ep.triples = [...this.triples, t._id];
-        ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
-        ep.nodes.elems.push(newHeadUrl);
-        ep.status = 'active';
-
-        procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
-        log.silly('New path', ep);
-        extendedPaths[prop][newHeadUrl] = ep;
-      }
-    }
-
-    // Literal triples
-    const literalTriples = triples
+    const literalTriples = triplesToExtend
       .filter((t): t is LiteralTripleDocument => isLiteral(t))
       .filter((t) => this.shouldCreateNewPath(t));
 
