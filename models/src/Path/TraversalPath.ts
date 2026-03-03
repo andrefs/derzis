@@ -139,13 +139,116 @@ export class TraversalPathClass extends PathClass {
    * @param process The current process instance containing configuration for path extension.
    * @returns An object containing the extended paths and the corresponding triples to be processed.
    */
-  public async genExtended(
-    triples: TripleDocument[],
-    process: ProcessClass
+  public async extendWithExistingTriples(
+    process: ProcessClass,
+    triples?: TripleDocument[]
   ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {
     // If the head is a literal, we cannot extend further, so return empty results.
     if (this.head.type === HEAD_TYPE.LITERAL) {
       return { extendedPaths: [], procTriples: [] };
+    }
+
+    // If triples not provided, fetch them using the existing triples filter
+    if (!triples) {
+      const triplesFilter = this.genExistingTriplesFilter(process);
+      if (!triplesFilter) {
+        return { extendedPaths: [], procTriples: [] };
+      }
+      triples = await Triple.find(triplesFilter);
+      if (!triples.length) {
+        return { extendedPaths: [], procTriples: [] };
+      }
+    }
+
+    const urlHead = this.head as UrlHead;
+    let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
+    let procTriples: TypedTripleId[] = [];
+    const predsDirMetrics = process.curPredsDirMetrics();
+    const followDirection = process!.currentStep.followDirection;
+
+    // Named node triples
+    const namedNodeTriples = triples
+      .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
+      .filter(
+        (t) =>
+          this.shouldCreateNewPath(t) &&
+          process?.whiteBlackListsAllow(t) &&
+          t.directionOk(urlHead.url, followDirection, predsDirMetrics)
+      );
+
+    for (const t of namedNodeTriples) {
+      log.silly('Extending path with NamedNodeTriple', t);
+      const newHeadUrl: string = t.subject === urlHead.url ? t.object : t.subject;
+      const prop = t.predicate;
+
+      extendedPaths[prop] = extendedPaths[prop] || {};
+      if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
+        const ep = this.copy();
+        const domain = new URL(newHeadUrl).origin;
+        ep.head = {
+          type: HEAD_TYPE.URL,
+          url: newHeadUrl,
+          domain,
+          status: 'unvisited'
+        } as Head;
+        ep.triples = [...this.triples, t._id];
+        ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
+        ep.nodes.elems.push(newHeadUrl);
+        ep.status = 'active';
+
+        procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
+        log.silly('New path', ep);
+        extendedPaths[prop][newHeadUrl] = ep;
+      }
+    }
+
+    // Literal triples
+    const literalTriples = triples
+      .filter((t): t is LiteralTripleDocument => isLiteral(t))
+      .filter((t) => this.shouldCreateNewPath(t));
+
+    for (const t of literalTriples) {
+      log.silly('Extending path with LiteralTriple', t);
+      const prop = t.predicate;
+      const literalKey = `literal:${t.object.value}|${t.object.datatype || ''}|${t.object.language || ''}`;
+
+      extendedPaths[prop] = extendedPaths[prop] || {};
+      if (!extendedPaths[prop][literalKey]) {
+        const ep = this.copy();
+        ep.head = {
+          type: HEAD_TYPE.LITERAL,
+          value: t.object.value,
+          datatype: t.object.datatype,
+          language: t.object.language
+        } as Head;
+        ep.triples = [...this.triples, t._id];
+        ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
+        ep.status = 'active';
+
+        procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+        log.silly('New path with literal head', ep);
+        extendedPaths[prop][literalKey] = ep;
+      }
+    }
+
+    const eps: TraversalPathSkeleton[] = [];
+    Object.values(extendedPaths).forEach((x) => Object.values(x).forEach((y) => eps.push(y)));
+
+    log.silly('Extended paths', eps);
+    return { extendedPaths: eps, procTriples };
+  }
+}
+
+    // If triples not provided, fetch them using the existing triples filter
+    if (!triples) {
+      const triplesFilter = this.genExistingTriplesFilter(process);
+      if (!triplesFilter) {
+        return { extendedPaths: [], procTriples: [] };
+      }
+      triples = await Triple.find(triplesFilter);
+      if (!triples.length) {
+        return { extendedPaths: [], procTriples: [] };
+      }
     }
 
     const urlHead = this.head as UrlHead;
@@ -509,31 +612,6 @@ export class TraversalPathClass extends PathClass {
     }
   }
 
-  /**
-   * Extends the current path with existing triples from the database that match the generated filter based on the current process step's configuration.
-   * @param process The current process instance containing the current step's configuration.
-   * @returns An object containing the extended paths and the corresponding triples to be processed, or empty results if no extension is possible.
-   */
-  public async extendWithExistingTriples(
-    process: ProcessClass
-  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {
-    if (hasLiteralHead(this)) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-
-    const triplesFilter = this.genExistingTriplesFilter(process);
-    if (!triplesFilter) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-
-    const triples = await Triple.find(triplesFilter);
-
-    if (!triples.length) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-    log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
-    return this.genExtended(triples, process);
-  }
 }
 
 export const TraversalPath = getDiscriminatorModelForClass(

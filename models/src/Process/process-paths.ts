@@ -594,7 +594,7 @@ export async function extendProcessPaths(
 
       // extend each path with the new triples and gather new paths and proc-triple associations
       for (const path of paths) {
-        const res = await path.genExtended(triples as any, process);
+        const res = await path.extendWithExistingTriples(process, triples as any);
         log.silly('Extended paths:', res.extendedPaths);
         // make db operations immediately for each path to avoid keeping too many new paths in memory
         if (res.extendedPaths.length) {

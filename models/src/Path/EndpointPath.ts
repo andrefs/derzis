@@ -121,9 +121,9 @@ export class EndpointPathClass extends PathClass {
     return copy;
   }
 
-  public async genExtended(
-    triples: TripleDocument[],
-    process: ProcessClass
+  private async computeCandidates(
+    process: ProcessClass,
+    triples: TripleDocument[]
   ): Promise<{ candidates: Candidate[]; procTriples: TypedTripleId[] }> {
     if (this.head.type !== HEAD_TYPE.URL) {
       return { candidates: [], procTriples: [] };
@@ -216,24 +216,26 @@ export class EndpointPathClass extends PathClass {
   }
 
   public async extendWithExistingTriples(
-    process: ProcessClass
+    process: ProcessClass,
+    triples?: TripleDocument[]
   ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
     if (hasLiteralHead(this)) {
       return { extendedPaths: [], procTriples: [] };
     }
 
-    const triplesFilter = this.genExistingTriplesFilter(process);
-    if (!triplesFilter) {
-      return { extendedPaths: [], procTriples: [] };
+    // Fetch triples if not provided
+    if (!triples) {
+      const triplesFilter = this.genExistingTriplesFilter(process);
+      if (!triplesFilter) {
+        return { extendedPaths: [], procTriples: [] };
+      }
+      triples = await Triple.find(triplesFilter);
+      if (!triples.length) {
+        return { extendedPaths: [], procTriples: [] };
+      }
     }
 
-    const triples = await Triple.find(triplesFilter);
-
-    if (!triples.length) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-
-    const { candidates, procTriples } = await this.genExtended(triples, process);
+    const { candidates, procTriples } = await this.computeCandidates(process, triples);
     const extendedPaths: EndpointPathSkeleton[] = [];
 
     if (candidates.length === 0) {
@@ -266,7 +268,7 @@ export class EndpointPathClass extends PathClass {
     // Process URL candidates: update existing or create new
     for (const candidate of urlCandidates) {
       const { headUrl, distance, seedPaths } = candidate;
-      const existing = existingMap.get(headUrl);
+      const existing = existingMap.get(headUrl!);
 
       if (existing) {
         // Atomic $min updates
@@ -282,17 +284,17 @@ export class EndpointPathClass extends PathClass {
       } else {
         // Create new endpoint path
         const pathId = new Types.ObjectId();
-        const domain = new URL(headUrl).origin;
+        const domain = new URL(headUrl!).origin;
         const newPath: EndpointPathSkeleton = {
           _id: pathId,
           processId: this.processId,
           seed: this.seed,
           head: {
             type: HEAD_TYPE.URL,
-            url: headUrl,
+            url: headUrl!,
             status: 'unvisited',
             domain
-          },
+          } as Head,
           status: 'active',
           frontier: true,
           shortestPathLength: distance,
@@ -325,7 +327,7 @@ export class EndpointPathClass extends PathClass {
         _id: pathId,
         processId: this.processId,
         seed: this.seed,
-        head: literalHead,
+        head: literalHead! as Head,
         status: 'active',
         frontier: true,
         shortestPathLength: distance,
