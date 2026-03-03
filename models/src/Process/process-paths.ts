@@ -73,9 +73,9 @@ export async function getPathsForRobotsChecking(
   const cursorCondition =
     lastSeenCreatedAt && lastSeenId
       ? {
-        createdAt: { $gte: lastSeenCreatedAt },
-        _id: { $gt: lastSeenId }
-      }
+          createdAt: { $gte: lastSeenCreatedAt },
+          _id: { $gt: lastSeenId }
+        }
       : {};
 
   if (pathType === PathType.TRAVERSAL) {
@@ -99,7 +99,7 @@ export async function getPathsForRobotsChecking(
       ...cursorCondition,
       ...lockedFilter,
       'head.type': HEAD_TYPE.URL,
-      'shortestPathLength': { $lte: process.currentStep.maxPathLength },
+      shortestPathLength: { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
       .sort({ createdAt: 1, _id: 1 })
@@ -141,9 +141,9 @@ export async function getPathsForDomainCrawl(
   const cursorCondition =
     lastSeenCreatedAt && lastSeenId
       ? {
-        createdAt: { $gte: lastSeenCreatedAt },
-        _id: { $gt: lastSeenId }
-      }
+          createdAt: { $gte: lastSeenCreatedAt },
+          _id: { $gt: lastSeenId }
+        }
       : {};
   const sort = { createdAt: 1, _id: 1 } as const;
 
@@ -163,7 +163,7 @@ export async function getPathsForDomainCrawl(
   } else {
     const paths = await EndpointPath.find({
       ...baseQuery,
-      'shortestPathLength': { $lte: process.currentStep.maxPathLength },
+      shortestPathLength: { $lte: process.currentStep.maxPathLength },
       ...cursorCondition,
       ...domainFilter,
       frontier: true
@@ -223,12 +223,12 @@ export async function extendPathsWithExistingTriples(
     const res = await path.extendWithExistingTriples(proc);
 
     if (!res.extendedPaths.length) {
-     const length =
+      const length =
         path instanceof TraversalPath
           ? path.nodes.count
           : path instanceof EndpointPath
-              ? path.shortestPathLength
-              : 'N/A';
+            ? path.shortestPathLength
+            : 'N/A';
       const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
 
       const headVal =
@@ -527,27 +527,27 @@ export async function extendProcessPaths(
     const pathCursorCondition: QueryFilter<TraversalPathClass> =
       lastPathCreatedAt && lastPathId
         ? {
-          createdAt: { $gte: lastPathCreatedAt },
-          _id: { $gt: lastPathId }
-        }
+            createdAt: { $gte: lastPathCreatedAt },
+            _id: { $gt: lastPathId }
+          }
         : {};
 
     const paths =
       pathType === PathType.TRAVERSAL
         ? await TraversalPath.find({
-          ...pathQuery,
-          'head.type': HEAD_TYPE.URL,
-          ...pathCursorCondition
-        } as QueryFilter<TraversalPathClass>)
-          .sort({ createdAt: 1, _id: 1 })
-          .limit(batchSize)
+            ...pathQuery,
+            'head.type': HEAD_TYPE.URL,
+            ...pathCursorCondition
+          } as QueryFilter<TraversalPathClass>)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize)
         : await EndpointPath.find({
-          ...pathQuery,
-          'head.type': HEAD_TYPE.URL,
-          ...pathCursorCondition
-        } as QueryFilter<EndpointPathClass>)
-          .sort({ createdAt: 1, _id: 1 })
-          .limit(batchSize);
+            ...pathQuery,
+            'head.type': HEAD_TYPE.URL,
+            ...pathCursorCondition
+          } as QueryFilter<EndpointPathClass>)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize);
 
     log.info(`extendProcessPaths: Found ${paths.length} paths for headUrl: ${headUrl}`);
 
@@ -568,9 +568,9 @@ export async function extendProcessPaths(
       const tripleCursorCondition: QueryFilter<TraversalPathClass> =
         lastTripleCreatedAt && lastTripleId
           ? {
-            createdAt: { $gte: lastTripleCreatedAt },
-            _id: { $gt: lastTripleId }
-          }
+              createdAt: { $gte: lastTripleCreatedAt },
+              _id: { $gt: lastTripleId }
+            }
           : {};
 
       const triples = await Triple.find({

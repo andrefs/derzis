@@ -307,7 +307,10 @@ class ResourceClass {
         const insPaths = (await EndpointPath.create(paths as any)) as any;
         return this.addEpPaths(insPaths);
       } catch (error) {
-        log.error('Failed to create EndpointPath seed documents', { error, seedUrls: paths.map(p => p.seed.url) });
+        log.error('Failed to create EndpointPath seed documents', {
+          error,
+          seedUrls: paths.map((p) => p.seed.url)
+        });
         throw error;
       }
     }

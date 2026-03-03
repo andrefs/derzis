@@ -230,11 +230,11 @@ export class EndpointPathClass extends PathClass {
     }
 
     // Phase 2: Separate URL and literal candidates
-    const urlCandidates = candidates.filter(c => c.headUrl !== undefined);
-    const literalCandidates = candidates.filter(c => c.literalHead !== undefined);
+    const urlCandidates = candidates.filter((c) => c.headUrl !== undefined);
+    const literalCandidates = candidates.filter((c) => c.literalHead !== undefined);
 
     // Phase 3: Query existing endpoint paths for URL heads
-    const headUrls = urlCandidates.map(c => c.headUrl!);
+    const headUrls = urlCandidates.map((c) => c.headUrl!);
     const existingMap = new Map<string, EndpointPathDocument>();
 
     if (headUrls.length > 0) {
@@ -242,7 +242,9 @@ export class EndpointPathClass extends PathClass {
         processId: this.processId,
         status: 'active',
         'head.url': { $in: headUrls }
-      }).lean().exec();
+      })
+        .lean()
+        .exec();
 
       for (const ep of existing) {
         const head = ep.head as any;
@@ -261,14 +263,11 @@ export class EndpointPathClass extends PathClass {
       const existing = existingMap.get(headUrl!);
 
       if (existing) {
-        const updateOp: Record<string, any> = { 'shortestPathLength': distance };
+        const updateOp: Record<string, any> = { shortestPathLength: distance };
         for (const [seed, dist] of Object.entries(seedPaths)) {
           updateOp[`seedPaths.${seed}`] = dist;
         }
-        await EndpointPath.updateOne(
-          { _id: existing._id },
-          { $min: updateOp }
-        );
+        await EndpointPath.updateOne({ _id: existing._id }, { $min: updateOp });
         log.silly('Updated existing endpoint path', { _id: existing._id, updateOp });
       } else {
         const pathId = new Types.ObjectId();

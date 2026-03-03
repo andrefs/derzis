@@ -520,7 +520,6 @@ export class TraversalPathClass extends PathClass {
       return { ...baseFilter, ...predFilter } as any;
     }
   }
-
 }
 
 export const TraversalPath = getDiscriminatorModelForClass(

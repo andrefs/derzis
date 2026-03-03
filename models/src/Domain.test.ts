@@ -341,7 +341,9 @@ describe('domainsToCrawl2', () => {
       expect(remainingCapacity).toBe(1);
       expect(domains.length > remainingCapacity).toBe(true);
 
-      const domainsToUnlock = domains.slice(remainingCapacity).map((d: { origin: string }) => d.origin);
+      const domainsToUnlock = domains
+        .slice(remainingCapacity)
+        .map((d: { origin: string }) => d.origin);
       expect(domainsToUnlock).toEqual(['d2', 'd3', 'd4', 'd5']);
     });
 

@@ -19,10 +19,7 @@ import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath'
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
-import {
-  type NamedNodeTripleDocument,
-  type TripleDocument
-} from '../Triple';
+import { type NamedNodeTripleDocument, type TripleDocument } from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
 

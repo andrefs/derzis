@@ -337,16 +337,16 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   }).lean();
   const avgPathLength = totalPaths
     ? await TraversalPath.aggregate([
-      { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-      { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-    ]).then((res) => res[0]?.avgLength || 0)
+        { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
+        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+      ]).then((res) => res[0]?.avgLength || 0)
     : 0;
 
   const avgPathProps = totalPaths
     ? await TraversalPath.aggregate([
-      { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-      { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-    ]).then((res) => res[0]?.avgProps || 0)
+        { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
+        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+      ]).then((res) => res[0]?.avgProps || 0)
     : 0;
 
   const timeToLastResource = lastResource

@@ -17,7 +17,7 @@ function createMockPath(overlays: any = {}): any {
     domain: 'http://head.example.com'
   };
   path.frontier = false;
-  path.shortestPath = { length: 1, seed: 'http://seed.example.com' };
+  path.shortestPathLength = 1;
   path.seedPaths = {};
   path.status = 'active';
   path.createdAt = new Date();
@@ -57,7 +57,7 @@ describe('EndpointPathClass', () => {
           status: 'unvisited',
           domain: 'http://subject.example.com'
         },
-        shortestPath: { length: 2, seed: 'http://seed.example.com' }
+        shortestPathLength: 2
       });
       const triple: any = {
         type: 'named_node',
@@ -90,7 +90,7 @@ describe('EndpointPathClass', () => {
   describe('tripleIsOutOfBounds', () => {
     it('returns true when path length exceeds maxPathLength', () => {
       const path = createMockPath({
-        shortestPath: { length: 10, seed: 'http://seed.example.com' }
+        shortestPathLength: 10
       });
       const process = createMockProcess({
         currentStep: { maxPathLength: 5 }
@@ -166,7 +166,7 @@ describe('EndpointPathClass', () => {
     it('creates a copy of the path', () => {
       const original = createMockPath({
         frontier: true,
-        shortestPath: { length: 5, seed: 'http://seed.example.com' },
+        shortestPathLength: 5,
         seedPaths: { 'http://seed.example.com': 2 }
       });
 
@@ -175,7 +175,7 @@ describe('EndpointPathClass', () => {
       // copy returns a plain object (EndpointPathSkeleton)
       expect(copy).not.toBeInstanceOf(EndpointPathClass);
       expect(copy.frontier).toEqual(original.frontier);
-      expect(copy.shortestPath).toEqual(original.shortestPath);
+      expect(copy.shortestPathLength).toEqual(original.shortestPathLength);
       expect(copy.seedPaths).toEqual(original.seedPaths);
       expect(copy.head).toEqual(original.head);
       expect(copy.seed).toEqual(original.seed);

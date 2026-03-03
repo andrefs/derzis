@@ -21,7 +21,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should call EndpointPath.create with correctly shaped documents', async () => {
       const seeds = [
-        { url: 'http://example.com/seed1', domain: 'http://example.com', status: 'unvisited' as const },
+        {
+          url: 'http://example.com/seed1',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
       ];
       const pid = 'test-process';
 
@@ -53,7 +57,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should set head.domain as a string, not an object', async () => {
       const seeds = [
-        { url: 'http://dbpedia.org/resource/Cheese', domain: 'http://dbpedia.org', status: 'unvisited' as const }
+        {
+          url: 'http://dbpedia.org/resource/Cheese',
+          domain: 'http://dbpedia.org',
+          status: 'unvisited' as const
+        }
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
@@ -64,7 +72,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should set shortestPath with seed (string) not seeds (array)', async () => {
       const seeds = [
-        { url: 'http://example.com/seed', domain: 'http://example.com', status: 'unvisited' as const }
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
@@ -76,7 +88,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should not have minPath property', async () => {
       const seeds = [
-        { url: 'http://example.com/seed', domain: 'http://example.com', status: 'unvisited' as const }
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
@@ -94,7 +110,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should call TraversalPath.create when pathType is traversal', async () => {
       const seeds = [
-        { url: 'http://example.com/seed', domain: 'http://example.com', status: 'unvisited' as const }
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
       ];
       const pid = 'test-pid';
 
@@ -128,7 +148,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should include head.domain as string for TraversalPath', async () => {
       const seeds = [
-        { url: 'http://example.com/seed', domain: 'http://example.com', status: 'unvisited' as const }
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
@@ -140,7 +164,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should include full nodes structure with elems and count', async () => {
       const seeds = [
-        { url: 'http://example.com/seed', domain: 'http://example.com', status: 'unvisited' as const }
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
@@ -153,7 +181,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should include full predicates structure with elems and count', async () => {
       const seeds = [
-        { url: 'http://example.com/seed', domain: 'http://example.com', status: 'unvisited' as const }
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
@@ -166,7 +198,11 @@ describe('Resource.insertSeedPaths', () => {
 
     it('should include triples array', async () => {
       const seeds = [
-        { url: 'http://example.com/seed', domain: 'http://example.com', status: 'unvisited' as const }
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
