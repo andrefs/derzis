@@ -45,7 +45,12 @@ vi.mock('../Path/TraversalPath', () => {
     extensionCounter = 0;
     nodes = { count: 1, elems: [] };
     predicates = { count: 0, elems: [] };
-    head: any = { type: 'url', url: 'http://test.com', status: 'unvisited', domain: 'http://test.com' };
+    head: any = {
+      type: 'url',
+      url: 'http://test.com',
+      status: 'unvisited',
+      domain: 'http://test.com'
+    };
     seed: any = { url: 'http://example.com/seed' };
 
     extendWithExistingTriples(proc: any) {
@@ -59,7 +64,7 @@ vi.mock('../Path/TraversalPath', () => {
 
   return {
     TraversalPath: MockTraversalPathClass as any,
-    TraversalPathClass: MockTraversalPathClass as any,
+    TraversalPathClass: MockTraversalPathClass as any
   };
 });
 
@@ -83,7 +88,12 @@ vi.mock('../Path/EndpointPath', () => {
     shortestPath: any = { length: 1, seed: { url: 'http://test.com' } };
     frontier = true;
     seedPaths: Record<string, number> = {};
-    head: any = { type: 'url', url: 'http://test.com', status: 'unvisited', domain: 'http://test.com' };
+    head: any = {
+      type: 'url',
+      url: 'http://test.com',
+      status: 'unvisited',
+      domain: 'http://test.com'
+    };
     seed: any = { url: 'http://example.com/seed' };
 
     extendWithExistingTriples(proc: any) {
@@ -97,7 +107,7 @@ vi.mock('../Path/EndpointPath', () => {
 
   return {
     EndpointPath: MockEndpointPathClass as any,
-    EndpointPathClass: MockEndpointPathClass as any,
+    EndpointPathClass: MockEndpointPathClass as any
   };
 });
 
@@ -105,7 +115,7 @@ vi.mock('../Domain', () => {
   const mockSelect = vi.fn().mockReturnValue({
     lean: vi.fn().mockResolvedValue([])
   });
-  
+
   const mockFind = vi.fn().mockReturnValue({
     select: mockSelect
   });
@@ -119,14 +129,14 @@ vi.mock('../Domain', () => {
 
 vi.mock('./Process', () => ({
   Process: {
-    findOne: vi.fn(),
-  },
+    findOne: vi.fn()
+  }
 }));
 
 vi.mock('../Path/Path', () => ({
   Path: {
     countDocuments: vi.fn(),
-    updateMany: vi.fn(),
+    updateMany: vi.fn()
   },
   HEAD_TYPE: {
     URL: 'url',
@@ -153,7 +163,7 @@ describe('genTraversalPathQuery', () => {
 
     return {
       pid: overrides.pid ?? 'test-pid',
-      currentStep: step,
+      currentStep: step
     } as ProcessClass;
   };
 
@@ -163,7 +173,7 @@ describe('genTraversalPathQuery', () => {
         pid: 'test-pid',
         maxPathLength: 4,
         maxPathProps: 1,
-        predLimit: undefined,
+        predLimit: undefined
       });
 
       const query = genTraversalPathQuery(process);
@@ -173,7 +183,7 @@ describe('genTraversalPathQuery', () => {
         status: 'active',
         'head.type': 'url',
         'nodes.count': { $lt: 4 },
-        'predicates.count': { $lte: 1 },
+        'predicates.count': { $lte: 1 }
       });
     });
 
@@ -181,7 +191,7 @@ describe('genTraversalPathQuery', () => {
       const process = createMockProcess({
         maxPathLength: 5,
         maxPathProps: 3,
-        predLimit: undefined,
+        predLimit: undefined
       });
 
       const query = genTraversalPathQuery(process);
@@ -198,7 +208,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -214,7 +224,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -230,7 +240,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -250,7 +260,7 @@ describe('genTraversalPathQuery', () => {
       const process = createMockProcess({
         maxPathLength: 4,
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -261,7 +271,10 @@ describe('genTraversalPathQuery', () => {
       expect(query['predicates.count']).toEqual({ $lte: 2 });
       expect(query.$expr).toBeDefined();
       expect(query.$expr.$not).toBeDefined();
-      expect(query.$expr.$not.$setIsSubset).toEqual(['$predicates.elems', ['http://blocked1.org', 'http://blocked2.org']]);
+      expect(query.$expr.$not.$setIsSubset).toEqual([
+        '$predicates.elems',
+        ['http://blocked1.org', 'http://blocked2.org']
+      ]);
     });
 
     it('uses $ne for single blacklist predicate', () => {
@@ -271,7 +284,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -287,7 +300,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -306,7 +319,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process);
@@ -323,7 +336,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process);
@@ -356,7 +369,7 @@ describe('genTraversalPathQuery', () => {
       pathType: 'traversal' | 'endpoint' = 'traversal'
     ): ProcessClass => ({
       pid,
-      config: { manager: { pathType } },
+      config: { manager: { pathType } }
     });
 
     beforeEach(() => {
@@ -379,7 +392,7 @@ describe('genTraversalPathQuery', () => {
         processId: 'pid-1',
         status: 'active',
         'head.type': 'url',
-        'head.domain': { $in: mockDomains.map(d => d.origin) },
+        'head.domain': { $in: mockDomains.map((d) => d.origin) }
       });
     });
 
@@ -414,13 +427,16 @@ describe('genTraversalPathQuery', () => {
   });
 
   describe('hasPathsHeadBeingCrawled', () => {
-    const mockCrawlingDomains = [{ origin: 'http://crawling1.com' }, { origin: 'http://crawling2.com' }];
+    const mockCrawlingDomains = [
+      { origin: 'http://crawling1.com' },
+      { origin: 'http://crawling2.com' }
+    ];
     const mockProcess = (
       pid: string = 'test-pid',
       pathType: 'traversal' | 'endpoint' = 'traversal'
     ): ProcessClass => ({
       pid,
-      config: { manager: { pathType } },
+      config: { manager: { pathType } }
     });
 
     beforeEach(() => {
@@ -443,7 +459,7 @@ describe('genTraversalPathQuery', () => {
         processId: 'pid-1',
         status: 'active',
         'head.type': HEAD_TYPE.URL,
-        'head.domain': { $in: mockCrawlingDomains.map(d => d.origin) },
+        'head.domain': { $in: mockCrawlingDomains.map((d) => d.origin) }
       });
     });
 
@@ -457,7 +473,7 @@ describe('genTraversalPathQuery', () => {
         processId: 'pid-2',
         status: 'active',
         'head.type': HEAD_TYPE.URL,
-        'head.domain': { $in: mockCrawlingDomains.map(d => d.origin) },
+        'head.domain': { $in: mockCrawlingDomains.map((d) => d.origin) }
       });
     });
 
@@ -481,5 +497,5 @@ describe('genTraversalPathQuery', () => {
       expect(result).toBe(false);
       expect(Path.countDocuments).not.toHaveBeenCalled();
     });
- });
+  });
 });

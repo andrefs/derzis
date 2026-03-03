@@ -1,6 +1,11 @@
 import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
-import type { DomainLabelFetchJobInfo, PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
+import type {
+  DomainLabelFetchJobInfo,
+  PathType,
+  RobotsCheckResultError,
+  RobotsCheckResultOk
+} from '@derzis/common';
 import { Counter } from './Counter';
 import { HEAD_TYPE, UrlHead } from './Path';
 import { Process } from './Process';
@@ -369,7 +374,6 @@ class DomainClass {
     return domains;
   }
 
-
   /**
    * Unlocks domains that were locked for crawling but not processed
    * @param wId - The worker ID
@@ -440,9 +444,9 @@ class DomainClass {
         lastSeenCreatedAt = lastPath.createdAt;
         lastSeenId = lastPath._id;
 
-        const origins = new Set<string>(paths
-          .filter((p) => p.head.type === HEAD_TYPE.URL)
-          .map((p) => (p.head as UrlHead).domain));
+        const origins = new Set<string>(
+          paths.filter((p) => p.head.type === HEAD_TYPE.URL).map((p) => (p.head as UrlHead).domain)
+        );
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
 
         // these paths returned no available domains, skip them
@@ -480,13 +484,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-        domain,
-        status: 'unvisited',
-        url: { $nin: dPathHeads.map((r) => r.url) }
-      })
-        .limit(limit)
-        .select('url')
-        .lean()
+          domain,
+          status: 'unvisited',
+          url: { $nin: dPathHeads.map((r) => r.url) }
+        })
+          .limit(limit)
+          .select('url')
+          .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
@@ -593,15 +597,13 @@ class DomainClass {
 
         const remainingCapacity = domLimit - domainsFound;
         if (dsLocked.length > remainingCapacity) {
-          const domainsToUnlock = dsLocked.slice(remainingCapacity).map(d => d.origin);
+          const domainsToUnlock = dsLocked.slice(remainingCapacity).map((d) => d.origin);
           await this.unlockFromLabelFetch(wId, domainsToUnlock);
           dsLocked.splice(remainingCapacity);
         }
         // For each locked domain, yield it + its urls limited to resLimit
         for (const d of dsLocked) {
-          const resources = labelsByDomain[d.origin]
-            .slice(0, resLimit)
-            .map((url) => ({ url }));
+          const resources = labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }));
           await this.markLabelFetching(d.origin, resources, d.jobId);
           yield { domain: d, resources };
           domainsFound++;
@@ -609,10 +611,14 @@ class DomainClass {
         }
 
         // If domLimit number of domains have been yielded, return
-        if (domainsFound >= domLimit) { return; }
+        if (domainsFound >= domLimit) {
+          return;
+        }
 
         // Check if we should continue (did we get a full batch?)
-        if (rls.length < BATCH_SIZE) { hasMore = false; }
+        if (rls.length < BATCH_SIZE) {
+          hasMore = false;
+        }
       }
     }
 
@@ -626,9 +632,7 @@ class DomainClass {
     for (const d of dsLocked) {
       yield {
         domain: d,
-        resources: labelsByDomain[d.origin]
-          .slice(0, resLimit)
-          .map((url) => ({ url }))
+        resources: labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }))
       };
       domainsFound++;
       delete labelsByDomain[d.origin];

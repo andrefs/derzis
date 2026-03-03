@@ -1,11 +1,29 @@
 import { Types, type QueryFilter } from 'mongoose';
-import { PathType, urlListValidator, urlValidator, type TypedTripleId, type LiteralObject } from '@derzis/common';
-import { prop, PropType, Severity, modelOptions, getModelForClass, type DocumentType, index } from '@typegoose/typegoose';
+import {
+  PathType,
+  urlListValidator,
+  urlValidator,
+  type TypedTripleId,
+  type LiteralObject
+} from '@derzis/common';
+import {
+  prop,
+  PropType,
+  Severity,
+  modelOptions,
+  getModelForClass,
+  type DocumentType,
+  index
+} from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
-import { type NamedNodeTripleDocument, type LiteralTripleDocument, type TripleDocument } from '../Triple';
+import {
+  type NamedNodeTripleDocument,
+  type LiteralTripleDocument,
+  type TripleDocument
+} from '../Triple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Path');
 
@@ -119,13 +137,17 @@ export interface IPath {
   type: PathType;
   extensionCounter: number;
   genExistingTriplesFilter: (process: ProcessClass) => QueryFilter<NamedNodeTripleDocument> | null;
-  genExtended: (triples: TripleDocument[], process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
-  extendWithExistingTriples: (process: ProcessClass) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
+  genExtended: (
+    triples: TripleDocument[],
+    process: ProcessClass
+  ) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
+  extendWithExistingTriples: (
+    process: ProcessClass
+  ) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
 }
 
 export const Path = getModelForClass(PathClass);
 export type PathDocument = DocumentType<PathClass> & IPath;
-
 
 export function isEndpoint(path: PathClass): path is EndpointPathClass {
   return path.type === PathType.ENDPOINT;
@@ -144,5 +166,3 @@ export function hasLiteralHead(path: PathClass): boolean {
 export function hasUrlHead(path: PathClass): boolean {
   return path.head.type === HEAD_TYPE.URL;
 }
-
-

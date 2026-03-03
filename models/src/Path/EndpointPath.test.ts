@@ -10,11 +10,11 @@ function createMockPath(overlays: any = {}): any {
   const path = new EndpointPathClass();
   path.processId = 'test-process';
   path.seed = { url: 'http://seed.example.com' };
-  path.head = { 
-    type: HEAD_TYPE.URL, 
-    url: 'http://head.example.com', 
-    status: 'unvisited', 
-    domain: 'http://head.example.com' 
+  path.head = {
+    type: HEAD_TYPE.URL,
+    url: 'http://head.example.com',
+    status: 'unvisited',
+    domain: 'http://head.example.com'
   };
   path.frontier = false;
   path.shortestPath = { length: 1, seed: 'http://seed.example.com' };
@@ -51,11 +51,11 @@ describe('EndpointPathClass', () => {
   describe('shouldCreateNewPath', () => {
     it('returns false for cycles (subject equals object)', () => {
       const path = createMockPath({
-        head: { 
-          type: HEAD_TYPE.URL, 
-          url: 'http://subject.example.com', 
-          status: 'unvisited', 
-          domain: 'http://subject.example.com' 
+        head: {
+          type: HEAD_TYPE.URL,
+          url: 'http://subject.example.com',
+          status: 'unvisited',
+          domain: 'http://subject.example.com'
         },
         shortestPath: { length: 2, seed: 'http://seed.example.com' }
       });
@@ -69,7 +69,6 @@ describe('EndpointPathClass', () => {
       const result = path.shouldCreateNewPath(triple, path.head as any);
       expect(result).toBe(false);
     });
-
 
     it('returns true when valid extension', () => {
       const path = createMockPath({
@@ -130,11 +129,11 @@ describe('EndpointPathClass', () => {
     it('returns filter with processId and nodes for URL head', () => {
       const path = createMockPath({
         processId: 'test-pid',
-        head: { 
-          type: HEAD_TYPE.URL, 
-          url: 'http://head.example.com', 
-          status: 'unvisited', 
-          domain: 'http://head.example.com' 
+        head: {
+          type: HEAD_TYPE.URL,
+          url: 'http://head.example.com',
+          status: 'unvisited',
+          domain: 'http://head.example.com'
         }
       });
 
@@ -149,10 +148,10 @@ describe('EndpointPathClass', () => {
 
     it('returns null for non-URL head (literal)', () => {
       const path = createMockPath({
-        head: { 
-          type: HEAD_TYPE.LITERAL, 
-          value: 'test', 
-          datatype: 'http://xsd.string' 
+        head: {
+          type: HEAD_TYPE.LITERAL,
+          value: 'test',
+          datatype: 'http://xsd.string'
         }
       });
 

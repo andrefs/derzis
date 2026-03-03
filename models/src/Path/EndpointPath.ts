@@ -1,8 +1,31 @@
 import { Types, type QueryFilter } from 'mongoose';
-import { prop, index, getDiscriminatorModelForClass, type DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, NamedNodeTriple, type NamedNodeTripleDocument, LiteralTriple, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
+import {
+  prop,
+  index,
+  getDiscriminatorModelForClass,
+  type DocumentType
+} from '@typegoose/typegoose';
+import {
+  NamedNodeTripleClass,
+  NamedNodeTriple,
+  type NamedNodeTripleDocument,
+  LiteralTriple,
+  type LiteralTripleDocument,
+  Triple,
+  type TripleDocument,
+  isNamedNode,
+  isLiteral
+} from '../Triple';
 import { ProcessClass } from '../Process';
-import { PathClass, Path, hasLiteralHead, HEAD_TYPE, UrlHead, LiteralHead, type Head } from './Path';
+import {
+  PathClass,
+  Path,
+  hasLiteralHead,
+  HEAD_TYPE,
+  UrlHead,
+  LiteralHead,
+  type Head
+} from './Path';
 import { PathType, type TypedTripleId, TripleType, type LiteralObject } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -46,7 +69,11 @@ export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Object, default: {} })
   public seedPaths!: { [seedUrl: string]: number };
 
-  public shouldCreateNewPath(this: EndpointPathClass, t: NamedNodeTripleClass | LiteralTripleDocument, urlHead: UrlHead): boolean {
+  public shouldCreateNewPath(
+    this: EndpointPathClass,
+    t: NamedNodeTripleClass | LiteralTripleDocument,
+    urlHead: UrlHead
+  ): boolean {
     if (t.type === TripleType.LITERAL) {
       if (t.predicate === urlHead.url) {
         return false;
@@ -79,8 +106,6 @@ export class EndpointPathClass extends PathClass {
       nodes: urlHead.url
     };
   }
-
-
 
   public copy(this: EndpointPathClass): EndpointPathSkeleton {
     const copy: EndpointPathSkeleton = {
@@ -115,10 +140,11 @@ export class EndpointPathClass extends PathClass {
     const namedNodeTriples = triples
       .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
       .filter((t): t is NamedNodeTripleDocument => typeof t.object === 'string')
-      .filter(t =>
-        this.shouldCreateNewPath(t, urlHead) &&
-        process?.whiteBlackListsAllow(t) &&
-        t.directionOk(urlHead.url, followDirection, predsDirMetrics)
+      .filter(
+        (t) =>
+          this.shouldCreateNewPath(t, urlHead) &&
+          process?.whiteBlackListsAllow(t) &&
+          t.directionOk(urlHead.url, followDirection, predsDirMetrics)
       );
 
     for (const t of namedNodeTriples) {
@@ -161,7 +187,7 @@ export class EndpointPathClass extends PathClass {
 
     const literalTriples = triples
       .filter((t): t is LiteralTripleDocument => isLiteral(t))
-      .filter(t => this.shouldCreateNewPath(t, urlHead));
+      .filter((t) => this.shouldCreateNewPath(t, urlHead));
 
     for (const t of literalTriples) {
       log.silly('Extending path with LiteralTriple', t);
@@ -230,7 +256,10 @@ export class EndpointPathClass extends PathClass {
   }
 }
 
-export const EndpointPath = getDiscriminatorModelForClass(Path, EndpointPathClass, PathType.ENDPOINT);
+export const EndpointPath = getDiscriminatorModelForClass(
+  Path,
+  EndpointPathClass,
+  PathType.ENDPOINT
+);
 
 export type EndpointPathDocument = DocumentType<EndpointPathClass>;
-

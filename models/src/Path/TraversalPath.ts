@@ -1,10 +1,34 @@
 import { Types, type QueryFilter } from 'mongoose';
-import { prop, index, pre, getDiscriminatorModelForClass, PropType, modelOptions, type DocumentType } from '@typegoose/typegoose';
-import { NamedNodeTripleClass, type NamedNodeTripleDocument, type LiteralTripleDocument, Triple, type TripleDocument, isNamedNode, isLiteral } from '../Triple';
+import {
+  prop,
+  index,
+  pre,
+  getDiscriminatorModelForClass,
+  PropType,
+  modelOptions,
+  type DocumentType
+} from '@typegoose/typegoose';
+import {
+  NamedNodeTripleClass,
+  type NamedNodeTripleDocument,
+  type LiteralTripleDocument,
+  Triple,
+  type TripleDocument,
+  isNamedNode,
+  isLiteral
+} from '../Triple';
 import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
 import { Domain } from '../Domain';
-import { PathClass, Path, ResourceCount, hasLiteralHead, HEAD_TYPE, UrlHead, type Head } from './Path';
-import { PathType, TripleType, type TypedTripleId, } from '@derzis/common';
+import {
+  PathClass,
+  Path,
+  ResourceCount,
+  hasLiteralHead,
+  HEAD_TYPE,
+  UrlHead,
+  type Head
+} from './Path';
+import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
@@ -44,20 +68,18 @@ type RecursivePartial<T> = {
     }
   }
 })
-
 // For keyset pagination (cursor-based pagination)
 @index({ createdAt: 1, _id: 1 })
 // For the predicates count/elems filtering
-@index({ "predicates.count": 1, "processId": 1, "status": 1 })
-@index({ "nodes.count": 1, "processId": 1, "status": 1 })
+@index({ 'predicates.count': 1, processId: 1, status: 1 })
+@index({ 'nodes.count': 1, processId: 1, status: 1 })
 // If predicates.elems queries are common
-@index({ "predicates.elems": 1 })
+@index({ 'predicates.elems': 1 })
 @index({
-  "processId": 1,
-  "status": 1,
-  "createdAt": 1
+  processId: 1,
+  status: 1,
+  createdAt: 1
 })
-
 @index({ processId: 1 })
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
@@ -68,8 +90,8 @@ type RecursivePartial<T> = {
 @index({
   processId: 1,
   status: 1,
-  "nodes.count": 1,
-  "predicates.count": 1
+  'nodes.count': 1,
+  'predicates.count': 1
 })
 @index({ 'head.status': 1, status: 1 })
 @index({ type: 1, 'head.domain': 1, status: 1 })
@@ -77,7 +99,7 @@ type RecursivePartial<T> = {
 @index({ processId: 1, status: 1, extensionCounter: 1 })
 @modelOptions({
   schemaOptions: {
-    timestamps: true,
+    timestamps: true
   }
 })
 export class TraversalPathClass extends PathClass {
@@ -90,7 +112,10 @@ export class TraversalPathClass extends PathClass {
   @prop({ type: ResourceCount })
   public nodes!: ResourceCount;
 
-  @prop({ required: true, ref: 'NamedNodeTriple', type: [Types.ObjectId], default: [] }, PropType.ARRAY)
+  @prop(
+    { required: true, ref: 'NamedNodeTriple', type: [Types.ObjectId], default: [] },
+    PropType.ARRAY
+  )
   public triples!: Types.ObjectId[];
 
   public copy(this: TraversalPathClass): TraversalPathSkeleton {
@@ -132,10 +157,11 @@ export class TraversalPathClass extends PathClass {
     // Named node triples
     const namedNodeTriples = triples
       .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
-      .filter(t =>
-        this.shouldCreateNewPath(t) &&
-        process?.whiteBlackListsAllow(t) &&
-        t.directionOk(urlHead.url, followDirection, predsDirMetrics)
+      .filter(
+        (t) =>
+          this.shouldCreateNewPath(t) &&
+          process?.whiteBlackListsAllow(t) &&
+          t.directionOk(urlHead.url, followDirection, predsDirMetrics)
       );
 
     for (const t of namedNodeTriples) {
@@ -149,7 +175,7 @@ export class TraversalPathClass extends PathClass {
         ep.head = {
           type: HEAD_TYPE.URL,
           url: newHeadUrl,
-          status: 'unvisited',
+          status: 'unvisited'
         } as Head;
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
@@ -165,7 +191,7 @@ export class TraversalPathClass extends PathClass {
     // Literal triples
     const literalTriples = triples
       .filter((t): t is LiteralTripleDocument => isLiteral(t))
-      .filter(t => this.shouldCreateNewPath(t));
+      .filter((t) => this.shouldCreateNewPath(t));
 
     for (const t of literalTriples) {
       log.silly('Extending path with LiteralTriple', t);
@@ -198,7 +224,10 @@ export class TraversalPathClass extends PathClass {
     return { extendedPaths: eps, procTriples };
   }
 
-  public shouldCreateNewPath(this: TraversalPathClass, t: NamedNodeTripleClass | LiteralTripleDocument): boolean {
+  public shouldCreateNewPath(
+    this: TraversalPathClass,
+    t: NamedNodeTripleClass | LiteralTripleDocument
+  ): boolean {
     // If the head is not a URL, we cannot extend
     if (this.head.type !== HEAD_TYPE.URL) {
       return false;
@@ -222,7 +251,8 @@ export class TraversalPathClass extends PathClass {
       return false;
     }
 
-    const newHeadUrl: string = namedNodeTriple.subject === urlHead.url ? namedNodeTriple.object : namedNodeTriple.subject;
+    const newHeadUrl: string =
+      namedNodeTriple.subject === urlHead.url ? namedNodeTriple.object : namedNodeTriple.subject;
 
     if (this.nodes.elems.includes(newHeadUrl)) {
       return false;
@@ -237,21 +267,24 @@ export class TraversalPathClass extends PathClass {
       this.nodes.count >= process.currentStep.maxPathLength ||
       (!pathPreds.has(t.predicate) && this.predicates.count >= process.currentStep.maxPathProps)
     );
-
   }
 
   /**
-  * Generates a filter for existing triples based on predicate limits and path fullness.
-  * @param limType The type of predicate limit ('whitelist' or 'blacklist').
-  * @param limPredicates The list of predicates in the limit.
-  * @param pathFull Boolean indicating whether the path is considered full based on predicate count.
-  * @returns An object containing allowed and not allowed predicates, and the corresponding filter for existing triples, or null if no triples should be returned.
-  */
+   * Generates a filter for existing triples based on predicate limits and path fullness.
+   * @param limType The type of predicate limit ('whitelist' or 'blacklist').
+   * @param limPredicates The list of predicates in the limit.
+   * @param pathFull Boolean indicating whether the path is considered full based on predicate count.
+   * @returns An object containing allowed and not allowed predicates, and the corresponding filter for existing triples, or null if no triples should be returned.
+   */
   public genPredicatesFilter(
     limType: string,
     limPredicates: string[],
     pathFull: boolean
-  ): { allowed: Set<string>; notAllowed: Set<string>; predFilter: QueryFilter<NamedNodeTripleClass> } | null {
+  ): {
+    allowed: Set<string>;
+    notAllowed: Set<string>;
+    predFilter: QueryFilter<NamedNodeTripleClass>;
+  } | null {
     const allowed = new Set<string>();
     const notAllowed = new Set<string>();
 
@@ -305,13 +338,15 @@ export class TraversalPathClass extends PathClass {
 
     let predFilter;
     if (allowed.size) {
-      predFilter = allowed.size === 1
-        ? { predicate: Array.from(allowed)[0] }
-        : { predicate: { $in: Array.from(allowed) } };
+      predFilter =
+        allowed.size === 1
+          ? { predicate: Array.from(allowed)[0] }
+          : { predicate: { $in: Array.from(allowed) } };
     } else if (notAllowed.size) {
-      predFilter = notAllowed.size === 1
-        ? { predicate: { $ne: Array.from(notAllowed)[0] } }
-        : { predicate: { $nin: Array.from(notAllowed) } };
+      predFilter =
+        notAllowed.size === 1
+          ? { predicate: { $ne: Array.from(notAllowed)[0] } }
+          : { predicate: { $nin: Array.from(notAllowed) } };
     } else {
       predFilter = {};
     }
@@ -320,14 +355,14 @@ export class TraversalPathClass extends PathClass {
   }
 
   /**
-  * Generates a filter for existing triples based on predicate directionality metrics.
-  * @param allowed Set of predicates that are allowed based on predicate limits.
-  * @param notAllowed Set of predicates that are not allowed based on predicate limits.
-  * @param limType The type of predicate limit ('whitelist' or 'blacklist').
-  * @param followDirection Boolean indicating whether to enforce directionality.
-  * @param predsDirMetrics Map of predicate direction metrics, where the key is the predicate and the value contains branch factor and seed position ratio.
-  * @returns An object representing the filter for existing triples based on directionality, or an empty object if no directionality filtering is needed.
-  */
+   * Generates a filter for existing triples based on predicate directionality metrics.
+   * @param allowed Set of predicates that are allowed based on predicate limits.
+   * @param notAllowed Set of predicates that are not allowed based on predicate limits.
+   * @param limType The type of predicate limit ('whitelist' or 'blacklist').
+   * @param followDirection Boolean indicating whether to enforce directionality.
+   * @param predsDirMetrics Map of predicate direction metrics, where the key is the predicate and the value contains branch factor and seed position ratio.
+   * @returns An object representing the filter for existing triples based on directionality, or an empty object if no directionality filtering is needed.
+   */
   public genDirectionFilter(
     allowed: Set<string>,
     notAllowed: Set<string>,
@@ -406,9 +441,7 @@ export class TraversalPathClass extends PathClass {
       const noDirList = Array.from(noDirPreds);
       if (limType === 'whitelist') {
         or.push(
-          noDirList.length === 1
-            ? { predicate: noDirList[0] }
-            : { predicate: { $in: noDirList } }
+          noDirList.length === 1 ? { predicate: noDirList[0] } : { predicate: { $in: noDirList } }
         );
       } else {
         or.push(
@@ -419,21 +452,18 @@ export class TraversalPathClass extends PathClass {
       }
     }
 
-    return or.length > 1
-      ? { $or: or }
-      : or.length === 1
-        ? or[0]
-        : {};
+    return or.length > 1 ? { $or: or } : or.length === 1 ? or[0] : {};
   }
 
   /**
-  * Generates a filter for existing triples to be used for extending the current path, based on the current process step's configuration. The filter is constructed
-  * based on the current process step's predicate limits and directionality metrics.
-  * @param process The current process instance containing the current step's configuration.
-  * @returns An object representing the filter for existing triples, or null if no triples should be returned based on the limits.
-  */
+   * Generates a filter for existing triples to be used for extending the current path, based on the current process step's configuration. The filter is constructed
+   * based on the current process step's predicate limits and directionality metrics.
+   * @param process The current process instance containing the current step's configuration.
+   * @returns An object representing the filter for existing triples, or null if no triples should be returned based on the limits.
+   */
   public genExistingTriplesFilter(
-    process: ProcessClass): QueryFilter<NamedNodeTripleDocument> | null {
+    process: ProcessClass
+  ): QueryFilter<NamedNodeTripleDocument> | null {
     if (this.head.type !== HEAD_TYPE.URL) {
       return null;
     }
@@ -454,13 +484,13 @@ export class TraversalPathClass extends PathClass {
     const followDirection = process.currentStep.followDirection;
     const predsDirMetrics = process.curPredsDirMetrics();
 
-    // filter based on directionality metrics 
+    // filter based on directionality metrics
     const directionFilter = this.genDirectionFilter(
       allowed,
       notAllowed,
       limType,
       followDirection,
-      predsDirMetrics,
+      predsDirMetrics
     );
 
     const baseFilter = {
@@ -478,10 +508,10 @@ export class TraversalPathClass extends PathClass {
   }
 
   /**
-  * Extends the current path with existing triples from the database that match the generated filter based on the current process step's configuration.
-  * @param process The current process instance containing the current step's configuration.
-  * @returns An object containing the extended paths and the corresponding triples to be processed, or empty results if no extension is possible.
-  */
+   * Extends the current path with existing triples from the database that match the generated filter based on the current process step's configuration.
+   * @param process The current process instance containing the current step's configuration.
+   * @returns An object containing the extended paths and the corresponding triples to be processed, or empty results if no extension is possible.
+   */
   public async extendWithExistingTriples(
     process: ProcessClass
   ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {
@@ -504,7 +534,10 @@ export class TraversalPathClass extends PathClass {
   }
 }
 
-export const TraversalPath = getDiscriminatorModelForClass(Path, TraversalPathClass, PathType.TRAVERSAL);
+export const TraversalPath = getDiscriminatorModelForClass(
+  Path,
+  TraversalPathClass,
+  PathType.TRAVERSAL
+);
 
 export type TraversalPathDocument = DocumentType<TraversalPathClass>;
-

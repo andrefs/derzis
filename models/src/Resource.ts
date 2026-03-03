@@ -266,7 +266,7 @@ class ResourceClass {
         status: 'active'
       }));
 
-      const insPaths = await TraversalPath.create(paths as any) as any;
+      const insPaths = (await TraversalPath.create(paths as any)) as any;
       return this.addTvPaths(insPaths);
     }
     // Endpoint paths
@@ -277,7 +277,7 @@ class ResourceClass {
         head: {
           url: s.url,
           status: s.status,
-          domain: { origin: s.domain, status: 'active', type: HEAD_TYPE.URL },
+          domain: { origin: s.domain, status: 'active', type: HEAD_TYPE.URL }
         },
         status: 'active',
         frontier: true,
@@ -290,7 +290,7 @@ class ResourceClass {
         }
       }));
 
-      const insPaths = await EndpointPath.create(paths as any) as any;
+      const insPaths = (await EndpointPath.create(paths as any)) as any;
       return this.addEpPaths(insPaths);
     }
   }
@@ -304,7 +304,9 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: EndpointPathClass[]
   ) {
-    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (EndpointPathClass & { head: UrlHead })[];
+    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (EndpointPathClass & {
+      head: UrlHead;
+    })[];
     if (!urlPaths.length) {
       return { dom: null };
     }
@@ -330,7 +332,9 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: TraversalPathDocument[]
   ) {
-    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (TraversalPathDocument & { head: UrlHead })[];
+    const urlPaths = paths.filter(
+      (p) => p.head.type === HEAD_TYPE.URL
+    ) as (TraversalPathDocument & { head: UrlHead })[];
 
     if (!urlPaths.length) {
       return { res: null, dom: null };

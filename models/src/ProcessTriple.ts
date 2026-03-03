@@ -1,6 +1,12 @@
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { TripleClass, Triple, NamedNodeTripleClass, LiteralTripleClass } from './Triple';
-import { prop, index, getModelForClass, type ReturnModelType, type Ref } from '@typegoose/typegoose';
+import {
+  prop,
+  index,
+  getModelForClass,
+  type ReturnModelType,
+  type Ref
+} from '@typegoose/typegoose';
 import { Types } from 'mongoose';
 import { TripleType } from '@derzis/common';
 

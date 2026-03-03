@@ -28,14 +28,12 @@ import config from '@derzis/config';
  * Locked domains are those with status: checking, labelFetching, or crawling.
  */
 async function getLockedDomainFilter(domainBlacklist: string[] = []) {
-  const lockedDomains = await Domain
-    .find({ status: { $in: ['checking', 'labelFetching', 'crawling'] } })
+  const lockedDomains = await Domain.find({
+    status: { $in: ['checking', 'labelFetching', 'crawling'] }
+  })
     .select('origin')
     .lean();
-  const lockedOrigins = [
-    ...lockedDomains.map(d => d.origin),
-    ...domainBlacklist
-  ];
+  const lockedOrigins = [...lockedDomains.map((d) => d.origin), ...domainBlacklist];
 
   if (!lockedOrigins.length) {
     return {};
@@ -47,7 +45,6 @@ async function getLockedDomainFilter(domainBlacklist: string[] = []) {
 
   return { 'head.domain': { $nin: lockedOrigins } };
 }
-
 
 /**
  * Get paths for a process that are ready for robots checking, based on the head domain status and path limits.
@@ -73,24 +70,24 @@ export async function getPathsForRobotsChecking(
   };
   const select = 'head.domain head.type createdAt _id';
 
-  const cursorCondition = lastSeenCreatedAt && lastSeenId
-    ? {
-      createdAt: { $gte: lastSeenCreatedAt },
-      _id: { $gt: lastSeenId }
-    }
-    : {};
+  const cursorCondition =
+    lastSeenCreatedAt && lastSeenId
+      ? {
+          createdAt: { $gte: lastSeenCreatedAt },
+          _id: { $gt: lastSeenId }
+        }
+      : {};
 
   if (pathType === PathType.TRAVERSAL) {
     // get paths that have head domains that are not locked and have not exceeded path limits for the current step (nodes.count and predicates.count)
-    const paths = await TraversalPath
-      .find({
-        ...baseQuery,
-        ...cursorCondition,
-        ...lockedFilter,
-        'head.type': HEAD_TYPE.URL,
-        'nodes.count': { $lt: process.currentStep.maxPathLength },
-        'predicates.count': { $lte: process.currentStep.maxPathProps }
-      })
+    const paths = await TraversalPath.find({
+      ...baseQuery,
+      ...cursorCondition,
+      ...lockedFilter,
+      'head.type': HEAD_TYPE.URL,
+      'nodes.count': { $lt: process.currentStep.maxPathLength },
+      'predicates.count': { $lte: process.currentStep.maxPathProps }
+    })
       .sort({ createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
@@ -134,19 +131,20 @@ export async function getPathsForDomainCrawl(
     'head.type': HEAD_TYPE.URL,
     'head.status': 'unvisited',
     processId: process.pid,
-    status: 'active',
+    status: 'active'
   };
   // Get locked domains and combine with domainBlacklist
-  const domainFilter = await getLockedDomainFilter(domainBlacklist)
+  const domainFilter = await getLockedDomainFilter(domainBlacklist);
   const select = 'head.status head.type head.domain head.url createdAt _id';
 
   // Compound cursor using $gte and $gt - requires compound index on {createdAt: 1, _id: 1}
-  const cursorCondition = lastSeenCreatedAt && lastSeenId
-    ? {
-      createdAt: { $gte: lastSeenCreatedAt },
-      _id: { $gt: lastSeenId }
-    }
-    : {};
+  const cursorCondition =
+    lastSeenCreatedAt && lastSeenId
+      ? {
+          createdAt: { $gte: lastSeenCreatedAt },
+          _id: { $gt: lastSeenId }
+        }
+      : {};
   const sort = { createdAt: 1, _id: 1 } as const;
 
   if (pathType === PathType.TRAVERSAL) {
@@ -156,7 +154,7 @@ export async function getPathsForDomainCrawl(
       ...baseQuery,
       ...traversalQuery,
       ...cursorCondition,
-      ...domainFilter,
+      ...domainFilter
     })
       .sort(sort)
       .limit(limit)
@@ -188,7 +186,7 @@ export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promi
     processId: process.pid,
     status: 'active',
     'head.type': HEAD_TYPE.URL,
-    'head.domain': { $in: domains.map(d => d.origin) },
+    'head.domain': { $in: domains.map((d) => d.origin) }
   });
   return !!pathsCount;
 }
@@ -202,7 +200,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
     processId: process.pid,
     status: 'active',
     'head.type': HEAD_TYPE.URL,
-    'head.domain': { $in: domains.map(d => d.origin) },
+    'head.domain': { $in: domains.map((d) => d.origin) }
   });
   return !!pathsCount;
 }
@@ -213,7 +211,10 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
  * @param proc ProcessClass instance
  * @param paths Array of PathClass documents to extend (either TraversalPath or EndpointPath instances)
  */
-export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: (TraversalPathDocument | EndpointPathDocument)[]) {
+export async function extendPathsWithExistingTriples(
+  proc: ProcessClass,
+  paths: (TraversalPathDocument | EndpointPathDocument)[]
+) {
   log.silly(`Extending ${paths.length} paths for process ${proc.pid} with existing triples...`);
 
   let newPaths = [];
@@ -222,19 +223,21 @@ export async function extendPathsWithExistingTriples(proc: ProcessClass, paths: 
     const res = await path.extendWithExistingTriples(proc);
 
     if (!res.extendedPaths.length) {
-      const length = path instanceof TraversalPath
-        ? path.nodes.count
-        : path instanceof EndpointPath
-          ? path.shortestPath.length
-          : 'N/A';
-      const predicates = path instanceof TraversalPath
-        ? path.predicates.elems
-        : null;
+      const length =
+        path instanceof TraversalPath
+          ? path.nodes.count
+          : path instanceof EndpointPath
+            ? path.shortestPath.length
+            : 'N/A';
+      const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
 
-      const headVal = path.head.type === HEAD_TYPE.URL
-        ? (path.head as UrlHead).url
-        : `"${(path.head as LiteralHead).value}"`;
-      log.silly(`No new paths created from path ${path._id} (seed ${path.seed.url}, head ${headVal}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`);
+      const headVal =
+        path.head.type === HEAD_TYPE.URL
+          ? (path.head as UrlHead).url
+          : `"${(path.head as LiteralHead).value}"`;
+      log.silly(
+        `No new paths created from path ${path._id} (seed ${path.seed.url}, head ${headVal}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`
+      );
 
       continue;
     }
@@ -268,7 +271,7 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
     status: 'active',
     'head.type': HEAD_TYPE.URL,
     'nodes.count': { $lt: process.currentStep.maxPathLength },
-    'predicates.count': { $lte: maxPathProps },
+    'predicates.count': { $lte: maxPathProps }
   };
 
   // Filter paths that haven't been considered for extension with the current step
@@ -278,9 +281,8 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
 
   // if there is a whitelist, path must have at least one whitelisted predicate in its existing predicates
   if (limType === 'whitelist') {
-    query['predicates.elems'] = limPredicates.length === 1
-      ? limPredicates[0]
-      : { $in: limPredicates };
+    query['predicates.elems'] =
+      limPredicates.length === 1 ? limPredicates[0] : { $in: limPredicates };
   }
   // if there is a blacklist, path must have at least one non-blacklisted predicate in its existing predicates
   else if (limType === 'blacklist' && limPredicates.length > 0) {
@@ -297,7 +299,6 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
 
   return query;
 }
-
 
 /**
  * Extend existing active paths for a process according to its current step limits.
@@ -336,9 +337,10 @@ export async function extendExistingPaths(pid: string) {
 
   // Get total number of paths to process
   const beforeCount = await Path.countDocuments({ processId: process.pid });
-  const initPathsCount = pathType === PathType.ENDPOINT
-    ? await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>)
-    : await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
+  const initPathsCount =
+    pathType === PathType.ENDPOINT
+      ? await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>)
+      : await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
 
   let processedPaths = 0;
   const startTime = Date.now();
@@ -347,25 +349,28 @@ export async function extendExistingPaths(pid: string) {
   while (hasMore) {
     batchCounter++;
     const batchStartTime = Date.now();
-    const curPathsCount = pathType === PathType.ENDPOINT
-      ? await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>)
-      : await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
+    const curPathsCount =
+      pathType === PathType.ENDPOINT
+        ? await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>)
+        : await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
 
     // find a batch of active paths that can be extended
     let paths;
     if (pathType === PathType.ENDPOINT) {
       const baseQuery = getQuery as QueryFilter<EndpointPathDocument>;
-      const cursorPart: Record<string, unknown> = lastSeenCreatedAt && lastSeenId
-        ? { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } }
-        : {};
+      const cursorPart: Record<string, unknown> =
+        lastSeenCreatedAt && lastSeenId
+          ? { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } }
+          : {};
       paths = await EndpointPath.find({ ...baseQuery, ...cursorPart })
         .sort({ createdAt: 1, _id: 1 })
         .limit(batchSize);
     } else {
       const baseQuery = getQuery as QueryFilter<TraversalPathDocument>;
-      const cursorPart: Record<string, unknown> = lastSeenCreatedAt && lastSeenId
-        ? { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } }
-        : {};
+      const cursorPart: Record<string, unknown> =
+        lastSeenCreatedAt && lastSeenId
+          ? { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } }
+          : {};
       paths = await TraversalPath.find({ ...baseQuery, ...cursorPart })
         .sort({ createdAt: 1, _id: 1 })
         .limit(batchSize);
@@ -419,13 +424,13 @@ export async function extendExistingPaths(pid: string) {
 /**
  * Helper function to insert process-triple associations in bulk.
  * @param pid Process ID
-  * @param procTriples Set of triple IDs to associate with the process
-  * @param procStep Current step number of the process
-  */
+ * @param procTriples Set of triple IDs to associate with the process
+ * @param procStep Current step number of the process
+ */
 async function insertProcTriples(pid: string, procTriples: TypedTripleId[], procStep: number) {
   if (procTriples.length > 0) {
     await ProcessTriple.upsertMany(
-      procTriples.map(t => ({
+      procTriples.map((t) => ({
         processId: pid,
         triple: new Types.ObjectId(t.id),
         tripleType: t.type,
@@ -514,21 +519,30 @@ export async function extendProcessPaths(
   let newPaths = [];
   // process paths in batches to avoid using up too much memory
   while (hasMorePaths) {
-    const pathCursorCondition: QueryFilter<TraversalPathClass> = lastPathCreatedAt && lastPathId
-      ? {
-        createdAt: { $gte: lastPathCreatedAt },
-        _id: { $gt: lastPathId }
-      }
-      : {};
+    const pathCursorCondition: QueryFilter<TraversalPathClass> =
+      lastPathCreatedAt && lastPathId
+        ? {
+            createdAt: { $gte: lastPathCreatedAt },
+            _id: { $gt: lastPathId }
+          }
+        : {};
 
     const paths =
       pathType === 'traversal'
-        ? await TraversalPath.find({ ...pathQuery, 'head.type': HEAD_TYPE.URL, ...pathCursorCondition } as QueryFilter<TraversalPathClass>)
-          .sort({ createdAt: 1, _id: 1 })
-          .limit(batchSize)
-        : await EndpointPath.find({ ...pathQuery, 'head.type': HEAD_TYPE.URL, ...pathCursorCondition } as QueryFilter<EndpointPathClass>)
-          .sort({ createdAt: 1, _id: 1 })
-          .limit(batchSize);
+        ? await TraversalPath.find({
+            ...pathQuery,
+            'head.type': HEAD_TYPE.URL,
+            ...pathCursorCondition
+          } as QueryFilter<TraversalPathClass>)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize)
+        : await EndpointPath.find({
+            ...pathQuery,
+            'head.type': HEAD_TYPE.URL,
+            ...pathCursorCondition
+          } as QueryFilter<EndpointPathClass>)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize);
 
     log.info(`extendProcessPaths: Found ${paths.length} paths for headUrl: ${headUrl}`);
 
@@ -546,14 +560,18 @@ export async function extendProcessPaths(
     let lastTripleCreatedAt: Date | null = null;
     let lastTripleId: Types.ObjectId | null = null;
     while (hasMoreTriples) {
-      const tripleCursorCondition: QueryFilter<TraversalPathClass> = lastTripleCreatedAt && lastTripleId
-        ? {
-          createdAt: { $gte: lastTripleCreatedAt },
-          _id: { $gt: lastTripleId }
-        }
-        : {};
+      const tripleCursorCondition: QueryFilter<TraversalPathClass> =
+        lastTripleCreatedAt && lastTripleId
+          ? {
+              createdAt: { $gte: lastTripleCreatedAt },
+              _id: { $gt: lastTripleId }
+            }
+          : {};
 
-      const triples = await Triple.find({ nodes: headUrl, ...tripleCursorCondition } as QueryFilter<TripleClass>)
+      const triples = await Triple.find({
+        nodes: headUrl,
+        ...tripleCursorCondition
+      } as QueryFilter<TripleClass>)
         .sort({ createdAt: 1, _id: 1 })
         .limit(batchSize);
 
@@ -597,7 +615,9 @@ export async function extendProcessPaths(
  */
 async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
   // Only process paths with URL heads (not literal heads)
-  const urlPaths = newPaths.filter((p) => p.head.type === HEAD_TYPE.URL) as (PathSkeleton & { head: UrlHead })[];
+  const urlPaths = newPaths.filter((p) => p.head.type === HEAD_TYPE.URL) as (PathSkeleton & {
+    head: UrlHead;
+  })[];
   const headUrls = urlPaths.map((p) => p.head.url);
 
   if (!headUrls.length) {

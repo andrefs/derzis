@@ -1,4 +1,11 @@
-import { type Types, Document, type QueryFilter, type QueryWithHelpers, type UpdateWriteOpResult, type UpdateQuery } from 'mongoose';
+import {
+  type Types,
+  Document,
+  type QueryFilter,
+  type QueryWithHelpers,
+  type UpdateWriteOpResult,
+  type UpdateQuery
+} from 'mongoose';
 import { Resource, ResourceClass, type ResourceDocument } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
@@ -218,16 +225,16 @@ class ProcessClass extends Document {
     // process is not done
     log.info(
       `Process ${this.pid} is not done yet: ` +
-      JSON.stringify(
-        {
-          pathsToCrawl,
-          pathsToCheck,
-          hasPathsChecking,
-          hasPathsCrawling
-        },
-        null,
-        2
-      )
+        JSON.stringify(
+          {
+            pathsToCrawl,
+            pathsToCheck,
+            hasPathsChecking,
+            hasPathsCrawling
+          },
+          null,
+          2
+        )
     );
     return false;
   }
@@ -276,7 +283,14 @@ class ProcessClass extends Document {
     lastSeenId: Types.ObjectId | null = null,
     limit = 20
   ) {
-    return getPathsForDomainCrawl(this, pathType, domainBlacklist, lastSeenCreatedAt, lastSeenId, limit);
+    return getPathsForDomainCrawl(
+      this,
+      pathType,
+      domainBlacklist,
+      lastSeenCreatedAt,
+      lastSeenId,
+      limit
+    );
   }
 
   public async hasPathsDomainRobotsChecking(): Promise<boolean> {
@@ -297,7 +311,7 @@ class ProcessClass extends Document {
       const newPTC = await ProcessTriple.countDocuments({ processId: this.pid });
       log.info(
         `Extended existing paths for process ${this.pid}. ` +
-        `ProcessTriples before: ${procTripleCount}, after: ${newPTC}, added: ${newPTC - procTripleCount}`
+          `ProcessTriples before: ${procTripleCount}, after: ${newPTC}, added: ${newPTC - procTripleCount}`
       );
     } catch (error) {
       log.error(`Error updating process ${this.pid} status to 'extending':`, error);
@@ -370,10 +384,7 @@ class ProcessClass extends Document {
     await process.extendExistingPaths(); // this potentially takes a lot of time
 
     // Allow post-crawl path extension by incrementing the counter
-    await Process.updateOne(
-      { pid },
-      { $inc: { pathExtensionCounter: 1 } }
-    );
+    await Process.updateOne({ pid }, { $inc: { pathExtensionCounter: 1 } });
 
     // Set the process to queued
     await Process.updateOne(
@@ -462,24 +473,35 @@ class ProcessClass extends Document {
     let hasMore = true;
 
     while (hasMore) {
-      const cursorCondition: QueryFilter<PathClass> = lastSeenCreatedAt && lastSeenId
-        ? {
-          createdAt: { $gte: lastSeenCreatedAt },
-          _id: { $gt: lastSeenId }
-        }
-        : {};
+      const cursorCondition: QueryFilter<PathClass> =
+        lastSeenCreatedAt && lastSeenId
+          ? {
+              createdAt: { $gte: lastSeenCreatedAt },
+              _id: { $gt: lastSeenId }
+            }
+          : {};
 
       // Fetch a batch of paths for this process
       const paths =
         config.manager.pathType === 'traversal'
-          ? await TraversalPath.find({ processId: this.pid, status: 'active', 'head.type': HEAD_TYPE.URL, ...cursorCondition } as QueryFilter<TraversalPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
-            .select('head.url head.domain createdAt _id')
-          : await EndpointPath.find({ processId: this.pid, status: 'active', 'head.type': HEAD_TYPE.URL, ...cursorCondition } as QueryFilter<EndpointPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
-            .select('head.url head.domain createdAt _id')
+          ? await TraversalPath.find({
+              processId: this.pid,
+              status: 'active',
+              'head.type': HEAD_TYPE.URL,
+              ...cursorCondition
+            } as QueryFilter<TraversalPathClass>)
+              .sort({ createdAt: 1, _id: 1 })
+              .limit(batchSize)
+              .select('head.url head.domain createdAt _id')
+          : await EndpointPath.find({
+              processId: this.pid,
+              status: 'active',
+              'head.type': HEAD_TYPE.URL,
+              ...cursorCondition
+            } as QueryFilter<EndpointPathClass>)
+              .sort({ createdAt: 1, _id: 1 })
+              .limit(batchSize)
+              .select('head.url head.domain createdAt _id');
 
       if (paths.length === 0) {
         hasMore = false;
@@ -490,9 +512,11 @@ class ProcessClass extends Document {
       lastSeenCreatedAt = lastPath.createdAt || null;
       lastSeenId = lastPath._id as Types.ObjectId;
 
-      const pathHeads = paths.map(p => p.head).filter((h): h is UrlHead => h.type === HEAD_TYPE.URL);
-      const headUrls = new Set(pathHeads.map(h => h.url));
-      const origins = new Set(pathHeads.map(h => h.domain));
+      const pathHeads = paths
+        .map((p) => p.head)
+        .filter((h): h is UrlHead => h.type === HEAD_TYPE.URL);
+      const headUrls = new Set(pathHeads.map((h) => h.url));
+      const origins = new Set(pathHeads.map((h) => h.domain));
 
       const pathQuery = {
         processId: this.pid,
@@ -532,9 +556,7 @@ class ProcessClass extends Document {
       summary.domains += domainRes.modifiedCount ?? domainRes.matchedCount ?? 0;
       summary.paths += pathRes.modifiedCount ?? pathRes.matchedCount ?? 0;
 
-      log.debug(
-        `Reset error state in paths batch: ${paths.length} paths processed`
-      );
+      log.debug(`Reset error state in paths batch: ${paths.length} paths processed`);
     }
 
     log.info(`Errored entities reset for process ${this.pid}`, summary);

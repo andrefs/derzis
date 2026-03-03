@@ -34,18 +34,20 @@ export type WorkerTriple = WorkerNamedNodeTriple | WorkerLiteralTriple;
 
 @index({ url: 1 })
 class ResourceCacheClass extends TimeStamps {
-
   @prop({ required: true, validate: urlValidator, type: String })
   public url!: string;
 
-  @prop({
-    default: [],
-    type: WorkerTripleBase,
-    discriminators: () => [
-      { type: WorkerNamedNodeTriple, value: TripleType.NAMED_NODE },
-      { type: WorkerLiteralTriple, value: TripleType.LITERAL }
-    ]
-  }, PropType.ARRAY)
+  @prop(
+    {
+      default: [],
+      type: WorkerTripleBase,
+      discriminators: () => [
+        { type: WorkerNamedNodeTriple, value: TripleType.NAMED_NODE },
+        { type: WorkerLiteralTriple, value: TripleType.LITERAL }
+      ]
+    },
+    PropType.ARRAY
+  )
   public triples?: Types.DocumentArray<WorkerTriple>;
 }
 

@@ -6,8 +6,8 @@ import { Process } from './Process';
 // Mock Counter
 vi.mock('../Counter', () => ({
   Counter: {
-    genId: vi.fn().mockReturnValue(12345),
-  },
+    genId: vi.fn().mockReturnValue(12345)
+  }
 }));
 
 // ============================================
@@ -32,11 +32,11 @@ describe('unlockFromRobotsCheck', () => {
       {
         origin: { $in: origins },
         status: 'checking',
-        workerId: wId,
+        workerId: wId
       },
       {
         $set: { status: 'unvisited' },
-        $unset: { jobId: '', workerId: '' },
+        $unset: { jobId: '', workerId: '' }
       }
     );
   });
@@ -84,11 +84,11 @@ describe('unlockFromLabelFetch', () => {
       {
         origin: { $in: origins },
         status: 'labelFetching',
-        workerId: wId,
+        workerId: wId
       },
       {
         $set: { status: 'ready' },
-        $unset: { jobId: '', workerId: '' },
+        $unset: { jobId: '', workerId: '' }
       }
     );
   });
@@ -118,58 +118,57 @@ describe('unlockFromLabelFetch', () => {
 // INTEGRATION TESTS: domainsToCheck
 // ============================================
 describe('domainsToCheck', () => {
+  // ============================================
+  // UNIT TESTS: unlockFromCrawl
+  // ============================================
+  describe('unlockFromCrawl', () => {
+    let mockUpdateMany: ReturnType<typeof vi.fn>;
 
-// ============================================
-// UNIT TESTS: unlockFromCrawl
-// ============================================
-describe('unlockFromCrawl', () => {
-  let mockUpdateMany: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mockUpdateMany = vi.fn().mockResolvedValue({ modifiedCount: 0 });
+      (Domain as any).updateMany = mockUpdateMany;
+    });
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockUpdateMany = vi.fn().mockResolvedValue({ modifiedCount: 0 });
-    (Domain as any).updateMany = mockUpdateMany;
+    it('should unlock domains with status crawling and matching workerId', async () => {
+      const wId = 'worker-789';
+      const origins = ['http://example.com', 'http://test.com'];
+
+      await (Domain as any).unlockFromCrawl(wId, origins);
+
+      expect(mockUpdateMany).toHaveBeenCalledWith(
+        {
+          origin: { $in: origins },
+          status: 'crawling',
+          workerId: wId
+        },
+        {
+          $set: { status: 'ready' },
+          $unset: { jobId: '', workerId: '' }
+        }
+      );
+    });
+
+    it('should reset status to ready', async () => {
+      const wId = 'worker-789';
+      const origins = ['http://example.com'];
+
+      await (Domain as any).unlockFromCrawl(wId, origins);
+
+      const update = mockUpdateMany.mock.calls[0][1];
+      expect(update.$set).toEqual({ status: 'ready' });
+    });
+
+    it('should clear jobId and workerId', async () => {
+      const wId = 'worker-789';
+      const origins = ['http://example.com'];
+
+      await (Domain as any).unlockFromCrawl(wId, origins);
+
+      const update = mockUpdateMany.mock.calls[0][1];
+      expect(update.$unset).toEqual({ jobId: '', workerId: '' });
+    });
   });
-
-  it('should unlock domains with status crawling and matching workerId', async () => {
-    const wId = 'worker-789';
-    const origins = ['http://example.com', 'http://test.com'];
-
-    await (Domain as any).unlockFromCrawl(wId, origins);
-
-    expect(mockUpdateMany).toHaveBeenCalledWith(
-      {
-        origin: { $in: origins },
-        status: 'crawling',
-        workerId: wId,
-      },
-      {
-        $set: { status: 'ready' },
-        $unset: { jobId: '', workerId: '' },
-      }
-    );
-  });
-
-  it('should reset status to ready', async () => {
-    const wId = 'worker-789';
-    const origins = ['http://example.com'];
-
-    await (Domain as any).unlockFromCrawl(wId, origins);
-
-    const update = mockUpdateMany.mock.calls[0][1];
-    expect(update.$set).toEqual({ status: 'ready' });
-  });
-
-  it('should clear jobId and workerId', async () => {
-    const wId = 'worker-789';
-    const origins = ['http://example.com'];
-
-    await (Domain as any).unlockFromCrawl(wId, origins);
-
-    const update = mockUpdateMany.mock.calls[0][1];
-    expect(update.$unset).toEqual({ jobId: '', workerId: '' });
-  });
-});
   let mockLockForRobotsCheck: ReturnType<typeof vi.fn>;
   let mockUnlockFromRobotsCheck: ReturnType<typeof vi.fn>;
   let mockGetOneRunning: ReturnType<typeof vi.fn>;
@@ -194,7 +193,7 @@ describe('unlockFromCrawl', () => {
     // Mock Process.getOneRunning
     mockProcessInstance = {
       pid: 'test-process',
-      getPathsForRobotsChecking: vi.fn(),
+      getPathsForRobotsChecking: vi.fn()
     };
     mockGetOneRunning = vi.fn().mockReturnValue(mockProcessInstance);
     vi.mocked(Process as any).getOneRunning = mockGetOneRunning;
@@ -208,22 +207,22 @@ describe('unlockFromCrawl', () => {
     mockProcessInstance.getPathsForRobotsChecking.mockResolvedValueOnce([
       createMockPath('d1', 1),
       createMockPath('d2', 2),
-      createMockPath('d3', 3),
+      createMockPath('d3', 3)
     ]);
     mockLockForRobotsCheck.mockResolvedValueOnce([
       createMockDomain('d1', 1),
       createMockDomain('d2', 2),
-      createMockDomain('d3', 3),
+      createMockDomain('d3', 3)
     ]);
 
     // Batch 2: 2 domains -> total 5, exactly fills limit
     mockProcessInstance.getPathsForRobotsChecking.mockResolvedValueOnce([
       createMockPath('d4', 4),
-      createMockPath('d5', 5),
+      createMockPath('d5', 5)
     ]);
     mockLockForRobotsCheck.mockResolvedValueOnce([
       createMockDomain('d4', 4),
-      createMockDomain('d5', 5),
+      createMockDomain('d5', 5)
     ]);
 
     // Batch 3: empty -> exit
@@ -289,12 +288,12 @@ describe('unlockFromCrawl', () => {
     mockProcessInstance.getPathsForRobotsChecking.mockResolvedValueOnce([
       createMockPath('d1', 1),
       createMockPath('d2', 2),
-      createMockPath('d3', 3),
+      createMockPath('d3', 3)
     ]);
     mockLockForRobotsCheck.mockResolvedValueOnce([
       createMockDomain('d1', 1),
       createMockDomain('d2', 2),
-      createMockDomain('d3', 3),
+      createMockDomain('d3', 3)
     ]);
 
     // These should not be called because generator exits after reaching limit
@@ -334,24 +333,21 @@ describe('domainsToCrawl2', () => {
         { origin: 'd2' },
         { origin: 'd3' },
         { origin: 'd4' },
-        { origin: 'd5' },
+        { origin: 'd5' }
       ] as any;
 
       const remainingCapacity = domLimit - domainsFound;
       expect(remainingCapacity).toBe(1);
       expect(domains.length > remainingCapacity).toBe(true);
 
-      const domainsToUnlock = domains.slice(remainingCapacity).map(d => d.origin);
+      const domainsToUnlock = domains.slice(remainingCapacity).map((d) => d.origin);
       expect(domainsToUnlock).toEqual(['d2', 'd3', 'd4', 'd5']);
     });
 
     it('should not unlock when domains fit within limit', () => {
       const domLimit = 5;
       let domainsFound = 2; // remainingCapacity = 3
-      const domains = [
-        { origin: 'd1' },
-        { origin: 'd2' },
-      ] as any;
+      const domains = [{ origin: 'd1' }, { origin: 'd2' }] as any;
 
       const remainingCapacity = domLimit - domainsFound;
       expect(remainingCapacity).toBe(3);
@@ -363,10 +359,7 @@ describe('domainsToCrawl2', () => {
     it('should exactly fill limit when batch matches remaining capacity', () => {
       const domLimit = 5;
       let domainsFound = 3; // remainingCapacity = 2
-      const domains = [
-        { origin: 'd1' },
-        { origin: 'd2' },
-      ] as any;
+      const domains = [{ origin: 'd1' }, { origin: 'd2' }] as any;
 
       const remainingCapacity = domLimit - domainsFound;
       expect(remainingCapacity).toBe(2);
@@ -376,8 +369,6 @@ describe('domainsToCrawl2', () => {
     });
   });
 });
-
-
 
 // ============================================
 // UNIT TESTS: labelsToFetch first batch limit logic
@@ -403,7 +394,7 @@ describe('labelsToFetch', () => {
       const dsLocked = [
         { origin: 'd1', jobId: 1 },
         { origin: 'd2', jobId: 2 },
-        { origin: 'd3', jobId: 3 },
+        { origin: 'd3', jobId: 3 }
       ] as any;
 
       // Simulate the fix logic from labelsToFetch
@@ -425,7 +416,7 @@ describe('labelsToFetch', () => {
 
       const dsLocked = [
         { origin: 'd1', jobId: 1 },
-        { origin: 'd2', jobId: 2 },
+        { origin: 'd2', jobId: 2 }
       ] as any;
 
       const remainingCapacity = domLimit - domainsFound;
@@ -443,7 +434,7 @@ describe('labelsToFetch', () => {
         d2: ['url3', 'url4'],
         d3: ['url5', 'url6'],
         d4: ['url7', 'url8'],
-        d5: ['url9', 'url10'],
+        d5: ['url9', 'url10']
       };
 
       // Simulate the final batch logic
