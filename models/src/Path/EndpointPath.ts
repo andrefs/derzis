@@ -256,7 +256,10 @@ export class EndpointPathClass extends PathClass {
       }).lean().exec();
 
       for (const ep of existing) {
-        existingMap.set(ep.head.url, ep as EndpointPathDocument);
+        const head = ep.head as any;
+        if (head?.url) {
+          existingMap.set(head.url, ep as EndpointPathDocument);
+        }
       }
     }
 
@@ -339,26 +342,7 @@ export class EndpointPathClass extends PathClass {
     return { extendedPaths, procTriples };
   }
 
-  public async extendWithExistingTriples(
-    process: ProcessClass
-  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
-    if (hasLiteralHead(this)) {
-      return { extendedPaths: [], procTriples: [] };
-    }
 
-    const triplesFilter = this.genExistingTriplesFilter(process);
-    if (!triplesFilter) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-
-    const triples = await Triple.find(triplesFilter);
-
-    if (!triples.length) {
-      return { extendedPaths: [], procTriples: [] };
-    }
-    log.silly(`Extending path ${this._id} with existing ${triples.length} triples`);
-    return this.genExtended(triples, process);
-  }
 }
 
 export const EndpointPath = getDiscriminatorModelForClass(

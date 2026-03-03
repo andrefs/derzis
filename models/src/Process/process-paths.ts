@@ -252,7 +252,6 @@ export async function extendPathsWithExistingTriples(
       await Path.updateOne({ _id: path._id }, { $set: { frontier: false } });
     }
   }
-}
 
   if (newPaths.length) {
     // extend newly created paths recursively
