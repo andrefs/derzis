@@ -99,7 +99,7 @@ export async function getPathsForRobotsChecking(
       ...cursorCondition,
       ...lockedFilter,
       'head.type': HEAD_TYPE.URL,
-      'shortestPath.length': { $lte: process.currentStep.maxPathLength },
+      'shortestPathLength': { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
       .sort({ createdAt: 1, _id: 1 })
@@ -163,7 +163,7 @@ export async function getPathsForDomainCrawl(
   } else {
     const paths = await EndpointPath.find({
       ...baseQuery,
-      'shortestPath.length': { $lte: process.currentStep.maxPathLength },
+      'shortestPathLength': { $lte: process.currentStep.maxPathLength },
       ...cursorCondition,
       ...domainFilter,
       frontier: true
@@ -223,12 +223,12 @@ export async function extendPathsWithExistingTriples(
     const res = await path.extendWithExistingTriples(proc);
 
     if (!res.extendedPaths.length) {
-      const length =
+     const length =
         path instanceof TraversalPath
           ? path.nodes.count
           : path instanceof EndpointPath
-            ? path.shortestPath.length
-            : 'N/A';
+              ? path.shortestPathLength
+              : 'N/A';
       const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
 
       const headVal =
@@ -246,7 +246,13 @@ export async function extendPathsWithExistingTriples(
     await deleteOldPaths(new Set([path._id]), path.type);
     // if new paths were created
     newPaths.push(...(await createNewPaths(res.extendedPaths, path.type)));
+
+    // Retire this source path's frontier status if it's an EndpointPath
+    if (path.type === PathType.ENDPOINT) {
+      await Path.updateOne({ _id: path._id }, { $set: { frontier: false } });
+    }
   }
+}
 
   if (newPaths.length) {
     // extend newly created paths recursively

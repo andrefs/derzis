@@ -1,4 +1,4 @@
-import { type QueryFilter } from 'mongoose';
+import { type QueryFilter, Types } from 'mongoose';
 import {
   prop,
   index,
@@ -21,19 +21,20 @@ import {
   hasLiteralHead,
   HEAD_TYPE,
   UrlHead,
-  type Head
+  type Head,
+  type LiteralHead
 } from './Path';
 import { PathType, type TypedTripleId, TripleType } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
 
-class ShortestPathInfo {
-  @prop({ required: true, type: Number, default: 0 })
-  public length!: number;
-
-  @prop({ required: true, type: String })
-  public seed!: string;
+interface Candidate {
+  triple: TripleDocument;
+  headUrl?: string;
+  literalHead?: LiteralHead;
+  distance: number;
+  seedPaths: Record<string, number>;
 }
 
 export type EndpointPathSkeleton = Pick<
@@ -41,7 +42,7 @@ export type EndpointPathSkeleton = Pick<
   'processId' | 'seed' | 'head' | 'type' | 'status'
 > &
   RecursivePartial<EndpointPathClass> & {
-    shortestPath: ShortestPathInfo;
+    shortestPathLength: number;
     frontier: boolean;
     seedPaths: { [seedUrl: string]: number };
   };
@@ -60,8 +61,8 @@ export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Boolean, default: false })
   public frontier!: boolean;
 
-  @prop({ required: true, type: ShortestPathInfo })
-  public shortestPath!: ShortestPathInfo;
+  @prop({ required: true, type: Number, default: 0 })
+  public shortestPathLength!: number;
 
   @prop({ required: true, type: Object, default: {} })
   public seedPaths!: { [seedUrl: string]: number };
@@ -90,7 +91,7 @@ export class EndpointPathClass extends PathClass {
   }
 
   public tripleIsOutOfBounds(t: NamedNodeTripleClass, process: ProcessClass): boolean {
-    return this.shortestPath.length + 1 > process.currentStep.maxPathLength;
+    return this.shortestPathLength + 1 > process.currentStep.maxPathLength;
   }
 
   public genExistingTriplesFilter(process: ProcessClass): QueryFilter<NamedNodeTripleClass> | null {
@@ -113,7 +114,7 @@ export class EndpointPathClass extends PathClass {
       },
       head: this.head as Head,
       status: this.status,
-      shortestPath: { length: this.shortestPath.length, seed: this.shortestPath.seed },
+      shortestPathLength: this.shortestPathLength,
       frontier: this.frontier,
       seedPaths: { ...this.seedPaths }
     };
@@ -123,16 +124,18 @@ export class EndpointPathClass extends PathClass {
   public async genExtended(
     triples: TripleDocument[],
     process: ProcessClass
-  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
+  ): Promise<{ candidates: Candidate[]; procTriples: TypedTripleId[] }> {
     if (this.head.type !== HEAD_TYPE.URL) {
-      return { extendedPaths: [], procTriples: [] };
+      return { candidates: [], procTriples: [] };
     }
 
     const urlHead = this.head as UrlHead;
-    let extendedPaths: { [prop: string]: { [newHead: string]: EndpointPathSkeleton } } = {};
-    let procTriples: TypedTripleId[] = [];
+    const candidates: Candidate[] = [];
+    const procTriples: TypedTripleId[] = [];
+    const processedUrlHeads = new Set<string>();
+    const processedLiterals = new Set<string>();
     const predsDirMetrics = process.curPredsDirMetrics();
-    const followDirection = process!.currentStep.followDirection;
+    const followDirection = process.currentStep.followDirection;
 
     const namedNodeTriples = triples
       .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
@@ -145,42 +148,30 @@ export class EndpointPathClass extends PathClass {
       );
 
     for (const t of namedNodeTriples) {
-      log.silly('Extending path with NamedNodeTriple', t);
+      log.silly('Evaluating NamedNodeTriple for extension', t);
       const newHeadUrl: string = t.subject === urlHead.url ? t.object! : t.subject;
-      const prop = t.predicate;
 
-      extendedPaths[prop] = extendedPaths[prop] || {};
-      if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
-        const seedPaths = {
-          ...this.seedPaths,
-          [newHeadUrl]: (this.seedPaths[newHeadUrl] || 0) + 1
-        };
-        const shortestPath = Object.entries(seedPaths).reduce(
-          (shortest, [seedUrl, count]) => {
-            if (count > 0 && (shortest.length === 0 || count < shortest.length)) {
-              return { length: count, seed: seedUrl };
-            }
-            return shortest;
-          },
-          { length: 0, seed: '' }
-        );
-        const ep = this.copy();
-        const domain = new URL(newHeadUrl).origin;
-        ep.head = {
-          type: HEAD_TYPE.URL,
-          url: newHeadUrl,
-          status: 'unvisited',
-          domain,
-        } as Head;
-        ep.shortestPath = shortestPath;
-        ep.seedPaths = seedPaths;
-        ep.frontier = true;
-        ep.status = 'active';
-
-        procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
-        log.silly('New path', ep);
-        extendedPaths[prop][newHeadUrl] = ep;
+      // Out of bounds check
+      if (this.tripleIsOutOfBounds(t, process)) {
+        continue;
       }
+
+      // Dedup within batch
+      if (processedUrlHeads.has(newHeadUrl)) {
+        procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
+        continue;
+      }
+      processedUrlHeads.add(newHeadUrl);
+
+      const distance = this.shortestPathLength + 1;
+      const seedPaths: Record<string, number> = {};
+      for (const [seed, dist] of Object.entries(this.seedPaths)) {
+        seedPaths[seed] = dist + 1;
+      }
+
+      candidates.push({ triple: t, headUrl: newHeadUrl, distance, seedPaths });
+      procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
+      log.silly('Candidate URL extension', { headUrl: newHeadUrl, distance, seedPaths });
     }
 
     const literalTriples = triples
@@ -188,48 +179,164 @@ export class EndpointPathClass extends PathClass {
       .filter((t) => this.shouldCreateNewPath(t, urlHead));
 
     for (const t of literalTriples) {
-      log.silly('Extending path with LiteralTriple', t);
-      const prop = t.predicate;
-      const literalKey = `literal:${t.object.value}`;
+      log.silly('Evaluating LiteralTriple for extension', t);
+      const literalKey = JSON.stringify({
+        value: t.object.value,
+        datatype: t.object.datatype || '',
+        language: t.object.language || ''
+      });
 
-      extendedPaths[prop] = extendedPaths[prop] || {};
-      if (!extendedPaths[prop][literalKey]) {
-        const seedPaths = {
-          ...this.seedPaths,
-          [literalKey]: (this.seedPaths[literalKey] || 0) + 1
-        };
-        const shortestPath = Object.entries(seedPaths).reduce(
-          (shortest, [seedUrl, count]) => {
-            if (count > 0 && (shortest.length === 0 || count < shortest.length)) {
-              return { length: count, seed: seedUrl };
-            }
-            return shortest;
-          },
-          { length: 0, seed: '' }
-        );
-        const ep = this.copy();
-        ep.head = {
-          type: HEAD_TYPE.LITERAL,
-          value: t.object.value,
-          datatype: t.object.datatype,
-          language: t.object.language
-        } as Head;
-        ep.shortestPath = shortestPath;
-        ep.seedPaths = seedPaths;
-        ep.frontier = true;
-        ep.status = 'active';
-
+      // Dedup within batch
+      if (processedLiterals.has(literalKey)) {
         procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
-        log.silly('New path with literal head', ep);
-        extendedPaths[prop][literalKey] = ep;
+        continue;
+      }
+      processedLiterals.add(literalKey);
+
+      const distance = this.shortestPathLength + 1;
+      const seedPaths: Record<string, number> = {};
+      for (const [seed, dist] of Object.entries(this.seedPaths)) {
+        seedPaths[seed] = dist + 1;
+      }
+
+      const literalHead: LiteralHead = {
+        type: HEAD_TYPE.LITERAL,
+        value: t.object.value,
+        datatype: t.object.datatype,
+        language: t.object.language
+      };
+
+      candidates.push({ triple: t, literalHead, distance, seedPaths });
+      procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+      log.silly('Candidate literal extension', { literalHead, distance, seedPaths });
+    }
+
+    log.silly('genExtended candidates', { candidates, procTriples });
+    return { candidates, procTriples };
+  }
+
+  public async extendWithExistingTriples(
+    process: ProcessClass
+  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
+    if (hasLiteralHead(this)) {
+      return { extendedPaths: [], procTriples: [] };
+    }
+
+    const triplesFilter = this.genExistingTriplesFilter(process);
+    if (!triplesFilter) {
+      return { extendedPaths: [], procTriples: [] };
+    }
+
+    const triples = await Triple.find(triplesFilter);
+
+    if (!triples.length) {
+      return { extendedPaths: [], procTriples: [] };
+    }
+
+    const { candidates, procTriples } = await this.genExtended(triples, process);
+    const extendedPaths: EndpointPathSkeleton[] = [];
+
+    if (candidates.length === 0) {
+      return { extendedPaths, procTriples };
+    }
+
+    // Separate URL and literal candidates
+    const urlCandidates = candidates.filter(c => c.headUrl !== undefined);
+    const literalCandidates = candidates.filter(c => c.literalHead !== undefined);
+
+    // Query existing active EndpointPaths for URL heads
+    const headUrls = urlCandidates.map(c => c.headUrl!);
+    const existingMap = new Map<string, EndpointPathDocument>();
+
+    if (headUrls.length > 0) {
+      const existing = await EndpointPath.find({
+        processId: this.processId,
+        status: 'active',
+        'head.url': { $in: headUrls }
+      }).lean().exec();
+
+      for (const ep of existing) {
+        existingMap.set(ep.head.url, ep as EndpointPathDocument);
       }
     }
 
-    const eps: EndpointPathSkeleton[] = [];
-    Object.values(extendedPaths).forEach((x) => Object.values(x).forEach((y) => eps.push(y)));
+    // Process URL candidates: update existing or create new
+    for (const candidate of urlCandidates) {
+      const { headUrl, distance, seedPaths } = candidate;
+      const existing = existingMap.get(headUrl);
 
-    log.silly('Extended paths', eps);
-    return { extendedPaths: eps, procTriples };
+      if (existing) {
+        // Atomic $min updates
+        const updateOp: Record<string, any> = { 'shortestPathLength': distance };
+        for (const [seed, dist] of Object.entries(seedPaths)) {
+          updateOp[`seedPaths.${seed}`] = dist;
+        }
+        await EndpointPath.updateOne(
+          { _id: existing._id },
+          { $min: updateOp }
+        );
+        log.silly('Updated existing endpoint path', { _id: existing._id, updateOp });
+      } else {
+        // Create new endpoint path
+        const pathId = new Types.ObjectId();
+        const domain = new URL(headUrl).origin;
+        const newPath: EndpointPathSkeleton = {
+          _id: pathId,
+          processId: this.processId,
+          seed: this.seed,
+          head: {
+            type: HEAD_TYPE.URL,
+            url: headUrl,
+            status: 'unvisited',
+            domain
+          },
+          status: 'active',
+          frontier: true,
+          shortestPathLength: distance,
+          seedPaths,
+          extensionCounter: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        extendedPaths.push(newPath);
+        log.silly('Created new endpoint path', newPath);
+      }
+    }
+
+    // Process literal candidates: always create new
+    for (const candidate of literalCandidates) {
+      const { literalHead, distance, seedPaths } = candidate;
+      const pathId = new Types.ObjectId();
+
+      // Find the seed with minimum distance for this candidate
+      let minDist = Infinity;
+      let shortestSeed = '';
+      for (const [seed, dist] of Object.entries(seedPaths)) {
+        if (dist < minDist) {
+          minDist = dist;
+          shortestSeed = seed;
+        }
+      }
+
+      const newPath: EndpointPathSkeleton = {
+        _id: pathId,
+        processId: this.processId,
+        seed: this.seed,
+        head: literalHead,
+        status: 'active',
+        frontier: true,
+        shortestPathLength: distance,
+        seedPaths,
+        extensionCounter: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      extendedPaths.push(newPath);
+      log.silly('Created new literal endpoint path', newPath);
+    }
+
+    log.silly('extendWithExistingTriples result', { extendedPaths, procTriples });
+    return { extendedPaths, procTriples };
   }
 
   public async extendWithExistingTriples(
