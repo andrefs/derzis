@@ -1,5 +1,5 @@
 import type { Types, Document, UpdateQuery } from 'mongoose';
-import { TripleType, urlValidator, WorkerError } from '@derzis/common';
+import { PathType, TripleType, urlValidator, WorkerError } from '@derzis/common';
 import { Domain, DomainClass } from './Domain';
 import {
   TraversalPath,
@@ -135,7 +135,7 @@ class ResourceClass {
       { returnDocument: 'before' }
     );
 
-    if (config.manager.pathType === 'traversal') {
+    if (config.manager.pathType === PathType.TRAVERSAL) {
       // TraversalPath
       await TraversalPath.updateMany(
         { 'head.url': url, status: 'active', 'head.type': HEAD_TYPE.URL },
@@ -255,15 +255,26 @@ class ResourceClass {
     seeds: ResourceDocument[]
   ) {
     // Traversal paths
-    if (config.manager.pathType === 'traversal') {
+    if (config.manager.pathType === PathType.TRAVERSAL) {
       const paths = seeds.map((s) => ({
         processId: pid,
         seed: { url: s.url },
-        head: { url: s.url, status: s.status, type: HEAD_TYPE.URL },
-        nodes: { elems: [s.url] },
-        predicates: { elems: [] },
-        triples: [],
-        status: 'active'
+        head: {
+          url: s.url,
+          status: s.status,
+          type: HEAD_TYPE.URL,
+          domain: s.domain
+        },
+        status: 'active',
+        nodes: {
+          elems: [s.url],
+          count: 1
+        },
+        predicates: {
+          elems: [],
+          count: 0
+        },
+        triples: []
       }));
 
       const insPaths = (await TraversalPath.create(paths as any)) as any;
@@ -277,21 +288,26 @@ class ResourceClass {
         head: {
           url: s.url,
           status: s.status,
-          domain: { origin: s.domain, status: 'active', type: HEAD_TYPE.URL }
+          domain: s.domain
         },
         status: 'active',
         frontier: true,
-        minPath: {
+        shortestPath: {
           length: 1,
-          seeds: [s.url]
+          seed: s.url
         },
         seedPaths: {
           [s.url]: 1
         }
       }));
 
-      const insPaths = (await EndpointPath.create(paths as any)) as any;
-      return this.addEpPaths(insPaths);
+      try {
+        const insPaths = (await EndpointPath.create(paths as any)) as any;
+        return this.addEpPaths(insPaths);
+      } catch (error) {
+        log.error('Failed to create EndpointPath seed documents', { error, seedUrls: paths.map(p => p.seed.url) });
+        throw error;
+      }
     }
   }
 

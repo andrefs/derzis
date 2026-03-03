@@ -16,17 +16,17 @@ import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
-import type {
-  DomainCrawlJobRequest,
-  DomainLabelFetchJobRequest,
-  FetchLabelsResourceResult,
-  JobCapacity,
-  JobRequest,
+import {
   PathType,
-  ResourceCrawlJobRequest,
-  ResourceLabelFetchJobRequest,
-  RobotsCheckJobRequest,
-  SimpleTriple
+  type DomainCrawlJobRequest,
+  type DomainLabelFetchJobRequest,
+  type FetchLabelsResourceResult,
+  type JobCapacity,
+  type JobRequest,
+  type ResourceCrawlJobRequest,
+  type ResourceLabelFetchJobRequest,
+  type RobotsCheckJobRequest,
+  type SimpleTriple
 } from '@derzis/common';
 
 
@@ -366,7 +366,7 @@ export default class Manager {
     };
 
     const pids =
-      config.manager.pathType === 'traversal'
+      config.manager.pathType === PathType.TRAVERSAL
         ? await TraversalPath.distinct('processId', query)
         : await EndpointPath.distinct('processId', query);
 

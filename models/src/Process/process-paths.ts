@@ -73,9 +73,9 @@ export async function getPathsForRobotsChecking(
   const cursorCondition =
     lastSeenCreatedAt && lastSeenId
       ? {
-          createdAt: { $gte: lastSeenCreatedAt },
-          _id: { $gt: lastSeenId }
-        }
+        createdAt: { $gte: lastSeenCreatedAt },
+        _id: { $gt: lastSeenId }
+      }
       : {};
 
   if (pathType === PathType.TRAVERSAL) {
@@ -141,9 +141,9 @@ export async function getPathsForDomainCrawl(
   const cursorCondition =
     lastSeenCreatedAt && lastSeenId
       ? {
-          createdAt: { $gte: lastSeenCreatedAt },
-          _id: { $gt: lastSeenId }
-        }
+        createdAt: { $gte: lastSeenCreatedAt },
+        _id: { $gt: lastSeenId }
+      }
       : {};
   const sort = { createdAt: 1, _id: 1 } as const;
 
@@ -457,7 +457,7 @@ async function createNewPaths(
     await setNewPathHeadStatus(pathsToCreate);
 
     // create new paths
-    return pathType === 'traversal'
+    return pathType === PathType.TRAVERSAL
       ? await TraversalPath.create(pathsToCreate)
       : await EndpointPath.create(pathsToCreate);
   } else {
@@ -482,7 +482,7 @@ async function deleteOldPaths(pathsToDelete: Set<Types.ObjectId>, pathType: Path
 
     // mark old paths as deleted if their head status is 'done'
 
-    if (pathType === 'traversal') {
+    if (pathType === PathType.TRAVERSAL) {
       await TraversalPath.updateMany(pathQuery, pathUpdate);
     } else {
       await EndpointPath.updateMany(pathQuery, pathUpdate);
@@ -522,27 +522,27 @@ export async function extendProcessPaths(
     const pathCursorCondition: QueryFilter<TraversalPathClass> =
       lastPathCreatedAt && lastPathId
         ? {
-            createdAt: { $gte: lastPathCreatedAt },
-            _id: { $gt: lastPathId }
-          }
+          createdAt: { $gte: lastPathCreatedAt },
+          _id: { $gt: lastPathId }
+        }
         : {};
 
     const paths =
-      pathType === 'traversal'
+      pathType === PathType.TRAVERSAL
         ? await TraversalPath.find({
-            ...pathQuery,
-            'head.type': HEAD_TYPE.URL,
-            ...pathCursorCondition
-          } as QueryFilter<TraversalPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
+          ...pathQuery,
+          'head.type': HEAD_TYPE.URL,
+          ...pathCursorCondition
+        } as QueryFilter<TraversalPathClass>)
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize)
         : await EndpointPath.find({
-            ...pathQuery,
-            'head.type': HEAD_TYPE.URL,
-            ...pathCursorCondition
-          } as QueryFilter<EndpointPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize);
+          ...pathQuery,
+          'head.type': HEAD_TYPE.URL,
+          ...pathCursorCondition
+        } as QueryFilter<EndpointPathClass>)
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize);
 
     log.info(`extendProcessPaths: Found ${paths.length} paths for headUrl: ${headUrl}`);
 
@@ -563,9 +563,9 @@ export async function extendProcessPaths(
       const tripleCursorCondition: QueryFilter<TraversalPathClass> =
         lastTripleCreatedAt && lastTripleId
           ? {
-              createdAt: { $gte: lastTripleCreatedAt },
-              _id: { $gt: lastTripleId }
-            }
+            createdAt: { $gte: lastTripleCreatedAt },
+            _id: { $gt: lastTripleId }
+          }
           : {};
 
       const triples = await Triple.find({

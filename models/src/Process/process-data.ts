@@ -12,7 +12,7 @@ import {
   Triple
 } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
-import { type SimpleTriple, TripleType, type PathType } from '@derzis/common';
+import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
 import config from '@derzis/config';
 import { ResourceLabel } from '../ResourceLabel';
 
@@ -337,16 +337,16 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   }).lean();
   const avgPathLength = totalPaths
     ? await TraversalPath.aggregate([
-        { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-      ]).then((res) => res[0]?.avgLength || 0)
+      { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
+      { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+    ]).then((res) => res[0]?.avgLength || 0)
     : 0;
 
   const avgPathProps = totalPaths
     ? await TraversalPath.aggregate([
-        { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-      ]).then((res) => res[0]?.avgProps || 0)
+      { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
+      { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+    ]).then((res) => res[0]?.avgProps || 0)
     : 0;
 
   const timeToLastResource = lastResource
@@ -463,7 +463,7 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
 
   const pipeline = [{ $match: baseQuery }, { $group: { _id: '$head.status', count: { $sum: 1 } } }];
 
-  const PathModel = pathType === 'traversal' ? TraversalPath : EndpointPath;
+  const PathModel = pathType === PathType.TRAVERSAL ? TraversalPath : EndpointPath;
   const results = await PathModel.aggregate(pipeline);
 
   const counts: Record<string, number> = {};
