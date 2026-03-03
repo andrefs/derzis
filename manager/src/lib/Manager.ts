@@ -365,10 +365,9 @@ export default class Manager {
       status: 'active'
     };
 
-    const pids =
-      config.manager.pathType === PathType.TRAVERSAL
-        ? await TraversalPath.distinct('processId', query)
-        : await EndpointPath.distinct('processId', query);
+    const pids = config.manager.pathType === PathType.TRAVERSAL
+      ? await TraversalPath.distinct('processId', query)
+      : await EndpointPath.distinct('processId', query);
 
     log.info('updateAllPathsWithHead - found pids:', pids, 'for headUrl:', headUrl);
 

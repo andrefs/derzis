@@ -21,7 +21,6 @@ import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
 import {
   type NamedNodeTripleDocument,
-  type LiteralTripleDocument,
   type TripleDocument
 } from '../Triple';
 import { createLogger } from '@derzis/common/server';

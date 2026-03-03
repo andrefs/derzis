@@ -1,4 +1,4 @@
-import { Types, type QueryFilter } from 'mongoose';
+import { type QueryFilter } from 'mongoose';
 import {
   prop,
   index,
@@ -7,9 +7,7 @@ import {
 } from '@typegoose/typegoose';
 import {
   NamedNodeTripleClass,
-  NamedNodeTriple,
   type NamedNodeTripleDocument,
-  LiteralTriple,
   type LiteralTripleDocument,
   Triple,
   type TripleDocument,
@@ -23,10 +21,9 @@ import {
   hasLiteralHead,
   HEAD_TYPE,
   UrlHead,
-  LiteralHead,
   type Head
 } from './Path';
-import { PathType, type TypedTripleId, TripleType, type LiteralObject } from '@derzis/common';
+import { PathType, type TypedTripleId, TripleType } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
@@ -168,11 +165,12 @@ export class EndpointPathClass extends PathClass {
           { length: 0, seed: '' }
         );
         const ep = this.copy();
+        const domain = new URL(newHeadUrl).origin;
         ep.head = {
           type: HEAD_TYPE.URL,
           url: newHeadUrl,
           status: 'unvisited',
-          domain: ''
+          domain,
         } as Head;
         ep.shortestPath = shortestPath;
         ep.seedPaths = seedPaths;

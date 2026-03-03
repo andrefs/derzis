@@ -12,6 +12,8 @@ import {
 import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
 import type { CrawlResourceResultDetails, SimpleTriple } from '@derzis/common';
 import config from '@derzis/config';
+import { createLogger } from '@derzis/common/server';
+const log = createLogger('Resource');
 
 import {
   prop,
