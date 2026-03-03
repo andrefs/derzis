@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   genTraversalPathQuery,
@@ -18,6 +19,115 @@ type TraversalPathQueryWithExpr = QueryFilter<TraversalPathDocument> & {
     };
   };
 };
+
+// Mock implementations using vi.mock
+vi.mock('../Path/TraversalPath', () => {
+  const createChainableMock = (result: any) => {
+    return {
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          then: (onfulfilled: any) => Promise.resolve(result).then(onfulfilled)
+        })
+      })
+    };
+  };
+
+  class MockTraversalPathClass {
+    _id = new Types.ObjectId();
+    processId = 'test-pid';
+    status = 'active';
+    createdAt = new Date();
+    extensionCounter = 0;
+    nodes = { count: 1, elems: [] };
+    predicates = { count: 0, elems: [] };
+    head: any = { type: 'url', url: 'http://test.com', status: 'unvisited', domain: 'http://test.com' };
+    seed: any = { url: 'http://example.com/seed' };
+
+    extendWithExistingTriples(proc: any) {
+      return Promise.resolve({ extendedPaths: [], procTriples: [] });
+    }
+  }
+
+  MockTraversalPathClass.countDocuments = vi.fn();
+  MockTraversalPathClass.find = vi.fn(() => createChainableMock([]));
+  MockTraversalPathClass.updateMany = vi.fn();
+
+  return {
+    TraversalPath: MockTraversalPathClass,
+    TraversalPathClass: MockTraversalPathClass,
+  };
+});
+
+vi.mock('../Path/EndpointPath', () => {
+  const createChainableMock = (result: any) => {
+    return {
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          then: (onfulfilled: any) => Promise.resolve(result).then(onfulfilled)
+        })
+      })
+    };
+  };
+
+  class MockEndpointPathClass {
+    _id = new Types.ObjectId();
+    processId = 'test-pid';
+    status = 'active';
+    createdAt = new Date();
+    extensionCounter = 0;
+    shortestPath: any = { length: 1, seed: { url: 'http://test.com' } };
+    frontier = true;
+    seedPaths = 1;
+    head: any = { type: 'url', url: 'http://test.com', status: 'unvisited', domain: 'http://test.com' };
+    seed: any = { url: 'http://example.com/seed' };
+
+    extendWithExistingTriples(proc: any) {
+      return Promise.resolve({ extendedPaths: [], procTriples: [] });
+    }
+  }
+
+  MockEndpointPathClass.countDocuments = vi.fn();
+  MockEndpointPathClass.find = vi.fn(() => createChainableMock([]));
+  MockEndpointPathClass.updateMany = vi.fn();
+
+  return {
+    EndpointPath: MockEndpointPathClass,
+    EndpointPathClass: MockEndpointPathClass,
+  };
+});
+
+vi.mock('../Domain', () => {
+  const mockSelect = vi.fn().mockReturnValue({
+    lean: vi.fn().mockResolvedValue([])
+  });
+  
+  const mockFind = vi.fn().mockReturnValue({
+    select: mockSelect
+  });
+
+  return {
+    Domain: {
+      find: mockFind
+    }
+  };
+});
+
+vi.mock('./Process', () => ({
+  Process: {
+    findOne: vi.fn(),
+  },
+}));
+
+vi.mock('../Path/Path', () => ({
+  Path: {
+    countDocuments: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  HEAD_TYPE: {
+    URL: 'url',
+    LITERAL: 'literal'
+  }
+}));
 
 describe('genTraversalPathQuery', () => {
   const createMockProcess = (overrides: {
@@ -245,7 +355,12 @@ describe('genTraversalPathQuery', () => {
     });
 
     beforeEach(() => {
-      Domain.find.mockResolvedValue(mockDomains);
+      const mockLean = vi.fn().mockResolvedValue(mockDomains);
+      Domain.find.mockImplementation(() => ({
+        select: vi.fn().mockReturnValue({
+          lean: mockLean
+        })
+      }));
       vi.clearAllMocks();
     });
 
@@ -280,7 +395,11 @@ describe('genTraversalPathQuery', () => {
     });
 
     it('returns false when no domains are checking (early return)', async () => {
-      Domain.find.mockResolvedValue([]);
+      Domain.find.mockImplementation(() => ({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([])
+        })
+      }));
       const process = mockProcess('pid-4', 'traversal');
 
       const result = await hasPathsDomainRobotsChecking(process);
@@ -300,7 +419,12 @@ describe('genTraversalPathQuery', () => {
     });
 
     beforeEach(() => {
-      Domain.find.mockResolvedValue(mockCrawlingDomains);
+      const mockLean = vi.fn().mockResolvedValue(mockCrawlingDomains);
+      Domain.find.mockImplementation(() => ({
+        select: vi.fn().mockReturnValue({
+          lean: mockLean
+        })
+      }));
       vi.clearAllMocks();
     });
 
@@ -341,13 +465,16 @@ describe('genTraversalPathQuery', () => {
     });
 
     it('returns false when no domains are crawling (early return)', async () => {
-      Domain.find.mockResolvedValue([]);
+      Domain.find.mockImplementation(() => ({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([])
+        })
+      }));
       const process = mockProcess('pid-4', 'traversal');
 
       const result = await hasPathsHeadBeingCrawled(process);
       expect(result).toBe(false);
       expect(Path.countDocuments).not.toHaveBeenCalled();
     });
-  });
-});
+ });
 });
