@@ -1,8 +1,8 @@
 import { StepClass, Process, ProcessClass, Resource, NamedNodeTriple, TraversalPath, LiteralTriple, LiteralTripleClass, NamedNodeTripleClass, type ProcessDocument } from '@derzis/models';
-import { PathType, type RecursivePartial, TripleType } from '@derzis/common';
-import { sendInitEmail } from '@derzis/common/server';
+import { PathType, type RecursivePartial } from '@derzis/common';
 import { secondsToString, type MakeOptional } from './utils';
 import { createLogger } from '@derzis/common/server';
+import config from '@derzis/config';
 const log = createLogger('process-helper');
 
 /**
@@ -28,7 +28,7 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
     currentStep: p.currentStep!,
     notification: p.notification!,
     pathHeads: p.pathHeads,
-    pathType: p.pathType ?? PathType.ENDPOINT
+    pathType: p.pathType ?? config.manager.pathType ?? PathType.ENDPOINT,
   } as Parameters<typeof Process.create>[0];
 
   const proc = await Process.create(processData);
