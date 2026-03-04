@@ -267,9 +267,11 @@ class ProcessClass extends Document {
     pathType: PathType,
     lastSeenCreatedAt: Date | null = null,
     lastSeenId: Types.ObjectId | null = null,
+    lastSeenLength: number | null = null,
+    lastSeenShortestPathLength: number | null = null,
     limit = 20
   ) {
-    return getPathsForRobotsChecking(this, pathType, lastSeenCreatedAt, lastSeenId, limit);
+    return getPathsForRobotsChecking(this, pathType, lastSeenCreatedAt, lastSeenId, lastSeenLength, lastSeenShortestPathLength, limit);
   }
 
   public async getPathsForDomainCrawl(
@@ -277,6 +279,8 @@ class ProcessClass extends Document {
     domainBlacklist: string[] = [],
     lastSeenCreatedAt: Date | null = null,
     lastSeenId: Types.ObjectId | null = null,
+    lastSeenLength: number | null = null,
+    lastSeenShortestPathLength: number | null = null,
     limit = 20
   ) {
     return getPathsForDomainCrawl(
@@ -285,6 +289,8 @@ class ProcessClass extends Document {
       domainBlacklist,
       lastSeenCreatedAt,
       lastSeenId,
+      lastSeenLength,
+      lastSeenShortestPathLength,
       limit
     );
   }

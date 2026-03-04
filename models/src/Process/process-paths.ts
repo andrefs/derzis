@@ -52,6 +52,8 @@ async function getLockedDomainFilter(domainBlacklist: string[] = []) {
  * @param pathType Type of paths to retrieve ('traversal' or 'endpoint')
  * @param lastSeenCreatedAt Cursor for pagination - return paths with createdAt greater than this value
  * @param lastSeenId Cursor for pagination - return paths with _id greater than this value (for ties)
+ * @param lastSeenLength Cursor for pagination - return paths with nodes.count greater than this value (for traversal)
+ * @param lastSeenShortestPathLength Cursor for pagination - return paths with shortestPathLength greater than this value (for endpoint)
  * @param limit Maximum number of paths to return
  * @returns Array of TraversalPathClass or EndpointPathClass documents with only head domain origin selected
  */
@@ -60,6 +62,8 @@ export async function getPathsForRobotsChecking(
   pathType: PathType,
   lastSeenCreatedAt: Date | null = null,
   lastSeenId: Types.ObjectId | null = null,
+  lastSeenLength: number | null = null,
+  lastSeenShortestPathLength: number | null = null,
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
   const lockedFilter = await getLockedDomainFilter();
@@ -79,15 +83,32 @@ export async function getPathsForRobotsChecking(
     'head.type': HEAD_TYPE.URL,
     'head.domain': { $in: eligibleOrigins }
   };
-  const select = 'head.domain head.type createdAt _id';
+  const select = 'head.domain head.type createdAt _id nodes.count shortestPathLength';
 
-  const cursorCondition =
-    lastSeenCreatedAt && lastSeenId
-      ? {
-          createdAt: { $gte: lastSeenCreatedAt },
-          _id: { $gt: lastSeenId }
-        }
-      : {};
+  // Build cursor condition for compound sort: { length, createdAt, _id }
+  let cursorCondition: Record<string, unknown> = {};
+  if (pathType === PathType.TRAVERSAL && lastSeenLength !== null && lastSeenCreatedAt && lastSeenId) {
+    cursorCondition = {
+      $or: [
+        { 'nodes.count': { $gt: lastSeenLength } },
+        { 'nodes.count': lastSeenLength, createdAt: { $gt: lastSeenCreatedAt } },
+        { 'nodes.count': lastSeenLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+      ]
+    };
+  } else if (pathType === PathType.ENDPOINT && lastSeenShortestPathLength !== null && lastSeenCreatedAt && lastSeenId) {
+    cursorCondition = {
+      $or: [
+        { shortestPathLength: { $gt: lastSeenShortestPathLength } },
+        { shortestPathLength: lastSeenShortestPathLength, createdAt: { $gt: lastSeenCreatedAt } },
+        { shortestPathLength: lastSeenShortestPathLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+      ]
+    };
+  } else if (lastSeenCreatedAt && lastSeenId) {
+    cursorCondition = {
+      createdAt: { $gte: lastSeenCreatedAt },
+      _id: { $gt: lastSeenId }
+    };
+  }
 
   if (pathType === PathType.TRAVERSAL) {
     const paths = await TraversalPath.find({
@@ -97,7 +118,7 @@ export async function getPathsForRobotsChecking(
       'nodes.count': { $lt: process.currentStep.maxPathLength },
       'predicates.count': { $lte: process.currentStep.maxPathProps }
     })
-      .sort({ createdAt: 1, _id: 1 })
+      .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
     return paths;
@@ -109,7 +130,7 @@ export async function getPathsForRobotsChecking(
       shortestPathLength: { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
-      .sort({ createdAt: 1, _id: 1 })
+      .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
     return paths;
@@ -123,6 +144,8 @@ export async function getPathsForRobotsChecking(
  * @param domainBlacklist Optional array of domain origins to exclude from results
  * @param lastSeenCreatedAt Cursor for pagination - return paths with createdAt greater than this value
  * @param lastSeenId Cursor for pagination - return paths with _id greater than this value (for ties)
+ * @param lastSeenLength Cursor for pagination - return paths with nodes.count greater than this value (for traversal)
+ * @param lastSeenShortestPathLength Cursor for pagination - return paths with shortestPathLength greater than this value (for endpoint)
  * @param limit Maximum number of paths to return
  * @returns Array of TraversalPathClass or EndpointPathClass documents with only head domain origin and head url selected
  */
@@ -132,6 +155,8 @@ export async function getPathsForDomainCrawl(
   domainBlacklist: string[] = [],
   lastSeenCreatedAt: Date | null = null,
   lastSeenId: Types.ObjectId | null = null,
+  lastSeenLength: number | null = null,
+  lastSeenShortestPathLength: number | null = null,
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
   // Only include paths from domains that are 'ready' (eligible for crawling)
@@ -152,19 +177,34 @@ export async function getPathsForDomainCrawl(
   };
   // Get locked domains and combine with domainBlacklist
   const domainFilter = await getLockedDomainFilter(domainBlacklist);
-  const select = 'head.status head.type head.domain head.url createdAt _id';
+  const select = 'head.status head.type head.domain head.url createdAt _id nodes.count shortestPathLength';
 
-  // Compound cursor using $gte and $gt - requires compound index on {createdAt: 1, _id: 1}
-  const cursorCondition =
-    lastSeenCreatedAt && lastSeenId
-      ? {
-          createdAt: { $gte: lastSeenCreatedAt },
-          _id: { $gt: lastSeenId }
-        }
-      : {};
-  const sort = { createdAt: 1, _id: 1 } as const;
+  // Build cursor condition for compound sort: { length, createdAt, _id }
+  let cursorCondition: Record<string, unknown> = {};
+  if (pathType === PathType.TRAVERSAL && lastSeenLength !== null && lastSeenCreatedAt && lastSeenId) {
+    cursorCondition = {
+      $or: [
+        { 'nodes.count': { $gt: lastSeenLength } },
+        { 'nodes.count': lastSeenLength, createdAt: { $gt: lastSeenCreatedAt } },
+        { 'nodes.count': lastSeenLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+      ]
+    };
+  } else if (pathType === PathType.ENDPOINT && lastSeenShortestPathLength !== null && lastSeenCreatedAt && lastSeenId) {
+    cursorCondition = {
+      $or: [
+        { shortestPathLength: { $gt: lastSeenShortestPathLength } },
+        { shortestPathLength: lastSeenShortestPathLength, createdAt: { $gt: lastSeenCreatedAt } },
+        { shortestPathLength: lastSeenShortestPathLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+      ]
+    };
+  } else if (lastSeenCreatedAt && lastSeenId) {
+    cursorCondition = {
+      createdAt: { $gte: lastSeenCreatedAt },
+      _id: { $gt: lastSeenId }
+    };
+  }
 
-  if (pathType === PathType.TRAVERSAL) {
+   if (pathType === PathType.TRAVERSAL) {
     const traversalQuery = genTraversalPathQuery(process);
 
     const paths = await TraversalPath.find({
@@ -173,7 +213,7 @@ export async function getPathsForDomainCrawl(
       ...cursorCondition,
       ...domainFilter
     })
-      .sort(sort)
+      .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
     return paths;
@@ -185,7 +225,7 @@ export async function getPathsForDomainCrawl(
       ...domainFilter,
       frontier: true
     })
-      .sort(sort)
+      .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
     return paths;
@@ -344,6 +384,8 @@ export async function extendExistingPaths(pid: string) {
   const batchSize = 100;
   let lastSeenCreatedAt: Date | null = null;
   let lastSeenId: Types.ObjectId | null = null;
+  let lastSeenLength: number | null = null;
+  let lastSeenShortestPathLength: number | null = null;
   let hasMore = true;
 
   // Build query based on path type
@@ -380,21 +422,39 @@ export async function extendExistingPaths(pid: string) {
     let paths;
     if (pathType === PathType.ENDPOINT) {
       const baseQuery = getQuery as QueryFilter<EndpointPathDocument>;
-      const cursorPart: Record<string, unknown> =
-        lastSeenCreatedAt && lastSeenId
-          ? { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } }
-          : {};
+      // Build cursor condition for compound sort: { shortestPathLength, createdAt, _id }
+      let cursorPart: Record<string, unknown> = {};
+      if (lastSeenShortestPathLength !== null && lastSeenCreatedAt && lastSeenId) {
+        cursorPart = {
+          $or: [
+            { shortestPathLength: { $gt: lastSeenShortestPathLength } },
+            { shortestPathLength: lastSeenShortestPathLength, createdAt: { $gt: lastSeenCreatedAt } },
+            { shortestPathLength: lastSeenShortestPathLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+          ]
+        };
+      } else if (lastSeenCreatedAt && lastSeenId) {
+        cursorPart = { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } };
+      }
       paths = await EndpointPath.find({ ...baseQuery, ...cursorPart })
-        .sort({ createdAt: 1, _id: 1 })
+        .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
         .limit(batchSize);
     } else {
       const baseQuery = getQuery as QueryFilter<TraversalPathDocument>;
-      const cursorPart: Record<string, unknown> =
-        lastSeenCreatedAt && lastSeenId
-          ? { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } }
-          : {};
+      // Build cursor condition for compound sort: { nodes.count, createdAt, _id }
+      let cursorPart: Record<string, unknown> = {};
+      if (lastSeenLength !== null && lastSeenCreatedAt && lastSeenId) {
+        cursorPart = {
+          $or: [
+            { 'nodes.count': { $gt: lastSeenLength } },
+            { 'nodes.count': lastSeenLength, createdAt: { $gt: lastSeenCreatedAt } },
+            { 'nodes.count': lastSeenLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+          ]
+        };
+      } else if (lastSeenCreatedAt && lastSeenId) {
+        cursorPart = { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } };
+      }
       paths = await TraversalPath.find({ ...baseQuery, ...cursorPart })
-        .sort({ createdAt: 1, _id: 1 })
+        .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
         .limit(batchSize);
     }
 
@@ -406,6 +466,12 @@ export async function extendExistingPaths(pid: string) {
     const lastPath: TraversalPathDocument | EndpointPathDocument = paths[paths.length - 1];
     lastSeenCreatedAt = lastPath.createdAt ?? null;
     lastSeenId = lastPath._id as Types.ObjectId;
+    // Track length for proper cursor pagination with compound sort
+    if (pathType === PathType.TRAVERSAL) {
+      lastSeenLength = (lastPath as TraversalPathDocument).nodes.count;
+    } else {
+      lastSeenShortestPathLength = (lastPath as EndpointPathDocument).shortestPathLength;
+    }
 
     const percentage = Math.round((processedPaths / (processedPaths + curPathsCount)) * 100);
     const elapsedTime = (Date.now() - startTime) / 1000;

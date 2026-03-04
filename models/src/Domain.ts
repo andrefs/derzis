@@ -427,11 +427,15 @@ class DomainClass {
 
       let lastSeenCreatedAt: Date | null = null;
       let lastSeenId: Types.ObjectId | null = null;
+      let lastSeenLength: number | null = null;
+      let lastSeenShortestPathLength: number | null = null;
       PATHS_LOOP: while (domainsFound < limit) {
         const paths = await proc.getPathsForRobotsChecking(
           config.manager.pathType as PathType,
           lastSeenCreatedAt,
           lastSeenId,
+          lastSeenLength,
+          lastSeenShortestPathLength,
           pathLimit
         );
 
@@ -443,6 +447,12 @@ class DomainClass {
         const lastPath = paths[paths.length - 1] as any;
         lastSeenCreatedAt = lastPath.createdAt;
         lastSeenId = lastPath._id;
+        // Track length for proper cursor pagination with compound sort
+        if (config.manager.pathType === 'traversal') {
+          lastSeenLength = lastPath.nodes?.count ?? null;
+        } else {
+          lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
+        }
 
         const origins = new Set<string>(
           paths.filter((p) => p.head.type === HEAD_TYPE.URL).map((p) => (p.head as UrlHead).domain)
@@ -678,6 +688,8 @@ class DomainClass {
       // for pagination of paths within the process
       let lastSeenCreatedAt: Date | null = null;
       let lastSeenId: Types.ObjectId | null = null;
+      let lastSeenLength: number | null = null;
+      let lastSeenShortestPathLength: number | null = null;
 
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
@@ -706,6 +718,8 @@ class DomainClass {
           blDomains,
           lastSeenCreatedAt,
           lastSeenId,
+          lastSeenLength,
+          lastSeenShortestPathLength,
           pathLimit
         );
         if (!paths.length) {
@@ -715,6 +729,12 @@ class DomainClass {
         const lastPath = paths[paths.length - 1];
         lastSeenCreatedAt = (lastPath as { createdAt: Date }).createdAt;
         lastSeenId = (lastPath as { _id: Types.ObjectId })._id;
+        // Track length for proper cursor pagination with compound sort
+        if (config.manager.pathType === 'traversal') {
+          lastSeenLength = (lastPath as { nodes: { count: number } }).nodes?.count ?? null;
+        } else {
+          lastSeenShortestPathLength = (lastPath as { shortestPathLength: number }).shortestPathLength ?? null;
+        }
 
         // get only unvisited path heads
         const unvisHeads = paths
