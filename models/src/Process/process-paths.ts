@@ -63,10 +63,21 @@ export async function getPathsForRobotsChecking(
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
   const lockedFilter = await getLockedDomainFilter();
+
+  // Only include paths from domains that are 'unvisited' (eligible for robots checking)
+  const unvisitedDomains = await Domain.find({ status: 'unvisited' })
+    .select('origin')
+    .lean();
+  const eligibleOrigins = unvisitedDomains.map((d) => d.origin);
+  if (!eligibleOrigins.length) {
+    return [];
+  }
+
   const baseQuery = {
     processId: process.pid,
     status: 'active',
-    'head.type': HEAD_TYPE.URL
+    'head.type': HEAD_TYPE.URL,
+    'head.domain': { $in: eligibleOrigins }
   };
   const select = 'head.domain head.type createdAt _id';
 
@@ -79,12 +90,10 @@ export async function getPathsForRobotsChecking(
       : {};
 
   if (pathType === PathType.TRAVERSAL) {
-    // get paths that have head domains that are not locked and have not exceeded path limits for the current step (nodes.count and predicates.count)
     const paths = await TraversalPath.find({
       ...baseQuery,
       ...cursorCondition,
       ...lockedFilter,
-      'head.type': HEAD_TYPE.URL,
       'nodes.count': { $lt: process.currentStep.maxPathLength },
       'predicates.count': { $lte: process.currentStep.maxPathProps }
     })
@@ -93,12 +102,10 @@ export async function getPathsForRobotsChecking(
       .select(select);
     return paths;
   } else {
-    // get paths that have head domains that are not locked and have not exceeded path limits for the current step (shortestPath.length)
     const paths = await EndpointPath.find({
       ...baseQuery,
       ...cursorCondition,
       ...lockedFilter,
-      'head.type': HEAD_TYPE.URL,
       shortestPathLength: { $lte: process.currentStep.maxPathLength },
       frontier: true
     })
@@ -127,9 +134,19 @@ export async function getPathsForDomainCrawl(
   lastSeenId: Types.ObjectId | null = null,
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
+  // Only include paths from domains that are 'ready' (eligible for crawling)
+  const readyDomains = await Domain.find({ status: 'ready' })
+    .select('origin')
+    .lean();
+  const eligibleOrigins = readyDomains.map((d) => d.origin);
+  if (!eligibleOrigins.length) {
+    return [];
+  }
+
   const baseQuery = {
     'head.type': HEAD_TYPE.URL,
     'head.status': 'unvisited',
+    'head.domain': { $in: eligibleOrigins },
     processId: process.pid,
     status: 'active'
   };
