@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Resource } from './Resource';
 import { EndpointPath } from './Path/EndpointPath';
 import { TraversalPath } from './Path/TraversalPath';
+import { Domain } from './Domain';
 import { PathType } from '@derzis/common';
 import config from '@derzis/config';
 
@@ -24,7 +25,7 @@ describe('Resource.insertSeedPaths', () => {
         upsertedCount: 1,
         upsertedIds: new Map(),
       } as any);
-      vi.spyOn(Resource, 'addEpPaths').mockResolvedValue({ ep: null } as any);
+      vi.spyOn(Domain, 'bulkWrite').mockResolvedValue({ modifiedCount: 1 } as any);
     });
 
     it('should call EndpointPath.bulkWrite with upsert operations', async () => {
@@ -43,7 +44,13 @@ describe('Resource.insertSeedPaths', () => {
         expect.arrayContaining([
           expect.objectContaining({
             updateOne: expect.objectContaining({
-              filter: { processId: pid, 'head.url': seeds[0].url },
+              filter: expect.objectContaining({
+                processId: pid,
+                head: expect.objectContaining({
+                  type: 'url',
+                  url: seeds[0].url
+                })
+              }),
               update: expect.objectContaining({
                 $setOnInsert: expect.objectContaining({
                   processId: pid,
