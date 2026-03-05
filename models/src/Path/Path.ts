@@ -101,9 +101,6 @@ export class PathClass extends TimeStamps {
   @prop({ required: true, type: String })
   public processId!: string;
 
-  @prop({ required: true, type: SeedClass })
-  public seed!: SeedClass;
-
   @prop({
     required: true,
     type: HeadBase,
@@ -127,7 +124,6 @@ export class PathClass extends TimeStamps {
 export interface IPath {
   _id: Types.ObjectId;
   processId: string;
-  seed: { url: string };
   head: Head;
   status: 'active' | 'deleted';
   type: PathType;
