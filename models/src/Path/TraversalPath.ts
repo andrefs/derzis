@@ -117,6 +117,19 @@ type RecursivePartial<T> = {
   createdAt: 1,
   _id: 1
 })
+// Covering index for extendExistingPaths with predicates.elems filter
+@index({
+  type: 1,
+  processId: 1,
+  status: 1,
+  'head.type': 1,
+  'nodes.count': 1,
+  'predicates.count': 1,
+  'predicates.elems': 1,
+  extensionCounter: 1,
+  createdAt: 1,
+  _id: 1
+})
 @modelOptions({
   schemaOptions: {
     timestamps: true

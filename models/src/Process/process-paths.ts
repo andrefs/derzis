@@ -310,11 +310,14 @@ export async function extendPathsWithExistingTriples(
     }
   }
 
+  // NOTE: Recursive extension disabled - outer while loop in extendExistingPaths handles subsequent batches
+  // if (newPaths.length) {
+  //   await extendPathsWithExistingTriples(proc, newPaths);
+  // } else {
+  //   log.silly('No new paths to extend further.');
+  // }
   if (newPaths.length) {
-    // extend newly created paths recursively
-    await extendPathsWithExistingTriples(proc, newPaths);
-  } else {
-    log.silly('No new paths to extend further.');
+    log.silly(`Created ${newPaths.length} new paths - will be processed in next batch.`);
   }
 }
 
@@ -381,7 +384,7 @@ export async function extendExistingPaths(pid: string) {
   const pathType = config?.manager?.pathType ?? PathType.ENDPOINT;
 
   // Process paths in batches to avoid using up too much memory
-  const batchSize = 10;
+  const batchSize = 100;
   let lastSeenCreatedAt: Date | null = null;
   let lastSeenId: Types.ObjectId | null = null;
   let lastSeenLength: number | null = null;
@@ -413,10 +416,15 @@ export async function extendExistingPaths(pid: string) {
   while (hasMore) {
     batchCounter++;
     const batchStartTime = Date.now();
-    const curPathsCount =
-      pathType === PathType.ENDPOINT
-        ? await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>)
-        : await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
+    
+    // Only count every 50 batches to avoid slow queries
+    let curPathsCount = 0;
+    if (batchCounter % 50 === 0) {
+      curPathsCount =
+        pathType === PathType.ENDPOINT
+          ? await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>)
+          : await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
+    }
 
     // find a batch of active paths that can be extended
     let paths;
@@ -473,12 +481,15 @@ export async function extendExistingPaths(pid: string) {
       lastSeenShortestPathLength = (lastPath as EndpointPathDocument).shortestPathLength;
     }
 
-    const percentage = Math.round((processedPaths / (processedPaths + curPathsCount)) * 100);
-    const elapsedTime = (Date.now() - startTime) / 1000;
-
-    log.info(
-      `Extending batch of ${paths.length} existing paths for process ${process.pid} (${processedPaths}/${processedPaths + curPathsCount} - ${percentage}%)`
-    );
+    let logMsg = `Extending batch ${batchCounter} (${paths.length} paths, processed: ${processedPaths})`;
+    if (curPathsCount > 0) {
+      const total = processedPaths + curPathsCount;
+      const percentage = Math.round((processedPaths / total) * 100);
+      logMsg += ` for process ${process.pid} (${processedPaths}/${total} - ${percentage}%)`;
+    } else {
+      logMsg += ` for process ${process.pid} (processed: ${processedPaths})`;
+    }
+    log.info(logMsg);
 
     await extendPathsWithExistingTriples(process, paths);
     processedPaths += paths.length;
@@ -491,14 +502,13 @@ export async function extendExistingPaths(pid: string) {
     );
 
     const batchTime = (Date.now() - batchStartTime) / 1000;
+    const elapsedTime = (Date.now() - startTime) / 1000;
     log.info(
       `Batch ${batchCounter} completed in ${batchTime.toFixed(2)}s (Total elapsed: ${elapsedTime.toFixed(2)}s)`
     );
 
-    // add a 1s delay between batches to reduce DB load
-    log.debug('Waiting 1s before processing the next batch...');
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    log.silly('Continuing to next batch...');
+    // Delay to reduce CPU usage and allow system to cool
+    await new Promise(resolve => setTimeout(resolve, 250));
   }
 
   const finalPathsCount = await Path.countDocuments({ processId: process.pid });
@@ -683,21 +693,24 @@ export async function extendProcessPaths(
          // make db operations immediately for each path to avoid keeping too many new paths in memory
          if (res.extendedPaths.length) {
            await insertProcTriples(process.pid, res.procTriples, process.steps.length);
-           newPaths.push(...(await createNewPaths(res.extendedPaths, pathType)));
-           await deleteOldPaths(new Set([path._id]), pathType);
-         }
+            newPaths.push(...(await createNewPaths(res.extendedPaths, pathType)));
+            await deleteOldPaths(new Set([path._id]), pathType);
+          }
+
+          // Small delay to reduce CPU usage between path processing
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
 
          // Yield to event loop every 5 parent paths to prevent memory buildup and allow GC
          pathIdx++;
          if (paths.length > 0 && pathIdx % 5 === 0) {
            await new Promise(resolve => setImmediate(resolve));
-         }
-       }
+  }
     }
 
     if (newPaths.length) {
-      // recursively extend newly created paths
-      await extendPathsWithExistingTriples(process, newPaths);
+      // New paths will be processed by the main extendExistingPaths work queue
+      log.silly(`Created ${newPaths.length} new paths - they'll be queued for processing.`);
     } else {
       log.silly('No new paths to extend further.');
     }
