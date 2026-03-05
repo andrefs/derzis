@@ -15,11 +15,19 @@ describe('Resource.insertSeedPaths', () => {
   describe('EndpointPath', () => {
     beforeEach(() => {
       config.manager.pathType = PathType.ENDPOINT;
-      vi.spyOn(EndpointPath, 'create').mockResolvedValue([]);
-      vi.spyOn(Resource, 'addEpPaths').mockResolvedValue({ dom: null });
+      vi.spyOn(EndpointPath, 'bulkWrite').mockResolvedValue({
+        result: {},
+        insertedCount: 0,
+        matchedCount: 0,
+        modifiedCount: 0,
+        deletedCount: 0,
+        upsertedCount: 1,
+        upsertedIds: new Map(),
+      } as any);
+      vi.spyOn(Resource, 'addEpPaths').mockResolvedValue({ ep: null } as any);
     });
 
-    it('should call EndpointPath.create with correctly shaped documents', async () => {
+    it('should call EndpointPath.bulkWrite with upsert operations', async () => {
       const seeds = [
         {
           url: 'http://example.com/seed1',
@@ -31,24 +39,33 @@ describe('Resource.insertSeedPaths', () => {
 
       await (Resource as any).insertSeedPaths(pid, seeds);
 
-      expect(EndpointPath.create).toHaveBeenCalledWith(
+      expect(EndpointPath.bulkWrite).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
-            processId: pid,
-            seed: { url: seeds[0].url },
-            head: expect.objectContaining({
-              url: seeds[0].url,
-              status: seeds[0].status,
-              domain: seeds[0].domain
-            }),
-            status: 'active',
-            frontier: true,
-            shortestPath: expect.objectContaining({
-              length: 1,
-              seed: seeds[0].url
-            }),
-            seedPaths: expect.objectContaining({
-              [seeds[0].url]: 1
+            updateOne: expect.objectContaining({
+              filter: { processId: pid, 'head.url': seeds[0].url },
+              update: expect.objectContaining({
+                $setOnInsert: expect.objectContaining({
+                  processId: pid,
+                  head: expect.objectContaining({
+                    type: 'url',
+                    url: seeds[0].url,
+                    status: seeds[0].status,
+                    domain: seeds[0].domain
+                  }),
+                  status: 'active',
+                  frontier: true,
+                  shortestPathLength: 1,
+                  shortestPath: expect.objectContaining({
+                    length: 1,
+                    seed: seeds[0].url
+                  }),
+                  seedPaths: expect.objectContaining({
+                    [seeds[0].url]: 1
+                  })
+                })
+              }),
+              upsert: true
             })
           })
         ])
@@ -65,9 +82,10 @@ describe('Resource.insertSeedPaths', () => {
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
-      const passedDoc = (EndpointPath.create as any).mock.calls[0][0][0];
-      expect(typeof passedDoc.head.domain).toBe('string');
-      expect(passedDoc.head.domain).toBe('http://dbpedia.org');
+      const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
+      const update = ops[0].updateOne.update.$setOnInsert;
+      expect(typeof update.head.domain).toBe('string');
+      expect(update.head.domain).toBe('http://dbpedia.org');
     });
 
     it('should set shortestPath with seed (string) not seeds (array)', async () => {
@@ -80,40 +98,43 @@ describe('Resource.insertSeedPaths', () => {
       ];
       await (Resource as any).insertSeedPaths('pid', seeds);
 
-      const passedDoc = (EndpointPath.create as any).mock.calls[0][0][0];
-      expect(passedDoc.shortestPath).toHaveProperty('seed');
-      expect(passedDoc.shortestPath.seed).toBe(seeds[0].url);
-      expect(passedDoc.shortestPath).not.toHaveProperty('seeds');
+      const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
+      const update = ops[0].updateOne.update.$setOnInsert;
+      expect(update.shortestPath).toHaveProperty('seed');
+      expect(update.shortestPath.seed).toBe(seeds[0].url);
+      expect(update.shortestPath).not.toHaveProperty('seeds');
     });
 
-     it('should not have minPath property', async () => {
-       const seeds = [
-         {
-           url: 'http://example.com/seed',
-           domain: 'http://example.com',
-           status: 'unvisited' as const
-         }
-       ];
-       await (Resource as any).insertSeedPaths('pid', seeds);
+    it('should not have minPath property', async () => {
+      const seeds = [
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
+      ];
+      await (Resource as any).insertSeedPaths('pid', seeds);
 
-       const passedDoc = (EndpointPath.create as any).mock.calls[0][0][0];
-       expect(passedDoc).not.toHaveProperty('minPath');
-     });
+      const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
+      const update = ops[0].updateOne.update.$setOnInsert;
+      expect(update).not.toHaveProperty('minPath');
+    });
 
-     it('should set shortestPathLength to 1 for seed paths', async () => {
-       const seeds = [
-         {
-           url: 'http://example.com/seed',
-           domain: 'http://example.com',
-           status: 'unvisited' as const
-         }
-       ];
-       await (Resource as any).insertSeedPaths('pid', seeds);
+    it('should set shortestPathLength to 1 for seed paths', async () => {
+      const seeds = [
+        {
+          url: 'http://example.com/seed',
+          domain: 'http://example.com',
+          status: 'unvisited' as const
+        }
+      ];
+      await (Resource as any).insertSeedPaths('pid', seeds);
 
-       const passedDoc = (EndpointPath.create as any).mock.calls[0][0][0];
-       expect(passedDoc.shortestPathLength).toBe(1);
-     });
-   });
+      const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
+      const update = ops[0].updateOne.update.$setOnInsert;
+      expect(update.shortestPathLength).toBe(1);
+    });
+  });
 
   describe('TraversalPath', () => {
     beforeEach(() => {

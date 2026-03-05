@@ -332,22 +332,23 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   );
 
   const totalPaths = await TraversalPath.countDocuments({
+    processId: process.pid,
     'seed.url': { $in: process.currentStep.seeds },
     status: 'active'
   }).lean();
-  const avgPathLength = totalPaths
-    ? await TraversalPath.aggregate([
-        { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-      ]).then((res) => res[0]?.avgLength || 0)
-    : 0;
+    const avgPathLength = totalPaths
+      ? await TraversalPath.aggregate([
+          { $match: { processId: process.pid, type: PathType.TRAVERSAL, 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
+          { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+        ]).then((res) => res[0]?.avgLength || 0)
+      : 0;
 
-  const avgPathProps = totalPaths
-    ? await TraversalPath.aggregate([
-        { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-      ]).then((res) => res[0]?.avgProps || 0)
-    : 0;
+    const avgPathProps = totalPaths
+      ? await TraversalPath.aggregate([
+          { $match: { processId: process.pid, type: PathType.TRAVERSAL, 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
+          { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+        ]).then((res) => res[0]?.avgProps || 0)
+      : 0;
 
   const timeToLastResource = lastResource
     ? (lastResource!.updatedAt.getTime() - process.createdAt!.getTime()) / 1000
@@ -399,13 +400,20 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
     },
     paths: {
       total: await TraversalPath.countDocuments({
-        'seed.url': { $in: process.currentStep.seeds }
+        processId: process.pid,
+        type: PathType.TRAVERSAL,
+        'seed.url': { $in: process.currentStep.seeds },
+        status: 'active'
       }).lean(),
       deleted: await TraversalPath.countDocuments({
+        processId: process.pid,
+        type: PathType.TRAVERSAL,
         'seed.url': { $in: process.currentStep.seeds },
         status: 'deleted'
       }).lean(), // TODO add index
       active: await TraversalPath.countDocuments({
+        processId: process.pid,
+        type: PathType.TRAVERSAL,
         'seed.url': { $in: process.currentStep.seeds },
         status: 'active'
       }).lean(), // TODO add index

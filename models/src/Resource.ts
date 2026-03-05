@@ -282,39 +282,54 @@ class ResourceClass {
       const insPaths = (await TraversalPath.create(paths as any)) as any;
       return this.addTvPaths(insPaths);
     }
-     // Endpoint paths
-     else {
-       const paths = seeds.map((s) => ({
-         processId: pid,
-         seed: { url: s.url },
-         head: {
-           url: s.url,
-           status: s.status,
-           domain: s.domain
-         },
-         status: 'active',
-         frontier: true,
-         shortestPathLength: 1,
-         shortestPath: {
-           length: 1,
-           seed: s.url
-         },
-         seedPaths: {
-           [s.url]: 1
-         }
-       }));
+      // Endpoint paths
+      else {
+        const bulkOps = seeds.map((s) => ({
+          updateOne: {
+            filter: { processId: pid, 'head.url': s.url },
+            update: {
+              $setOnInsert: {
+                processId: pid,
+                head: { type: HEAD_TYPE.URL, url: s.url, status: s.status, domain: s.domain },
+                status: 'active',
+                frontier: true,
+                shortestPathLength: 1,
+                shortestPath: { length: 1, seed: s.url },
+                seedPaths: { [s.url]: 1 }
+              }
+            },
+            upsert: true
+          }
+        }));
 
-      try {
-        const insPaths = (await EndpointPath.create(paths as any)) as any;
-        return this.addEpPaths(insPaths);
-      } catch (error) {
-        log.error('Failed to create EndpointPath seed documents', {
-          error,
-          seedUrls: paths.map((p) => p.seed.url)
-        });
-        throw error;
+        try {
+          // Use upsert to prevent duplicate key errors
+          const bulkOps = seeds.map((s) => ({
+            updateOne: {
+              filter: { processId: pid, 'head.url': s.url },
+              update: {
+                $setOnInsert: {
+                  processId: pid,
+                  head: { type: HEAD_TYPE.URL, url: s.url, status: s.status, domain: s.domain } as any,
+                  status: 'active' as const,
+                  frontier: true,
+                  shortestPathLength: 1,
+                  shortestPath: { length: 1, seed: s.url },
+                  seedPaths: { [s.url]: 1 }
+                }
+              },
+              upsert: true
+            }
+          }));
+
+          const result = await EndpointPath.bulkWrite(bulkOps as any);
+          log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result.upsertedCount });
+          return { ep: result };
+        } catch (error) {
+          log.error('Failed to upsert EndpointPath seed documents', { error, seedUrls: seeds.map(s => s.url) });
+          throw error;
+        }
       }
-    }
   }
 
   /**

@@ -279,22 +279,23 @@ export async function extendPathsWithExistingTriples(
   for (const path of paths) {
     const res = await path.extendWithExistingTriples(proc);
 
-    if (!res.extendedPaths.length) {
-      const length =
-        path instanceof TraversalPath
-          ? path.nodes.count
-          : path instanceof EndpointPath
-            ? path.shortestPathLength
-            : 'N/A';
-      const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
+     if (!res.extendedPaths.length) {
+       const length =
+         path instanceof TraversalPath
+           ? path.nodes.count
+           : path instanceof EndpointPath
+             ? path.shortestPathLength
+             : 'N/A';
+       const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
+       const seedInfo = path instanceof TraversalPath ? path.seed.url : 'N/A';
 
-      const headVal =
-        path.head.type === HEAD_TYPE.URL
-          ? (path.head as UrlHead).url
-          : `"${(path.head as LiteralHead).value}"`;
-      log.silly(
-        `No new paths created from path ${path._id} (seed ${path.seed.url}, head ${headVal}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`
-      );
+       const headVal =
+         path.head.type === HEAD_TYPE.URL
+           ? (path.head as UrlHead).url
+           : `"${(path.head as LiteralHead).value}"`;
+       log.silly(
+         `No new paths created from path ${path._id} (seed ${seedInfo}, head ${headVal}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`
+       );
 
       continue;
     }

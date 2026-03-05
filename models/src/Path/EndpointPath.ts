@@ -39,7 +39,7 @@ interface Candidate {
 
 export type EndpointPathSkeleton = Pick<
   EndpointPathClass,
-  'processId' | 'seed' | 'head' | 'type' | 'status'
+  'processId' | 'head' | 'type' | 'status'
 > &
   RecursivePartial<EndpointPathClass> & {
     shortestPathLength: number;
@@ -49,13 +49,11 @@ export type EndpointPathSkeleton = Pick<
 
 @index({ processId: 1 })
 @index({ createdAt: 1, _id: 1 })
-@index({ 'seed.url': 1, 'head.url': 1 })
-@index({ 'head.url': 1 }, { unique: true })
+@index({ processId: 1, 'head.url': 1 }, { unique: true })
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
 @index({ type: 1, 'head.domain': 1, status: 1 })
-@index({ processId: 1, 'head.url': 1 })
 // Optimized index for endpoint path queries with head.domain and shortestPathLength sort
 @index({
   processId: 1,
@@ -118,7 +116,6 @@ export class EndpointPathClass extends PathClass {
     const copy: EndpointPathSkeleton = {
       processId: this.processId,
       type: PathType.ENDPOINT,
-      seed: { url: this.seed.url },
       head: this.head as Head,
       status: this.status,
       shortestPathLength: this.shortestPathLength,
@@ -178,8 +175,8 @@ export class EndpointPathClass extends PathClass {
     for (const t of namedNodeTriples) {
       const newHeadUrl: string = t.subject === urlHead.url ? t.object! : t.subject;
 
-      // Simple cycle check: skip if extending to own seed
-      if (newHeadUrl === this.seed.url) {
+      // Simple cycle check: skip if extending to any seed URL
+      if (Object.keys(this.seedPaths).includes(newHeadUrl)) {
         continue;
       }
 
@@ -298,7 +295,6 @@ export class EndpointPathClass extends PathClass {
           _id: pathId,
           processId: this.processId,
           type: PathType.ENDPOINT,
-          seed: this.seed,
           head: {
             type: HEAD_TYPE.URL,
             url: headUrl!,
@@ -323,20 +319,19 @@ export class EndpointPathClass extends PathClass {
       const { literalHead, distance, seedPaths } = candidate;
       const pathId = new Types.ObjectId();
 
-      const newPath: EndpointPathSkeleton = {
-        _id: pathId,
-        processId: this.processId,
-        type: PathType.ENDPOINT,
-        seed: this.seed,
-        head: literalHead! as Head,
-        status: 'active',
-        frontier: true,
-        shortestPathLength: distance,
-        seedPaths,
-        extensionCounter: 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+        const newPath: EndpointPathSkeleton = {
+          _id: pathId,
+          processId: this.processId,
+          type: PathType.ENDPOINT,
+          head: literalHead! as Head,
+          status: 'active',
+          frontier: true,
+          shortestPathLength: distance,
+          seedPaths,
+          extensionCounter: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
       extendedPaths.push(newPath);
       log.silly('Created new literal endpoint path', newPath);
     }

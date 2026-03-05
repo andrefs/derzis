@@ -26,7 +26,8 @@ import {
   hasLiteralHead,
   HEAD_TYPE,
   UrlHead,
-  type Head
+  type Head,
+  SeedClass
 } from './Path';
 import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
@@ -136,6 +137,9 @@ type RecursivePartial<T> = {
   }
 })
 export class TraversalPathClass extends PathClass {
+  @prop({ required: true, type: SeedClass })
+  public seed!: SeedClass;
+
   @prop({ validate: (value: string) => !!value, type: String })
   public lastPredicate?: string;
 
