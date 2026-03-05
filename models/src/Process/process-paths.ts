@@ -381,7 +381,7 @@ export async function extendExistingPaths(pid: string) {
   const pathType = config?.manager?.pathType ?? PathType.ENDPOINT;
 
   // Process paths in batches to avoid using up too much memory
-  const batchSize = 100;
+  const batchSize = 10;
   let lastSeenCreatedAt: Date | null = null;
   let lastSeenId: Types.ObjectId | null = null;
   let lastSeenLength: number | null = null;
@@ -599,7 +599,7 @@ export async function extendProcessPaths(
     'head.url': headUrl
   };
 
-  const batchSize = 100;
+  const batchSize = 10;
   let hasMorePaths = true;
   let lastPathCreatedAt: Date | null = null;
   let lastPathId: Types.ObjectId | null = null;
@@ -675,17 +675,24 @@ export async function extendProcessPaths(
       lastTripleCreatedAt = lastTriple.createdAt ?? null;
       lastTripleId = lastTriple._id as Types.ObjectId;
 
-      // extend each path with the new triples and gather new paths and proc-triple associations
-      for (const path of paths) {
-        const res = await path.extendWithExistingTriples(process, triples as any);
-        log.silly('Extended paths:', res.extendedPaths);
-        // make db operations immediately for each path to avoid keeping too many new paths in memory
-        if (res.extendedPaths.length) {
-          await insertProcTriples(process.pid, res.procTriples, process.steps.length);
-          newPaths.push(...(await createNewPaths(res.extendedPaths, pathType)));
-          await deleteOldPaths(new Set([path._id]), pathType);
-        }
-      }
+       // extend each path with the new triples and gather new paths and proc-triple associations
+       let pathIdx = 0;
+       for (const path of paths) {
+         const res = await path.extendWithExistingTriples(process, triples as any);
+         log.silly('Extended paths:', res.extendedPaths);
+         // make db operations immediately for each path to avoid keeping too many new paths in memory
+         if (res.extendedPaths.length) {
+           await insertProcTriples(process.pid, res.procTriples, process.steps.length);
+           newPaths.push(...(await createNewPaths(res.extendedPaths, pathType)));
+           await deleteOldPaths(new Set([path._id]), pathType);
+         }
+
+         // Yield to event loop every 5 parent paths to prevent memory buildup and allow GC
+         pathIdx++;
+         if (paths.length > 0 && pathIdx % 5 === 0) {
+           await new Promise(resolve => setImmediate(resolve));
+         }
+       }
     }
 
     if (newPaths.length) {

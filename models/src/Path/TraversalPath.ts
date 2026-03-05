@@ -97,6 +97,26 @@ type RecursivePartial<T> = {
 @index({ type: 1, 'head.domain': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({ processId: 1, status: 1, extensionCounter: 1 })
+// Optimized index for getPathsForDomainCrawl and getPathsForRobotsChecking with head.domain and length-first sort
+@index({
+  processId: 1,
+  status: 1,
+  'head.type': 1,
+  'head.domain': 1,
+  'nodes.count': 1,
+  createdAt: 1,
+  _id: 1
+})
+// Optimized index for extendExistingPaths with length-first sort and pagination cursor
+@index({
+  processId: 1,
+  status: 1,
+  'head.type': 1,
+  'nodes.count': 1,
+  extensionCounter: 1,
+  createdAt: 1,
+  _id: 1
+})
 @modelOptions({
   schemaOptions: {
     timestamps: true
