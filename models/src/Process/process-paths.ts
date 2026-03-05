@@ -632,15 +632,15 @@ export async function extendProcessPaths(
             'head.type': HEAD_TYPE.URL,
             ...pathCursorCondition
           } as QueryFilter<TraversalPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize)
         : await EndpointPath.find({
             ...pathQuery,
             'head.type': HEAD_TYPE.URL,
             ...pathCursorCondition
           } as QueryFilter<EndpointPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize);
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize);
 
     log.info(`extendProcessPaths: Found ${paths.length} paths for headUrl: ${headUrl}`);
 
@@ -685,36 +685,29 @@ export async function extendProcessPaths(
       lastTripleCreatedAt = lastTriple.createdAt ?? null;
       lastTripleId = lastTriple._id as Types.ObjectId;
 
-       // extend each path with the new triples and gather new paths and proc-triple associations
-       let pathIdx = 0;
-       for (const path of paths) {
-         const res = await path.extendWithExistingTriples(process, triples as any);
-         log.silly('Extended paths:', res.extendedPaths);
-         // make db operations immediately for each path to avoid keeping too many new paths in memory
-         if (res.extendedPaths.length) {
-           await insertProcTriples(process.pid, res.procTriples, process.steps.length);
-            newPaths.push(...(await createNewPaths(res.extendedPaths, pathType)));
-            await deleteOldPaths(new Set([path._id]), pathType);
-          }
-
-          // Small delay to reduce CPU usage between path processing
-          await new Promise(resolve => setTimeout(resolve, 50));
+      // extend each path with the new triples and gather new paths and proc-triple associations
+      for (const path of paths) {
+        const res = await path.extendWithExistingTriples(process, triples as any);
+        log.silly('Extended paths:', res.extendedPaths);
+        if (res.extendedPaths.length) {
+          await insertProcTriples(process.pid, res.procTriples, process.steps.length);
+          newPaths.push(...(await createNewPaths(res.extendedPaths, pathType)));
+          await deleteOldPaths(new Set([path._id]), pathType);
         }
-
-         // Yield to event loop every 5 parent paths to prevent memory buildup and allow GC
-         pathIdx++;
-         if (paths.length > 0 && pathIdx % 5 === 0) {
-           await new Promise(resolve => setImmediate(resolve));
-  }
-    }
+        // Always retire frontier for EndpointPath after processing
+        if (path.type === PathType.ENDPOINT) {
+          await Path.updateOne({ _id: path._id }, { $set: { frontier: false } });
+   }
+ }
 
     if (newPaths.length) {
-      // New paths will be processed by the main extendExistingPaths work queue
-      log.silly(`Created ${newPaths.length} new paths - they'll be queued for processing.`);
+      // recursively extend newly created paths
+      await extendPathsWithExistingTriples(process, newPaths);
     } else {
       log.silly('No new paths to extend further.');
     }
   }
+}
 }
 
 /**

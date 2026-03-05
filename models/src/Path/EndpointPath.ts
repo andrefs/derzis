@@ -178,6 +178,11 @@ export class EndpointPathClass extends PathClass {
     for (const t of namedNodeTriples) {
       const newHeadUrl: string = t.subject === urlHead.url ? t.object! : t.subject;
 
+      // Simple cycle check: skip if extending to own seed
+      if (newHeadUrl === this.seed.url) {
+        continue;
+      }
+
       // Out of bounds check
       if (this.tripleIsOutOfBounds(t, process)) {
         continue;
@@ -280,8 +285,15 @@ export class EndpointPathClass extends PathClass {
         await EndpointPath.updateOne({ _id: existing._id }, { $min: updateOp });
         log.silly('Updated existing endpoint path', { _id: existing._id, updateOp });
       } else {
+        // Create new endpoint path
         const pathId = new Types.ObjectId();
-        const domain = new URL(headUrl!).origin;
+        let domain: string;
+        try {
+          domain = new URL(headUrl!).origin;
+        } catch (err) {
+          log.warn('Invalid headUrl, skipping candidate', { headUrl: headUrl, error: err });
+          continue;
+        }
         const newPath: EndpointPathSkeleton = {
           _id: pathId,
           processId: this.processId,
@@ -310,15 +322,6 @@ export class EndpointPathClass extends PathClass {
     for (const candidate of literalCandidates) {
       const { literalHead, distance, seedPaths } = candidate;
       const pathId = new Types.ObjectId();
-
-      let minDist = Infinity;
-      let shortestSeed = '';
-      for (const [seed, dist] of Object.entries(seedPaths)) {
-        if (dist < minDist) {
-          minDist = dist;
-          shortestSeed = seed;
-        }
-      }
 
       const newPath: EndpointPathSkeleton = {
         _id: pathId,

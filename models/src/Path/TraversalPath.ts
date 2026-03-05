@@ -191,6 +191,13 @@ export class TraversalPathClass extends PathClass {
       if (!triplesToExtend.length) {
         return { extendedPaths: [], procTriples: [] };
       }
+     }
+
+    // Exclude triples already used in this path
+    triplesToExtend = triplesToExtend.filter(t => !this.triples.includes(t._id));
+
+    if (!triplesToExtend.length) {
+      return { extendedPaths: [], procTriples: [] };
     }
 
     const urlHead = this.head as UrlHead;
