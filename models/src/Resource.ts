@@ -282,26 +282,27 @@ class ResourceClass {
       const insPaths = (await TraversalPath.create(paths as any)) as any;
       return this.addTvPaths(insPaths);
     }
-    // Endpoint paths
-    else {
-      const paths = seeds.map((s) => ({
-        processId: pid,
-        seed: { url: s.url },
-        head: {
-          url: s.url,
-          status: s.status,
-          domain: s.domain
-        },
-        status: 'active',
-        frontier: true,
-        shortestPath: {
-          length: 1,
-          seed: s.url
-        },
-        seedPaths: {
-          [s.url]: 1
-        }
-      }));
+     // Endpoint paths
+     else {
+       const paths = seeds.map((s) => ({
+         processId: pid,
+         seed: { url: s.url },
+         head: {
+           url: s.url,
+           status: s.status,
+           domain: s.domain
+         },
+         status: 'active',
+         frontier: true,
+         shortestPathLength: 1,
+         shortestPath: {
+           length: 1,
+           seed: s.url
+         },
+         seedPaths: {
+           [s.url]: 1
+         }
+       }));
 
       try {
         const insPaths = (await EndpointPath.create(paths as any)) as any;

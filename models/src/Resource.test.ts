@@ -86,20 +86,34 @@ describe('Resource.insertSeedPaths', () => {
       expect(passedDoc.shortestPath).not.toHaveProperty('seeds');
     });
 
-    it('should not have minPath property', async () => {
-      const seeds = [
-        {
-          url: 'http://example.com/seed',
-          domain: 'http://example.com',
-          status: 'unvisited' as const
-        }
-      ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+     it('should not have minPath property', async () => {
+       const seeds = [
+         {
+           url: 'http://example.com/seed',
+           domain: 'http://example.com',
+           status: 'unvisited' as const
+         }
+       ];
+       await (Resource as any).insertSeedPaths('pid', seeds);
 
-      const passedDoc = (EndpointPath.create as any).mock.calls[0][0][0];
-      expect(passedDoc).not.toHaveProperty('minPath');
-    });
-  });
+       const passedDoc = (EndpointPath.create as any).mock.calls[0][0][0];
+       expect(passedDoc).not.toHaveProperty('minPath');
+     });
+
+     it('should set shortestPathLength to 1 for seed paths', async () => {
+       const seeds = [
+         {
+           url: 'http://example.com/seed',
+           domain: 'http://example.com',
+           status: 'unvisited' as const
+         }
+       ];
+       await (Resource as any).insertSeedPaths('pid', seeds);
+
+       const passedDoc = (EndpointPath.create as any).mock.calls[0][0][0];
+       expect(passedDoc.shortestPathLength).toBe(1);
+     });
+   });
 
   describe('TraversalPath', () => {
     beforeEach(() => {

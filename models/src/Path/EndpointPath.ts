@@ -100,7 +100,7 @@ export class EndpointPathClass extends PathClass {
   }
 
   public tripleIsOutOfBounds(t: NamedNodeTripleClass, process: ProcessClass): boolean {
-    return this.shortestPathLength + 1 > process.currentStep.maxPathLength;
+    return this.shortestPathLength >= process.currentStep.maxPathLength;
   }
 
   public genExistingTriplesFilter(process: ProcessClass): QueryFilter<NamedNodeTripleClass> | null {

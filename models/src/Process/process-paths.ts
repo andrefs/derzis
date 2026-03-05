@@ -127,7 +127,7 @@ export async function getPathsForRobotsChecking(
       ...baseQuery,
       ...cursorCondition,
       ...lockedFilter,
-      shortestPathLength: { $lte: process.currentStep.maxPathLength },
+      shortestPathLength: { $lt: process.currentStep.maxPathLength },
       frontier: true
     })
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
@@ -220,7 +220,7 @@ export async function getPathsForDomainCrawl(
   } else {
     const paths = await EndpointPath.find({
       ...baseQuery,
-      shortestPathLength: { $lte: process.currentStep.maxPathLength },
+      shortestPathLength: { $lt: process.currentStep.maxPathLength },
       ...cursorCondition,
       ...domainFilter,
       frontier: true
