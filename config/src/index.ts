@@ -21,6 +21,7 @@ export default {
     // this must be defined before ever running Derzis
     // and cannot ever be changed!
     pathType: process.env.DERZIS_PATH_TYPE || 'endpoint',
+    pauseAfterJob: Number(process.env.MANAGER_PAUSE_AFTER_JOB) || 2,
     predicates: {
       branchingFactor: {
         neutralZone: {
