@@ -167,7 +167,7 @@ describe('EndpointPathClass', () => {
       const original = createMockPath({
         frontier: true,
         shortestPathLength: 5,
-        seedPaths: { 'http://seed.example.com': 2 }
+        seedPaths: [{ seed: 'http://seed.example.com', minLength: 2 }]
       });
 
       const copy = original.copy();

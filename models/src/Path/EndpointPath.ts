@@ -29,12 +29,21 @@ import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
 
+// SeedPathEntry class for tracking seed distances
+class SeedPathEntryClass {
+  @prop({ type: String, required: true })
+  public seed!: string;
+
+  @prop({ type: Number, required: true, min: 1 })
+  public minLength!: number;
+}
+
 interface Candidate {
   triple: TripleDocument;
   headUrl?: string;
   literalHead?: LiteralHead;
   distance: number;
-  seedPaths: Record<string, number>;
+  seedPaths: Record<string, number>; // temporary during extend, will convert to array
 }
 
 export type EndpointPathSkeleton = Pick<
@@ -44,7 +53,7 @@ export type EndpointPathSkeleton = Pick<
   RecursivePartial<EndpointPathClass> & {
     shortestPathLength: number;
     frontier: boolean;
-    seedPaths: { [seedUrl: string]: number };
+    seedPaths: Array<{ seed: string; minLength: number }>;
   };
 
 @index({ processId: 1 })
@@ -77,8 +86,9 @@ export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Number, default: 0 })
   public shortestPathLength!: number;
 
-  @prop({ required: true, type: Object, default: {} })
-  public seedPaths!: { [seedUrl: string]: number };
+  // SeedPathEntryClass is defined above for subdocument array
+  @prop({ required: true, default: [], type: [SeedPathEntryClass] })
+  public seedPaths!: SeedPathEntryClass[];
 
   public shouldCreateNewPath(
     this: EndpointPathClass,
@@ -126,7 +136,7 @@ export class EndpointPathClass extends PathClass {
       status: this.status,
       shortestPathLength: this.shortestPathLength,
       frontier: this.frontier,
-      seedPaths: { ...this.seedPaths }
+      seedPaths: this.seedPaths.map(entry => ({ seed: entry.seed, minLength: entry.minLength }))
     };
     return copy;
   }
@@ -182,7 +192,7 @@ export class EndpointPathClass extends PathClass {
       const newHeadUrl: string = t.subject === urlHead.url ? t.object! : t.subject;
 
       // Simple cycle check: skip if extending to any seed URL
-      if (Object.keys(this.seedPaths).includes(newHeadUrl)) {
+      if (this.seedPaths.some(entry => entry.seed === newHeadUrl)) {
         continue;
       }
 
@@ -200,8 +210,8 @@ export class EndpointPathClass extends PathClass {
 
       const distance = this.shortestPathLength + 1;
       const seedPaths: Record<string, number> = {};
-      for (const [seed, dist] of Object.entries(this.seedPaths)) {
-        seedPaths[seed] = dist + 1;
+      for (const entry of this.seedPaths) {
+        seedPaths[entry.seed] = entry.minLength + 1;
       }
 
       candidates.push({ headUrl: newHeadUrl, distance, seedPaths });
@@ -228,8 +238,8 @@ export class EndpointPathClass extends PathClass {
 
       const distance = this.shortestPathLength + 1;
       const seedPaths: Record<string, number> = {};
-      for (const [seed, dist] of Object.entries(this.seedPaths)) {
-        seedPaths[seed] = dist + 1;
+      for (const entry of this.seedPaths) {
+        seedPaths[entry.seed] = entry.minLength + 1;
       }
 
       const literalHead: LiteralHead = {
@@ -260,9 +270,7 @@ export class EndpointPathClass extends PathClass {
         processId: this.processId,
         status: 'active',
         'head.url': { $in: headUrls }
-      })
-        .lean()
-        .exec();
+      }).exec();
 
       for (const ep of existing) {
         const head = ep.head as any;
@@ -281,12 +289,50 @@ export class EndpointPathClass extends PathClass {
       const existing = existingMap.get(headUrl!);
 
       if (existing) {
-        const updateOp: Record<string, any> = { shortestPathLength: distance };
-        for (const [seed, dist] of Object.entries(seedPaths)) {
-          updateOp[`seedPaths.${seed}`] = dist;
+        // Read-modify-write to avoid dot-notation conflicts with seed URLs containing dots
+        // Fetch full document (not lean) so we can modify and save
+        const existingDoc = await EndpointPath.findById(existing._id).exec();
+        if (!existingDoc) {
+          log.warn('Existing path document not found', { _id: existing._id });
+          continue;
         }
-        await EndpointPath.updateOne({ _id: existing._id }, { $min: updateOp });
-        log.silly('Updated existing endpoint path', { _id: existing._id, updateOp });
+
+        // Build a map of current seedPaths for fast lookup
+        const seedPathMap = new Map<string, number>();
+        for (const entry of existingDoc.seedPaths) {
+          seedPathMap.set(entry.seed, entry.minLength);
+        }
+
+        // Merge new seed distances using min
+        let changed = false;
+        for (const [seed, dist] of Object.entries(seedPaths)) {
+          const current = seedPathMap.get(seed);
+          if (current === undefined || dist < current) {
+            seedPathMap.set(seed, dist);
+            changed = true;
+          }
+        }
+
+        // Update shortestPathLength if the new distance is shorter
+        if (distance < existingDoc.shortestPathLength) {
+          existingDoc.shortestPathLength = distance;
+          changed = true;
+        }
+
+        if (changed) {
+          existingDoc.seedPaths = Array.from(seedPathMap.entries()).map(([seed, minLength]) => ({
+            seed,
+            minLength
+          }));
+          await existingDoc.save();
+          log.silly('Updated existing endpoint path (read-modify-write)', {
+            _id: existing._id,
+            shortestPathLength: existingDoc.shortestPathLength,
+            seedPathsCount: existingDoc.seedPaths.length
+          });
+        } else {
+          log.silly('No changes to existing endpoint path', { _id: existing._id });
+        }
       } else {
         // Create new endpoint path
         const pathId = new Types.ObjectId();
@@ -310,7 +356,7 @@ export class EndpointPathClass extends PathClass {
           status: 'active',
           frontier: true,
           shortestPathLength: distance,
-          seedPaths,
+          seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
           extensionCounter: 0,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -333,7 +379,7 @@ export class EndpointPathClass extends PathClass {
           status: 'active',
           frontier: true,
           shortestPathLength: distance,
-          seedPaths,
+          seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
           extensionCounter: 0,
           createdAt: new Date(),
           updatedAt: new Date()

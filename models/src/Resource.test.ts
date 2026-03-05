@@ -67,9 +67,12 @@ describe('Resource.insertSeedPaths', () => {
                     length: 1,
                     seed: seeds[0].url
                   }),
-                  seedPaths: expect.objectContaining({
-                    [seeds[0].url]: 1
-                  })
+                   seedPaths: expect.arrayContaining([
+                     expect.objectContaining({
+                       seed: seeds[0].url,
+                       minLength: 1
+                     })
+                   ])
                 })
               }),
               upsert: true

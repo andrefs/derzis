@@ -313,23 +313,23 @@ class ResourceClass {
                   url: s.url
                 }
               },
-              update: {
-                $setOnInsert: {
-                  processId: pid,
-                  head: {
-                    type: HEAD_TYPE.URL,
-                    url: s.url,
-                    status: s.status,
-                    domain: s.domain
-                  } as any,
-                  status: 'active' as const,
-                  frontier: true,
-                  shortestPathLength: 1,
-                  shortestPath: { length: 1, seed: s.url },
-                  seedPaths: { [s.url]: 1 }
-                }
-              },
-              upsert: true
+                   update: {
+                     $setOnInsert: {
+                       processId: pid,
+                       head: {
+                         type: HEAD_TYPE.URL,
+                         url: s.url,
+                         status: s.status,
+                         domain: s.domain
+                       } as any,
+                       status: 'active' as const,
+                       frontier: true,
+                       shortestPathLength: 1,
+                       shortestPath: { length: 1, seed: s.url },
+                       seedPaths: [{ seed: s.url, minLength: 1 }]
+                     }
+                   },
+                   upsert: true
             }
           }));
 
