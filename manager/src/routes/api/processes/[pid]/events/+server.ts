@@ -31,7 +31,10 @@ export async function GET({ params }: RequestEvent) {
             step: process.steps.length,
             paths: {
               done: pathProgress.done,
-              remaining: pathProgress.remaining.unvisited + pathProgress.remaining.crawling + pathProgress.remaining.checking
+              remaining:
+                pathProgress.remaining.unvisited +
+                pathProgress.remaining.crawling +
+                pathProgress.remaining.checking
             },
             rate: crawlRate
           };
@@ -59,7 +62,7 @@ export async function GET({ params }: RequestEvent) {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
+      Connection: 'keep-alive'
     }
   });
 }

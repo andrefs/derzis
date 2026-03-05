@@ -19,7 +19,13 @@ interface OldTripleDocument {
   updatedAt: Date;
 }
 
-async function buildUri(cfg: { host: string; port: string; name: string; user?: string; pass?: string }): Promise<string> {
+async function buildUri(cfg: {
+  host: string;
+  port: string;
+  name: string;
+  user?: string;
+  pass?: string;
+}): Promise<string> {
   const host = cfg.host;
   const port = cfg.port;
   const name = cfg.name;
@@ -60,7 +66,10 @@ async function migrate() {
   const literalTriplesCollection = db.collection('literalTriples');
 
   try {
-    await namedNodeTriplesCollection.createIndex({ subject: 1, predicate: 1, object: 1 }, { unique: true });
+    await namedNodeTriplesCollection.createIndex(
+      { subject: 1, predicate: 1, object: 1 },
+      { unique: true }
+    );
   } catch (e) {
     console.log('Index on namedNodeTriples already exists');
   }
@@ -101,8 +110,7 @@ async function migrate() {
           }
         });
         namedNodeCount++;
-      }
-      else if (triple.objectLiteral && triple.objectLiteral.value) {
+      } else if (triple.objectLiteral && triple.objectLiteral.value) {
         literalOps.push({
           insertOne: {
             document: {
@@ -130,19 +138,19 @@ async function migrate() {
     if (namedNodeOps.length > 0) {
       try {
         await namedNodeTriplesCollection.bulkWrite(namedNodeOps, { ordered: false });
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     if (literalOps.length > 0) {
       try {
         await literalTriplesCollection.bulkWrite(literalOps, { ordered: false });
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     migrated += batch.length;
-    console.log(`Progress: ${migrated}/${count} (NamedNode: ${namedNodeCount}, Literal: ${literalCount}, Skipped: ${skipped})`);
+    console.log(
+      `Progress: ${migrated}/${count} (NamedNode: ${namedNodeCount}, Literal: ${literalCount}, Skipped: ${skipped})`
+    );
   }
 
   console.log('\n=== Migration Complete ===');

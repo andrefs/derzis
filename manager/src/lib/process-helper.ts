@@ -1,4 +1,15 @@
-import { StepClass, Process, ProcessClass, Resource, NamedNodeTriple, TraversalPath, LiteralTriple, LiteralTripleClass, NamedNodeTripleClass, type ProcessDocument } from '@derzis/models';
+import {
+  StepClass,
+  Process,
+  ProcessClass,
+  Resource,
+  NamedNodeTriple,
+  TraversalPath,
+  LiteralTriple,
+  LiteralTripleClass,
+  NamedNodeTripleClass,
+  type ProcessDocument
+} from '@derzis/models';
 import { PathType, type RecursivePartial } from '@derzis/common';
 import { secondsToString, type MakeOptional } from './utils';
 import { createLogger } from '@derzis/common/server';
@@ -28,7 +39,7 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
     currentStep: p.currentStep!,
     notification: p.notification!,
     pathHeads: p.pathHeads,
-    pathType: p.pathType ?? config.manager.pathType ?? PathType.ENDPOINT,
+    pathType: p.pathType ?? config.manager.pathType ?? PathType.ENDPOINT
   } as Parameters<typeof Process.create>[0];
 
   const proc = await Process.create(processData);
@@ -104,10 +115,13 @@ export async function info(pid: string) {
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO this should be process specific
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
   const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
-  const lastTriple = [lastLT, lastNNT].reduce((latest, t) => {
-    if (!t || !t.updatedAt) return latest;
-    return !latest || !latest.updatedAt || t.updatedAt > latest.updatedAt ? t : latest;
-  }, null as (LiteralTripleClass | NamedNodeTripleClass | null));
+  const lastTriple = [lastLT, lastNNT].reduce(
+    (latest, t) => {
+      if (!t || !t.updatedAt) return latest;
+      return !latest || !latest.updatedAt || t.updatedAt > latest.updatedAt ? t : latest;
+    },
+    null as LiteralTripleClass | NamedNodeTripleClass | null
+  );
 
   const lastPath = await TraversalPath.findOne({ status: 'active' }).sort({ updatedAt: -1 });
   const last = Math.max(

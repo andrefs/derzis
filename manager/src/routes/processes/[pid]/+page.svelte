@@ -7,7 +7,8 @@
   import { HiSolidMagnifyingGlass } from 'svelte-icons-pack/hi';
   import { onMount, onDestroy } from 'svelte';
 
-  let progress: { step: number; paths: { done: number; remaining: number }; rate: number } | null = null;
+  let progress: { step: number; paths: { done: number; remaining: number }; rate: number } | null =
+    null;
   let error: string | null = null;
   let eventSource: EventSource | null = null;
 
@@ -33,27 +34,27 @@
     };
   });
 
-   onDestroy(() => {
-     if (eventSource) {
-       eventSource.close();
-     }
-   });
+  onDestroy(() => {
+    if (eventSource) {
+      eventSource.close();
+    }
+  });
 
-   async function endStep(pid: string) {
-     if (!confirm('Are you sure you want to end the current step?')) return;
-     try {
-       const resp = await fetch(`/api/processes/${pid}/end-step`, { method: 'POST' });
-       if (resp.ok) {
-         window.location.reload();
-       } else {
-         const err = await resp.json();
-         alert(`Error: ${err.err?.message || 'unknown'}`);
-       }
-     } catch (e) {
-       alert('Failed to end step: ' + e);
-     }
-   }
- </script>
+  async function endStep(pid: string) {
+    if (!confirm('Are you sure you want to end the current step?')) return;
+    try {
+      const resp = await fetch(`/api/processes/${pid}/end-step`, { method: 'POST' });
+      if (resp.ok) {
+        window.location.reload();
+      } else {
+        const err = await resp.json();
+        alert(`Error: ${err.err?.message || 'unknown'}`);
+      }
+    } catch (e) {
+      alert('Failed to end step: ' + e);
+    }
+  }
+</script>
 
 <header style="padding-bottom: 1rem">
   <h2>
@@ -61,7 +62,9 @@
     <a href="/processes/{data.proc.pid}/edit"><Icon src={BsPencilSquare} /></a>
   </h2>
   {#if isRunning}
-    <button class="btn btn-sm btn-danger" on:click={() => endStep(data.proc.pid)}>End step now</button>
+    <button class="btn btn-sm btn-danger" on:click={() => endStep(data.proc.pid)}
+      >End step now</button
+    >
   {/if}
 </header>
 

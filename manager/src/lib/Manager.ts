@@ -9,7 +9,7 @@ import {
   EndpointPath,
   Triple,
   ResourceLabel,
-  ProcessTriple,
+  ProcessTriple
 } from '@derzis/models';
 import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
 import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
@@ -28,7 +28,6 @@ import {
   type RobotsCheckJobRequest,
   type SimpleTriple
 } from '@derzis/common';
-
 
 interface AssignedJobs {
   check: number;
@@ -199,7 +198,9 @@ export default class Manager {
 
       if (res.acknowledged && res.modifiedCount) {
         this.jobs.deregisterJob(jobResult.origin);
-        log.debug(`Done saving domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}`);
+        log.debug(
+          `Done saving domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}`
+        );
       }
     }
   }
@@ -211,10 +212,7 @@ export default class Manager {
   async saveLabelFetch(jobResult: FetchLabelsResourceResult) {
     if (jobResult.status === 'not_ok') {
       // Update ResourceLabel status to error
-      await ResourceLabel.findOneAndUpdate(
-        { url: jobResult.url },
-        { status: 'error' }
-      );
+      await ResourceLabel.findOneAndUpdate({ url: jobResult.url }, { status: 'error' });
       return;
     }
 
@@ -254,13 +252,14 @@ export default class Manager {
       await this.updateAllPathsWithHead(jobResult.url);
     } else {
       // Get the saved triples to link to ProcessTriple
-      const savedIds = tripleResult.flatMap(r => r.upsertedIds ? Object.values(r.upsertedIds) : []);
-      const savedTriples = await Triple
-        .find({ _id: { $in: savedIds } })
+      const savedIds = tripleResult.flatMap((r) =>
+        r.upsertedIds ? Object.values(r.upsertedIds) : []
+      );
+      const savedTriples = await Triple.find({ _id: { $in: savedIds } })
         .select('_id type')
         .lean();
 
-      const procTripleInputs = savedTriples.map(t => ({
+      const procTripleInputs = savedTriples.map((t) => ({
         processId: rl.pid,
         triple: t._id,
         tripleType: t.type,
@@ -365,9 +364,10 @@ export default class Manager {
       status: 'active'
     };
 
-    const pids = config.manager.pathType === PathType.TRAVERSAL
-      ? await TraversalPath.distinct('processId', query)
-      : await EndpointPath.distinct('processId', query);
+    const pids =
+      config.manager.pathType === PathType.TRAVERSAL
+        ? await TraversalPath.distinct('processId', query)
+        : await EndpointPath.distinct('processId', query);
 
     log.info('updateAllPathsWithHead - found pids:', pids, 'for headUrl:', headUrl);
 
@@ -403,7 +403,7 @@ export default class Manager {
    * @param assigned Object tracking the count of assigned jobs by type for this worker
    * @returns An async iterable of domain label fetch job requests to assign to the worker
    */
-  async * assignLabelFetch(
+  async *assignLabelFetch(
     workerId: string,
     workerAvail: JobCapacity,
     assigned: AssignedJobs
@@ -413,7 +413,9 @@ export default class Manager {
       return;
     }
 
-    log.debug(`Getting ${workerAvail.domainLabelFetch.capacity} domainLabelFetch jobs for ${workerId}`);
+    log.debug(
+      `Getting ${workerAvail.domainLabelFetch.capacity} domainLabelFetch jobs for ${workerId}`
+    );
     let gotRes = false;
 
     for await (const labelJob of Domain.labelsToFetch(
@@ -422,14 +424,20 @@ export default class Manager {
       workerAvail.domainLabelFetch.resourcesPerDomain
     )) {
       gotRes = true;
-      if (labelJob?.resources?.length &&
-        (await this.jobs.registerJob(labelJob.domain.jobId, labelJob.domain.origin, 'domainLabelFetch'))) {
+      if (
+        labelJob?.resources?.length &&
+        (await this.jobs.registerJob(
+          labelJob.domain.jobId,
+          labelJob.domain.origin,
+          'domainLabelFetch'
+        ))
+      ) {
         assigned.labelFetch++;
         yield {
           type: 'domainLabelFetch',
           jobId: labelJob.domain.jobId,
           ...labelJob
-        }
+        };
       } else {
         log.info(`No resources with labels to fetch for worker ${workerId}`);
       }
@@ -439,7 +447,6 @@ export default class Manager {
     }
   }
 
-
   /**
    * Assign domain crawl jobs to a worker based on its reported availability, and update the assigned jobs count
    * @param workerId ID of the worker to assign jobs to
@@ -447,7 +454,11 @@ export default class Manager {
    * @param assigned Object tracking the count of assigned jobs by type for this worker
    * @returns An async iterable of domain crawl job requests to assign to the worker
    */
-  async * assignDomainCrawl(workerId: string, workerAvail: JobCapacity, assigned: AssignedJobs): AsyncIterable<DomainCrawlJobRequest> {
+  async *assignDomainCrawl(
+    workerId: string,
+    workerAvail: JobCapacity,
+    assigned: AssignedJobs
+  ): AsyncIterable<DomainCrawlJobRequest> {
     if (!workerAvail?.domainCrawl?.capacity) {
       log.warn(`Worker ${workerId} has no capacity for domainCrawl jobs`);
       return;
@@ -480,7 +491,6 @@ export default class Manager {
     }
   }
 
-
   /**
    * Assign robots check jobs to a worker based on its reported availability, and update the assigned jobs count
    * @param workerId ID of the worker to assign jobs to
@@ -488,7 +498,11 @@ export default class Manager {
    * @param assigned Object tracking the count of assigned jobs by type for this worker
    * @returns An async iterable of robots check job requests to assign to the worker
    */
-  async * assignRobotsCheck(workerId: string, workerAvail: JobCapacity, assigned: AssignedJobs): AsyncIterable<RobotsCheckJobRequest> {
+  async *assignRobotsCheck(
+    workerId: string,
+    workerAvail: JobCapacity,
+    assigned: AssignedJobs
+  ): AsyncIterable<RobotsCheckJobRequest> {
     if (!workerAvail?.robotsCheck?.capacity) {
       log.warn(`Worker ${workerId} has no capacity for robotsCheck jobs`);
       return;
@@ -496,10 +510,7 @@ export default class Manager {
 
     log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
     let gotRes = false;
-    for await (const check of Domain.domainsToCheck(
-      workerId,
-      workerAvail.robotsCheck.capacity
-    )) {
+    for await (const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)) {
       gotRes = true;
       if (await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')) {
         log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning robotsCheck', {
@@ -521,12 +532,12 @@ export default class Manager {
   }
 
   /**
-  * Assign jobs to a worker based on its reported availability, prioritizing domain label fetch, then domain crawl, then robots check jobs
-  * @param workerId ID of the worker to assign jobs to
-  * @param workerAvail Object describing the worker's available job capacities
-  * @returns An async iterable of job requests to assign to the worker
-  */
-  async * assignJobs(
+   * Assign jobs to a worker based on its reported availability, prioritizing domain label fetch, then domain crawl, then robots check jobs
+   * @param workerId ID of the worker to assign jobs to
+   * @param workerAvail Object describing the worker's available job capacities
+   * @returns An async iterable of job requests to assign to the worker
+   */
+  async *assignJobs(
     workerId: string,
     workerAvail: JobCapacity
   ): AsyncIterable<Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>> {
@@ -535,8 +546,7 @@ export default class Manager {
         `Too many jobs (${this.jobs.beingSaved.count()}) being saved, waiting for them to reduce before assigning new jobs`
       );
       return; // TODO check if this is correct
-    }
-    else {
+    } else {
       log.debug(
         `Only ${this.jobs.beingSaved.count()} jobs being saved, proceeding to assign new jobs for worker ${workerId}`
       );
@@ -545,9 +555,7 @@ export default class Manager {
       check: 0,
       crawl: 0,
       labelFetch: 0
-    }
-
-
+    };
 
     // domainLabelFetch jobs
     yield* this.assignLabelFetch(workerId, workerAvail, assigned);

@@ -28,17 +28,13 @@ export async function GET({ params, setHeaders }: RequestEvent) {
 
   const transformStream = new Readable({
     objectMode: true,
-    read() { }
+    read() {}
   });
 
   readableStream.on('data', (quad: SimpleTriple) => {
     console.log('Processing quad:', quad);
     if (quad.type === 'namedNode') {
-      writer.addQuad(
-        namedNode(quad.subject),
-        namedNode(quad.predicate),
-        namedNode(quad.object)
-      );
+      writer.addQuad(namedNode(quad.subject), namedNode(quad.predicate), namedNode(quad.object));
     } else if (quad.type === 'literal') {
       const { value, language, datatype } = quad.object;
       if (language) {
@@ -54,11 +50,7 @@ export async function GET({ params, setHeaders }: RequestEvent) {
           literal(value, namedNode(datatype))
         );
       } else {
-        writer.addQuad(
-          namedNode(quad.subject),
-          namedNode(quad.predicate),
-          literal(value)
-        );
+        writer.addQuad(namedNode(quad.subject), namedNode(quad.predicate), literal(value));
       }
     } else {
       // Handle other types if necessary
