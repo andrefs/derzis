@@ -16,7 +16,7 @@ describe('Resource.insertSeedPaths', () => {
     beforeEach(() => {
       config.manager.pathType = PathType.ENDPOINT;
       vi.spyOn(EndpointPath, 'create').mockResolvedValue([]);
-      vi.spyOn(Resource, 'addEpPaths').mockResolvedValue(undefined);
+      vi.spyOn(Resource, 'addEpPaths').mockResolvedValue({ dom: null });
     });
 
     it('should call EndpointPath.create with correctly shaped documents', async () => {
@@ -119,7 +119,7 @@ describe('Resource.insertSeedPaths', () => {
     beforeEach(() => {
       config.manager.pathType = PathType.TRAVERSAL;
       vi.spyOn(TraversalPath, 'create').mockResolvedValue([]);
-      vi.spyOn(Resource, 'addTvPaths').mockResolvedValue(undefined);
+       vi.spyOn(Resource, 'addTvPaths').mockResolvedValue({ res: null, dom: null });
     });
 
     it('should call TraversalPath.create when pathType is traversal', async () => {
