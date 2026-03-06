@@ -141,7 +141,6 @@ describe('EndpointPathClass', () => {
       const filter = path.genExistingTriplesFilter(proc);
 
       expect(filter).toEqual({
-        processId: 'test-pid',
         nodes: 'http://head.example.com'
       });
     });

@@ -843,6 +843,19 @@ export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsA
   let iteration = 0;
   let needsMoreWork = true;
 
+  // Create generator outside loop to preserve pagination cursor across iterations
+  const generator =
+    triples
+      ? queryPathsForTriples(process, triples, batchSize)
+      : headUrl
+        ? queryPathsForHeadUrl(process, headUrl, batchSize)
+        : null;
+
+  // For full extend, we need a separate generator since it's a different code path
+  const fullGenerator = !triples && !headUrl
+    ? queryAllExtendablePaths(process, batchSize)
+    : null;
+
   while (needsMoreWork && iteration < 100) {
     iteration++;
     let pathsToProcess: (TraversalPathDocument | EndpointPathDocument)[] = [];
@@ -851,22 +864,15 @@ export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsA
       // Direct list provided
       pathsToProcess = paths;
       needsMoreWork = false;
-    } else if (headUrl) {
-      const generator = queryPathsForHeadUrl(process, headUrl, batchSize);
+    } else if (generator) {
+      // Reuse same generator - pagination cursor is preserved internally
       pathsToProcess = await collectBatch(generator, batchSize);
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }
-    } else if (triples) {
-      const generator = queryPathsForTriples(process, triples, batchSize);
-      pathsToProcess = await collectBatch(generator, batchSize);
-      if (pathsToProcess.length === 0) {
-        needsMoreWork = false;
-      }
-    } else {
-      // Full extend
-      const generator = queryAllExtendablePaths(process, batchSize);
-      pathsToProcess = await collectBatch(generator, batchSize);
+    } else if (fullGenerator) {
+      // Full extend - reuse same generator for pagination
+      pathsToProcess = await collectBatch(fullGenerator, batchSize);
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }
