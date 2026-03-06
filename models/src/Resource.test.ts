@@ -23,7 +23,7 @@ describe('Resource.insertSeedPaths', () => {
         modifiedCount: 0,
         deletedCount: 0,
         upsertedCount: 1,
-        upsertedIds: new Map(),
+        upsertedIds: new Map()
       } as any);
       vi.spyOn(Domain, 'bulkWrite').mockResolvedValue({ modifiedCount: 1 } as any);
     });
@@ -67,12 +67,12 @@ describe('Resource.insertSeedPaths', () => {
                     length: 1,
                     seed: seeds[0].url
                   }),
-                   seedPaths: expect.arrayContaining([
-                     expect.objectContaining({
-                       seed: seeds[0].url,
-                       minLength: 1
-                     })
-                   ])
+                  seedPaths: expect.arrayContaining([
+                    expect.objectContaining({
+                      seed: seeds[0].url,
+                      minLength: 1
+                    })
+                  ])
                 })
               }),
               upsert: true
@@ -150,7 +150,7 @@ describe('Resource.insertSeedPaths', () => {
     beforeEach(() => {
       config.manager.pathType = PathType.TRAVERSAL;
       vi.spyOn(TraversalPath, 'create').mockResolvedValue([]);
-       vi.spyOn(Resource, 'addTvPaths').mockResolvedValue({ res: null, dom: null });
+      vi.spyOn(Resource, 'addTvPaths').mockResolvedValue({ res: null, dom: null });
     });
 
     it('should call TraversalPath.create when pathType is traversal', async () => {

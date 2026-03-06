@@ -136,7 +136,7 @@ export class EndpointPathClass extends PathClass {
       status: this.status,
       shortestPathLength: this.shortestPathLength,
       frontier: this.frontier,
-      seedPaths: this.seedPaths.map(entry => ({ seed: entry.seed, minLength: entry.minLength }))
+      seedPaths: this.seedPaths.map((entry) => ({ seed: entry.seed, minLength: entry.minLength }))
     };
     return copy;
   }
@@ -192,7 +192,7 @@ export class EndpointPathClass extends PathClass {
       const newHeadUrl: string = t.subject === urlHead.url ? t.object! : t.subject;
 
       // Simple cycle check: skip if extending to any seed URL
-      if (this.seedPaths.some(entry => entry.seed === newHeadUrl)) {
+      if (this.seedPaths.some((entry) => entry.seed === newHeadUrl)) {
         continue;
       }
 
@@ -371,19 +371,19 @@ export class EndpointPathClass extends PathClass {
       const { literalHead, distance, seedPaths } = candidate;
       const pathId = new Types.ObjectId();
 
-        const newPath: EndpointPathSkeleton = {
-          _id: pathId,
-          processId: this.processId,
-          type: PathType.ENDPOINT,
-          head: literalHead! as Head,
-          status: 'active',
-          frontier: true,
-          shortestPathLength: distance,
-          seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
-          extensionCounter: 0,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
+      const newPath: EndpointPathSkeleton = {
+        _id: pathId,
+        processId: this.processId,
+        type: PathType.ENDPOINT,
+        head: literalHead! as Head,
+        status: 'active',
+        frontier: true,
+        shortestPathLength: distance,
+        seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
+        extensionCounter: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       extendedPaths.push(newPath);
       log.silly('Created new literal endpoint path', newPath);
     }

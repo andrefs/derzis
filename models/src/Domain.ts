@@ -733,7 +733,8 @@ class DomainClass {
         if (config.manager.pathType === 'traversal') {
           lastSeenLength = (lastPath as { nodes: { count: number } }).nodes?.count ?? null;
         } else {
-          lastSeenShortestPathLength = (lastPath as { shortestPathLength: number }).shortestPathLength ?? null;
+          lastSeenShortestPathLength =
+            (lastPath as { shortestPathLength: number }).shortestPathLength ?? null;
         }
 
         // get only unvisited path heads

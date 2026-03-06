@@ -172,15 +172,15 @@ describe('EndpointPathClass', () => {
 
       const copy = original.copy();
 
-       // copy returns a plain object (EndpointPathSkeleton)
-       expect(copy).not.toBeInstanceOf(EndpointPathClass);
-       expect(copy.frontier).toEqual(original.frontier);
-       expect(copy.shortestPathLength).toEqual(original.shortestPathLength);
-       expect(copy.seedPaths).toEqual(original.seedPaths);
-       expect(copy.head).toEqual(original.head);
-       // seed removed from EndpointPath
-       // expect(copy.seed).toEqual(original.seed);
-       expect(copy.status).toEqual(original.status);
+      // copy returns a plain object (EndpointPathSkeleton)
+      expect(copy).not.toBeInstanceOf(EndpointPathClass);
+      expect(copy.frontier).toEqual(original.frontier);
+      expect(copy.shortestPathLength).toEqual(original.shortestPathLength);
+      expect(copy.seedPaths).toEqual(original.seedPaths);
+      expect(copy.head).toEqual(original.head);
+      // seed removed from EndpointPath
+      // expect(copy.seed).toEqual(original.seed);
+      expect(copy.status).toEqual(original.status);
     });
   });
 });
