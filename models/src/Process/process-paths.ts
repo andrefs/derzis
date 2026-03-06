@@ -490,24 +490,32 @@ async function* queryPathsForHeadUrl(
   batchSize = 100
 ): AsyncGenerator<TraversalPathDocument | EndpointPathDocument> {
   const pathType = getPathType(process);
-  let baseQuery: Record<string, unknown> = {
+  if (pathType === PathType.TRAVERSAL) {
+    yield* queryTraversalPathsForHeadUrl(process, headUrl, batchSize);
+  } else {
+    yield* queryEndpointPathsForHeadUrl(process, headUrl, batchSize);
+  }
+}
+
+/**
+ * Async generator that yields TraversalPath documents for a specific head URL.
+ * @param process - The ProcessClass instance.
+ * @param headUrl - The head URL to query paths for.
+ * @param batchSize - Maximum number of paths per batch (default 100).
+ * @yields TraversalPathDocument with the given head URL.
+ */
+async function* queryTraversalPathsForHeadUrl(
+  process: ProcessClass,
+  headUrl: string,
+  batchSize = 100
+): AsyncGenerator<TraversalPathDocument> {
+  const baseQuery: Record<string, unknown> = {
     processId: process.pid,
     status: 'active',
     'head.type': HEAD_TYPE.URL,
-    'head.url': headUrl
+    'head.url': headUrl,
+    'nodes.count': { $lt: process.currentStep.maxPathLength }
   };
-
-  // For ENDPOINT, only frontier paths
-  if (pathType === PathType.ENDPOINT) {
-    baseQuery.frontier = true;
-  }
-
-  // Filter paths where length is below maximum
-  if (pathType === PathType.TRAVERSAL) {
-    baseQuery['nodes.count'] = { $lt: process.currentStep.maxPathLength };
-  } else if (pathType === PathType.ENDPOINT) {
-    baseQuery.shortestPathLength = { $lt: process.currentStep.maxPathLength };
-  }
 
   let lastCreatedAt: Date | null = null;
   let lastId: Types.ObjectId | null = null;
@@ -517,18 +525,11 @@ async function* queryPathsForHeadUrl(
     let cursor: Record<string, unknown> =
       lastCreatedAt && lastId ? { createdAt: { $gte: lastCreatedAt }, _id: { $gt: lastId } } : {};
 
-    const paths: (TraversalPathDocument | EndpointPathDocument)[] = await (
-      pathType === PathType.TRAVERSAL
-        ? TraversalPath.find({ ...baseQuery, ...cursor } as QueryFilter<TraversalPathDocument>)
-        : EndpointPath.find({ ...baseQuery, ...cursor } as QueryFilter<EndpointPathDocument>)
-    )
-      .sort({
-        ...(pathType === PathType.TRAVERSAL
-          ? { 'nodes.count': 1 }
-          : { shortestPathLength: 1 }),
-        createdAt: 1,
-        _id: 1
-      })
+    const paths = await TraversalPath.find({
+      ...baseQuery,
+      ...cursor
+    } as QueryFilter<TraversalPathDocument>)
+      .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(batchSize);
 
     if (paths.length === 0) {
@@ -536,7 +537,60 @@ async function* queryPathsForHeadUrl(
       break;
     }
 
-    const last = paths[paths.length - 1] as TraversalPathDocument | EndpointPathDocument;
+    const last = paths[paths.length - 1];
+    lastCreatedAt = last.createdAt ?? null;
+    lastId = last._id as Types.ObjectId;
+
+    yield* paths;
+
+    if (paths.length < batchSize) {
+      hasMore = false;
+    }
+  }
+}
+
+/**
+ * Async generator that yields EndpointPath documents for a specific head URL.
+ * @param process - The ProcessClass instance.
+ * @param headUrl - The head URL to query paths for.
+ * @param batchSize - Maximum number of paths per batch (default 100).
+ * @yields EndpointPathDocument with the given head URL.
+ */
+async function* queryEndpointPathsForHeadUrl(
+  process: ProcessClass,
+  headUrl: string,
+  batchSize = 100
+): AsyncGenerator<EndpointPathDocument> {
+  const baseQuery: Record<string, unknown> = {
+    processId: process.pid,
+    status: 'active',
+    'head.type': HEAD_TYPE.URL,
+    'head.url': headUrl,
+    frontier: true,
+    shortestPathLength: { $lt: process.currentStep.maxPathLength }
+  };
+
+  let lastCreatedAt: Date | null = null;
+  let lastId: Types.ObjectId | null = null;
+  let hasMore = true;
+
+  while (hasMore) {
+    let cursor: Record<string, unknown> =
+      lastCreatedAt && lastId ? { createdAt: { $gte: lastCreatedAt }, _id: { $gt: lastId } } : {};
+
+    const paths = await EndpointPath.find({
+      ...baseQuery,
+      ...cursor
+    } as QueryFilter<EndpointPathDocument>)
+      .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
+      .limit(batchSize);
+
+    if (paths.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    const last = paths[paths.length - 1];
     lastCreatedAt = last.createdAt ?? null;
     lastId = last._id as Types.ObjectId;
 
