@@ -367,48 +367,32 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
 }
 
 /**
- * Extend existing active paths for a process according to its current step limits.
+ * Extend existing active traversal paths for a process according to its current step limits.
  * @param pid Process ID
  */
-export async function extendExistingPaths(pid: string) {
+export async function extendExistingTraversalPaths(pid: string) {
   const process = await Process.findOne({ pid });
   if (!process) {
-    log.warn(`Process ${pid} not found. Skipping extendExistingPaths.`);
+    log.warn(`Process ${pid} not found. Skipping extendExistingTraversalPaths.`);
     return;
   }
   if (process.status !== 'extending') {
-    log.warn(`Process ${process.pid} is not in 'extending' status. Skipping extendExistingPaths.`);
+    log.warn(`Process ${process.pid} is not in 'extending' status. Skipping extendExistingTraversalPaths.`);
     return;
   }
-
-  // Determine path type, default to ENDPOINT
-  const pathType = config?.manager?.pathType ?? PathType.ENDPOINT;
 
   // Process paths in batches to avoid using up too much memory
   const batchSize = 100;
   let lastSeenCreatedAt: Date | null = null;
   let lastSeenId: Types.ObjectId | null = null;
   let lastSeenLength: number | null = null;
-  let lastSeenShortestPathLength: number | null = null;
   let hasMore = true;
 
-  // Build query based on path type
-  let getQuery: QueryFilter<TraversalPathDocument> | QueryFilter<EndpointPathDocument>;
-
-  if (pathType === PathType.ENDPOINT) {
-    // For endpoint paths, only frontier nodes should be extended
-    getQuery = { processId: process.pid, frontier: true };
-  } else {
-    // Default (TRAVERSAL and any other value)
-    getQuery = genTraversalPathQuery(process);
-  }
+  const getQuery = genTraversalPathQuery(process);
 
   // Get total number of paths to process
   const beforeCount = await Path.countDocuments({ processId: process.pid });
-  const initPathsCount =
-    pathType === PathType.ENDPOINT
-      ? await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>)
-      : await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
+  const initPathsCount = await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
 
   let processedPaths = 0;
   const startTime = Date.now();
@@ -421,68 +405,37 @@ export async function extendExistingPaths(pid: string) {
     // Only count every 50 batches to avoid slow queries
     let curPathsCount = 0;
     if (batchCounter % 50 === 0) {
-      curPathsCount =
-        pathType === PathType.ENDPOINT
-          ? await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>)
-          : await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
+      curPathsCount = await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
     }
 
     // find a batch of active paths that can be extended
-    let paths;
-    if (pathType === PathType.ENDPOINT) {
-      const baseQuery = getQuery as QueryFilter<EndpointPathDocument>;
-      // Build cursor condition for compound sort: { shortestPathLength, createdAt, _id }
-      let cursorPart: Record<string, unknown> = {};
-      if (lastSeenShortestPathLength !== null && lastSeenCreatedAt && lastSeenId) {
-        cursorPart = {
-          $or: [
-            { shortestPathLength: { $gt: lastSeenShortestPathLength } },
-            { shortestPathLength: lastSeenShortestPathLength, createdAt: { $gt: lastSeenCreatedAt } },
-            { shortestPathLength: lastSeenShortestPathLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
-          ]
-        };
-      } else if (lastSeenCreatedAt && lastSeenId) {
-        cursorPart = { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } };
-      }
-      paths = await EndpointPath.find({ ...baseQuery, ...cursorPart })
-        .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
-        .limit(batchSize);
-    } else {
-      const baseQuery = getQuery as QueryFilter<TraversalPathDocument>;
-      // Build cursor condition for compound sort: { nodes.count, createdAt, _id }
-      let cursorPart: Record<string, unknown> = {};
-      if (lastSeenLength !== null && lastSeenCreatedAt && lastSeenId) {
-        cursorPart = {
-          $or: [
-            { 'nodes.count': { $gt: lastSeenLength } },
-            { 'nodes.count': lastSeenLength, createdAt: { $gt: lastSeenCreatedAt } },
-            { 'nodes.count': lastSeenLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
-          ]
-        };
-      } else if (lastSeenCreatedAt && lastSeenId) {
-        cursorPart = { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } };
-      }
-      paths = await TraversalPath.find({ ...baseQuery, ...cursorPart })
-        .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
-        .limit(batchSize);
+    let cursorPart: Record<string, unknown> = {};
+    if (lastSeenLength !== null && lastSeenCreatedAt && lastSeenId) {
+      cursorPart = {
+        $or: [
+          { 'nodes.count': { $gt: lastSeenLength } },
+          { 'nodes.count': lastSeenLength, createdAt: { $gt: lastSeenCreatedAt } },
+          { 'nodes.count': lastSeenLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+        ]
+      };
+    } else if (lastSeenCreatedAt && lastSeenId) {
+      cursorPart = { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } };
     }
+    const paths = await TraversalPath.find({ ...getQuery, ...cursorPart })
+      .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
+      .limit(batchSize);
 
     if (paths.length === 0) {
       hasMore = false;
       break;
     }
 
-    const lastPath: TraversalPathDocument | EndpointPathDocument = paths[paths.length - 1];
+    const lastPath = paths[paths.length - 1];
     lastSeenCreatedAt = lastPath.createdAt ?? null;
     lastSeenId = lastPath._id as Types.ObjectId;
-    // Track length for proper cursor pagination with compound sort
-    if (pathType === PathType.TRAVERSAL) {
-      lastSeenLength = (lastPath as TraversalPathDocument).nodes.count;
-    } else {
-      lastSeenShortestPathLength = (lastPath as EndpointPathDocument).shortestPathLength;
-    }
+    lastSeenLength = lastPath.nodes.count;
 
-    let logMsg = `Extending batch ${batchCounter} (${paths.length} paths, processed: ${processedPaths})`;
+    let logMsg = `Extending traversal batch ${batchCounter} (${paths.length} paths, processed: ${processedPaths})`;
     if (curPathsCount > 0) {
       const total = processedPaths + curPathsCount;
       const percentage = Math.round((processedPaths / total) * 100);
@@ -496,7 +449,7 @@ export async function extendExistingPaths(pid: string) {
     processedPaths += paths.length;
 
     // Mark all paths in this batch as considered for extension
-    const pathIds = paths.map((p: TraversalPathDocument | EndpointPathDocument) => p._id);
+    const pathIds = paths.map((p) => p._id);
     await Path.updateMany(
       { _id: { $in: pathIds } },
       { $set: { extensionCounter: process.pathExtensionCounter } }
@@ -505,7 +458,7 @@ export async function extendExistingPaths(pid: string) {
     const batchTime = (Date.now() - batchStartTime) / 1000;
     const elapsedTime = (Date.now() - startTime) / 1000;
     log.info(
-      `Batch ${batchCounter} completed in ${batchTime.toFixed(2)}s (Total elapsed: ${elapsedTime.toFixed(2)}s)`
+      `Traversal batch ${batchCounter} completed in ${batchTime.toFixed(2)}s (Total elapsed: ${elapsedTime.toFixed(2)}s)`
     );
 
     // Delay to reduce CPU usage and allow system to cool
@@ -513,11 +466,135 @@ export async function extendExistingPaths(pid: string) {
   }
 
   const finalPathsCount = await Path.countDocuments({ processId: process.pid });
-
   const totalTime = (Date.now() - startTime) / 1000;
   log.info(
-    `Finished extending existing paths for process ${process.pid}. Total time: ${totalTime.toFixed(2)}s. Created ${finalPathsCount - beforeCount} new paths from ${processedPaths} processed paths.`
+    `Finished extending existing traversal paths for process ${process.pid}. Total time: ${totalTime.toFixed(2)}s. Created ${finalPathsCount - beforeCount} new paths from ${processedPaths} processed paths.`
   );
+}
+
+/**
+ * Extend existing active endpoint paths for a process according to its current step limits.
+ * @param pid Process ID
+ */
+export async function extendExistingEndpointPaths(pid: string) {
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.warn(`Process ${pid} not found. Skipping extendExistingEndpointPaths.`);
+    return;
+  }
+  if (process.status !== 'extending') {
+    log.warn(`Process ${process.pid} is not in 'extending' status. Skipping extendExistingEndpointPaths.`);
+    return;
+  }
+
+  // Process paths in batches to avoid using up too much memory
+  const batchSize = 100;
+  let lastSeenCreatedAt: Date | null = null;
+  let lastSeenId: Types.ObjectId | null = null;
+  let lastSeenShortestPathLength: number | null = null;
+  let hasMore = true;
+
+  const getQuery = {
+    processId: process.pid,
+    frontier: true,
+    shortestPathLength: { $lt: process.currentStep.maxPathLength }
+  };
+
+  // Get total number of paths to process
+  const beforeCount = await Path.countDocuments({ processId: process.pid });
+  const initPathsCount = await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>);
+
+  let processedPaths = 0;
+  const startTime = Date.now();
+  let batchCounter = 0;
+
+  while (hasMore) {
+    batchCounter++;
+    const batchStartTime = Date.now();
+    
+    // Only count every 50 batches to avoid slow queries
+    let curPathsCount = 0;
+    if (batchCounter % 50 === 0) {
+      curPathsCount = await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>);
+    }
+
+    // find a batch of active paths that can be extended
+    let cursorPart: Record<string, unknown> = {};
+    if (lastSeenShortestPathLength !== null && lastSeenCreatedAt && lastSeenId) {
+      cursorPart = {
+        $or: [
+          { shortestPathLength: { $gt: lastSeenShortestPathLength } },
+          { shortestPathLength: lastSeenShortestPathLength, createdAt: { $gt: lastSeenCreatedAt } },
+          { shortestPathLength: lastSeenShortestPathLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+        ]
+      };
+    } else if (lastSeenCreatedAt && lastSeenId) {
+      cursorPart = { createdAt: { $gte: lastSeenCreatedAt }, _id: { $gt: lastSeenId } };
+    }
+    const paths = await EndpointPath.find({ ...getQuery, ...cursorPart })
+      .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
+      .limit(batchSize);
+
+    if (paths.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    const lastPath = paths[paths.length - 1];
+    lastSeenCreatedAt = lastPath.createdAt ?? null;
+    lastSeenId = lastPath._id as Types.ObjectId;
+    lastSeenShortestPathLength = lastPath.shortestPathLength;
+
+    let logMsg = `Extending endpoint batch ${batchCounter} (${paths.length} paths, processed: ${processedPaths})`;
+    if (curPathsCount > 0) {
+      const total = processedPaths + curPathsCount;
+      const percentage = Math.round((processedPaths / total) * 100);
+      logMsg += ` for process ${process.pid} (${processedPaths}/${total} - ${percentage}%)`;
+    } else {
+      logMsg += ` for process ${process.pid} (processed: ${processedPaths})`;
+    }
+    log.info(logMsg);
+
+    await extendPathsWithExistingTriples(process, paths);
+    processedPaths += paths.length;
+
+    // Mark all paths in this batch as considered for extension
+    const pathIds = paths.map((p) => p._id);
+    await Path.updateMany(
+      { _id: { $in: pathIds } },
+      { $set: { extensionCounter: process.pathExtensionCounter } }
+    );
+
+    const batchTime = (Date.now() - batchStartTime) / 1000;
+    const elapsedTime = (Date.now() - startTime) / 1000;
+    log.info(
+      `Endpoint batch ${batchCounter} completed in ${batchTime.toFixed(2)}s (Total elapsed: ${elapsedTime.toFixed(2)}s)`
+    );
+
+    // Delay to reduce CPU usage and allow system to cool
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+
+  const finalPathsCount = await Path.countDocuments({ processId: process.pid });
+  const totalTime = (Date.now() - startTime) / 1000;
+  log.info(
+    `Finished extending existing endpoint paths for process ${process.pid}. Total time: ${totalTime.toFixed(2)}s. Created ${finalPathsCount - beforeCount} new paths from ${processedPaths} processed paths.`
+  );
+}
+
+/**
+ * Extend existing active paths for a process according to its current step limits.
+ * Determines path type from config and delegates to appropriate function.
+ * @param pid Process ID
+ */
+export async function extendExistingPaths(pid: string) {
+  const pathType = config?.manager?.pathType ?? PathType.ENDPOINT;
+  
+  if (pathType === PathType.TRAVERSAL) {
+    await extendExistingTraversalPaths(pid);
+  } else {
+    await extendExistingEndpointPaths(pid);
+  }
 }
 
 /**
@@ -603,12 +680,18 @@ export async function extendProcessPaths(
   pathType: PathType
 ) {
   log.info(`Extending paths for process ${process.pid} with head URL: ${headUrl}`);
-  const pathQuery = {
-    processId: process.pid,
-    status: 'active',
-    'head.type': HEAD_TYPE.URL,
-    'head.url': headUrl
-  };
+   const pathQuery: any = {
+     processId: process.pid,
+     status: 'active',
+     'head.type': HEAD_TYPE.URL,
+     'head.url': headUrl
+   };
+
+   // For ENDPOINT, only frontier paths that haven't reached max length need extension
+   if (pathType === PathType.ENDPOINT) {
+     pathQuery.frontier = true;
+     pathQuery.shortestPathLength = { $lt: process.currentStep.maxPathLength };
+   }
 
   const batchSize = 10;
   let hasMorePaths = true;
