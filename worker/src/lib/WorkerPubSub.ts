@@ -150,7 +150,7 @@ export class WorkerPubSub {
 
     // Check capacity
     if (!this.w.hasCapacity(job.type)) {
-      log.error(`No capacity for job ${job.type} on ${origin}, so job #${job.jobId} was refused.`);
+      log.warn(`No capacity for job ${job.type} on ${origin}, so job #${job.jobId} was refused.`);
       this.pub({
         type: 'noCapacity',
         payload: { jobType: job.type, origin, jobId: job.jobId }
