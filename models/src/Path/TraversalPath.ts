@@ -98,6 +98,15 @@ type RecursivePartial<T> = {
 @index({ type: 1, 'head.domain': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({ processId: 1, status: 1, extensionCounter: 1 })
+// Indexes for path extension API (headUrl and full extend)
+@index({
+  processId: 1,
+  status: 1,
+  'head.type': 1,
+  'head.url': 1,
+  'nodes.count': 1,
+  extensionCounter: 1
+})
 // Optimized index for getPathsForDomainCrawl and getPathsForRobotsChecking with head.domain and length-first sort
 @index({
   processId: 1,
@@ -176,7 +185,7 @@ export class TraversalPathClass extends PathClass {
    * @param process The current process instance containing configuration for path extension.
    * @returns An object containing the extended paths and the corresponding triples to be processed.
    */
-  public async extendWithExistingTriples(
+  public async genExtendedPaths(
     process: ProcessClass,
     triples?: TripleDocument[]
   ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {

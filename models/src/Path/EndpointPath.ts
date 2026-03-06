@@ -141,7 +141,7 @@ export class EndpointPathClass extends PathClass {
     return copy;
   }
 
-  public async extendWithExistingTriples(
+  public async genExtendedPaths(
     process: ProcessClass,
     triples?: TripleDocument[]
   ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {

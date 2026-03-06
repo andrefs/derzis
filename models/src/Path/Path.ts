@@ -129,12 +129,9 @@ export interface IPath {
   type: PathType;
   extensionCounter: number;
   genExistingTriplesFilter: (process: ProcessClass) => QueryFilter<NamedNodeTripleDocument> | null;
-  genExtended: (
-    triples: TripleDocument[],
-    process: ProcessClass
-  ) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
-  extendWithExistingTriples: (
-    process: ProcessClass
+  genExtendedPaths: (
+    process: ProcessClass,
+    triples?: TripleDocument[]
   ) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
 }
 

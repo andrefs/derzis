@@ -788,7 +788,7 @@ async function extendPathsBatch(
 ) {
   const pathType = getPathType(process);
   for (const path of pathsBatch) {
-    const result = await path.extendWithExistingTriples(process, triples);
+    const result = await path.genExtendedPaths(process, triples);
 
     if (result.extendedPaths.length > 0) {
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
