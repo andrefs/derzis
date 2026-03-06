@@ -9,7 +9,8 @@ import {
   EndpointPath,
   Triple,
   ResourceLabel,
-  ProcessTriple
+  ProcessTriple,
+  extendPaths
 } from '@derzis/models';
 import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
 import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
@@ -249,7 +250,9 @@ export default class Manager {
 
     if (extend) {
       // Extend paths with this resource as head (normal flow)
-      await this.updateAllPathsWithHead(jobResult.url);
+      log.info('Calling extendPaths for headUrl:', jobResult.url);
+      await extendPaths({ headUrl: jobResult.url });
+      log.info('extendPaths complete for headUrl:', jobResult.url);
     } else {
       // Get the saved triples to link to ProcessTriple
       const savedIds = tripleResult.flatMap((r) =>
@@ -349,34 +352,9 @@ export default class Manager {
     log.info('Triple.upsertMany result:', tripleResult);
 
     // extend paths with source url as head
-    log.info('Calling updateAllPathsWithHead for:', source.url);
-    await this.updateAllPathsWithHead(source.url);
-    log.info('updateAllPathsWithHead complete');
-  }
-
-  /**
-   * Update all paths that have the given source URL as head
-   * @param headUrl URL of the resource that is the head of the paths to update
-   */
-  async updateAllPathsWithHead(headUrl: string) {
-    const query = {
-      'head.url': headUrl,
-      status: 'active'
-    };
-
-    const pids =
-      config.manager.pathType === PathType.TRAVERSAL
-        ? await TraversalPath.distinct('processId', query)
-        : await EndpointPath.distinct('processId', query);
-
-    log.info('updateAllPathsWithHead - found pids:', pids, 'for headUrl:', headUrl);
-
-    for (const pid of pids) {
-      const proc = await Process.findOne({ pid });
-      log.info('Calling extendProcessPaths for pid:', pid, 'headUrl:', headUrl);
-      await proc?.extendProcessPaths(headUrl, config.manager.pathType as PathType);
-      log.info('extendProcessPaths complete for pid:', pid);
-    }
+    log.info('Calling extendPaths for headUrl:', source.url);
+    await extendPaths({ headUrl: source.url });
+    log.info('extendPaths complete for headUrl:', source.url);
   }
 
   /**

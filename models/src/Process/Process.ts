@@ -35,8 +35,7 @@ import {
   getPathsForDomainCrawl,
   hasPathsDomainRobotsChecking,
   hasPathsHeadBeingCrawled,
-  extendExistingPaths,
-  extendProcessPaths
+  extendPaths
 } from './process-paths';
 import {
   notifyStepStarted,
@@ -271,7 +270,15 @@ class ProcessClass extends Document {
     lastSeenShortestPathLength: number | null = null,
     limit = 20
   ) {
-    return getPathsForRobotsChecking(this, pathType, lastSeenCreatedAt, lastSeenId, lastSeenLength, lastSeenShortestPathLength, limit);
+    return getPathsForRobotsChecking(
+      this,
+      pathType,
+      lastSeenCreatedAt,
+      lastSeenId,
+      lastSeenLength,
+      lastSeenShortestPathLength,
+      limit
+    );
   }
 
   public async getPathsForDomainCrawl(
@@ -301,28 +308,6 @@ class ProcessClass extends Document {
 
   public async hasPathsHeadBeingCrawled(): Promise<boolean> {
     return hasPathsHeadBeingCrawled(this);
-  }
-
-  public async extendExistingPaths() {
-    log.info(`Extending existing paths for process ${this.pid}`);
-
-    const procTripleCount = await ProcessTriple.countDocuments({ processId: this.pid });
-
-    try {
-      await extendExistingPaths(this.pid);
-      const newPTC = await ProcessTriple.countDocuments({ processId: this.pid });
-      log.info(
-        `Extended existing paths for process ${this.pid}. ` +
-          `ProcessTriples before: ${procTripleCount}, after: ${newPTC}, added: ${newPTC - procTripleCount}`
-      );
-    } catch (error) {
-      log.error(`Error updating process ${this.pid} status to 'extending':`, error);
-      throw error;
-    }
-  }
-
-  public async extendProcessPaths(headUrl: string, pathType: PathType) {
-    return extendProcessPaths(this, headUrl, pathType);
   }
 
   /**
@@ -383,7 +368,7 @@ class ProcessClass extends Document {
     }
 
     // Before queuing, extend existing paths according to new step limits
-    await process.extendExistingPaths(); // this potentially takes a lot of time
+    await extendPaths({ pid: process.pid }); // this potentially takes a lot of time
 
     // Allow post-crawl path extension by incrementing the counter
     await Process.updateOne({ pid }, { $inc: { pathExtensionCounter: 1 } });
