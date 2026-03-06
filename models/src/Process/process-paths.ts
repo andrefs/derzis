@@ -69,9 +69,7 @@ export async function getPathsForRobotsChecking(
   const lockedFilter = await getLockedDomainFilter();
 
   // Only include paths from domains that are 'unvisited' (eligible for robots checking)
-  const unvisitedDomains = await Domain.find({ status: 'unvisited' })
-    .select('origin')
-    .lean();
+  const unvisitedDomains = await Domain.find({ status: 'unvisited' }).select('origin').lean();
   const eligibleOrigins = unvisitedDomains.map((d) => d.origin);
   if (!eligibleOrigins.length) {
     return [];
@@ -87,7 +85,12 @@ export async function getPathsForRobotsChecking(
 
   // Build cursor condition for compound sort: { length, createdAt, _id }
   let cursorCondition: Record<string, unknown> = {};
-  if (pathType === PathType.TRAVERSAL && lastSeenLength !== null && lastSeenCreatedAt && lastSeenId) {
+  if (
+    pathType === PathType.TRAVERSAL &&
+    lastSeenLength !== null &&
+    lastSeenCreatedAt &&
+    lastSeenId
+  ) {
     cursorCondition = {
       $or: [
         { 'nodes.count': { $gt: lastSeenLength } },
@@ -95,12 +98,21 @@ export async function getPathsForRobotsChecking(
         { 'nodes.count': lastSeenLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
       ]
     };
-  } else if (pathType === PathType.ENDPOINT && lastSeenShortestPathLength !== null && lastSeenCreatedAt && lastSeenId) {
+  } else if (
+    pathType === PathType.ENDPOINT &&
+    lastSeenShortestPathLength !== null &&
+    lastSeenCreatedAt &&
+    lastSeenId
+  ) {
     cursorCondition = {
       $or: [
         { shortestPathLength: { $gt: lastSeenShortestPathLength } },
         { shortestPathLength: lastSeenShortestPathLength, createdAt: { $gt: lastSeenCreatedAt } },
-        { shortestPathLength: lastSeenShortestPathLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+        {
+          shortestPathLength: lastSeenShortestPathLength,
+          createdAt: lastSeenCreatedAt,
+          _id: { $gt: lastSeenId }
+        }
       ]
     };
   } else if (lastSeenCreatedAt && lastSeenId) {
@@ -160,9 +172,7 @@ export async function getPathsForDomainCrawl(
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
   // Only include paths from domains that are 'ready' (eligible for crawling)
-  const readyDomains = await Domain.find({ status: 'ready' })
-    .select('origin')
-    .lean();
+  const readyDomains = await Domain.find({ status: 'ready' }).select('origin').lean();
   const eligibleOrigins = readyDomains.map((d) => d.origin);
   if (!eligibleOrigins.length) {
     return [];
@@ -177,11 +187,17 @@ export async function getPathsForDomainCrawl(
   };
   // Get locked domains and combine with domainBlacklist
   const domainFilter = await getLockedDomainFilter(domainBlacklist);
-  const select = 'head.status head.type head.domain head.url createdAt _id nodes.count shortestPathLength';
+  const select =
+    'head.status head.type head.domain head.url createdAt _id nodes.count shortestPathLength';
 
   // Build cursor condition for compound sort: { length, createdAt, _id }
   let cursorCondition: Record<string, unknown> = {};
-  if (pathType === PathType.TRAVERSAL && lastSeenLength !== null && lastSeenCreatedAt && lastSeenId) {
+  if (
+    pathType === PathType.TRAVERSAL &&
+    lastSeenLength !== null &&
+    lastSeenCreatedAt &&
+    lastSeenId
+  ) {
     cursorCondition = {
       $or: [
         { 'nodes.count': { $gt: lastSeenLength } },
@@ -189,12 +205,21 @@ export async function getPathsForDomainCrawl(
         { 'nodes.count': lastSeenLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
       ]
     };
-  } else if (pathType === PathType.ENDPOINT && lastSeenShortestPathLength !== null && lastSeenCreatedAt && lastSeenId) {
+  } else if (
+    pathType === PathType.ENDPOINT &&
+    lastSeenShortestPathLength !== null &&
+    lastSeenCreatedAt &&
+    lastSeenId
+  ) {
     cursorCondition = {
       $or: [
         { shortestPathLength: { $gt: lastSeenShortestPathLength } },
         { shortestPathLength: lastSeenShortestPathLength, createdAt: { $gt: lastSeenCreatedAt } },
-        { shortestPathLength: lastSeenShortestPathLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+        {
+          shortestPathLength: lastSeenShortestPathLength,
+          createdAt: lastSeenCreatedAt,
+          _id: { $gt: lastSeenId }
+        }
       ]
     };
   } else if (lastSeenCreatedAt && lastSeenId) {
@@ -204,7 +229,7 @@ export async function getPathsForDomainCrawl(
     };
   }
 
-   if (pathType === PathType.TRAVERSAL) {
+  if (pathType === PathType.TRAVERSAL) {
     const traversalQuery = genTraversalPathQuery(process);
 
     const paths = await TraversalPath.find({
@@ -279,23 +304,23 @@ export async function extendPathsWithExistingTriples(
   for (const path of paths) {
     const res = await path.extendWithExistingTriples(proc);
 
-     if (!res.extendedPaths.length) {
-       const length =
-         path instanceof TraversalPath
-           ? path.nodes.count
-           : path instanceof EndpointPath
-             ? path.shortestPathLength
-             : 'N/A';
-       const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
-       const seedInfo = path instanceof TraversalPath ? path.seed.url : 'N/A';
+    if (!res.extendedPaths.length) {
+      const length =
+        path instanceof TraversalPath
+          ? path.nodes.count
+          : path instanceof EndpointPath
+            ? path.shortestPathLength
+            : 'N/A';
+      const predicates = path instanceof TraversalPath ? path.predicates.elems : null;
+      const seedInfo = path instanceof TraversalPath ? path.seed.url : 'N/A';
 
-       const headVal =
-         path.head.type === HEAD_TYPE.URL
-           ? (path.head as UrlHead).url
-           : `"${(path.head as LiteralHead).value}"`;
-       log.silly(
-         `No new paths created from path ${path._id} (seed ${seedInfo}, head ${headVal}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`
-       );
+      const headVal =
+        path.head.type === HEAD_TYPE.URL
+          ? (path.head as UrlHead).url
+          : `"${(path.head as LiteralHead).value}"`;
+      log.silly(
+        `No new paths created from path ${path._id} (seed ${seedInfo}, head ${headVal}, length ${length}, ${predicates ? 'predicates ' + predicates : ''})`
+      );
 
       continue;
     }
@@ -377,7 +402,9 @@ export async function extendExistingTraversalPaths(pid: string) {
     return;
   }
   if (process.status !== 'extending') {
-    log.warn(`Process ${process.pid} is not in 'extending' status. Skipping extendExistingTraversalPaths.`);
+    log.warn(
+      `Process ${process.pid} is not in 'extending' status. Skipping extendExistingTraversalPaths.`
+    );
     return;
   }
 
@@ -392,7 +419,9 @@ export async function extendExistingTraversalPaths(pid: string) {
 
   // Get total number of paths to process
   const beforeCount = await Path.countDocuments({ processId: process.pid });
-  const initPathsCount = await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
+  const initPathsCount = await TraversalPath.countDocuments(
+    getQuery as QueryFilter<TraversalPathDocument>
+  );
 
   let processedPaths = 0;
   const startTime = Date.now();
@@ -401,11 +430,13 @@ export async function extendExistingTraversalPaths(pid: string) {
   while (hasMore) {
     batchCounter++;
     const batchStartTime = Date.now();
-    
+
     // Only count every 50 batches to avoid slow queries
     let curPathsCount = 0;
     if (batchCounter % 50 === 0) {
-      curPathsCount = await TraversalPath.countDocuments(getQuery as QueryFilter<TraversalPathDocument>);
+      curPathsCount = await TraversalPath.countDocuments(
+        getQuery as QueryFilter<TraversalPathDocument>
+      );
     }
 
     // find a batch of active paths that can be extended
@@ -435,7 +466,22 @@ export async function extendExistingTraversalPaths(pid: string) {
     lastSeenId = lastPath._id as Types.ObjectId;
     lastSeenLength = lastPath.nodes.count;
 
-    let logMsg = `Extending traversal batch ${batchCounter} (${paths.length} paths, processed: ${processedPaths})`;
+    // Defensive filter: skip paths that have reached max length
+    const pathsToExtend = paths.filter((p) => p.nodes.count < process.currentStep.maxPathLength);
+
+    if (pathsToExtend.length === 0) {
+      // No extendable paths; mark as considered and stop
+      const pathIds = paths.map((p) => p._id);
+      await Path.updateMany(
+        { _id: { $in: pathIds } },
+        { $set: { extensionCounter: process.pathExtensionCounter } }
+      );
+      processedPaths += paths.length;
+      hasMore = false;
+      break;
+    }
+
+    let logMsg = `Extending traversal batch ${batchCounter} (${paths.length} fetched, ${pathsToExtend.length} extendable, processed: ${processedPaths})`;
     if (curPathsCount > 0) {
       const total = processedPaths + curPathsCount;
       const percentage = Math.round((processedPaths / total) * 100);
@@ -445,7 +491,7 @@ export async function extendExistingTraversalPaths(pid: string) {
     }
     log.info(logMsg);
 
-    await extendPathsWithExistingTriples(process, paths);
+    await extendPathsWithExistingTriples(process, pathsToExtend);
     processedPaths += paths.length;
 
     // Mark all paths in this batch as considered for extension
@@ -462,7 +508,7 @@ export async function extendExistingTraversalPaths(pid: string) {
     );
 
     // Delay to reduce CPU usage and allow system to cool
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
   const finalPathsCount = await Path.countDocuments({ processId: process.pid });
@@ -483,7 +529,9 @@ export async function extendExistingEndpointPaths(pid: string) {
     return;
   }
   if (process.status !== 'extending') {
-    log.warn(`Process ${process.pid} is not in 'extending' status. Skipping extendExistingEndpointPaths.`);
+    log.warn(
+      `Process ${process.pid} is not in 'extending' status. Skipping extendExistingEndpointPaths.`
+    );
     return;
   }
 
@@ -502,7 +550,9 @@ export async function extendExistingEndpointPaths(pid: string) {
 
   // Get total number of paths to process
   const beforeCount = await Path.countDocuments({ processId: process.pid });
-  const initPathsCount = await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>);
+  const initPathsCount = await EndpointPath.countDocuments(
+    getQuery as QueryFilter<EndpointPathDocument>
+  );
 
   let processedPaths = 0;
   const startTime = Date.now();
@@ -511,11 +561,13 @@ export async function extendExistingEndpointPaths(pid: string) {
   while (hasMore) {
     batchCounter++;
     const batchStartTime = Date.now();
-    
+
     // Only count every 50 batches to avoid slow queries
     let curPathsCount = 0;
     if (batchCounter % 50 === 0) {
-      curPathsCount = await EndpointPath.countDocuments(getQuery as QueryFilter<EndpointPathDocument>);
+      curPathsCount = await EndpointPath.countDocuments(
+        getQuery as QueryFilter<EndpointPathDocument>
+      );
     }
 
     // find a batch of active paths that can be extended
@@ -525,7 +577,11 @@ export async function extendExistingEndpointPaths(pid: string) {
         $or: [
           { shortestPathLength: { $gt: lastSeenShortestPathLength } },
           { shortestPathLength: lastSeenShortestPathLength, createdAt: { $gt: lastSeenCreatedAt } },
-          { shortestPathLength: lastSeenShortestPathLength, createdAt: lastSeenCreatedAt, _id: { $gt: lastSeenId } }
+          {
+            shortestPathLength: lastSeenShortestPathLength,
+            createdAt: lastSeenCreatedAt,
+            _id: { $gt: lastSeenId }
+          }
         ]
       };
     } else if (lastSeenCreatedAt && lastSeenId) {
@@ -545,7 +601,24 @@ export async function extendExistingEndpointPaths(pid: string) {
     lastSeenId = lastPath._id as Types.ObjectId;
     lastSeenShortestPathLength = lastPath.shortestPathLength;
 
-    let logMsg = `Extending endpoint batch ${batchCounter} (${paths.length} paths, processed: ${processedPaths})`;
+    // Defensive filter: skip paths that have reached max length
+    const pathsToExtend = paths.filter(
+      (p) => p.shortestPathLength < process.currentStep.maxPathLength
+    );
+
+    if (pathsToExtend.length === 0) {
+      // No extendable paths; mark as considered and stop (remaining sorted paths will also be >= max)
+      const pathIds = paths.map((p) => p._id);
+      await Path.updateMany(
+        { _id: { $in: pathIds } },
+        { $set: { extensionCounter: process.pathExtensionCounter } }
+      );
+      processedPaths += paths.length;
+      hasMore = false;
+      break;
+    }
+
+    let logMsg = `Extending endpoint batch ${batchCounter} (${paths.length} fetched, ${pathsToExtend.length} extendable, processed: ${processedPaths})`;
     if (curPathsCount > 0) {
       const total = processedPaths + curPathsCount;
       const percentage = Math.round((processedPaths / total) * 100);
@@ -555,7 +628,7 @@ export async function extendExistingEndpointPaths(pid: string) {
     }
     log.info(logMsg);
 
-    await extendPathsWithExistingTriples(process, paths);
+    await extendPathsWithExistingTriples(process, pathsToExtend);
     processedPaths += paths.length;
 
     // Mark all paths in this batch as considered for extension
@@ -572,7 +645,7 @@ export async function extendExistingEndpointPaths(pid: string) {
     );
 
     // Delay to reduce CPU usage and allow system to cool
-    await new Promise(resolve => setTimeout(resolve, 250));
+    await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
   const finalPathsCount = await Path.countDocuments({ processId: process.pid });
@@ -589,7 +662,7 @@ export async function extendExistingEndpointPaths(pid: string) {
  */
 export async function extendExistingPaths(pid: string) {
   const pathType = config?.manager?.pathType ?? PathType.ENDPOINT;
-  
+
   if (pathType === PathType.TRAVERSAL) {
     await extendExistingTraversalPaths(pid);
   } else {
@@ -680,18 +753,18 @@ export async function extendProcessPaths(
   pathType: PathType
 ) {
   log.info(`Extending paths for process ${process.pid} with head URL: ${headUrl}`);
-   const pathQuery: any = {
-     processId: process.pid,
-     status: 'active',
-     'head.type': HEAD_TYPE.URL,
-     'head.url': headUrl
-   };
+  const pathQuery: any = {
+    processId: process.pid,
+    status: 'active',
+    'head.type': HEAD_TYPE.URL,
+    'head.url': headUrl
+  };
 
-   // For ENDPOINT, only frontier paths that haven't reached max length need extension
-   if (pathType === PathType.ENDPOINT) {
-     pathQuery.frontier = true;
-     pathQuery.shortestPathLength = { $lt: process.currentStep.maxPathLength };
-   }
+  // For ENDPOINT, only frontier paths that haven't reached max length need extension
+  if (pathType === PathType.ENDPOINT) {
+    pathQuery.frontier = true;
+    pathQuery.shortestPathLength = { $lt: process.currentStep.maxPathLength };
+  }
 
   const batchSize = 10;
   let hasMorePaths = true;
@@ -716,15 +789,15 @@ export async function extendProcessPaths(
             'head.type': HEAD_TYPE.URL,
             ...pathCursorCondition
           } as QueryFilter<TraversalPathClass>)
-          .sort({ createdAt: 1, _id: 1 })
-          .limit(batchSize)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize)
         : await EndpointPath.find({
             ...pathQuery,
             'head.type': HEAD_TYPE.URL,
             ...pathCursorCondition
           } as QueryFilter<EndpointPathClass>)
-          .sort({ createdAt: 1, _id: 1 })
-          .limit(batchSize);
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize);
 
     log.info(`extendProcessPaths: Found ${paths.length} paths for headUrl: ${headUrl}`);
 
@@ -740,7 +813,7 @@ export async function extendProcessPaths(
 
     // Filter to only paths that can still be extended (length < maxPathLength)
     // TraversalPath uses nodes.count, EndpointPath uses shortestPathLength
-    const pathsToProcess = paths.filter(p => {
+    const pathsToProcess = paths.filter((p) => {
       if (pathType === PathType.TRAVERSAL) {
         return (p as TraversalPathClass).nodes.count < process.currentStep.maxPathLength;
       } else {
@@ -785,9 +858,9 @@ export async function extendProcessPaths(
       lastTripleCreatedAt = lastTriple.createdAt ?? null;
       lastTripleId = lastTriple._id as Types.ObjectId;
 
-       // extend each path with the new triples and gather new paths and proc-triple associations
-       for (const path of pathsToProcess) {
-         const res = await path.extendWithExistingTriples(process, triples as any);
+      // extend each path with the new triples and gather new paths and proc-triple associations
+      for (const path of pathsToProcess) {
+        const res = await path.extendWithExistingTriples(process, triples as any);
         log.silly('Extended paths:', res.extendedPaths);
         if (res.extendedPaths.length) {
           await insertProcTriples(process.pid, res.procTriples, process.steps.length);
@@ -797,17 +870,17 @@ export async function extendProcessPaths(
         // Always retire frontier for EndpointPath after processing
         if (path.type === PathType.ENDPOINT) {
           await Path.updateOne({ _id: path._id }, { $set: { frontier: false } });
-   }
- }
+        }
+      }
 
-    if (newPaths.length) {
-      // recursively extend newly created paths
-      await extendPathsWithExistingTriples(process, newPaths);
-    } else {
-      log.silly('No new paths to extend further.');
+      if (newPaths.length) {
+        // recursively extend newly created paths
+        await extendPathsWithExistingTriples(process, newPaths);
+      } else {
+        log.silly('No new paths to extend further.');
+      }
     }
   }
-}
 }
 
 /**
