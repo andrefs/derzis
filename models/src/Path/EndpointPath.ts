@@ -123,7 +123,6 @@ export class EndpointPathClass extends PathClass {
     }
     const urlHead = this.head as UrlHead;
     return {
-      processId: this.processId,
       nodes: urlHead.url
     };
   }
