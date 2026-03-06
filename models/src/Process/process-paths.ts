@@ -6,9 +6,11 @@ import {
   TraversalPathClass,
   EndpointPathClass,
   type PathSkeleton,
+  type EndpointPathSkeleton,
   HEAD_TYPE,
   UrlHead,
-  Path
+  Path,
+  PathClass
 } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { createLogger } from '@derzis/common/server';
@@ -22,8 +24,14 @@ import { Domain } from '../Domain';
 import config from '@derzis/config';
 
 /**
+ * Type guard to check if a head is a UrlHead
+ */
+function isUrlHead(head: PathClass['head']): head is UrlHead {
+  return head.type === HEAD_TYPE.URL;
+}
+
+/**
  * Get locked domain filter to exclude from path selection.
- * Locked domains are those with status: checking, labelFetching, or crawling.
  */
 async function getLockedDomainFilter(domainBlacklist: string[] = []) {
   const lockedDomains = await Domain.find({
@@ -360,18 +368,134 @@ async function createNewPaths(
   pathsToCreate: PathSkeleton[],
   pathType: PathType
 ): Promise<TraversalPathDocument[] | EndpointPathDocument[]> {
-  if (pathsToCreate.length) {
-    // update head status of new paths
-    await setNewPathHeadStatus(pathsToCreate);
-
-    // create new paths
-    return pathType === PathType.TRAVERSAL
-      ? await TraversalPath.create(pathsToCreate)
-      : await EndpointPath.create(pathsToCreate);
-  } else {
+  if (pathsToCreate.length === 0) {
     log.silly('No new paths to create.');
     return [];
   }
+
+  await setNewPathHeadStatus(pathsToCreate);
+
+  if (pathType === PathType.TRAVERSAL) {
+    return TraversalPath.create(pathsToCreate);
+  }
+
+  // EndpointPath: handle duplicates for URL heads with optimistic locking.
+  // Separate URL heads (need duplicate handling) from literal heads (simple insert).
+  const urlGroups = new Map<string, Map<string, EndpointPathSkeleton[]>>();
+  const literalPaths: EndpointPathSkeleton[] = [];
+
+  for (const p of pathsToCreate as EndpointPathSkeleton[]) {
+    const head = p.head;
+    if (isUrlHead(head)) {
+      const processId = p.processId;
+      const headUrl = head.url;
+      const domain = head.domain;
+
+      let byUrl = urlGroups.get(processId) || new Map<string, EndpointPathSkeleton[]>();
+      const group = byUrl.get(headUrl) || [];
+      group.push(p);
+      byUrl.set(headUrl, group);
+      urlGroups.set(processId, byUrl);
+    } else {
+      literalPaths.push(p);
+    }
+  }
+
+  const created: EndpointPathDocument[] = [];
+
+  // Process URL heads with duplicate detection and merging
+  for (const [processId, byUrl] of urlGroups.entries()) {
+    for (const [headUrl, group] of byUrl.entries()) {
+      const head0 = group[0].head as UrlHead;
+      const domain = head0.domain;
+
+      // Merge incoming seedPaths and shortest distance
+      const incomingSeedMap = new Map<string, number>();
+      let incomingShortest = Infinity;
+      for (const p of group) {
+        for (const sp of p.seedPaths) {
+          const cur = incomingSeedMap.get(sp.seed);
+          if (cur === undefined || sp.minLength < cur) incomingSeedMap.set(sp.seed, sp.minLength);
+        }
+        incomingShortest = Math.min(incomingShortest, p.shortestPathLength);
+      }
+
+      let attempts = 0;
+      const maxAttempts = 3;
+      let success = false;
+
+      while (attempts < maxAttempts && !success) {
+        attempts++;
+        const existing = await EndpointPath.findOne({
+          processId,
+          'head.url': headUrl
+        }).select('_id updatedAt seedPaths shortestPathLength').exec();
+
+        if (existing) {
+          // Merge incoming with existing
+          const mergedSeedMap = new Map<string, number>(incomingSeedMap);
+          for (const sp of existing.seedPaths) {
+            const cur = mergedSeedMap.get(sp.seed);
+            if (cur === undefined || sp.minLength < cur) mergedSeedMap.set(sp.seed, sp.minLength);
+          }
+          const finalSeedPaths = Array.from(mergedSeedMap).map(([seed, minLength]) => ({ seed, minLength }));
+          const finalShortest = Math.min(incomingShortest, existing.shortestPathLength);
+
+          const res = await EndpointPath.updateOne(
+            { _id: existing._id, updatedAt: existing.updatedAt },
+            {
+              $set: {
+                'head.type': 'url',
+                'head.status': 'unvisited',
+                'head.domain': domain,
+                status: 'active',
+                type: 'endpoint',
+                frontier: true,
+                shortestPathLength: finalShortest,
+                seedPaths: finalSeedPaths,
+                extensionCounter: 0,
+                updatedAt: new Date()
+              }
+            }
+          );
+
+          if (res.matchedCount === 0) continue; // retry
+          success = true;
+        } else {
+          await new EndpointPath({
+            processId,
+            head: { type: 'url', url: headUrl, domain },
+            status: 'active',
+            type: 'endpoint',
+            frontier: true,
+            shortestPathLength: incomingShortest,
+            seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({ seed, minLength })),
+            extensionCounter: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }).save();
+          success = true;
+        }
+      }
+
+      if (!success) {
+        log.warn('Failed to createEndpointPath after retries', { processId, headUrl });
+        continue;
+      }
+
+      // Fetch saved path for return
+      const saved = await EndpointPath.findOne({ processId, 'head.url': headUrl }).exec();
+      if (saved) created.push(saved);
+    }
+  }
+
+  // Bulk-insert literal heads normally (no duplicate handling)
+  if (literalPaths.length > 0) {
+    const inserted = await EndpointPath.create(literalPaths);
+    created.push(...inserted);
+  }
+
+  return created;
 }
 
 /**
