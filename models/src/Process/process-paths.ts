@@ -777,27 +777,27 @@ export async function extendProcessPaths(
     const pathCursorCondition: QueryFilter<TraversalPathClass> =
       lastPathCreatedAt && lastPathId
         ? {
-            createdAt: { $gte: lastPathCreatedAt },
-            _id: { $gt: lastPathId }
-          }
+          createdAt: { $gte: lastPathCreatedAt },
+          _id: { $gt: lastPathId }
+        }
         : {};
 
     const paths =
       pathType === PathType.TRAVERSAL
         ? await TraversalPath.find({
-            ...pathQuery,
-            'head.type': HEAD_TYPE.URL,
-            ...pathCursorCondition
-          } as QueryFilter<TraversalPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
+          ...pathQuery,
+          'head.type': HEAD_TYPE.URL,
+          ...pathCursorCondition
+        } as QueryFilter<TraversalPathClass>)
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize)
         : await EndpointPath.find({
-            ...pathQuery,
-            'head.type': HEAD_TYPE.URL,
-            ...pathCursorCondition
-          } as QueryFilter<EndpointPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize);
+          ...pathQuery,
+          'head.type': HEAD_TYPE.URL,
+          ...pathCursorCondition
+        } as QueryFilter<EndpointPathClass>)
+          .sort({ createdAt: 1, _id: 1 })
+          .limit(batchSize);
 
     log.info(`extendProcessPaths: Found ${paths.length} paths for headUrl: ${headUrl}`);
 
@@ -834,9 +834,9 @@ export async function extendProcessPaths(
       const tripleCursorCondition: QueryFilter<TraversalPathClass> =
         lastTripleCreatedAt && lastTripleId
           ? {
-              createdAt: { $gte: lastTripleCreatedAt },
-              _id: { $gt: lastTripleId }
-            }
+            createdAt: { $gte: lastTripleCreatedAt },
+            _id: { $gt: lastTripleId }
+          }
           : {};
 
       const triples = await Triple.find({
@@ -910,4 +910,39 @@ async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
   for (const np of urlPaths) {
     np.head.status = resourceMap[np.head.url] || 'unvisited';
   }
+}
+
+
+
+
+interface ExtendPathsArgs {
+  pid?: string;
+  triples?: TripleClass[];
+  headUrl?: string;
+  paths?: (TraversalPathDocument | EndpointPathDocument)[];
+}
+
+async function extendPathsHelper({ pid, triples, headUrl, paths }: ExtendPathsArgs) {
+  if (!pid) {
+    const pids = config.manager.pathType === PathType.TRAVERSAL
+      ? await TraversalPath.distinct('processId')
+      : await EndpointPath.distinct('processId');
+    for (const pid of pids) {
+      await extendPaths({ pid, triples, headUrl, paths });
+    }
+    return;
+  }
+
+  // TODO: rest of the function
+  // handle cases where paths are provided
+  // handle cases where triples are provided
+  // handle cases where headUrl is provided: get paths with that headUrl
+}
+async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsArgs) {
+  // first extend paths according to the given arguments
+  if (pid || triples || headUrl || paths) {
+    await extendPathsHelper({ pid, triples, headUrl, paths });
+  }
+  // then extend all paths
+  await extendPathsHelper({});
 }
