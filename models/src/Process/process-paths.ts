@@ -502,6 +502,13 @@ async function* queryPathsForHeadUrl(
     baseQuery.frontier = true;
   }
 
+  // Filter paths where length is below maximum
+  if (pathType === PathType.TRAVERSAL) {
+    baseQuery['nodes.count'] = { $lt: process.currentStep.maxPathLength };
+  } else if (pathType === PathType.ENDPOINT) {
+    baseQuery.shortestPathLength = { $lt: process.currentStep.maxPathLength };
+  }
+
   let lastCreatedAt: Date | null = null;
   let lastId: Types.ObjectId | null = null;
   let hasMore = true;
@@ -515,7 +522,13 @@ async function* queryPathsForHeadUrl(
         ? TraversalPath.find({ ...baseQuery, ...cursor } as QueryFilter<TraversalPathDocument>)
         : EndpointPath.find({ ...baseQuery, ...cursor } as QueryFilter<EndpointPathDocument>)
     )
-      .sort({ createdAt: 1, _id: 1 })
+      .sort({
+        ...(pathType === PathType.TRAVERSAL
+          ? { 'nodes.count': 1 }
+          : { shortestPathLength: 1 }),
+        createdAt: 1,
+        _id: 1
+      })
       .limit(batchSize);
 
     if (paths.length === 0) {
@@ -527,17 +540,7 @@ async function* queryPathsForHeadUrl(
     lastCreatedAt = last.createdAt ?? null;
     lastId = last._id as Types.ObjectId;
 
-    // Filter by length limits
-    const filtered = paths.filter((p: TraversalPathDocument | EndpointPathDocument) => {
-      if (pathType === PathType.TRAVERSAL) {
-        return (p as TraversalPathClass).nodes.count < process.currentStep.maxPathLength;
-      } else if (pathType === PathType.ENDPOINT) {
-        return (p as EndpointPathClass).shortestPathLength < process.currentStep.maxPathLength;
-      }
-      return false;
-    });
-
-    yield* filtered;
+    yield* paths;
 
     if (paths.length < batchSize) {
       hasMore = false;
