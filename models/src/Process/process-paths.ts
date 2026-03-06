@@ -655,6 +655,22 @@ export async function extendProcessPaths(
     lastPathCreatedAt = lastPath.createdAt ?? null;
     lastPathId = lastPath._id as Types.ObjectId;
 
+    // Filter to only paths that can still be extended (length < maxPathLength)
+    // TraversalPath uses nodes.count, EndpointPath uses shortestPathLength
+    const pathsToProcess = paths.filter(p => {
+      if (pathType === PathType.TRAVERSAL) {
+        return (p as TraversalPathClass).nodes.count < process.currentStep.maxPathLength;
+      } else {
+        return (p as EndpointPathClass).shortestPathLength < process.currentStep.maxPathLength;
+      }
+    });
+
+    // If no paths in this batch can be extended, skip triple queries for this headUrl
+    if (pathsToProcess.length === 0) {
+      // All paths are at max length - they remain frontier but we don't query triples for them now
+      continue;
+    }
+
     let hasMoreTriples = true;
     let lastTripleCreatedAt: Date | null = null;
     let lastTripleId: Types.ObjectId | null = null;
@@ -686,9 +702,9 @@ export async function extendProcessPaths(
       lastTripleCreatedAt = lastTriple.createdAt ?? null;
       lastTripleId = lastTriple._id as Types.ObjectId;
 
-      // extend each path with the new triples and gather new paths and proc-triple associations
-      for (const path of paths) {
-        const res = await path.extendWithExistingTriples(process, triples as any);
+       // extend each path with the new triples and gather new paths and proc-triple associations
+       for (const path of pathsToProcess) {
+         const res = await path.extendWithExistingTriples(process, triples as any);
         log.silly('Extended paths:', res.extendedPaths);
         if (res.extendedPaths.length) {
           await insertProcTriples(process.pid, res.procTriples, process.steps.length);
