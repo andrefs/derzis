@@ -332,8 +332,8 @@ class ResourceClass {
 
         const insertedIndices = new Set<number>();
         if (result.upsertedIds) {
-          for (const upsert of result.upsertedIds) {
-            insertedIndices.add(upsert.index);
+          for (const key of Object.keys(result.upsertedIds)) {
+            insertedIndices.add(Number(key));
           }
         }
 
