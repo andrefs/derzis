@@ -86,7 +86,6 @@ vi.mock('../Path/EndpointPath', () => {
     createdAt = new Date();
     extensionCounter = 0;
     shortestPath: any = { length: 1, seed: { url: 'http://test.com' } };
-    frontier = true;
     seedPaths: Record<string, number> = {};
     head: any = {
       type: 'url',

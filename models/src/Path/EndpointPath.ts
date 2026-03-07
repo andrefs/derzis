@@ -38,21 +38,12 @@ class SeedPathEntryClass {
   public minLength!: number;
 }
 
-interface Candidate {
-  triple: TripleDocument;
-  headUrl?: string;
-  literalHead?: LiteralHead;
-  distance: number;
-  seedPaths: Record<string, number>; // temporary during extend, will convert to array
-}
-
 export type EndpointPathSkeleton = Pick<
   EndpointPathClass,
   'processId' | 'head' | 'type' | 'status'
 > &
   RecursivePartial<EndpointPathClass> & {
     shortestPathLength: number;
-    frontier: boolean;
     seedPaths: Array<{ seed: string; minLength: number }>;
   };
 
@@ -75,20 +66,17 @@ export type EndpointPathSkeleton = Pick<
   {
     processId: 1,
     status: 1,
-    frontier: 1,
     'head.type': 1,
     shortestPathLength: 1,
     createdAt: 1,
     _id: 1
   },
   {
-    name: 'idx_endpoint_frontier_query',
+    name: 'idx_endpoint_query',
     partialFilterExpression: { type: PathType.ENDPOINT }
   }
 )
 export class EndpointPathClass extends PathClass {
-  @prop({ required: true, type: Boolean, default: false })
-  public frontier!: boolean;
 
   @prop({ required: true, type: Number, default: 0 })
   public shortestPathLength!: number;
@@ -141,7 +129,6 @@ export class EndpointPathClass extends PathClass {
       head: this.head as Head,
       status: this.status,
       shortestPathLength: this.shortestPathLength,
-      frontier: this.frontier,
       seedPaths: this.seedPaths.map((entry) => ({ seed: entry.seed, minLength: entry.minLength }))
     };
     return copy;
@@ -360,7 +347,6 @@ export class EndpointPathClass extends PathClass {
             domain
           } as Head,
           status: 'active',
-          frontier: true,
           shortestPathLength: distance,
           seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
           extensionCounter: 0,
@@ -383,7 +369,6 @@ export class EndpointPathClass extends PathClass {
         type: PathType.ENDPOINT,
         head: literalHead! as Head,
         status: 'active',
-        frontier: true,
         shortestPathLength: distance,
         seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
         extensionCounter: 0,

@@ -16,7 +16,6 @@ function createMockPath(overlays: any = {}): any {
     status: 'unvisited',
     domain: 'http://head.example.com'
   };
-  path.frontier = false;
   path.shortestPathLength = 1;
   path.seedPaths = {};
   path.status = 'active';
@@ -164,7 +163,6 @@ describe('EndpointPathClass', () => {
   describe('copy', () => {
     it('creates a copy of the path', () => {
       const original = createMockPath({
-        frontier: true,
         shortestPathLength: 5,
         seedPaths: [{ seed: 'http://seed.example.com', minLength: 2 }]
       });
@@ -173,7 +171,6 @@ describe('EndpointPathClass', () => {
 
       // copy returns a plain object (EndpointPathSkeleton)
       expect(copy).not.toBeInstanceOf(EndpointPathClass);
-      expect(copy.frontier).toEqual(original.frontier);
       expect(copy.shortestPathLength).toEqual(original.shortestPathLength);
       expect(copy.seedPaths).toEqual(original.seedPaths);
       expect(copy.head).toEqual(original.head);

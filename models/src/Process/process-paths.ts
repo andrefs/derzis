@@ -144,7 +144,6 @@ export async function getPathsForRobotsChecking(
       ...cursorCondition,
       ...lockedFilter,
       shortestPathLength: { $lt: process.currentStep.maxPathLength },
-      frontier: true
     })
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
@@ -252,7 +251,6 @@ export async function getPathsForDomainCrawl(
       shortestPathLength: { $lt: process.currentStep.maxPathLength },
       ...cursorCondition,
       ...domainFilter,
-      frontier: true
     })
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
@@ -304,6 +302,7 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   const query: QueryFilter<TraversalPathDocument> = {
     processId: process.pid,
     status: 'active',
+    'head.status': 'done',
     'head.type': HEAD_TYPE.URL,
     'nodes.count': { $lt: process.currentStep.maxPathLength },
     'predicates.count': { $lte: maxPathProps }
@@ -454,7 +453,6 @@ async function createNewPaths(
                 'head.domain': domain,
                 status: 'active',
                 type: 'endpoint',
-                frontier: true,
                 shortestPathLength: finalShortest,
                 seedPaths: finalSeedPaths,
                 extensionCounter: 0,
@@ -471,7 +469,6 @@ async function createNewPaths(
             head: { type: 'url', url: headUrl, domain },
             status: 'active',
             type: 'endpoint',
-            frontier: true,
             shortestPathLength: incomingShortest,
             seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({
               seed,
@@ -633,7 +630,6 @@ async function* queryTraversalPathsForHeadUrl(
 ): AsyncGenerator<TraversalPathDocument> {
   const baseQuery: Record<string, unknown> = {
     processId: process.pid,
-    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.url': headUrl,
     'nodes.count': { $lt: process.currentStep.maxPathLength }
@@ -685,10 +681,8 @@ async function* queryEndpointPathsForHeadUrl(
 ): AsyncGenerator<EndpointPathDocument> {
   const baseQuery: Record<string, unknown> = {
     processId: process.pid,
-    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.url': headUrl,
-    frontier: true,
     shortestPathLength: { $lt: process.currentStep.maxPathLength }
   };
 
@@ -801,7 +795,7 @@ async function* queryAllExtendableTraversalPaths(
 
 /**
  * Async generator that yields all extendable EndpointPath documents for a process.
- * Only frontier paths with shortestPathLength less than maxPathLength are returned.
+ * Only paths with shortestPathLength less than maxPathLength are returned.
  * Respects extensionCounter for incremental extension.
  * @param process - The ProcessClass instance.
  * @param batchSize - Maximum number of paths per batch (default 100).
@@ -820,9 +814,9 @@ async function* queryAllExtendableEndpointPaths(
     const baseQuery: QueryFilter<EndpointPathDocument> = {
       processId: process.pid,
       status: 'active',
+      'head.status': 'done',
       'head.type': HEAD_TYPE.URL,
       shortestPathLength: { $lt: process.currentStep.maxPathLength },
-      frontier: true
     };
 
     if (process.pathExtensionCounter !== undefined) {
@@ -903,14 +897,9 @@ async function* queryPathsForTriples(
 
     const baseQuery: Record<string, unknown> = {
       processId: process.pid,
-      status: 'active',
       'head.type': HEAD_TYPE.URL,
       'head.url': { $in: Array.from(nodeUrls) }
     };
-
-    if (pathType === PathType.ENDPOINT) {
-      (baseQuery as any).frontier = true;
-    }
 
     const paths: (TraversalPathDocument | EndpointPathDocument)[] = await (
       pathType === PathType.TRAVERSAL
@@ -955,7 +944,6 @@ async function collectBatch<T>(generator: AsyncGenerator<T>, batchSize: number):
  *   - Inserts process triples
  *   - Creates new paths in the database
  *   - Deletes old paths
- *   - For EndpointPath, sets frontier=false
  * @param process - The ProcessClass instance.
  * @param pathsBatch - Array of path documents to process.
  * @param triples - Optional triples to use for extension (defaults to fetching from DB).
@@ -973,10 +961,6 @@ async function extendPathsBatch(
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
       await createNewPaths(result.extendedPaths, pathType);
       await deleteOldPaths(new Set([path._id]), pathType);
-
-      if (pathType === PathType.ENDPOINT) {
-        await Path.updateOne({ _id: path._id }, { $set: { frontier: false } });
-      }
     }
   }
 }

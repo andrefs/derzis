@@ -302,7 +302,6 @@ class ResourceClass {
                   domain: s.domain
                 } as any,
                 status: 'active' as const,
-                frontier: true,
                 shortestPathLength: 1,
                 shortestPath: { length: 1, seed: s.url },
                 seedPaths: [{ seed: s.url, minLength: 1 }]

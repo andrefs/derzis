@@ -61,7 +61,6 @@ describe('Resource.insertSeedPaths', () => {
                     domain: seeds[0].domain
                   }),
                   status: 'active',
-                  frontier: true,
                   shortestPathLength: 1,
                   shortestPath: expect.objectContaining({
                     length: 1,
