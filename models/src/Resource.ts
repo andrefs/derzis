@@ -284,34 +284,13 @@ class ResourceClass {
     }
     // Endpoint paths
     else {
-      const bulkOps = seeds.map((s) => ({
-        updateOne: {
-          filter: { processId: pid, 'head.url': s.url },
-          update: {
-            $setOnInsert: {
-              processId: pid,
-              head: { type: HEAD_TYPE.URL, url: s.url, status: s.status, domain: s.domain },
-              status: 'active',
-              frontier: true,
-              shortestPathLength: 1,
-              shortestPath: { length: 1, seed: s.url },
-              seedPaths: { [s.url]: 1 }
-            }
-          },
-          upsert: true
-        }
-      }));
-
       try {
-        // Use upsert to prevent duplicate key errors
         const bulkOps = seeds.map((s) => ({
           updateOne: {
             filter: {
               processId: pid,
-              head: {
-                type: HEAD_TYPE.URL,
-                url: s.url
-              }
+              'head.type': HEAD_TYPE.URL,
+              'head.url': s.url
             },
             update: {
               $setOnInsert: {
@@ -333,25 +312,53 @@ class ResourceClass {
           }
         }));
 
-        const result = await EndpointPath.bulkWrite(bulkOps as any);
-        log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result.upsertedCount });
-
-        // Update domain crawl.pathHeads counts
-        const domainCounts = new Map<string, number>();
-        for (const s of seeds) {
-          domainCounts.set(s.domain, (domainCounts.get(s.domain) || 0) + 1);
-        }
-        const domainOps = Array.from(domainCounts.entries()).map(([origin, count]) => ({
-          updateOne: {
-            filter: { origin },
-            update: { $inc: { 'crawl.pathHeads': count } }
+        let result;
+        try {
+          result = await EndpointPath.bulkWrite(bulkOps as any, { ordered: false });
+          log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result.upsertedCount });
+        } catch (error: any) {
+          if (error.code !== 11000) {
+            log.error('Failed to upsert EndpointPath seed documents', {
+              error,
+              seedUrls: seeds.map((s) => s.url)
+            });
+            throw error;
           }
-        }));
-        await Domain.bulkWrite(domainOps);
+          log.warn('Duplicate key error on EndpointPath seeds, recovering partial results', {
+            seedUrls: seeds.map((s) => s.url)
+          });
+          result = error.result;
+        }
+
+        const insertedIndices = new Set<number>();
+        if (result.upsertedIds) {
+          for (const upsert of result.upsertedIds) {
+            insertedIndices.add(upsert.index);
+          }
+        }
+
+        const domainCounts = new Map<string, number>();
+        bulkOps.forEach((_op, idx) => {
+          if (insertedIndices.has(idx)) {
+            const s = seeds[idx];
+            domainCounts.set(s.domain, (domainCounts.get(s.domain) || 0) + 1);
+          }
+        });
+
+        let domainOps: any[] = [];
+        if (domainCounts.size > 0) {
+          domainOps = Array.from(domainCounts.entries()).map(([origin, count]) => ({
+            updateOne: {
+              filter: { origin },
+              update: { $inc: { 'crawl.pathHeads': count } }
+            }
+          }));
+          await Domain.bulkWrite(domainOps);
+        }
 
         return { ep: result, dom: { modifiedCount: domainOps.length } };
       } catch (error) {
-        log.error('Failed to upsert EndpointPath seed documents', {
+        log.error('Failed to insert EndpointPath seed documents', {
           error,
           seedUrls: seeds.map((s) => s.url)
         });

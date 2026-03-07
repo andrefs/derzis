@@ -427,7 +427,9 @@ async function createNewPaths(
           processId,
           'head.type': HEAD_TYPE.URL,
           'head.url': headUrl
-        }).select('_id updatedAt seedPaths shortestPathLength head').exec();
+        })
+          .select('_id updatedAt seedPaths shortestPathLength head')
+          .exec();
 
         if (existing) {
           const existingHead = existing.head as UrlHead;
@@ -437,7 +439,10 @@ async function createNewPaths(
             const cur = mergedSeedMap.get(sp.seed);
             if (cur === undefined || sp.minLength < cur) mergedSeedMap.set(sp.seed, sp.minLength);
           }
-          const finalSeedPaths = Array.from(mergedSeedMap).map(([seed, minLength]) => ({ seed, minLength }));
+          const finalSeedPaths = Array.from(mergedSeedMap).map(([seed, minLength]) => ({
+            seed,
+            minLength
+          }));
           const finalShortest = Math.min(incomingShortest, existing.shortestPathLength);
 
           const res = await EndpointPath.updateOne(
@@ -468,7 +473,10 @@ async function createNewPaths(
             type: 'endpoint',
             frontier: true,
             shortestPathLength: incomingShortest,
-            seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({ seed, minLength })),
+            seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({
+              seed,
+              minLength
+            })),
             extensionCounter: 0,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -993,8 +1001,8 @@ export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsA
     return;
   }
 
-   // Get process
-   const process = await Process.findOne({ pid });
+  // Get process
+  const process = await Process.findOne({ pid });
   if (!process) {
     log.warn(`Process ${pid} not found`);
     return;
@@ -1012,17 +1020,14 @@ export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsA
   let needsMoreWork = true;
 
   // Create generator outside loop to preserve pagination cursor across iterations
-  const generator =
-    triples
-      ? queryPathsForTriples(process, triples, batchSize)
-      : headUrl
-        ? queryPathsForHeadUrl(process, headUrl, batchSize)
-        : null;
+  const generator = triples
+    ? queryPathsForTriples(process, triples, batchSize)
+    : headUrl
+      ? queryPathsForHeadUrl(process, headUrl, batchSize)
+      : null;
 
   // For full extend, we need a separate generator since it's a different code path
-  const fullGenerator = !triples && !headUrl
-    ? queryAllExtendablePaths(process, batchSize)
-    : null;
+  const fullGenerator = !triples && !headUrl ? queryAllExtendablePaths(process, batchSize) : null;
 
   while (needsMoreWork && iteration < 100) {
     iteration++;
