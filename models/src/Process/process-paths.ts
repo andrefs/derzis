@@ -564,15 +564,6 @@ interface ExtendPathsArgs {
 }
 
 /**
- * Fetches a process by its unique identifier.
- * @param pid - The process ID.
- * @returns The ProcessClass instance or null if not found.
- */
-async function getProcess(pid: string): Promise<ProcessClass | null> {
-  return await Process.findOne({ pid });
-}
-
-/**
  * Determines the path type for a process, falling back to global config.
  * @param process - The ProcessClass instance.
  * @returns The PathType for the process.
@@ -995,18 +986,15 @@ async function extendPathsBatch(
 export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsArgs) {
   // If no pid, get all process IDs and recurse for each
   if (!pid) {
-    const pids =
-      config.manager.pathType === PathType.TRAVERSAL
-        ? await TraversalPath.distinct('processId')
-        : await EndpointPath.distinct('processId');
+    const pids = await Process.distinct('pid');
     for (const p of pids) {
       await extendPaths({ pid: p, triples, headUrl, paths });
     }
     return;
   }
 
-  // Get process
-  const process = await getProcess(pid);
+   // Get process
+   const process = await Process.findOne({ pid });
   if (!process) {
     log.warn(`Process ${pid} not found`);
     return;
