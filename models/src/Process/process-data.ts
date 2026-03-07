@@ -65,9 +65,12 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
   const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();
   const tripleIds = procTriples.map((pt) => pt.triple);
 
+  console.log('[DEBUG getTriples] procTriples count:', procTriples.length, 'tripleIds count:', tripleIds.length);
+
   if (tripleIds.length === 0) return;
 
   const triples = await Triple.find({ _id: { $in: tripleIds } }).lean();
+  console.log('[DEBUG getTriples] Triple.find returned:', triples.length, 'documents');
 
   const tripleMap = new Map<string, { type: TripleType; data: any }>();
   for (const t of triples) {

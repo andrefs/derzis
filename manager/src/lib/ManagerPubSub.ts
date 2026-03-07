@@ -74,8 +74,10 @@ class ManagerPubSub {
       if (message.type === 'jobDone') {
         await this._m.updateJobResults(message.payload);
         // Simple delay: wait config.manager.pauseAfterJob seconds before asking for capacity
-        await new Promise((resolve) => setTimeout(resolve, config.manager.pauseAfterJob * 1000));
-        this.askCurrentCapacity();
+        if (config.manager.pauseAfterJob) {
+          await new Promise((resolve) => setTimeout(resolve, config.manager.pauseAfterJob * 1000));
+          this.askCurrentCapacity();
+        }
       }
       if (message.type === 'shutdown') {
         await this._m.jobs.cancelWorkerJobs(message.payload.ongoingJobs, workerId!);
@@ -87,7 +89,7 @@ class ManagerPubSub {
             : `it is already being done by worker ${workerId}`;
         log.info(
           `Job #${message.payload.jobId} ${message.payload.jobType}` +
-            ` on ${message.payload.origin} was refused because ${reason}`
+          ` on ${message.payload.origin} was refused because ${reason}`
         );
         await this._m.jobs.cancelJob(message.payload.origin, message.payload.jobType);
       }

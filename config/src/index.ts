@@ -64,7 +64,7 @@ export default {
       resourcesPerDomain: 1
     },
     robotsCheck: {
-      capacity: 10
+      capacity: 1
     },
     domainLabelFetch: {
       capacity: 1,

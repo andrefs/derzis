@@ -1,8 +1,10 @@
 import { building } from '$app/environment';
-import { db, Process } from '@derzis/models';
+import { db, Process, Triple } from '@derzis/models';
 import ManagerPubSub from './lib/ManagerPubSub';
 import type { Handle } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
+import { createWriteStream, existsSync, mkdirSync } from 'fs';
+
 const mps = new ManagerPubSub();
 import { DERZIS_MNG_DB_NAME, MONGO_HOST, MONGO_PORT } from '$env/static/private';
 import muri from 'mongodb-uri';
@@ -24,6 +26,28 @@ const connStr = muri.format({
 const log = createLogger('Manager');
 log.info('Connecting to MongoDB', connStr);
 await db.connect(connStr);
+
+const logDir = './logs';
+if (!existsSync(logDir)) {
+  mkdirSync(logDir, { recursive: true });
+}
+const debugLog = createWriteStream(`${logDir}/triple-queries-debug.log`, { flags: 'a' });
+
+function logDebug(msg: string) {
+  const timestamp = new Date().toISOString();
+  debugLog.write(`[${timestamp}] ${msg}\n`);
+}
+
+Triple.schema.pre('find', function (this: any) {
+  const filter = this.getFilter();
+  if (filter._id?.$in?.length === 1) {
+    const id = filter._id.$in[0];
+    const stack = new Error().stack || '';
+    const callerLine = stack.split('\n')[3]?.trim() || 'unknown';
+    console.log(`[HOOK] SINGLE_ID_QUERY: _id=${id} Caller: ${callerLine}`);
+    logDebug(`SINGLE_ID_QUERY: _id=${id}\n  Caller: ${callerLine}\n  Full stack:\n${stack}`);
+  }
+});
 
 async function dbSanityCheck() {
   // check pathType
