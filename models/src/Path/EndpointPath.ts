@@ -69,6 +69,7 @@ export type EndpointPathSkeleton = Pick<
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
 @index({ type: 1, 'head.domain': 1, status: 1 })
+@index({ type: 1 }, { name: 'type_1_endpoint' })
 // Optimized index for endpoint path queries with head.domain and shortestPathLength sort
 @index({
   processId: 1,
