@@ -425,10 +425,12 @@ async function createNewPaths(
         attempts++;
         const existing = await EndpointPath.findOne({
           processId,
+          'head.type': HEAD_TYPE.URL,
           'head.url': headUrl
-        }).select('_id updatedAt seedPaths shortestPathLength').exec();
+        }).select('_id updatedAt seedPaths shortestPathLength head').exec();
 
         if (existing) {
+          const existingHead = existing.head as UrlHead;
           // Merge incoming with existing
           const mergedSeedMap = new Map<string, number>(incomingSeedMap);
           for (const sp of existing.seedPaths) {
@@ -443,7 +445,7 @@ async function createNewPaths(
             {
               $set: {
                 'head.type': 'url',
-                'head.status': 'unvisited',
+                'head.status': existingHead.status === 'error' ? 'unvisited' : existingHead.status,
                 'head.domain': domain,
                 status: 'active',
                 type: 'endpoint',
