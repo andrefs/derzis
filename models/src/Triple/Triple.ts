@@ -132,20 +132,28 @@ function buildBulkOps(
       t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
         ? [t.subject, t.object]
         : [t.subject];
+    const isLiteral = t.type !== TripleType.NAMED_NODE;
+    const filter = {
+      subject: t.subject,
+      predicate: t.predicate,
+      ...(isLiteral
+        ? {
+            'object.value': (t.object as LiteralObject).value,
+            'object.language': (t.object as LiteralObject).language,
+            'object.datatype': (t.object as LiteralObject).datatype
+          }
+        : { object: t.object })
+    };
     return {
       updateOne: {
-        filter: {
-          subject: t.subject,
-          predicate: t.predicate,
-          object: t.object
-        },
+        filter,
         update: {
           $setOnInsert: {
             subject: t.subject,
             predicate: t.predicate,
             object: t.object,
             nodes,
-            type
+            type: t.type
           },
           $addToSet: {
             sources: { $each: t.sources }
@@ -154,7 +162,7 @@ function buildBulkOps(
         upsert: true
       }
     };
-  }) as any;
+  });
 }
 
 interface BulkWriteModel {
