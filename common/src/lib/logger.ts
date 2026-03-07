@@ -72,19 +72,7 @@ export type MonkeyPatchedLogger = {
 
 const formatArgs = (msg: string, ...args: any[]) => {
   if (args.length === 0) return msg;
-  return (
-    msg +
-    ' ' +
-    args
-      .map((a) =>
-        util.inspect(a, {
-          colors: true,
-          depth: 3,
-          maxArrayLength: 50
-        })
-      )
-      .join(' ')
-  );
+  return msg + ' ' + args.map((a) => util.inspect(a, { colors: true })).join(' ');
 };
 
 export const createLogger = (name: string): MonkeyPatchedLogger => {
