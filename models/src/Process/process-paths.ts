@@ -3,8 +3,6 @@ import {
   type TraversalPathDocument,
   EndpointPath,
   type EndpointPathDocument,
-  TraversalPathClass,
-  EndpointPathClass,
   type PathSkeleton,
   type EndpointPathSkeleton,
   HEAD_TYPE,
@@ -389,7 +387,6 @@ async function createNewPaths(
     if (isUrlHead(head)) {
       const processId = p.processId;
       const headUrl = head.url;
-      const domain = head.domain;
 
       let byUrl = urlGroups.get(processId) || new Map<string, EndpointPathSkeleton[]>();
       const group = byUrl.get(headUrl) || [];
