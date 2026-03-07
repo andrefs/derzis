@@ -70,16 +70,22 @@ export type EndpointPathSkeleton = Pick<
 @index({ 'head.status': 1, status: 1 })
 @index({ type: 1, 'head.domain': 1, status: 1 })
 @index({ type: 1 }, { name: 'type_1_endpoint' })
-// Optimized index for endpoint path queries with head.domain and shortestPathLength sort
-@index({
-  processId: 1,
-  status: 1,
-  'head.type': 1,
-  'head.domain': 1,
-  shortestPathLength: 1,
-  createdAt: 1,
-  _id: 1
-})
+// Optimized index for endpoint path queries with shortestPathLength sort
+@index(
+  {
+    processId: 1,
+    status: 1,
+    frontier: 1,
+    'head.type': 1,
+    shortestPathLength: 1,
+    createdAt: 1,
+    _id: 1
+  },
+  {
+    name: 'idx_endpoint_frontier_query',
+    partialFilterExpression: { type: PathType.ENDPOINT }
+  }
+)
 export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Boolean, default: false })
   public frontier!: boolean;
