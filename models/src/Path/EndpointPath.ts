@@ -520,6 +520,92 @@ function queryExistingEndpointPaths(
   });
 }
 
+function processUrlCandidate(
+  this: EndpointPathClass,
+  candidate: Candidate,
+  existing: EndpointPathDocument | undefined
+): Promise<EndpointPathSkeleton | null> {
+  const { headUrl, distance, seedPaths } = candidate;
+
+  if (existing) {
+    // Read-modify-write to avoid dot-notation conflicts with seed URLs containing dots
+    return EndpointPath.findById(existing._id).exec().then((existingDoc) => {
+      if (!existingDoc) {
+        log.warn('Existing path document not found', { _id: existing._id });
+        return null;
+      }
+
+      // Build a map of current seedPaths for fast lookup
+      const seedPathMap = new Map<string, number>();
+      for (const entry of existingDoc.seedPaths) {
+        seedPathMap.set(entry.seed, entry.minLength);
+      }
+
+      // Merge new seed distances using min
+      let changed = false;
+      for (const [seed, dist] of Object.entries(seedPaths)) {
+        const current = seedPathMap.get(seed);
+        if (current === undefined || dist < current) {
+          seedPathMap.set(seed, dist);
+          changed = true;
+        }
+      }
+
+      // Update shortestPathLength if the new distance is shorter
+      if (distance < existingDoc.shortestPathLength) {
+        existingDoc.shortestPathLength = distance;
+        changed = true;
+      }
+
+      if (changed) {
+        existingDoc.seedPaths = Array.from(seedPathMap.entries()).map(([seed, minLength]) => ({
+          seed,
+          minLength
+        }));
+        return existingDoc.save().then(() => {
+          log.silly('Updated existing endpoint path (read-modify-write)', {
+            _id: existing._id,
+            shortestPathLength: existingDoc.shortestPathLength,
+            seedPathsCount: existingDoc.seedPaths.length
+          });
+          return existingDoc.copy();
+        });
+      } else {
+        log.silly('No changes to existing endpoint path', { _id: existing._id });
+        return null;
+      }
+    });
+  } else {
+    // Create new endpoint path
+    let domain: string;
+    try {
+      domain = new URL(headUrl!).origin;
+    } catch (err) {
+      log.warn('Invalid headUrl, skipping candidate', { headUrl: headUrl, error: err });
+      return Promise.resolve(null);
+    }
+    const newPath: EndpointPathSkeleton = {
+      _id: new Types.ObjectId(),
+      processId: this.processId,
+      type: PathType.ENDPOINT,
+      head: {
+        type: HEAD_TYPE.URL,
+        url: headUrl!,
+        status: 'unvisited',
+        domain
+      } as Head,
+      status: 'active',
+      shortestPathLength: distance,
+      seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
+      extensionCounter: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    log.silly('Created new endpoint path', newPath);
+    return Promise.resolve(newPath);
+  }
+}
+
 export const EndpointPath = getDiscriminatorModelForClass(
   Path,
   EndpointPathClass,
