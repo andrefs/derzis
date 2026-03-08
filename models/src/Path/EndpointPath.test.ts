@@ -16,11 +16,10 @@ function createMockPath(overlays: any = {}): any {
     status: 'unvisited',
     domain: 'http://head.example.com'
   };
-  path.shortestPathLength = 1;
-  path.seedPaths = {};
-  path.status = 'active';
-  path.createdAt = new Date();
-  path.extensionCounter = 0;
+   path.shortestPathLength = 1;
+   path.seedPaths = {};
+   path.createdAt = new Date();
+   path.extensionCounter = 0;
   // Apply overlays
   Object.assign(path, overlays);
   return path;
@@ -173,10 +172,9 @@ describe('EndpointPathClass', () => {
       expect(copy).not.toBeInstanceOf(EndpointPathClass);
       expect(copy.shortestPathLength).toEqual(original.shortestPathLength);
       expect(copy.seedPaths).toEqual(original.seedPaths);
-      expect(copy.head).toEqual(original.head);
-      // seed removed from EndpointPath
-      // expect(copy.seed).toEqual(original.seed);
-      expect(copy.status).toEqual(original.status);
+       expect(copy.head).toEqual(original.head);
+       // seed removed from EndpointPath
+       // expect(copy.seed).toEqual(original.seed);
     });
   });
 });

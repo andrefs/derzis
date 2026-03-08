@@ -22,7 +22,6 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
   }) => {
     const path = new TraversalPathClass();
     path.processId = 'test-pid';
-    path.status = 'active';
     path.seed = { url: 'http://example.com/seed' };
     path.head = {
       url: overrides.headUrl ?? 'http://example.com/head',
@@ -40,7 +39,6 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     const createMockPath = (headUrl: string = 'http://example.com/head') => {
       const path = new TraversalPathClass();
       path.processId = 'test-pid';
-      path.status = 'active';
       path.seed = { url: 'http://example.com/seed' };
       path.head = {
         url: headUrl,
@@ -545,7 +543,6 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
   }) => {
     const path = new TraversalPathClass();
     path.processId = 'test-pid';
-    path.status = 'active';
     path.seed = { url: 'http://example.com/seed' };
     path.head = {
       url: overrides.headUrl ?? 'http://example.com/head',
@@ -683,7 +680,6 @@ describe('TraversalPathClass.tripleIsOutOfBounds', () => {
   }) => {
     const path = new TraversalPathClass();
     path.processId = 'test-pid';
-    path.status = 'active';
     path.seed = { url: 'http://example.com/seed' };
     path.head = {
       url: 'http://example.com/head',

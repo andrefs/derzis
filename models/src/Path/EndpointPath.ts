@@ -135,7 +135,6 @@ export class EndpointPathClass extends PathClass {
       processId: this.processId,
       type: PathType.ENDPOINT,
       head: this.head as Head,
-      status: this.status,
       shortestPathLength: this.shortestPathLength,
       seedPaths: this.seedPaths.map((entry) => ({ seed: entry.seed, minLength: entry.minLength }))
     };

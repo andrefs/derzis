@@ -38,7 +38,7 @@ const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
 
 export type TraversalPathSkeleton = Pick<
   TraversalPathClass,
-  'processId' | 'seed' | 'head' | 'type' | 'status'
+  'processId' | 'seed' | 'head' | 'type'
 > &
   RecursivePartial<TraversalPathClass> & {
     predicates: Pick<ResourceCount, 'elems'>;
@@ -174,8 +174,7 @@ export class TraversalPathClass extends PathClass {
       },
       head: this.head as Head,
       predicates: { elems: [...this.predicates.elems] }, // count will be updated in pre-save hook
-      nodes: { elems: [...this.nodes.elems] }, // count will be updated in pre-save hook
-      status: this.status
+      nodes: { elems: [...this.nodes.elems] } // count will be updated in pre-save hook
     };
     return copy;
   }
