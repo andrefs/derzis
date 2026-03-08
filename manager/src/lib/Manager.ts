@@ -218,9 +218,6 @@ export default class Manager {
 
     await this.saveCrawl2(jobResult);
 
-    // Get the ResourceLabel to check the extend flag
-    const resourceLabel = await ResourceLabel.findOne({ url: jobResult.url });
-
     // Update ResourceLabel status to done
     const rl = await ResourceLabel.findOneAndUpdate(
       { url: jobResult.url },
@@ -308,13 +305,18 @@ export default class Manager {
     await Resource.addFromTriples([...nnTriples, ...labelTriples]);
 
     // Store all triples using unified upsertMany
-    log.info('Calling Triple.upsertMany with', [...nnTriples, ...labelTriples].length, 'triples');
-    const tripleResult = await Triple.upsertMany(source, [...nnTriples, ...labelTriples]);
-    log.info('Triple.upsertMany result:', tripleResult);
+    log.info('Calling Triple.upsertMany with', nnTriples.length, 'triples');
+    const nnTripleResult = await Triple.upsertMany(source, nnTriples);
+    log.info('Triple.upsertMany result:', nnTripleResult);
+
+    log.info('Calling Triple.upsertMany with', labelTriples.length, 'label triples');
+    const labelTripleResult = await Triple.upsertMany(source, labelTriples);
+    log.info('Triple.upsertMany result for label triples:', labelTripleResult);
 
     if (extendLabelsOnly) {
       log.info('Skipping extendPaths for headUrl:', source.url, 'because dontExtend flag is set');
-      await extendPaths({ triples: labelTriples });
+      const labelTripleDocs = await Triple.find({ _id: { $in: labelTripleResult.map(r => r.upsertedIds).flat() } }) as TripleDocument[];
+      await extendPaths({ triples: labelTripleDocs });
       return;
     }
 
