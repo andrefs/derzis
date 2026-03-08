@@ -27,6 +27,7 @@ import {
 import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
+import type { ExtendedPathsResult } from '../types';
 const log = createLogger('EndpointPath');
 
 interface Candidate {
@@ -144,7 +145,7 @@ export class EndpointPathClass extends PathClass {
   public async genExtendedPaths(
     process: ProcessClass,
     triples?: TripleDocument[]
-  ): Promise<{ extendedPaths: EndpointPathSkeleton[]; procTriples: TypedTripleId[] }> {
+  ): Promise<ExtendedPathsResult<EndpointPathSkeleton>> {
     if (hasLiteralHead(this)) {
       return { extendedPaths: [], procTriples: [] };
     }
@@ -274,8 +275,8 @@ function collectNamedNodeCandidates(
     procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
   }
 
-    return candidates;
-  }
+  return candidates;
+}
 
 function collectLiteralCandidates(
   this: EndpointPathClass,
@@ -320,8 +321,8 @@ function collectLiteralCandidates(
     procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
   }
 
-    return candidates;
-  }
+  return candidates;
+}
 
 function queryExistingEndpointPaths(
   this: EndpointPathClass,

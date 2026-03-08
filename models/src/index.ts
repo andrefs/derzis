@@ -11,3 +11,4 @@ export * from './ProcessResource';
 export * from './ResourceCache';
 export * from './ResourceLabel';
 export * from './Path';
+export * from './types';

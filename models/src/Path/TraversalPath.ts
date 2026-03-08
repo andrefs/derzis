@@ -31,6 +31,7 @@ import {
 } from './Path';
 import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
+import type { ExtendedPathsResult } from '../types';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
 const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
@@ -188,7 +189,7 @@ export class TraversalPathClass extends PathClass {
   public async genExtendedPaths(
     process: ProcessClass,
     triples?: TripleDocument[]
-  ): Promise<{ extendedPaths: TraversalPathSkeleton[]; procTriples: TypedTripleId[] }> {
+  ): Promise<ExtendedPathsResult<TraversalPathSkeleton>> {
     // If the head is a literal, we cannot extend further, so return empty results.
     if (this.head.type === HEAD_TYPE.LITERAL) {
       return { extendedPaths: [], procTriples: [] };
