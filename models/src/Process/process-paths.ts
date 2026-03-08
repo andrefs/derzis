@@ -17,7 +17,7 @@ import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { type QueryFilter, Types } from 'mongoose';
 import { type TripleClass, type TripleDocument } from '../Triple';
-import { PathType, SimpleTriple, type TypedTripleId } from '@derzis/common';
+import { PathType, type TypedTripleId } from '@derzis/common';
 import { Domain } from '../Domain';
 import config from '@derzis/config';
 
@@ -81,7 +81,7 @@ export async function getPathsForRobotsChecking(
 
   const baseQuery = {
     processId: process.pid,
-    status: 'active',
+    'head.status': 'unvisited',
     'head.type': HEAD_TYPE.URL,
     'head.domain': { $in: eligibleOrigins }
   };
@@ -564,7 +564,7 @@ async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
 interface ExtendPathsArgs {
   pid?: string;
   headUrl?: string;
-  triples?: SimpleTriple[];
+  triples?: TripleDocument[];
   paths?: (TraversalPathDocument | EndpointPathDocument)[];
 }
 
@@ -813,7 +813,6 @@ async function* queryAllExtendableEndpointPaths(
   while (hasMore) {
     const baseQuery: QueryFilter<EndpointPathDocument> = {
       processId: process.pid,
-      status: 'active',
       'head.status': 'done',
       'head.type': HEAD_TYPE.URL,
       shortestPathLength: { $lt: process.currentStep.maxPathLength },
