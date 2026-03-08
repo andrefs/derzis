@@ -606,6 +606,29 @@ function processUrlCandidate(
   }
 }
 
+function processLiteralCandidate(
+  this: EndpointPathClass,
+  candidate: Candidate
+): EndpointPathSkeleton {
+  const { literalHead, distance, seedPaths } = candidate;
+  const pathId = new Types.ObjectId();
+
+  const newPath: EndpointPathSkeleton = {
+    _id: pathId,
+    processId: this.processId,
+    type: PathType.ENDPOINT,
+    head: literalHead! as Head,
+    status: 'active',
+    shortestPathLength: distance,
+    seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
+    extensionCounter: 0,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  log.silly('Created new literal endpoint path', newPath);
+  return newPath;
+}
+
 export const EndpointPath = getDiscriminatorModelForClass(
   Path,
   EndpointPathClass,
