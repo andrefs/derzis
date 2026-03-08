@@ -166,224 +166,51 @@ export class EndpointPathClass extends PathClass {
     const procTriples: TypedTripleId[] = [];
     const processedUrlHeads = new Set<string>();
     const processedLiterals = new Set<string>();
-    const predsDirMetrics = process.curPredsDirMetrics();
-    const followDirection = process.currentStep.followDirection;
 
-    // Phase 1: Collect candidates
-    const candidates: Array<{
-      headUrl?: string;
-      literalHead?: LiteralHead;
-      distance: number;
-      seedPaths: Record<string, number>;
-    }> = [];
+    // Phase 1: Collect candidates using helper methods
+    const namedNodeCandidates = collectNamedNodeCandidates.call(
+      this,
+      triplesToExtend,
+      urlHead,
+      process,
+      procTriples,
+      processedUrlHeads
+    );
+    const literalCandidates = collectLiteralCandidates.call(
+      this,
+      triplesToExtend,
+      urlHead,
+      procTriples,
+      processedLiterals
+    );
 
-    // Named node triples (URL extensions)
-    const namedNodeTriples = triplesToExtend
-      .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
-      .filter((t): t is NamedNodeTripleDocument => typeof t.object === 'string')
-      .filter(
-        (t) =>
-          this.shouldCreateNewPath(t, urlHead) &&
-          process?.whiteBlackListsAllow(t) &&
-          t.directionOk(urlHead.url, followDirection, predsDirMetrics)
-      );
-
-    for (const t of namedNodeTriples) {
-      const newHeadUrl: string = t.subject === urlHead.url ? t.object! : t.subject;
-
-      // Simple cycle check: skip if extending to any seed URL
-      if (this.seedPaths.some((entry) => entry.seed === newHeadUrl)) {
-        continue;
-      }
-
-      // Out of bounds check
-      if (this.tripleIsOutOfBounds(t, process)) {
-        continue;
-      }
-
-      // Dedup within batch
-      if (processedUrlHeads.has(newHeadUrl)) {
-        procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
-        continue;
-      }
-      processedUrlHeads.add(newHeadUrl);
-
-      const distance = this.shortestPathLength + 1;
-      const seedPaths: Record<string, number> = {};
-      for (const entry of this.seedPaths) {
-        seedPaths[entry.seed] = entry.minLength + 1;
-      }
-
-      candidates.push({ headUrl: newHeadUrl, distance, seedPaths });
-      procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
-    }
-
-    // Literal triples
-    const literalTriples = triplesToExtend
-      .filter((t): t is LiteralTripleDocument => isLiteral(t))
-      .filter((t) => this.shouldCreateNewPath(t, urlHead));
-
-    for (const t of literalTriples) {
-      const literalKey = JSON.stringify({
-        value: t.object.value,
-        datatype: t.object.datatype || '',
-        language: t.object.language || ''
-      });
-
-      if (processedLiterals.has(literalKey)) {
-        procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
-        continue;
-      }
-      processedLiterals.add(literalKey);
-
-      const distance = this.shortestPathLength + 1;
-      const seedPaths: Record<string, number> = {};
-      for (const entry of this.seedPaths) {
-        seedPaths[entry.seed] = entry.minLength + 1;
-      }
-
-      const literalHead: LiteralHead = {
-        type: HEAD_TYPE.LITERAL,
-        value: t.object.value,
-        datatype: t.object.datatype,
-        language: t.object.language
-      };
-
-      candidates.push({ literalHead, distance, seedPaths });
-      procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
-    }
-
+    const candidates = [...namedNodeCandidates, ...literalCandidates];
     if (candidates.length === 0) {
       return { extendedPaths: [], procTriples };
     }
 
     // Phase 2: Separate URL and literal candidates
     const urlCandidates = candidates.filter((c) => c.headUrl !== undefined);
-    const literalCandidates = candidates.filter((c) => c.literalHead !== undefined);
+    const literalCandidatesOnly = candidates.filter((c) => c.literalHead !== undefined);
 
     // Phase 3: Query existing endpoint paths for URL heads
     const headUrls = urlCandidates.map((c) => c.headUrl!);
-    const existingMap = new Map<string, EndpointPathDocument>();
-
-    if (headUrls.length > 0) {
-      const existing = await EndpointPath.find({
-        processId: this.processId,
-        status: 'active',
-        'head.url': { $in: headUrls }
-      }).exec();
-
-      for (const ep of existing) {
-        const head = ep.head as any;
-        if (head?.url) {
-          existingMap.set(head.url, ep as EndpointPathDocument);
-        }
-      }
-    }
+    const existingMap = await queryExistingEndpointPaths.call(this, headUrls);
 
     // Phase 4: Process candidates
     const extendedPaths: EndpointPathSkeleton[] = [];
 
-    // URL candidates: update existing or create new
     for (const candidate of urlCandidates) {
-      const { headUrl, distance, seedPaths } = candidate;
-      const existing = existingMap.get(headUrl!);
-
-      if (existing) {
-        // Read-modify-write to avoid dot-notation conflicts with seed URLs containing dots
-        // Fetch full document (not lean) so we can modify and save
-        const existingDoc = await EndpointPath.findById(existing._id).exec();
-        if (!existingDoc) {
-          log.warn('Existing path document not found', { _id: existing._id });
-          continue;
-        }
-
-        // Build a map of current seedPaths for fast lookup
-        const seedPathMap = new Map<string, number>();
-        for (const entry of existingDoc.seedPaths) {
-          seedPathMap.set(entry.seed, entry.minLength);
-        }
-
-        // Merge new seed distances using min
-        let changed = false;
-        for (const [seed, dist] of Object.entries(seedPaths)) {
-          const current = seedPathMap.get(seed);
-          if (current === undefined || dist < current) {
-            seedPathMap.set(seed, dist);
-            changed = true;
-          }
-        }
-
-        // Update shortestPathLength if the new distance is shorter
-        if (distance < existingDoc.shortestPathLength) {
-          existingDoc.shortestPathLength = distance;
-          changed = true;
-        }
-
-        if (changed) {
-          existingDoc.seedPaths = Array.from(seedPathMap.entries()).map(([seed, minLength]) => ({
-            seed,
-            minLength
-          }));
-          await existingDoc.save();
-          log.silly('Updated existing endpoint path (read-modify-write)', {
-            _id: existing._id,
-            shortestPathLength: existingDoc.shortestPathLength,
-            seedPathsCount: existingDoc.seedPaths.length
-          });
-        } else {
-          log.silly('No changes to existing endpoint path', { _id: existing._id });
-        }
-      } else {
-        // Create new endpoint path
-        const pathId = new Types.ObjectId();
-        let domain: string;
-        try {
-          domain = new URL(headUrl!).origin;
-        } catch (err) {
-          log.warn('Invalid headUrl, skipping candidate', { headUrl: headUrl, error: err });
-          continue;
-        }
-        const newPath: EndpointPathSkeleton = {
-          _id: pathId,
-          processId: this.processId,
-          type: PathType.ENDPOINT,
-          head: {
-            type: HEAD_TYPE.URL,
-            url: headUrl!,
-            status: 'unvisited',
-            domain
-          } as Head,
-          status: 'active',
-          shortestPathLength: distance,
-          seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
-          extensionCounter: 0,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
+      const existing = existingMap.get(candidate.headUrl!);
+      const newPath = await processUrlCandidate.call(this, candidate, existing);
+      if (newPath) {
         extendedPaths.push(newPath);
-        log.silly('Created new endpoint path', newPath);
       }
     }
 
-    // Literal candidates: always create new
-    for (const candidate of literalCandidates) {
-      const { literalHead, distance, seedPaths } = candidate;
-      const pathId = new Types.ObjectId();
-
-      const newPath: EndpointPathSkeleton = {
-        _id: pathId,
-        processId: this.processId,
-        type: PathType.ENDPOINT,
-        head: literalHead! as Head,
-        status: 'active',
-        shortestPathLength: distance,
-        seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
-        extensionCounter: 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+    for (const candidate of literalCandidatesOnly) {
+      const newPath = processLiteralCandidate.call(this, candidate);
       extendedPaths.push(newPath);
-      log.silly('Created new literal endpoint path', newPath);
     }
 
     log.silly('extendWithExistingTriples result', { extendedPaths, procTriples });
