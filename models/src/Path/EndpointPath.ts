@@ -493,7 +493,31 @@ function collectLiteralCandidates(
     procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
   }
 
-  return candidates;
+    return candidates;
+  }
+
+function queryExistingEndpointPaths(
+  this: EndpointPathClass,
+  headUrls: string[]
+): Promise<Map<string, EndpointPathDocument>> {
+  if (headUrls.length === 0) {
+    return Promise.resolve(new Map());
+  }
+
+  return EndpointPath.find({
+    processId: this.processId,
+    status: 'active',
+    'head.url': { $in: headUrls }
+  }).exec().then((existing) => {
+    const map = new Map<string, EndpointPathDocument>();
+    for (const ep of existing) {
+      const head = ep.head as { url?: string };
+      if (head?.url) {
+        map.set(head.url, ep as EndpointPathDocument);
+      }
+    }
+    return map;
+  });
 }
 
 export const EndpointPath = getDiscriminatorModelForClass(
