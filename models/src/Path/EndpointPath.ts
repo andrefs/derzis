@@ -447,6 +447,52 @@ function collectNamedNodeCandidates(
     procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
   }
 
+    return candidates;
+  }
+
+function collectLiteralCandidates(
+  this: EndpointPathClass,
+  triples: TripleDocument[],
+  urlHead: UrlHead,
+  procTriples: TypedTripleId[],
+  processedLiterals: Set<string>
+): Candidate[] {
+  const candidates: Candidate[] = [];
+
+  const literalTriples = triples
+    .filter((t): t is LiteralTripleDocument => isLiteral(t))
+    .filter((t) => this.shouldCreateNewPath(t, urlHead));
+
+  for (const t of literalTriples) {
+    const literalKey = JSON.stringify({
+      value: t.object.value,
+      datatype: t.object.datatype || '',
+      language: t.object.language || ''
+    });
+
+    if (processedLiterals.has(literalKey)) {
+      procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+      continue;
+    }
+    processedLiterals.add(literalKey);
+
+    const distance = this.shortestPathLength + 1;
+    const seedPaths: Record<string, number> = {};
+    for (const entry of this.seedPaths) {
+      seedPaths[entry.seed] = entry.minLength + 1;
+    }
+
+    const literalHead: LiteralHead = {
+      type: HEAD_TYPE.LITERAL,
+      value: t.object.value,
+      datatype: t.object.datatype,
+      language: t.object.language
+    };
+
+    candidates.push({ literalHead, distance, seedPaths });
+    procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+  }
+
   return candidates;
 }
 
