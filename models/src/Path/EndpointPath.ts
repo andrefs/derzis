@@ -29,6 +29,13 @@ import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('EndpointPath');
 
+interface Candidate {
+  headUrl?: string;
+  literalHead?: LiteralHead;
+  distance: number;
+  seedPaths: Record<string, number>;
+}
+
 // SeedPathEntry class for tracking seed distances
 class SeedPathEntryClass {
   @prop({ type: String, required: true })
@@ -382,6 +389,65 @@ export class EndpointPathClass extends PathClass {
     log.silly('extendWithExistingTriples result', { extendedPaths, procTriples });
     return { extendedPaths, procTriples };
   }
+}
+
+// ============================================================================
+// Helper functions for genExtendedPaths
+// ============================================================================
+
+function collectNamedNodeCandidates(
+  this: EndpointPathClass,
+  triples: TripleDocument[],
+  urlHead: UrlHead,
+  process: ProcessClass,
+  procTriples: TypedTripleId[],
+  processedUrlHeads: Set<string>
+): Candidate[] {
+  const candidates: Candidate[] = [];
+  const followDirection = process.currentStep.followDirection;
+  const predsDirMetrics = process.curPredsDirMetrics();
+
+  const namedNodeTriples = triples
+    .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
+    .filter((t): t is NamedNodeTripleDocument => typeof t.object === 'string')
+    .filter(
+      (t) =>
+        this.shouldCreateNewPath(t, urlHead) &&
+        process?.whiteBlackListsAllow(t) &&
+        t.directionOk(urlHead.url, followDirection, predsDirMetrics)
+    );
+
+  for (const t of namedNodeTriples) {
+    const newHeadUrl: string = t.subject === urlHead.url ? t.object! : t.subject;
+
+    // Simple cycle check: skip if extending to any seed URL
+    if (this.seedPaths.some((entry) => entry.seed === newHeadUrl)) {
+      continue;
+    }
+
+    // Out of bounds check
+    if (this.tripleIsOutOfBounds(t, process)) {
+      continue;
+    }
+
+    // Dedup within batch
+    if (processedUrlHeads.has(newHeadUrl)) {
+      procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
+      continue;
+    }
+    processedUrlHeads.add(newHeadUrl);
+
+    const distance = this.shortestPathLength + 1;
+    const seedPaths: Record<string, number> = {};
+    for (const entry of this.seedPaths) {
+      seedPaths[entry.seed] = entry.minLength + 1;
+    }
+
+    candidates.push({ headUrl: newHeadUrl, distance, seedPaths });
+    procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
+  }
+
+  return candidates;
 }
 
 export const EndpointPath = getDiscriminatorModelForClass(
