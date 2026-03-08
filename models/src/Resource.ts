@@ -144,7 +144,6 @@ class ResourceClass {
       await TraversalPath.updateMany(
         {
           'head.url': url,
-          status: 'active',
           'head.type': HEAD_TYPE.URL
         },
         {
@@ -158,7 +157,6 @@ class ResourceClass {
       await EndpointPath.updateMany(
         {
           'head.url': url,
-          status: 'active',
           'head.type': HEAD_TYPE.URL
         },
         {
@@ -277,7 +275,6 @@ class ResourceClass {
           type: HEAD_TYPE.URL,
           domain: s.domain
         },
-        status: 'active',
         nodes: {
           elems: [s.url],
           count: 1
@@ -311,7 +308,6 @@ class ResourceClass {
                   status: s.status,
                   domain: s.domain
                 } as any,
-                status: 'active' as const,
                 shortestPathLength: 1,
                 shortestPath: { length: 1, seed: s.url },
                 seedPaths: [{ seed: s.url, minLength: 1 }]

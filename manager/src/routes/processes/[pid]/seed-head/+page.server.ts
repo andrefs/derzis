@@ -49,7 +49,6 @@ export const load: PageServerLoad = async ({ params, url }) => {
       processId: pid,
       'seed.url': seedUrl,
       'head.url': headUrl,
-      status: 'active'
     };
     const _longestPath = await TraversalPath.find(lpFilter)
       .sort({ 'nodes.count': -1 })
@@ -60,7 +59,6 @@ export const load: PageServerLoad = async ({ params, url }) => {
       processId: pid,
       'seed.url': seedUrl,
       'head.url': headUrl,
-      status: 'active'
     };
     const _shortestPath = await TraversalPath.find(spFilter)
       .sort({ 'nodes.count': 1 })
@@ -114,23 +112,23 @@ export const load: PageServerLoad = async ({ params, url }) => {
         const step = procTriple?.processStep || null;
         return foundTriple
           ? {
-              ...foundTriple,
-              _id: foundTriple._id?.toString(),
-              followDirection: step !== null ? stepFollowDirections[step] || false : false,
-              processStep: step,
-              sources: foundTriple.sources || []
-            }
+            ...foundTriple,
+            _id: foundTriple._id?.toString(),
+            followDirection: step !== null ? stepFollowDirections[step] || false : false,
+            processStep: step,
+            sources: foundTriple.sources || []
+          }
           : null;
       })
       .filter(Boolean) as Array<{
-      subject: string;
-      predicate: string;
-      object: string;
-      _id?: string;
-      followDirection: boolean;
-      processStep: number;
-      sources: string[];
-    }>;
+        subject: string;
+        predicate: string;
+        object: string;
+        _id?: string;
+        followDirection: boolean;
+        processStep: number;
+        sources: string[];
+      }>;
 
     // Process shortest path if found
     let shortestPathData = null;
@@ -160,23 +158,23 @@ export const load: PageServerLoad = async ({ params, url }) => {
           const step = procTriple?.processStep || 1;
           return foundTriple
             ? {
-                ...foundTriple,
-                _id: foundTriple._id?.toString(),
-                followDirection: stepFollowDirections[step] || false,
-                processStep: step,
-                sources: foundTriple.sources || []
-              }
+              ...foundTriple,
+              _id: foundTriple._id?.toString(),
+              followDirection: stepFollowDirections[step] || false,
+              processStep: step,
+              sources: foundTriple.sources || []
+            }
             : null;
         })
         .filter(Boolean) as Array<{
-        subject: string;
-        predicate: string;
-        object: string;
-        _id?: string;
-        followDirection: boolean;
-        processStep: number;
-        sources: string[];
-      }>;
+          subject: string;
+          predicate: string;
+          object: string;
+          _id?: string;
+          followDirection: boolean;
+          processStep: number;
+          sources: string[];
+        }>;
 
       shortestPathData = {
         nodes: shortestPath.nodes.elems,

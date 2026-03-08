@@ -186,7 +186,6 @@ export async function getPathsForDomainCrawl(
     'head.status': 'unvisited',
     'head.domain': { $in: eligibleOrigins },
     processId: process.pid,
-    status: 'active'
   };
   // Get locked domains and combine with domainBlacklist
   const domainFilter = await getLockedDomainFilter(domainBlacklist);
@@ -268,7 +267,6 @@ export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promi
   // Using base Path model (all paths for this process are of the same type configured in process)
   const pathsCount = await Path.countDocuments({
     processId: process.pid,
-    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.domain': { $in: domains.map((d) => d.origin) }
   });
@@ -282,7 +280,6 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
 
   const pathsCount = await Path.countDocuments({
     processId: process.pid,
-    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.domain': { $in: domains.map((d) => d.origin) }
   });
@@ -301,8 +298,6 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
 
   const query: QueryFilter<TraversalPathDocument> = {
     processId: process.pid,
-    status: 'active',
-    'head.status': 'done',
     'head.type': HEAD_TYPE.URL,
     'nodes.count': { $lt: process.currentStep.maxPathLength },
     'predicates.count': { $lte: maxPathProps }
@@ -451,7 +446,6 @@ async function createNewPaths(
                 'head.type': 'url',
                 'head.status': existingHead.status === 'error' ? 'unvisited' : existingHead.status,
                 'head.domain': domain,
-                status: 'active',
                 type: 'endpoint',
                 shortestPathLength: finalShortest,
                 seedPaths: finalSeedPaths,
@@ -467,7 +461,6 @@ async function createNewPaths(
           await new EndpointPath({
             processId,
             head: { type: 'url', url: headUrl, domain },
-            status: 'active',
             type: 'endpoint',
             shortestPathLength: incomingShortest,
             seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({
@@ -748,7 +741,10 @@ async function* queryAllExtendableTraversalPaths(
   process: ProcessClass,
   batchSize = 100
 ): AsyncGenerator<TraversalPathDocument> {
-  const baseQuery = genTraversalPathQuery(process);
+  const baseQuery = {
+    'head.status': 'done',
+    ...genTraversalPathQuery(process)
+  };
   let lastLength: number | null = null;
   let lastCreatedAt: Date | null = null;
   let lastId: Types.ObjectId | null = null;

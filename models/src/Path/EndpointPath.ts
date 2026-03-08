@@ -48,7 +48,7 @@ class SeedPathEntryClass {
 
 export type EndpointPathSkeleton = Pick<
   EndpointPathClass,
-  'processId' | 'head' | 'type' | 'status'
+  'processId' | 'head' | 'type'
 > &
   RecursivePartial<EndpointPathClass> & {
     shortestPathLength: number;
@@ -324,7 +324,7 @@ function collectLiteralCandidates(
   return candidates;
 }
 
-function queryExistingEndpointPaths(
+async function queryExistingEndpointPaths(
   this: EndpointPathClass,
   headUrls: string[]
 ): Promise<Map<string, EndpointPathDocument>> {
@@ -332,23 +332,21 @@ function queryExistingEndpointPaths(
     return Promise.resolve(new Map());
   }
 
-  return EndpointPath.find({
+  const existing = await EndpointPath.find({
     processId: this.processId,
-    status: 'active',
     'head.url': { $in: headUrls }
-  }).exec().then((existing) => {
-    const map = new Map<string, EndpointPathDocument>();
-    for (const ep of existing) {
-      const head = ep.head as { url?: string };
-      if (head?.url) {
-        map.set(head.url, ep as EndpointPathDocument);
-      }
-    }
-    return map;
   });
+  const map = new Map<string, EndpointPathDocument>();
+  for (const ep of existing) {
+    const head = ep.head as { url?: string; };
+    if (head?.url) {
+      map.set(head.url, ep as EndpointPathDocument);
+    }
+  }
+  return map;
 }
 
-function processUrlCandidate(
+async function processUrlCandidate(
   this: EndpointPathClass,
   candidate: Candidate,
   existing: EndpointPathDocument | undefined
@@ -357,52 +355,47 @@ function processUrlCandidate(
 
   if (existing) {
     // Read-modify-write to avoid dot-notation conflicts with seed URLs containing dots
-    return EndpointPath.findById(existing._id).exec().then((existingDoc) => {
-      if (!existingDoc) {
-        log.warn('Existing path document not found', { _id: existing._id });
-        return null;
-      }
-
-      // Build a map of current seedPaths for fast lookup
-      const seedPathMap = new Map<string, number>();
-      for (const entry of existingDoc.seedPaths) {
-        seedPathMap.set(entry.seed, entry.minLength);
-      }
-
-      // Merge new seed distances using min
-      let changed = false;
-      for (const [seed, dist] of Object.entries(seedPaths)) {
-        const current = seedPathMap.get(seed);
-        if (current === undefined || dist < current) {
-          seedPathMap.set(seed, dist);
-          changed = true;
-        }
-      }
-
-      // Update shortestPathLength if the new distance is shorter
-      if (distance < existingDoc.shortestPathLength) {
-        existingDoc.shortestPathLength = distance;
+    const existingDoc = await EndpointPath.findById(existing._id).exec();
+    if (!existingDoc) {
+      log.warn('Existing path document not found', { _id: existing._id });
+      return null;
+    }
+    // Build a map of current seedPaths for fast lookup
+    const seedPathMap = new Map<string, number>();
+    for (const entry of existingDoc.seedPaths) {
+      seedPathMap.set(entry.seed, entry.minLength);
+    }
+    // Merge new seed distances using min
+    let changed = false;
+    for (const [seed, dist] of Object.entries(seedPaths)) {
+      const current = seedPathMap.get(seed);
+      if (current === undefined || dist < current) {
+        seedPathMap.set(seed, dist);
         changed = true;
       }
-
-      if (changed) {
-        existingDoc.seedPaths = Array.from(seedPathMap.entries()).map(([seed, minLength]) => ({
-          seed,
-          minLength
-        }));
-        return existingDoc.save().then(() => {
-          log.silly('Updated existing endpoint path (read-modify-write)', {
-            _id: existing._id,
-            shortestPathLength: existingDoc.shortestPathLength,
-            seedPathsCount: existingDoc.seedPaths.length
-          });
-          return existingDoc.copy();
+    }
+    // Update shortestPathLength if the new distance is shorter
+    if (distance < existingDoc.shortestPathLength) {
+      existingDoc.shortestPathLength = distance;
+      changed = true;
+    }
+    if (changed) {
+      existingDoc.seedPaths = Array.from(seedPathMap.entries()).map(([seed, minLength]) => ({
+        seed,
+        minLength
+      }));
+      return existingDoc.save().then(() => {
+        log.silly('Updated existing endpoint path (read-modify-write)', {
+          _id: existing._id,
+          shortestPathLength: existingDoc.shortestPathLength,
+          seedPathsCount: existingDoc.seedPaths.length
         });
-      } else {
-        log.silly('No changes to existing endpoint path', { _id: existing._id });
-        return null;
-      }
-    });
+        return existingDoc.copy();
+      });
+    } else {
+      log.silly('No changes to existing endpoint path', { _id: existing._id });
+      return null;
+    }
   } else {
     // Create new endpoint path
     let domain: string;
@@ -422,7 +415,6 @@ function processUrlCandidate(
         status: 'unvisited',
         domain
       } as Head,
-      status: 'active',
       shortestPathLength: distance,
       seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
       extensionCounter: 0,
@@ -446,7 +438,6 @@ function processLiteralCandidate(
     processId: this.processId,
     type: PathType.ENDPOINT,
     head: literalHead! as Head,
-    status: 'active',
     shortestPathLength: distance,
     seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
     extensionCounter: 0,

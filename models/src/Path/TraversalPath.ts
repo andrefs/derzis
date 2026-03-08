@@ -248,7 +248,6 @@ export class TraversalPathClass extends PathClass {
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
         ep.nodes.elems.push(newHeadUrl);
-        ep.status = 'active';
 
         procTriples.push({ id: t._id.toString(), type: TripleType.NAMED_NODE });
         log.silly('New path', ep);
@@ -277,7 +276,6 @@ export class TraversalPathClass extends PathClass {
         } as Head;
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
-        ep.status = 'active';
 
         procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
         log.silly('New path with literal head', ep);

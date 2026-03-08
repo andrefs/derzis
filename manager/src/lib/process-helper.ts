@@ -123,7 +123,7 @@ export async function info(pid: string) {
     null as LiteralTripleClass | NamedNodeTripleClass | null
   );
 
-  const lastPath = await TraversalPath.findOne({ status: 'active' }).sort({ updatedAt: -1 });
+  const lastPath = await TraversalPath.findOne().sort({ updatedAt: -1 });
   const last = Math.max(
     lastResource?.updatedAt?.getTime() || 0,
     lastTriple?.updatedAt?.getTime() || 0,
