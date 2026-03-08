@@ -10,10 +10,13 @@ import {
   Triple,
   ResourceLabel,
   ProcessTriple,
-  extendPaths
+  extendPaths,
+  LiteralTripleClass,
+  type TripleDocument,
+  type LiteralTripleDocument
 } from '@derzis/models';
 import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
-import { type JobResult, type RobotsCheckResult, type CrawlResourceResult } from '@derzis/common';
+import { type JobResult, type RobotsCheckResult, type CrawlResourceResult, TripleType, type SimpleLiteralTriple } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
@@ -91,7 +94,7 @@ export default class Manager {
           );
           log.info(JSON.stringify(jobResult, null, 2));
           // Reset statuses to prevent stuck state
-          await Resource.markAsCrawled(jobResult.url, jobResult.details, {
+          await Resource.markAsCrawled(jobResult.url, jobResult, {
             errorType: 'database_error',
             name: 'Save Error',
             message: (e as Error).message
@@ -131,10 +134,6 @@ export default class Manager {
         this.jobs.addToBeingSaved(jobResult.origin, jobResult.jobType);
         try {
           await this.saveLabelFetch(jobResult);
-          await Domain.findOneAndUpdate(
-            { origin: jobResult.origin },
-            { $inc: { 'crawl.ongoing': -1 } }
-          );
         } catch (e) {
           log.error(
             `Error saving resource label fetch (job #${jobResult.jobId}) for ${jobResult.url}`,
@@ -217,11 +216,10 @@ export default class Manager {
       return;
     }
 
-    const { triples } = jobResult.details;
+    await this.saveCrawl2(jobResult);
 
     // Get the ResourceLabel to check the extend flag
     const resourceLabel = await ResourceLabel.findOne({ url: jobResult.url });
-    const extend = resourceLabel?.extend ?? false;
 
     // Update ResourceLabel status to done
     const rl = await ResourceLabel.findOneAndUpdate(
@@ -234,41 +232,10 @@ export default class Manager {
       log.error(`ResourceLabel not found for url ${jobResult.url} when saving label fetch results`);
       return;
     }
+
+    const { triples } = jobResult.details;
     if (!triples.length) {
       return;
-    }
-
-    // Get the source Resource
-    const source = (await Resource.findOne({
-      url: jobResult.url
-    })) as ResourceClass;
-
-    // Store triples in Triple collection
-    log.info('Calling Triple.upsertMany with', triples.length, 'label triples');
-    const tripleResult = await Triple.upsertMany(source, triples);
-    log.info('Triple.upsertMany result:', tripleResult);
-
-    if (extend) {
-      // Extend paths with this resource as head (normal flow)
-      log.info('Calling extendPaths for headUrl:', jobResult.url);
-      await extendPaths({ headUrl: jobResult.url });
-      log.info('extendPaths complete for headUrl:', jobResult.url);
-    } else {
-      // Get the saved triples to link to ProcessTriple
-      const savedIds = tripleResult.flatMap((r) =>
-        r.upsertedIds ? Object.values(r.upsertedIds) : []
-      );
-      const savedTriples = await Triple.find({ _id: { $in: savedIds } })
-        .select('_id type')
-        .lean();
-
-      const procTripleInputs = savedTriples.map((t) => ({
-        processId: rl.pid,
-        triple: t._id,
-        tripleType: t.type,
-        processStep: -1 // label fetch triples are not associated with a specific step, so we can use a placeholder value
-      }));
-      await ProcessTriple.upsertMany(procTripleInputs);
     }
 
     // Check if all cardea labels with extend=false are done for this process
@@ -289,12 +256,12 @@ export default class Manager {
    * Save results of a resource crawl job to the database, including new triples and any errors
    * @param jobResult Result of the resource crawl job to save
    */
-  async saveCrawl2(jobResult: CrawlResourceResult) {
+  async saveCrawl2(jobResult: CrawlResourceResult | FetchLabelsResourceResult) {
     if (jobResult.status === 'not_ok') {
-      return await Resource.markAsCrawled(jobResult.url, jobResult.details, jobResult.err);
+      return await Resource.markAsCrawled(jobResult.url, jobResult, jobResult.err);
     }
     // mark head as crawled
-    await Resource.markAsCrawled(jobResult.url, jobResult.details);
+    await Resource.markAsCrawled(jobResult.url, jobResult);
 
     log.silly('jobResult.url', jobResult.url);
     log.silly('jobResult.details.triples', JSON.stringify(jobResult.details.triples, null, 2));
@@ -304,7 +271,13 @@ export default class Manager {
     //	(t) => t.object === jobResult.url || t.subject === jobResult.url
     //);
 
-    await this.processNewTriples(jobResult.url, jobResult.details.triples);
+    await this.processNewTriples(
+      jobResult.url,
+      jobResult.details.triples,
+      // if this crawl was for fetching labels,
+      // we only want to extend paths for the label triples
+      jobResult.jobType === 'resourceLabelFetch'
+    );
   }
 
   /**
@@ -312,8 +285,9 @@ export default class Manager {
    * Adds new resources and triples to the database, and updates process paths accordingly
    * @param sourceUrl URL of the resource from which the triples were obtained
    * @param triples Array of triples to process
+   * @param extendLabelsOnly If true, only extend paths for label triples and skip extending paths for other triples. This is used when processing triples from a resource label fetch, since we only want to extend paths for the label triples in that case.
    */
-  async processNewTriples(sourceUrl: string, triples: SimpleTriple[]) {
+  async processNewTriples(sourceUrl: string, triples: SimpleTriple[], extendLabelsOnly = false) {
     log.info('processNewTriples called for:', sourceUrl, 'with', triples.length, 'triples');
 
     if (!triples.length) {
@@ -321,40 +295,57 @@ export default class Manager {
       return;
     }
 
-    // TODO: eventually this whitelist will come from Process/Step configuration
-    const LITERAL_PREDICATE_WHITELIST = [
-      'http://www.w3.org/2000/01/rdf-schema#label',
-      'http://www.w3.org/2000/01/rdf-schema#comment'
-    ];
-
-    // Filter triples: keep all NamedNode triples, and only keep literal triples with whitelisted predicates
-    const filteredTriples = triples.filter((t) => {
-      if (typeof t.object === 'string') {
-        return true;
-      }
-      // t.object is LiteralObject
-      if (LITERAL_PREDICATE_WHITELIST.includes(t.predicate)) {
-        return true;
-      }
-      return false;
-    });
+    // Filter triples: keep all NamedNode triples,
+    // and only keep literal triples with whitelisted predicates
+    const nnTriples = triples.filter((t) => typeof t.object === 'string');
+    const labelTriples = this.getLabelTriples(triples);
 
     const source = (await Resource.findOne({
       url: sourceUrl
     })) as ResourceClass;
 
     // add new resources
-    await Resource.addFromTriples(filteredTriples);
+    await Resource.addFromTriples([...nnTriples, ...labelTriples]);
 
     // Store all triples using unified upsertMany
-    log.info('Calling Triple.upsertMany with', filteredTriples.length, 'triples');
-    const tripleResult = await Triple.upsertMany(source, filteredTriples);
+    log.info('Calling Triple.upsertMany with', [...nnTriples, ...labelTriples].length, 'triples');
+    const tripleResult = await Triple.upsertMany(source, [...nnTriples, ...labelTriples]);
     log.info('Triple.upsertMany result:', tripleResult);
+
+    if (extendLabelsOnly) {
+      log.info('Skipping extendPaths for headUrl:', source.url, 'because dontExtend flag is set');
+      await extendPaths({ triples: labelTriples });
+      return;
+    }
 
     // extend paths with source url as head
     log.info('Calling extendPaths for headUrl:', source.url);
     await extendPaths({ headUrl: source.url });
     log.info('extendPaths complete for headUrl:', source.url);
+  }
+
+
+  /**
+   * Returns literal triples with rdfs:label or rdfs:comment predicates that have language 'en'.
+   * Returns them as SimpleTriple format for compatibility with the result type.
+   */
+  getLabelTriples(triples: SimpleTriple[]): SimpleLiteralTriple[] {
+
+    const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+    const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
+
+    return triples
+      .filter((t): t is SimpleLiteralTriple => {
+        if (t.predicate !== RDFS_LABEL && t.predicate !== RDFS_COMMENT) return false;
+        const lit = t as SimpleLiteralTriple;
+        return lit.object.language === 'en';
+      })
+      .map((t): SimpleLiteralTriple => ({
+        subject: t.subject,
+        predicate: t.predicate,
+        type: TripleType.LITERAL,
+        object: t.object
+      }));
   }
 
   /**

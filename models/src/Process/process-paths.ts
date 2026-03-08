@@ -17,7 +17,7 @@ import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { type QueryFilter, Types } from 'mongoose';
 import { type TripleClass, type TripleDocument } from '../Triple';
-import { PathType, type TypedTripleId } from '@derzis/common';
+import { PathType, SimpleTriple, type TypedTripleId } from '@derzis/common';
 import { Domain } from '../Domain';
 import config from '@derzis/config';
 
@@ -564,7 +564,7 @@ async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
 interface ExtendPathsArgs {
   pid?: string;
   headUrl?: string;
-  triples?: TripleDocument[];
+  triples?: SimpleTriple[];
   paths?: (TraversalPathDocument | EndpointPathDocument)[];
 }
 

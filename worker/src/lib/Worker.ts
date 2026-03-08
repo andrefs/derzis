@@ -49,9 +49,6 @@ interface JobsTimedOut {
 }
 
 
-const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
-const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
-
 export class Worker extends EventEmitter {
   /**
    * Unique Worker ID
@@ -379,7 +376,7 @@ export class Worker extends EventEmitter {
         status: 'ok',
         details: {
           labelFetchId,
-          triples: this.getLabelTriples(cachedRes.triples || [])
+          triples: cachedRes.triples
         }
       } as FetchLabelsResourceResult;
     }
@@ -392,7 +389,7 @@ export class Worker extends EventEmitter {
         status: 'ok',
         details: {
           labelFetchId,
-          triples: this.getLabelTriples(res.triples || []),
+          triples: res.triples,
           ts: res.ts
         }
       }
@@ -407,24 +404,6 @@ export class Worker extends EventEmitter {
     return jobResult as FetchLabelsResourceResult;
   }
 
-  /**
-   * Returns literal triples with rdfs:label or rdfs:comment predicates that have language 'en'.
-   * Returns them as SimpleTriple format for compatibility with the result type.
-   */
-  getLabelTriples(triples: WorkerTriple[]): SimpleTriple[] {
-    return triples
-      .filter((t): t is WorkerLiteralTriple => {
-        if (t.predicate !== RDFS_LABEL && t.predicate !== RDFS_COMMENT) return false;
-        const lit = t as WorkerLiteralTriple;
-        return lit.object.language === 'en';
-      })
-      .map((t): SimpleTriple => ({
-        subject: t.subject,
-        predicate: t.predicate,
-        type: TripleType.LITERAL,
-        object: t.object
-      }));
-  }
 
   /**
    * Fetches a resource over HTTP, parses RDF content, filters and structures triples, and caches results.

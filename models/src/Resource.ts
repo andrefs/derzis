@@ -10,7 +10,7 @@ import {
   UrlHead
 } from './Path';
 import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
-import type { CrawlResourceResultDetails, SimpleTriple } from '@derzis/common';
+import type { CrawlResourceResult, CrawlResourceResultDetails, FetchLabelsResourceResult, FetchLabelsResourceResultDetails, SimpleTriple } from '@derzis/common';
 import config from '@derzis/config';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Resource');
@@ -124,15 +124,17 @@ class ResourceClass {
   public static async markAsCrawled(
     this: ReturnModelType<typeof ResourceClass>,
     url: string,
-    details: CrawlResourceResultDetails,
+    jobResult: CrawlResourceResult | FetchLabelsResourceResult,
     error?: WorkerError
   ) {
     // Resource
     const oldRes = await this.findOneAndUpdate(
-      { url, status: 'crawling' },
+      { url },
       {
         status: error ? 'error' : 'done',
-        crawlId: details.crawlId
+        crawlId: jobResult.jobType === 'resourceCrawl'
+          ? jobResult.details.crawlId
+          : jobResult.details.labelFetchId
       },
       { returnDocument: 'before' }
     );
@@ -140,7 +142,11 @@ class ResourceClass {
     if (config.manager.pathType === PathType.TRAVERSAL) {
       // TraversalPath
       await TraversalPath.updateMany(
-        { 'head.url': url, status: 'active', 'head.type': HEAD_TYPE.URL },
+        {
+          'head.url': url,
+          status: 'active',
+          'head.type': HEAD_TYPE.URL
+        },
         {
           $set: {
             'head.status': error ? 'error' : 'done'
@@ -150,7 +156,11 @@ class ResourceClass {
     } else {
       // EndpointPath
       await EndpointPath.updateMany(
-        { 'head.url': url, status: 'active', 'head.type': HEAD_TYPE.URL },
+        {
+          'head.url': url,
+          status: 'active',
+          'head.type': HEAD_TYPE.URL
+        },
         {
           $set: {
             'head.status': error ? 'error' : 'done'
@@ -214,7 +224,7 @@ class ResourceClass {
 
     const d = await Domain.findOneAndUpdate(baseFilter, update, { returnDocument: 'after' })!;
     return {
-      domain: await Domain.setNextCrawlAllowed(url, details.ts, d!.crawl.delay)
+      domain: await Domain.setNextCrawlAllowed(url, jobResult.details.ts, d!.crawl.delay)
     };
   }
 
