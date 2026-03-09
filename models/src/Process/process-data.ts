@@ -65,7 +65,12 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
   const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();
   const tripleIds = procTriples.map((pt) => pt.triple);
 
-  console.log('[DEBUG getTriples] procTriples count:', procTriples.length, 'tripleIds count:', tripleIds.length);
+  console.log(
+    '[DEBUG getTriples] procTriples count:',
+    procTriples.length,
+    'tripleIds count:',
+    tripleIds.length
+  );
 
   if (tripleIds.length === 0) return;
 
@@ -336,32 +341,32 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
 
   const totalPaths = await TraversalPath.countDocuments({
     processId: process.pid,
-    'seed.url': { $in: process.currentStep.seeds },
+    'seed.url': { $in: process.currentStep.seeds }
   }).lean();
   const avgPathLength = totalPaths
     ? await TraversalPath.aggregate([
-      {
-        $match: {
-          processId: process.pid,
-          type: PathType.TRAVERSAL,
-          'seed.url': { $in: process.currentStep.seeds },
-        }
-      },
-      { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-    ]).then((res) => res[0]?.avgLength || 0)
+        {
+          $match: {
+            processId: process.pid,
+            type: PathType.TRAVERSAL,
+            'seed.url': { $in: process.currentStep.seeds }
+          }
+        },
+        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+      ]).then((res) => res[0]?.avgLength || 0)
     : 0;
 
   const avgPathProps = totalPaths
     ? await TraversalPath.aggregate([
-      {
-        $match: {
-          processId: process.pid,
-          type: PathType.TRAVERSAL,
-          'seed.url': { $in: process.currentStep.seeds },
-        }
-      },
-      { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-    ]).then((res) => res[0]?.avgProps || 0)
+        {
+          $match: {
+            processId: process.pid,
+            type: PathType.TRAVERSAL,
+            'seed.url': { $in: process.currentStep.seeds }
+          }
+        },
+        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+      ]).then((res) => res[0]?.avgProps || 0)
     : 0;
 
   const timeToLastResource = lastResource
@@ -416,13 +421,13 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
       total: await TraversalPath.countDocuments({
         processId: process.pid,
         type: PathType.TRAVERSAL,
-        'seed.url': { $in: process.currentStep.seeds },
+        'seed.url': { $in: process.currentStep.seeds }
       }).lean(),
       headUnvisited: await TraversalPath.countDocuments({
         processId: process.pid,
         type: PathType.TRAVERSAL,
         'head.status': 'unvisited',
-        'seed.url': { $in: process.currentStep.seeds },
+        'seed.url': { $in: process.currentStep.seeds }
       }).lean(), // TODO add index
       avgPathLength,
       avgPathProps
@@ -472,7 +477,7 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
   const seeds = process.currentStep.seeds;
 
   const baseQuery = {
-    'seed.url': { $in: seeds },
+    'seed.url': { $in: seeds }
   };
 
   const pipeline = [{ $match: baseQuery }, { $group: { _id: '$head.status', count: { $sum: 1 } } }];

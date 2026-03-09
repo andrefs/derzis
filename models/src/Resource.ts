@@ -10,7 +10,13 @@ import {
   UrlHead
 } from './Path';
 import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
-import type { CrawlResourceResult, CrawlResourceResultDetails, FetchLabelsResourceResult, FetchLabelsResourceResultDetails, SimpleTriple } from '@derzis/common';
+import type {
+  CrawlResourceResult,
+  CrawlResourceResultDetails,
+  FetchLabelsResourceResult,
+  FetchLabelsResourceResultDetails,
+  SimpleTriple
+} from '@derzis/common';
 import config from '@derzis/config';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Resource');
@@ -132,9 +138,10 @@ class ResourceClass {
       { url },
       {
         status: error ? 'error' : 'done',
-        crawlId: jobResult.jobType === 'resourceCrawl'
-          ? jobResult.details.crawlId
-          : jobResult.details.labelFetchId
+        crawlId:
+          jobResult.jobType === 'resourceCrawl'
+            ? jobResult.details.crawlId
+            : jobResult.details.labelFetchId
       },
       { returnDocument: 'before' }
     );
@@ -275,6 +282,7 @@ class ResourceClass {
           type: HEAD_TYPE.URL,
           domain: s.domain
         },
+        status: 'active',
         nodes: {
           elems: [s.url],
           count: 1
@@ -308,6 +316,7 @@ class ResourceClass {
                   status: s.status,
                   domain: s.domain
                 } as any,
+                status: 'active',
                 shortestPathLength: 1,
                 shortestPath: { length: 1, seed: s.url },
                 seedPaths: [{ seed: s.url, minLength: 1 }]

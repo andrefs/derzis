@@ -46,10 +46,8 @@ describe('Resource.insertSeedPaths', () => {
             updateOne: expect.objectContaining({
               filter: expect.objectContaining({
                 processId: pid,
-                head: expect.objectContaining({
-                  type: 'url',
-                  url: seeds[0].url
-                })
+                'head.type': 'url',
+                'head.url': seeds[0].url
               }),
               update: expect.objectContaining({
                 $setOnInsert: expect.objectContaining({
@@ -77,7 +75,8 @@ describe('Resource.insertSeedPaths', () => {
               upsert: true
             })
           })
-        ])
+        ]),
+        { ordered: false }
       );
     });
 

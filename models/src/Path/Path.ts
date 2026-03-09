@@ -115,6 +115,9 @@ export class PathClass extends TimeStamps {
   @prop({ default: 0, type: Number })
   public extensionCounter!: number;
 
+  @prop({ enum: ['active', 'deleted'], default: 'active', type: String })
+  public status!: 'active' | 'deleted';
+
   @prop({ enum: PathType, required: true, type: String })
   public type!: PathType;
 }
@@ -123,6 +126,7 @@ export interface IPath {
   _id: Types.ObjectId;
   processId: string;
   head: Head;
+  status: 'active' | 'deleted';
   type: PathType;
   extensionCounter: number;
   genExistingTriplesFilter: (process: ProcessClass) => QueryFilter<NamedNodeTripleDocument> | null;

@@ -38,7 +38,7 @@ const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
 
 export type TraversalPathSkeleton = Pick<
   TraversalPathClass,
-  'processId' | 'seed' | 'head' | 'type'
+  'processId' | 'seed' | 'head' | 'type' | 'status'
 > &
   RecursivePartial<TraversalPathClass> & {
     predicates: Pick<ResourceCount, 'elems'>;
@@ -173,8 +173,9 @@ export class TraversalPathClass extends PathClass {
         url: this.seed.url
       },
       head: this.head as Head,
-      predicates: { elems: [...this.predicates.elems] }, // count will be updated in pre-save hook
-      nodes: { elems: [...this.nodes.elems] } // count will be updated in pre-save hook
+      status: this.status,
+      predicates: { elems: [...this.predicates.elems] },
+      nodes: { elems: [...this.nodes.elems] }
     };
     return copy;
   }
@@ -236,14 +237,15 @@ export class TraversalPathClass extends PathClass {
 
       extendedPaths[prop] = extendedPaths[prop] || {};
       if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
-        const ep = this.copy();
         const domain = new URL(newHeadUrl).origin;
+        const ep = this.copy();
         ep.head = {
           type: HEAD_TYPE.URL,
           url: newHeadUrl,
           domain,
           status: 'unvisited'
         } as Head;
+        ep.status = 'active';
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
         ep.nodes.elems.push(newHeadUrl);
@@ -273,10 +275,9 @@ export class TraversalPathClass extends PathClass {
           datatype: t.object.datatype,
           language: t.object.language
         } as Head;
+        ep.status = 'active';
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
-
-        procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
         log.silly('New path with literal head', ep);
         extendedPaths[prop][literalKey] = ep;
       }

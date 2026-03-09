@@ -220,16 +220,16 @@ class ProcessClass extends Document {
     // process is not done
     log.info(
       `Process ${this.pid} is not done yet: ` +
-      JSON.stringify(
-        {
-          pathsToCrawl,
-          pathsToCheck,
-          hasPathsChecking,
-          hasPathsCrawling
-        },
-        null,
-        2
-      )
+        JSON.stringify(
+          {
+            pathsToCrawl,
+            pathsToCheck,
+            hasPathsChecking,
+            hasPathsCrawling
+          },
+          null,
+          2
+        )
     );
     return false;
   }
@@ -463,30 +463,30 @@ class ProcessClass extends Document {
       const cursorCondition: QueryFilter<PathClass> =
         lastSeenCreatedAt && lastSeenId
           ? {
-            createdAt: { $gte: lastSeenCreatedAt },
-            _id: { $gt: lastSeenId }
-          }
+              createdAt: { $gte: lastSeenCreatedAt },
+              _id: { $gt: lastSeenId }
+            }
           : {};
 
       // Fetch a batch of paths for this process
       const paths =
         config.manager.pathType === PathType.TRAVERSAL
           ? await TraversalPath.find({
-            processId: this.pid,
-            'head.type': HEAD_TYPE.URL,
-            ...cursorCondition
-          } as QueryFilter<TraversalPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
-            .select('head.url head.domain createdAt _id')
+              processId: this.pid,
+              'head.type': HEAD_TYPE.URL,
+              ...cursorCondition
+            } as QueryFilter<TraversalPathClass>)
+              .sort({ createdAt: 1, _id: 1 })
+              .limit(batchSize)
+              .select('head.url head.domain createdAt _id')
           : await EndpointPath.find({
-            processId: this.pid,
-            'head.type': HEAD_TYPE.URL,
-            ...cursorCondition
-          } as QueryFilter<EndpointPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
-            .select('head.url head.domain createdAt _id');
+              processId: this.pid,
+              'head.type': HEAD_TYPE.URL,
+              ...cursorCondition
+            } as QueryFilter<EndpointPathClass>)
+              .sort({ createdAt: 1, _id: 1 })
+              .limit(batchSize)
+              .select('head.url head.domain createdAt _id');
 
       if (paths.length === 0) {
         hasMore = false;

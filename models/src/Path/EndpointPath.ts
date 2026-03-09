@@ -48,7 +48,7 @@ class SeedPathEntryClass {
 
 export type EndpointPathSkeleton = Pick<
   EndpointPathClass,
-  'processId' | 'head' | 'type'
+  'processId' | 'head' | 'type' | 'status'
 > &
   RecursivePartial<EndpointPathClass> & {
     shortestPathLength: number;
@@ -85,7 +85,6 @@ export type EndpointPathSkeleton = Pick<
   }
 )
 export class EndpointPathClass extends PathClass {
-
   @prop({ required: true, type: Number, default: 0 })
   public shortestPathLength!: number;
 
@@ -135,6 +134,7 @@ export class EndpointPathClass extends PathClass {
       processId: this.processId,
       type: PathType.ENDPOINT,
       head: this.head as Head,
+      status: this.status,
       shortestPathLength: this.shortestPathLength,
       seedPaths: this.seedPaths.map((entry) => ({ seed: entry.seed, minLength: entry.minLength }))
     };
@@ -337,7 +337,7 @@ async function queryExistingEndpointPaths(
   });
   const map = new Map<string, EndpointPathDocument>();
   for (const ep of existing) {
-    const head = ep.head as { url?: string; };
+    const head = ep.head as { url?: string };
     if (head?.url) {
       map.set(head.url, ep as EndpointPathDocument);
     }
@@ -411,9 +411,9 @@ async function processUrlCandidate(
       head: {
         type: HEAD_TYPE.URL,
         url: headUrl!,
-        status: 'unvisited',
         domain
       } as Head,
+      status: 'active',
       shortestPathLength: distance,
       seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
       extensionCounter: 0,
@@ -437,6 +437,7 @@ function processLiteralCandidate(
     processId: this.processId,
     type: PathType.ENDPOINT,
     head: literalHead! as Head,
+    status: 'active',
     shortestPathLength: distance,
     seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
     extensionCounter: 0,

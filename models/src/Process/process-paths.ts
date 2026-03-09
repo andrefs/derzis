@@ -83,7 +83,8 @@ export async function getPathsForRobotsChecking(
     processId: process.pid,
     'head.status': 'unvisited',
     'head.type': HEAD_TYPE.URL,
-    'head.domain': { $in: eligibleOrigins }
+    'head.domain': { $in: eligibleOrigins },
+    status: 'active'
   };
   const select = 'head.domain head.type createdAt _id nodes.count shortestPathLength';
 
@@ -143,7 +144,7 @@ export async function getPathsForRobotsChecking(
       ...baseQuery,
       ...cursorCondition,
       ...lockedFilter,
-      shortestPathLength: { $lt: process.currentStep.maxPathLength },
+      shortestPathLength: { $lt: process.currentStep.maxPathLength }
     })
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
@@ -186,6 +187,7 @@ export async function getPathsForDomainCrawl(
     'head.status': 'unvisited',
     'head.domain': { $in: eligibleOrigins },
     processId: process.pid,
+    status: 'active'
   };
   // Get locked domains and combine with domainBlacklist
   const domainFilter = await getLockedDomainFilter(domainBlacklist);
@@ -249,7 +251,7 @@ export async function getPathsForDomainCrawl(
       ...baseQuery,
       shortestPathLength: { $lt: process.currentStep.maxPathLength },
       ...cursorCondition,
-      ...domainFilter,
+      ...domainFilter
     })
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
@@ -267,6 +269,7 @@ export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promi
   // Using base Path model (all paths for this process are of the same type configured in process)
   const pathsCount = await Path.countDocuments({
     processId: process.pid,
+    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.domain': { $in: domains.map((d) => d.origin) }
   });
@@ -280,6 +283,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
 
   const pathsCount = await Path.countDocuments({
     processId: process.pid,
+    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.domain': { $in: domains.map((d) => d.origin) }
   });
@@ -298,6 +302,7 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
 
   const query: QueryFilter<TraversalPathDocument> = {
     processId: process.pid,
+    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'nodes.count': { $lt: process.currentStep.maxPathLength },
     'predicates.count': { $lte: maxPathProps }
@@ -461,6 +466,7 @@ async function createNewPaths(
           await new EndpointPath({
             processId,
             head: { type: 'url', url: headUrl, domain },
+            status: 'active',
             type: 'endpoint',
             shortestPathLength: incomingShortest,
             seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({
@@ -623,6 +629,7 @@ async function* queryTraversalPathsForHeadUrl(
 ): AsyncGenerator<TraversalPathDocument> {
   const baseQuery: Record<string, unknown> = {
     processId: process.pid,
+    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.url': headUrl,
     'nodes.count': { $lt: process.currentStep.maxPathLength }
@@ -674,6 +681,7 @@ async function* queryEndpointPathsForHeadUrl(
 ): AsyncGenerator<EndpointPathDocument> {
   const baseQuery: Record<string, unknown> = {
     processId: process.pid,
+    status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.url': headUrl,
     shortestPathLength: { $lt: process.currentStep.maxPathLength }
@@ -742,6 +750,7 @@ async function* queryAllExtendableTraversalPaths(
   batchSize = 100
 ): AsyncGenerator<TraversalPathDocument> {
   const baseQuery = {
+    status: 'active',
     'head.status': 'done',
     ...genTraversalPathQuery(process)
   };
@@ -809,9 +818,10 @@ async function* queryAllExtendableEndpointPaths(
   while (hasMore) {
     const baseQuery: QueryFilter<EndpointPathDocument> = {
       processId: process.pid,
+      status: 'active',
       'head.status': 'done',
       'head.type': HEAD_TYPE.URL,
-      shortestPathLength: { $lt: process.currentStep.maxPathLength },
+      shortestPathLength: { $lt: process.currentStep.maxPathLength }
     };
 
     if (process.pathExtensionCounter !== undefined) {
@@ -892,6 +902,7 @@ async function* queryPathsForTriples(
 
     const baseQuery: Record<string, unknown> = {
       processId: process.pid,
+      status: 'active',
       'head.type': HEAD_TYPE.URL,
       'head.url': { $in: Array.from(nodeUrls) }
     };
