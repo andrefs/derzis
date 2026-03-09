@@ -29,7 +29,11 @@ const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import { v4 as uuidv4 } from 'uuid';
-import type { DomainCrawlJobRequest, DomainLabelFetchJobRequest, FetchLabelsResourceResult } from '@derzis/common';
+import type {
+  DomainCrawlJobRequest,
+  DomainLabelFetchJobRequest,
+  FetchLabelsResourceResult
+} from '@derzis/common';
 import type { JobCapacity, OngoingJobs, SimpleTriple } from '@derzis/common';
 import {
   type AxiosResponseHeaders,
@@ -47,7 +51,6 @@ export interface Availability {
 interface JobsTimedOut {
   [domain: string]: boolean;
 }
-
 
 export class Worker extends EventEmitter {
   /**
@@ -127,7 +130,10 @@ export class Worker extends EventEmitter {
     this.jobsTimedout = {};
   }
 
-  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl' | 'resourceLabelFetch'>): boolean {
+  alreadyBeingDone(
+    domain: string,
+    jobType: Exclude<JobType, 'resourceCrawl' | 'resourceLabelFetch'>
+  ): boolean {
     return !!this.currentJobs[jobType][domain];
   }
 
@@ -180,25 +186,26 @@ export class Worker extends EventEmitter {
   }
 
   /**
-  * Crawl a domain and its resources, yielding results for each resource crawl.
-  * Uses robots.txt to check if crawling is allowed and to respect crawl delays.
-  * Caches resource triples in MongoDB for future requests.
-  */
+   * Crawl a domain and its resources, yielding results for each resource crawl.
+   * Uses robots.txt to check if crawling is allowed and to respect crawl delays.
+   * Caches resource triples in MongoDB for future requests.
+   */
   async *crawlDomain({ jobId, domain, resources }: DomainCrawlJobRequest) {
-    this.crawlTs = new Date();
-    this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;
-    const robotsText = domain?.robots?.text || '';
-    const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
-
-    this.emit('httpDebug', {
-      type: 'delay',
-      domain: domain.origin,
-      delay: domain.crawl.delay
-    });
-    delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
-
+    log.info(`Acquired domainCrawl capacity for ${domain.origin} (job #${jobId})`);
     try {
+      this.crawlTs = new Date();
+      this.crawlCounter = 0;
+      const robotsText = domain?.robots?.text || '';
+      const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
+
+      this.emit('httpDebug', {
+        type: 'delay',
+        domain: domain.origin,
+        delay: domain.crawl.delay
+      });
+      delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
+
       for (const r of resources) {
         const res = await this.crawlResource(jobId, domain.origin, r.url, robots);
         if (!res) {
@@ -206,10 +213,12 @@ export class Worker extends EventEmitter {
         }
         yield res;
       }
-      delete this.currentJobs.domainCrawl[domain.origin];
     } catch (err) {
-      log.error('Error in crawlDomain:', err);
+      log.error('Error in crawlDomain:', err, { jobId, origin: domain.origin });
+      throw err;
+    } finally {
       delete this.currentJobs.domainCrawl[domain.origin];
+      log.info(`Released domainCrawl capacity for ${domain.origin} (job #${jobId})`);
     }
   }
 
@@ -218,20 +227,21 @@ export class Worker extends EventEmitter {
    * USes robots.txt to check if fetching is allowed and to respect crawl delays.
    */
   async *fetchDomainLabels({ jobId, domain, resources }: DomainLabelFetchJobRequest) {
-    this.crawlTs = new Date();
-    this.crawlCounter = 0;
     this.currentJobs.domainLabelFetch[domain.origin] = true;
-    const robotsText = domain?.robots?.text || '';
-    const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
-
-    this.emit('httpDebug', {
-      type: 'delay',
-      domain: domain.origin,
-      delay: domain.crawl.delay
-    });
-    delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
-
+    log.info(`Acquired domainLabelFetch capacity for ${domain.origin} (job #${jobId})`);
     try {
+      this.crawlTs = new Date();
+      this.crawlCounter = 0;
+      const robotsText = domain?.robots?.text || '';
+      const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
+
+      this.emit('httpDebug', {
+        type: 'delay',
+        domain: domain.origin,
+        delay: domain.crawl.delay
+      });
+      delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
+
       for (const r of resources) {
         const res = await this.fetchResourceLabels(jobId, domain.origin, r.url, robots);
         if (!res) {
@@ -239,10 +249,12 @@ export class Worker extends EventEmitter {
         }
         yield res;
       }
-      delete this.currentJobs.domainLabelFetch[domain.origin];
     } catch (err) {
-      log.error('Error in fetchDomainLabels:', err);
+      log.error('Error in fetchDomainLabels:', err, { jobId, origin: domain.origin });
+      throw err;
+    } finally {
       delete this.currentJobs.domainLabelFetch[domain.origin];
+      log.info(`Released domainLabelFetch capacity for ${domain.origin} (job #${jobId})`);
     }
   }
 
@@ -251,9 +263,9 @@ export class Worker extends EventEmitter {
   }
 
   /**
-  * Crawl a single resource, checking robots.txt permissions and using cached triples if available.
-  * Returns structured results including status, crawl ID, triples, and errors if any.
-  */
+   * Crawl a single resource, checking robots.txt permissions and using cached triples if available.
+   * Returns structured results including status, crawl ID, triples, and errors if any.
+   */
   async crawlResource(
     jobId: number,
     origin: string,
@@ -279,7 +291,6 @@ export class Worker extends EventEmitter {
       };
     }
     this.crawlCounter++;
-    this.currentJobs.domainCrawl[origin] = true;
     let jobResult: CrawlResourceResult;
 
     if (robots.isDisallowed(url, config.http.userAgent)) {
@@ -357,7 +368,6 @@ export class Worker extends EventEmitter {
       };
     }
     this.crawlCounter++;
-    this.currentJobs.domainLabelFetch[origin] = true;
     let jobResult: FetchLabelsResourceResult;
 
     if (robots.isDisallowed(url, config.http.userAgent)) {
@@ -392,7 +402,7 @@ export class Worker extends EventEmitter {
           triples: res.triples,
           ts: res.ts
         }
-      }
+      };
     } else {
       jobResult = {
         ...jobInfo,
@@ -403,7 +413,6 @@ export class Worker extends EventEmitter {
     }
     return jobResult as FetchLabelsResourceResult;
   }
-
 
   /**
    * Fetches a resource over HTTP, parses RDF content, filters and structures triples, and caches results.
@@ -422,15 +431,18 @@ export class Worker extends EventEmitter {
 
       const invalidTriples = triples.filter(
         (t) =>
-          !(t.subject?.termType === 'NamedNode' &&
+          !(
+            t.subject?.termType === 'NamedNode' &&
             t.predicate?.termType === 'NamedNode' &&
             t.object !== undefined &&
             t.object.termType !== undefined &&
-            (t.object.termType === 'NamedNode' || t.object.termType === 'Literal'))
+            (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
+          )
       );
       if (invalidTriples.length > 0) {
-        log.debug(`Found ${invalidTriples.length} invalid triples, examples:`,
-          invalidTriples.slice(0, 3).map(t => ({
+        log.debug(
+          `Found ${invalidTriples.length} invalid triples, examples:`,
+          invalidTriples.slice(0, 3).map((t) => ({
             subject: t.subject?.value,
             predicate: t.predicate?.value,
             object: t.object,
@@ -448,36 +460,33 @@ export class Worker extends EventEmitter {
             t.object.termType !== undefined &&
             (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
         )
-        .flatMap(
-          (t) => {
-            if (t.object.termType === 'NamedNode') {
-              const st: WorkerTriple = {
-                subject: t.subject.value,
-                predicate: t.predicate.value,
-                object: t.object.value,
-                type: TripleType.NAMED_NODE
-              };
-              return st;
-            } else if (t.object.termType === 'Literal') {
-              const st: WorkerLiteralTriple = {
-                subject: t.subject.value,
-                predicate: t.predicate.value,
-                object: {
-                  value: t.object.value,
-                  language: t.object.language || undefined,
-                  datatype: t.object.datatype?.value || undefined
-                },
-                type: TripleType.LITERAL
-              };
-              return st;
-            }
-            else {
-              // This case should not happen due to the filter,
-              // but we need to satisfy TypeScript
-              return [];
-            }
+        .flatMap((t) => {
+          if (t.object.termType === 'NamedNode') {
+            const st: WorkerTriple = {
+              subject: t.subject.value,
+              predicate: t.predicate.value,
+              object: t.object.value,
+              type: TripleType.NAMED_NODE
+            };
+            return st;
+          } else if (t.object.termType === 'Literal') {
+            const st: WorkerLiteralTriple = {
+              subject: t.subject.value,
+              predicate: t.predicate.value,
+              object: {
+                value: t.object.value,
+                language: t.object.language || undefined,
+                datatype: t.object.datatype?.value || undefined
+              },
+              type: TripleType.LITERAL
+            };
+            return st;
+          } else {
+            // This case should not happen due to the filter,
+            // but we need to satisfy TypeScript
+            return [];
           }
-        )
+        })
         // Filter out triples with empty object or object.value
         .filter((t): t is SimpleTriple => {
           if (t.type === TripleType.NAMED_NODE) {
@@ -499,7 +508,9 @@ export class Worker extends EventEmitter {
           triples: simpleTriples
         });
       } catch (cacheErr) {
-        const err = cacheErr as Error & { errors?: Record<string, { path: string; value?: unknown }> };
+        const err = cacheErr as Error & {
+          errors?: Record<string, { path: string; value?: unknown }>;
+        };
         if (err.errors) {
           for (const [key, val] of Object.entries(err.errors)) {
             const match = key.match(/triples\.(\d+)/);
@@ -518,8 +529,8 @@ export class Worker extends EventEmitter {
   }
 
   /**
-  * Fetches content from a URL, handling HTTP errors and redirects. Returns structured results or errors.
-  */
+   * Fetches content from a URL, handling HTTP errors and redirects. Returns structured results or errors.
+   */
   getHttpContent = async (url: string, redirect = 0): Promise<HttpRequestResult> => {
     const resp = await this.makeHttpRequest(url);
     if (resp?.status === 'not_ok') {
@@ -530,9 +541,9 @@ export class Worker extends EventEmitter {
   };
 
   /**
-  * Makes an HTTP GET request to the specified URL with appropriate headers and timeouts, handling retries and errors.
-  * Respects domain crawl delays between attempts and logs debug information for each request.
-  */
+   * Makes an HTTP GET request to the specified URL with appropriate headers and timeouts, handling retries and errors.
+   * Respects domain crawl delays between attempts and logs debug information for each request.
+   */
   makeHttpRequest = async (url: string) => {
     const timeout = config.http.domainCrawl.timeouts || 10 * 1000;
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
@@ -577,9 +588,9 @@ export class Worker extends EventEmitter {
   };
 
   /**
-  * Handles HTTP responses, checking MIME types, following redirects if necessary, and returning structured results or errors.
-  * Respects maximum redirect limits and logs relevant information for debugging.
-  */
+   * Handles HTTP responses, checking MIME types, following redirects if necessary, and returning structured results or errors.
+   * Respects maximum redirect limits and logs relevant information for debugging.
+   */
   handleHttpResponse = async (resp: MinimalAxiosResponse, redirect: number, url: string) => {
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const mime = contentType.parse(resp.headers['content-type']).type;

@@ -105,7 +105,15 @@ export class WorkerPubSub {
         return;
       }
       if (message.type === 'doJob') {
-        return this.doJob(message.payload);
+        // Use immediate invocation to catch errors
+        (async () => {
+          try {
+            await this.doJob(message.payload);
+          } catch (err) {
+            log.error('Error in doJob:', err, { job: message.payload });
+          }
+        })();
+        return;
       }
     };
 
@@ -131,11 +139,12 @@ export class WorkerPubSub {
   }
 
   async doJob(job: Exclude<JobRequest, ResourceCrawlJobRequest | ResourceLabelFetchJobRequest>) {
-    const origin = job.type === 'domainCrawl'
-      ? job.domain.origin
-      : job.type === 'robotsCheck'
-        ? job.origin
-        : job.domain;
+    const origin =
+      job.type === 'domainCrawl'
+        ? job.domain.origin
+        : job.type === 'robotsCheck'
+          ? job.origin
+          : job.domain;
     // Check if job can be done
     if (this.w.alreadyBeingDone(origin, job.type)) {
       log.error(
@@ -179,7 +188,15 @@ export class WorkerPubSub {
           resourcesToDo.delete(x.url);
           resourcesDone.add(x.url);
         }
-        this.pub({ type: 'jobDone', payload: x });
+        try {
+          this.pub({ type: 'jobDone', payload: x });
+        } catch (pubErr) {
+          log.error('Failed to publish jobDone for resource:', pubErr, {
+            url: x.url,
+            jobId: job.jobId
+          });
+          // Continue processing; generator will still complete
+        }
       }
       const jobResult: CrawlDomainResult = {
         jobId: job.jobId,
@@ -191,10 +208,17 @@ export class WorkerPubSub {
           nonCrawledResources: Array.from(resourcesToDo)
         }
       };
-      this.pub({
-        type: 'jobDone',
-        payload: jobResult
-      });
+      try {
+        this.pub({
+          type: 'jobDone',
+          payload: jobResult
+        });
+      } catch (pubErr) {
+        log.error('Failed to publish final jobDone:', pubErr, {
+          jobId: job.jobId,
+          origin: job.domain.origin
+        });
+      }
       // this.reportCurrentCapacity();
       return;
     }
@@ -211,7 +235,14 @@ export class WorkerPubSub {
           resourcesToDo.delete(x.url);
           resourcesDone.add(x.url);
         }
-        this.pub({ type: 'jobDone', payload: x });
+        try {
+          this.pub({ type: 'jobDone', payload: x });
+        } catch (pubErr) {
+          log.error('Failed to publish jobDone for resource label:', pubErr, {
+            url: x.url,
+            jobId: job.jobId
+          });
+        }
       }
       const jobResult: FetchLabelsDomainResult = {
         jobId: job.jobId,
@@ -223,10 +254,17 @@ export class WorkerPubSub {
           nonLabeledResources: Array.from(resourcesToDo)
         }
       };
-      this.pub({
-        type: 'jobDone',
-        payload: jobResult
-      });
+      try {
+        this.pub({
+          type: 'jobDone',
+          payload: jobResult
+        });
+      } catch (pubErr) {
+        log.error('Failed to publish final labelFetch jobDone:', pubErr, {
+          jobId: job.jobId,
+          origin: job.domain.origin
+        });
+      }
     }
   }
 
