@@ -306,11 +306,11 @@ export default class Manager {
 
     // Store all triples using unified upsertMany
     log.info('Calling Triple.upsertMany with', nnTriples.length, 'triples');
-    const nnTripleResult = await Triple.upsertMany(source, nnTriples);
+    const nnTripleResult = await Triple.upsertMany(source.url, nnTriples);
     log.info('Triple.upsertMany result:', nnTripleResult);
 
     log.info('Calling Triple.upsertMany with', labelTriples.length, 'label triples');
-    const labelTripleResult = await Triple.upsertMany(source, labelTriples);
+    const labelTripleResult = await Triple.upsertMany(source.url, labelTriples);
     log.info('Triple.upsertMany result for label triples:', labelTripleResult);
 
     if (extendLabelsOnly) {
