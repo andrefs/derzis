@@ -70,9 +70,9 @@ export async function getPathsForRobotsChecking(
   lastSeenShortestPathLength: number | null = null,
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
-  const lockedFilter = await getLockedDomainFilter();
-
   // Only include paths from domains that are 'unvisited' (eligible for robots checking)
+  // Note: No need to exclude 'locked' domains via $nin - domains with status 'unvisited'
+  // are already disjoint from 'checking', 'labelFetching', 'crawling'
   const unvisitedDomains = await Domain.find({ status: 'unvisited' }).select('origin').lean();
   const eligibleOrigins = unvisitedDomains.map((d) => d.origin);
   if (!eligibleOrigins.length) {
@@ -132,7 +132,6 @@ export async function getPathsForRobotsChecking(
     const paths = await TraversalPath.find({
       ...baseQuery,
       ...cursorCondition,
-      ...lockedFilter,
       'nodes.count': { $lt: process.currentStep.maxPathLength },
       'predicates.count': { $lte: process.currentStep.maxPathProps }
     })
@@ -144,7 +143,6 @@ export async function getPathsForRobotsChecking(
     const paths = await EndpointPath.find({
       ...baseQuery,
       ...cursorCondition,
-      ...lockedFilter,
       shortestPathLength: { $lt: process.currentStep.maxPathLength }
     })
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
@@ -183,16 +181,21 @@ export async function getPathsForDomainCrawl(
     return [];
   }
 
+  // Build origin filter: $in eligible origins, optionally excluding user-provided blacklist
+  // Note: No need to exclude 'locked' domains via $nin - domains with status 'ready'
+  // are already disjoint from 'checking', 'labelFetching', 'crawling'
+  const originFilter = domainBlacklist.length > 0
+    ? { $in: eligibleOrigins.filter(o => !domainBlacklist.includes(o)) }
+    : { $in: eligibleOrigins };
+
   const baseQuery = {
     'head.type': HEAD_TYPE.URL,
     'head.domain.isUnvisited': false,
     'head.status': 'unvisited',
-    'head.domain.origin': { $in: eligibleOrigins },
+    'head.domain.origin': originFilter,
     processId: process.pid,
     status: 'active'
   };
-  // Get locked domains and combine with domainBlacklist
-  const domainFilter = await getLockedDomainFilter(domainBlacklist);
   const select =
     'head.status head.type head.domain head.url createdAt _id nodes.count shortestPathLength';
 
@@ -241,8 +244,7 @@ export async function getPathsForDomainCrawl(
     const paths = await TraversalPath.find({
       ...baseQuery,
       ...traversalQuery,
-      ...cursorCondition,
-      ...domainFilter
+      ...cursorCondition
     })
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(limit)
@@ -252,8 +254,7 @@ export async function getPathsForDomainCrawl(
     const paths = await EndpointPath.find({
       ...baseQuery,
       shortestPathLength: { $lt: process.currentStep.maxPathLength },
-      ...cursorCondition,
-      ...domainFilter
+      ...cursorCondition
     })
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
