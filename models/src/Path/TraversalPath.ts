@@ -66,7 +66,10 @@ type RecursivePartial<T> = {
     const origin = new URL(urlHead.url).origin;
     const d = await Domain.findOne({ origin });
     if (d) {
-      urlHead.domain = d.origin;
+      urlHead.domain = {
+        origin: d.origin,
+        isUnvisited: d.status === 'unvisited',
+      }
     }
   }
 })
@@ -242,7 +245,10 @@ export class TraversalPathClass extends PathClass {
         ep.head = {
           type: HEAD_TYPE.URL,
           url: newHeadUrl,
-          domain,
+          domain: {
+            origin: domain,
+            isUnvisited: true // this will be updated before saving
+          },
           status: 'unvisited'
         } as Head;
         ep.status = 'active';

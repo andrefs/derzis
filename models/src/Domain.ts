@@ -7,7 +7,7 @@ import type {
   RobotsCheckResultOk
 } from '@derzis/common';
 import { Counter } from './Counter';
-import { HEAD_TYPE, UrlHead } from './Path';
+import { HEAD_TYPE, Path, UrlHead } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type UpdateOneModel, Types } from 'mongoose';
@@ -164,6 +164,15 @@ class DomainClass {
       { new: true }
     );
 
+    // update all paths 'isUnvisited'
+    await Path.updateMany(
+      {
+        'head.domain.origin': jobResult.origin,
+        'head.type': HEAD_TYPE.URL,
+      },
+      { 'head.domain.isUnvisited': false }
+    );
+
     //if (jobResult.err.errorType === 'host_not_found') {
     //  for await (const path of TraversalPath.find({ 'head.domain': jobResult.origin, status: 'active' })) {
     //    // await path.markDisabled(); // TODO make sure this was not needed
@@ -200,7 +209,7 @@ class DomainClass {
         jobId: ''
       }
     };
-    return await this.findOneAndUpdate(
+    await this.findOneAndUpdate(
       {
         origin: jobResult.origin,
         jobId: jobResult.jobId
@@ -208,6 +217,17 @@ class DomainClass {
       doc,
       { new: true }
     );
+
+    // update all paths 'isUnvisited'
+    await Path.updateMany(
+      {
+        'head.domain.origin': jobResult.origin,
+        'head.type': HEAD_TYPE.URL,
+      },
+      { 'head.domain.isUnvisited': false }
+    );
+
+    return;
   }
 
   public static async upsertMany(this: ReturnModelType<typeof DomainClass>, urls: string[]) {
@@ -455,9 +475,16 @@ class DomainClass {
         }
 
         const origins = new Set<string>(
-          paths.filter((p) => p.head.type === HEAD_TYPE.URL).map((p) => (p.head as UrlHead).domain)
+          paths
+            .filter((p) => p.head.type === HEAD_TYPE.URL)
+            .map((p) => (p.head as UrlHead).domain.origin)
         );
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
+        log.silly(
+          `Worker ${wId} locked the following domains for robots checking for process ${proc.id}: ${domains.map(
+            (d) => d.origin
+          )}`
+        );
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
@@ -494,13 +521,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-          domain,
-          status: 'unvisited',
-          url: { $nin: dPathHeads.map((r) => r.url) }
-        })
-          .limit(limit)
-          .select('url')
-          .lean()
+        domain,
+        status: 'unvisited',
+        url: { $nin: dPathHeads.map((r) => r.url) }
+      })
+        .limit(limit)
+        .select('url')
+        .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
@@ -754,8 +781,13 @@ class DomainClass {
           `Preparing to lock for crawl domains from the following resources`,
           Array.from(new Set(unvisHeads.map((h) => h.url)))
         );
-        const origins = new Set<string>(unvisHeads.map((h) => h.domain));
+        const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
+        log.silly(
+          `Worker ${wId} locked the following domains for crawling for process ${proc.id}: ${domains.map(
+            (d) => d.origin
+          )}`
+        );
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
@@ -796,8 +828,8 @@ class DomainClass {
           domainInfo[d.origin] = { domain: d, resources: [] };
         }
         for (const h of unvisHeads) {
-          if (h.domain in domainInfo) {
-            domainInfo[h.domain].resources!.push({ url: h.url });
+          if (h.domain.origin in domainInfo) {
+            domainInfo[h.domain.origin].resources!.push({ url: h.url });
           }
         }
 

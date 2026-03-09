@@ -442,6 +442,11 @@ export default class Manager {
       workerAvail.domainCrawl.capacity,
       workerAvail.domainCrawl.resourcesPerDomain
     )) {
+      log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning domainCrawl', {
+        workerId,
+        workerAvail,
+        crawl
+      });
       gotRes = true;
       if (
         crawl?.resources?.length &&

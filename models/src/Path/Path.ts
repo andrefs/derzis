@@ -42,6 +42,14 @@ class SeedClass {
   public url!: string;
 }
 
+class DomainClass {
+  @prop({ required: true, type: String })
+  public origin!: string;
+
+  @prop({ required: true, type: Boolean, default: true })
+  public isUnvisited!: boolean;
+}
+
 @modelOptions({ schemaOptions: { _id: false, discriminatorKey: 'type' } })
 export class HeadBase {
   @prop({ type: String, default: HEAD_TYPE.URL })
@@ -61,8 +69,8 @@ export class UrlHead extends HeadBase {
   })
   public status!: 'unvisited' | 'done' | 'crawling' | 'error';
 
-  @prop({ required: true, type: String })
-  public domain!: string;
+  @prop({ required: true, type: DomainClass })
+  public domain!: DomainClass;
 }
 
 @modelOptions({ schemaOptions: { _id: false } })

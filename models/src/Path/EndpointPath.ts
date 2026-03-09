@@ -359,6 +359,15 @@ async function queryExistingEndpointPaths(
   return map;
 }
 
+/**
+  * Processes a single URL candidate by either updating an existing endpoint path or creating a new one.
+  * For existing paths, it performs a read-modify-write to merge seed path information and update the shortest path length if necessary.
+  * For new paths, it validates the URL and constructs a new EndpointPathSkeleton.
+  * @param candidate - The candidate containing headUrl, distance, and seedPaths information.
+  * @param existing - An optional existing EndpointPathDocument that matches the candidate's headUrl.
+  * @returns A Promise that resolves to an updated or new EndpointPathSkeleton, or null if no changes were made or if the URL was invalid.
+  */
+
 async function processUrlCandidate(
   this: EndpointPathClass,
   candidate: Candidate,
@@ -425,7 +434,10 @@ async function processUrlCandidate(
       head: {
         type: HEAD_TYPE.URL,
         url: headUrl!,
-        domain
+        domain: {
+          origin: domain,
+          isUnvisited: true // this will be updated before saving
+        }
       } as Head,
       status: 'active',
       shortestPathLength: distance,

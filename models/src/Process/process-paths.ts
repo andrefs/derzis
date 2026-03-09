@@ -81,9 +81,10 @@ export async function getPathsForRobotsChecking(
 
   const baseQuery = {
     processId: process.pid,
+    'head.domain.isUnvisited': true,
     'head.status': 'unvisited',
     'head.type': HEAD_TYPE.URL,
-    'head.domain': { $in: eligibleOrigins },
+    'head.domain.origin': { $in: eligibleOrigins },
     status: 'active'
   };
   const select = 'head.domain head.type createdAt _id nodes.count shortestPathLength';
@@ -184,8 +185,9 @@ export async function getPathsForDomainCrawl(
 
   const baseQuery = {
     'head.type': HEAD_TYPE.URL,
+    'head.domain.isUnvisited': false,
     'head.status': 'unvisited',
-    'head.domain': { $in: eligibleOrigins },
+    'head.domain.origin': { $in: eligibleOrigins },
     processId: process.pid,
     status: 'active'
   };
@@ -450,7 +452,7 @@ async function createNewPaths(
               $set: {
                 'head.type': 'url',
                 'head.status': existingHead.status === 'error' ? 'unvisited' : existingHead.status,
-                'head.domain': domain,
+                'head.domain.origin': domain.origin,
                 type: 'endpoint',
                 shortestPathLength: finalShortest,
                 seedPaths: finalSeedPaths,
@@ -546,13 +548,17 @@ async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
     .select('url status')
     .lean();
   const resourceMap: { [url: string]: 'unvisited' | 'done' | 'crawling' | 'error' } = {};
-
   for (const r of resources) {
     resourceMap[r.url] = r.status;
   }
 
+  const domains = await Domain.find({ origin: { $in: Object.keys(resourceMap) } }).select('origin status').lean();
+  const domainsUnvisited = new Set(domains.filter((d) => d.status === 'unvisited').map((d) => d.origin));
+
+
   for (const np of urlPaths) {
     np.head.status = resourceMap[np.head.url] || 'unvisited';
+    np.head.domain.isUnvisited = domainsUnvisited.has(np.head.domain.origin);
   }
 }
 
