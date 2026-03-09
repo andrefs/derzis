@@ -90,7 +90,8 @@ export type EndpointPathSkeleton = Pick<
     'head.type': 1,
     'head.status': 1,
     'head.domain': 1,
-    shortestPathLength: 1
+    shortestPathLength: 1,
+    createdAt: 1
   },
   {
     name: 'idx_endpoint_crawl',
