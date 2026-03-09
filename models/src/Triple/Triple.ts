@@ -57,7 +57,7 @@ export class TripleClass extends TimeStamps {
 
   public static async upsertMany(
     this: ReturnModelType<typeof TripleClass>,
-    source: ResourceClass,
+    sourceUrl: string,
     triples: SimpleTriple[]
   ): Promise<BulkWriteResult[]> {
     if (!triples || !triples.length) {
@@ -71,13 +71,13 @@ export class TripleClass extends TimeStamps {
     const results: BulkWriteResult[] = [];
 
     if (namedNodeTriples.length > 0) {
-      const namedNodeOps = buildBulkOps(namedNodeTriples, source, TripleType.NAMED_NODE);
+      const namedNodeOps = buildBulkOps(namedNodeTriples, sourceUrl, TripleType.NAMED_NODE);
       const namedNodeResults = await executeBulkOps(NamedNodeTriple, namedNodeOps);
       results.push(...namedNodeResults);
     }
 
     if (literalTriples.length > 0) {
-      const literalOps = buildBulkOps(literalTriples, source, TripleType.LITERAL);
+      const literalOps = buildBulkOps(literalTriples, sourceUrl, TripleType.LITERAL);
       const literalResults = await executeBulkOps(LiteralTriple, literalOps);
       results.push(...literalResults);
     }
@@ -88,7 +88,7 @@ export class TripleClass extends TimeStamps {
 
 function buildBulkOps(
   triples: SimpleTriple[],
-  source: ResourceClass,
+  sourceUrl: string,
   type: TripleType
 ): ReturnModelType<typeof TripleClass>['bulkWrite'] extends (ops: infer T) => Promise<any>
   ? T
@@ -102,7 +102,7 @@ function buildBulkOps(
         : `${t.subject}\u0000${t.predicate}\u0000${JSON.stringify(t.object)}`;
 
     if (tripleMap.has(key)) {
-      tripleMap.get(key)!.sources!.push(source.url);
+      tripleMap.get(key)!.sources!.push(sourceUrl);
     } else {
       const nodes =
         t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
@@ -112,7 +112,7 @@ function buildBulkOps(
         subject: t.subject,
         predicate: t.predicate,
         object: t.object,
-        sources: [source.url],
+        sources: [sourceUrl],
         nodes,
         type: t.type
       };
