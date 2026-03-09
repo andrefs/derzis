@@ -331,6 +331,13 @@ class ResourceClass {
           log.warn('Attempting to insert/update EndpointPath seeds with bulkWrite', JSON.stringify({ bulkOps }));
           result = await EndpointPath.bulkWrite(bulkOps as any, { ordered: false });
           log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result.upsertedCount });
+          
+          // Check for validation errors in result (Mongoose includes them even when not thrown)
+          if ((result as any).mongoose?.validationErrors?.length) {
+            log.error('BulkWrite result contains validation errors!', {
+              validationErrors: (result as any).mongoose.validationErrors
+            });
+          }
         } catch (error: any) {
           if (error.code !== 11000) {
             log.error('Failed to upsert EndpointPath seed documents', {

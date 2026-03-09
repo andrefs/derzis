@@ -48,6 +48,7 @@ export class HeadBase {
   public type!: typeof HEAD_TYPE.URL | typeof HEAD_TYPE.LITERAL;
 }
 
+@modelOptions({ schemaOptions: { _id: false } })
 export class UrlHead extends HeadBase {
   @prop({ required: true, validate: urlValidator, type: String })
   public url!: string;
@@ -64,6 +65,7 @@ export class UrlHead extends HeadBase {
   public domain!: string;
 }
 
+@modelOptions({ schemaOptions: { _id: false } })
 export class LiteralHead extends HeadBase implements LiteralObject {
   @prop({ required: true, type: String })
   public value!: string;
@@ -89,7 +91,8 @@ export { ResourceCount, SeedClass };
   schemaOptions: {
     discriminatorKey: 'type',
     timestamps: true,
-    collection: 'paths'
+    collection: 'paths',
+    strict: false
   }
 })
 @index({ processId: 1, status: 1 })
