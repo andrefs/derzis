@@ -1,10 +1,11 @@
-import type { Types, Document, UpdateQuery } from 'mongoose';
+import type { Types, Document, UpdateQuery, AnyBulkWriteOperation } from 'mongoose';
 import { PathType, TripleType, urlValidator, WorkerError } from '@derzis/common';
 import { Domain, DomainClass } from './Domain';
 import {
   TraversalPath,
   EndpointPath,
   type TraversalPathDocument,
+  type EndpointPathDocument,
   EndpointPathClass,
   HEAD_TYPE,
   UrlHead
@@ -294,7 +295,7 @@ class ResourceClass {
         triples: []
       }));
 
-      const insPaths = (await TraversalPath.create(paths as any)) as any;
+      const insPaths = await TraversalPath.create(paths);
       return this.addTvPaths(insPaths);
     }
     // Endpoint paths
@@ -315,10 +316,9 @@ class ResourceClass {
                   url: s.url,
                   status: s.status,
                   domain: s.domain
-                } as any,
-                status: 'active',
+                },
+                status: 'active' as const,
                 shortestPathLength: 1,
-                shortestPath: { length: 1, seed: s.url },
                 seedPaths: [{ seed: s.url, minLength: 1 }]
               }
             },
@@ -328,6 +328,7 @@ class ResourceClass {
 
         let result;
         try {
+          log.warn('Attempting to insert/update EndpointPath seeds with bulkWrite', JSON.stringify({ bulkOps }));
           result = await EndpointPath.bulkWrite(bulkOps as any, { ordered: false });
           log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result.upsertedCount });
         } catch (error: any) {
