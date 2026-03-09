@@ -337,11 +337,14 @@ export class Worker extends EventEmitter {
       const queryPromise = Triple.find({ sources: url }) as Promise<
         (NamedNodeTripleDocument | LiteralTripleDocument)[]
       >;
-      const triples = (await Promise.race([queryPromise, timeoutPromise])) as (
+      const docs = (await Promise.race([queryPromise, timeoutPromise])) as (
         | NamedNodeTripleDocument
         | LiteralTripleDocument
       )[];
-      return triples.map((t) => {
+      if (!docs || docs.length === 0) {
+        return null;
+      }
+      return docs.map((t) => {
         if (t.type === TripleType.LITERAL) {
           const lit = t as LiteralTripleDocument;
           return {
