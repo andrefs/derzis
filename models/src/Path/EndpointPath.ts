@@ -66,7 +66,7 @@ export type EndpointPathSkeleton = Pick<
 )
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
-@index({ type: 1, 'head.domain': 1, status: 1 })
+@index({ type: 1, 'head.domain.origin': 1, status: 1 })
 // Optimized index for endpoint path queries with shortestPathLength sort
 @index(
   {
@@ -89,7 +89,7 @@ export type EndpointPathSkeleton = Pick<
     status: 1,
     'head.type': 1,
     'head.status': 1,
-    'head.domain': 1,
+    'head.domain.origin': 1,
     shortestPathLength: 1,
     createdAt: 1
   },

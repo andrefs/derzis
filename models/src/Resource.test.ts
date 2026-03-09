@@ -32,7 +32,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed1',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -84,7 +84,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://dbpedia.org/resource/Cheese',
-          domain: 'http://dbpedia.org',
+          domain: { origin: 'http://dbpedia.org', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -100,7 +100,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -117,7 +117,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -132,7 +132,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -155,7 +155,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -193,7 +193,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -209,7 +209,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -226,7 +226,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];
@@ -243,7 +243,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: 'http://example.com',
+          domain: { origin: 'http://example.com', isUnvisited: true },
           status: 'unvisited' as const
         }
       ];

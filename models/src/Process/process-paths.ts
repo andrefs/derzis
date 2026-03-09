@@ -44,10 +44,10 @@ async function getLockedDomainFilter(domainBlacklist: string[] = []) {
   }
 
   if (lockedOrigins.length === 1) {
-    return { 'head.domain': { $ne: lockedOrigins[0] } };
+    return { 'head.domain.origin': { $ne: lockedOrigins[0] } };
   }
 
-  return { 'head.domain': { $nin: lockedOrigins } };
+  return { 'head.domain.origin': { $nin: lockedOrigins } };
 }
 
 /**
@@ -273,7 +273,7 @@ export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promi
     processId: process.pid,
     status: 'active',
     'head.type': HEAD_TYPE.URL,
-    'head.domain': { $in: domains.map((d) => d.origin) }
+    'head.domain.origin': { $in: domains.map((d) => d.origin) }
   });
   return !!pathsCount;
 }
@@ -287,7 +287,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
     processId: process.pid,
     status: 'active',
     'head.type': HEAD_TYPE.URL,
-    'head.domain': { $in: domains.map((d) => d.origin) }
+    'head.domain.origin': { $in: domains.map((d) => d.origin) }
   });
   return !!pathsCount;
 }

@@ -99,7 +99,7 @@ type RecursivePartial<T> = {
   'predicates.count': 1
 })
 @index({ 'head.status': 1, status: 1 })
-@index({ type: 1, 'head.domain': 1, status: 1 })
+@index({ type: 1, 'head.domain.origin': 1, status: 1 })
 @index({ processId: 1, 'head.url': 1 })
 @index({ processId: 1, status: 1, extensionCounter: 1 })
 // Indexes for path extension API (headUrl and full extend)
@@ -116,7 +116,7 @@ type RecursivePartial<T> = {
   processId: 1,
   status: 1,
   'head.type': 1,
-  'head.domain': 1,
+  'head.domain.origin': 1,
   'nodes.count': 1,
   createdAt: 1,
   _id: 1

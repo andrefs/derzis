@@ -49,7 +49,7 @@ vi.mock('../Path/TraversalPath', () => {
       type: 'url',
       url: 'http://test.com',
       status: 'unvisited',
-      domain: 'http://test.com'
+      domain: { origin: 'http://test.com', isUnvisited: true }
     };
     seed: any = { url: 'http://example.com/seed' };
 
@@ -91,7 +91,7 @@ vi.mock('../Path/EndpointPath', () => {
       type: 'url',
       url: 'http://test.com',
       status: 'unvisited',
-      domain: 'http://test.com'
+      domain: { origin: 'http://test.com', isUnvisited: true }
     };
     seed: any = { url: 'http://example.com/seed' };
 
@@ -391,7 +391,7 @@ describe('genTraversalPathQuery', () => {
         processId: 'pid-1',
         status: 'active',
         'head.type': 'url',
-        'head.domain': { $in: mockDomains.map((d) => d.origin) }
+        'head.domain.origin': { $in: mockDomains.map((d) => d.origin) }
       });
     });
 
@@ -458,7 +458,7 @@ describe('genTraversalPathQuery', () => {
         processId: 'pid-1',
         status: 'active',
         'head.type': HEAD_TYPE.URL,
-        'head.domain': { $in: mockCrawlingDomains.map((d) => d.origin) }
+        'head.domain.origin': { $in: mockCrawlingDomains.map((d) => d.origin) }
       });
     });
 
@@ -472,7 +472,7 @@ describe('genTraversalPathQuery', () => {
         processId: 'pid-2',
         status: 'active',
         'head.type': HEAD_TYPE.URL,
-        'head.domain': { $in: mockCrawlingDomains.map((d) => d.origin) }
+        'head.domain.origin': { $in: mockCrawlingDomains.map((d) => d.origin) }
       });
     });
 

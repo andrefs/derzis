@@ -14,7 +14,7 @@ function createMockPath(overlays: any = {}): any {
     type: HEAD_TYPE.URL,
     url: 'http://head.example.com',
     status: 'unvisited',
-    domain: 'http://head.example.com'
+    domain: { origin: 'http://head.example.com', isUnvisited: true }
   };
   path.shortestPathLength = 1;
   path.seedPaths = {};
@@ -131,7 +131,7 @@ describe('EndpointPathClass', () => {
           type: HEAD_TYPE.URL,
           url: 'http://head.example.com',
           status: 'unvisited',
-          domain: 'http://head.example.com'
+          domain: { origin: 'http://head.example.com', isUnvisited: true }
         }
       });
 
