@@ -64,11 +64,9 @@ export type EndpointPathSkeleton = Pick<
     partialFilterExpression: { 'head.type': HEAD_TYPE.URL }
   }
 )
-@index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
 @index({ 'head.status': 1, status: 1 })
 @index({ type: 1, 'head.domain': 1, status: 1 })
-@index({ type: 1 }, { name: 'type_1_endpoint' })
 // Optimized index for endpoint path queries with shortestPathLength sort
 @index(
   {
@@ -81,6 +79,21 @@ export type EndpointPathSkeleton = Pick<
   },
   {
     name: 'idx_endpoint_query',
+    partialFilterExpression: { type: PathType.ENDPOINT }
+  }
+)
+// Optimized index for endpoint crawl queries with head.status and head.domain filters
+@index(
+  {
+    processId: 1,
+    status: 1,
+    'head.type': 1,
+    'head.status': 1,
+    'head.domain': 1,
+    shortestPathLength: 1
+  },
+  {
+    name: 'idx_endpoint_crawl',
     partialFilterExpression: { type: PathType.ENDPOINT }
   }
 )
