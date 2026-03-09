@@ -105,7 +105,10 @@ export class WorkerPubSub {
         return;
       }
       if (message.type === 'doJob') {
+<<<<<<< HEAD
         // Use immediate invocation to catch errors
+=======
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
         (async () => {
           try {
             await this.doJob(message.payload);
@@ -171,8 +174,14 @@ export class WorkerPubSub {
     log.info(`Starting job ${job.type} on ${origin} (job #${job.jobId})`);
     if (job.type === 'robotsCheck') {
       const res = await this.w.checkRobots(job.jobId, job.origin);
-      this.pub({ type: 'jobDone', payload: res });
-      // this.reportCurrentCapacity();
+      try {
+        this.pub({ type: 'jobDone', payload: res });
+      } catch (pubErr) {
+        log.error('Failed to publish jobDone for robotsCheck:', pubErr, {
+          jobId: job.jobId,
+          origin: job.origin
+        });
+      }
       return;
     }
     if (job.type === 'domainCrawl') {
@@ -195,7 +204,10 @@ export class WorkerPubSub {
             url: x.url,
             jobId: job.jobId
           });
+<<<<<<< HEAD
           // Continue processing; generator will still complete
+=======
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
         }
       }
       const jobResult: CrawlDomainResult = {
@@ -214,12 +226,19 @@ export class WorkerPubSub {
           payload: jobResult
         });
       } catch (pubErr) {
+<<<<<<< HEAD
         log.error('Failed to publish final jobDone:', pubErr, {
+=======
+        log.error('Failed to publish final jobDone for domainCrawl:', pubErr, {
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
           jobId: job.jobId,
           origin: job.domain.origin
         });
       }
+<<<<<<< HEAD
       // this.reportCurrentCapacity();
+=======
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
       return;
     }
     if (job.type === 'domainLabelFetch') {
@@ -260,7 +279,11 @@ export class WorkerPubSub {
           payload: jobResult
         });
       } catch (pubErr) {
+<<<<<<< HEAD
         log.error('Failed to publish final labelFetch jobDone:', pubErr, {
+=======
+        log.error('Failed to publish final jobDone for domainLabelFetch:', pubErr, {
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
           jobId: job.jobId,
           origin: job.domain.origin
         });

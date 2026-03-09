@@ -3,7 +3,13 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { ResourceCache, db, type WorkerTriple, type WorkerLiteralTriple } from '@derzis/models';
+import {
+  ResourceCache,
+  db,
+  type WorkerTriple,
+  type WorkerLiteralTriple,
+  type ResourceCacheDocument
+} from '@derzis/models';
 import type { LiteralObject } from '@derzis/common';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
@@ -17,8 +23,10 @@ import { createLogger, type MonkeyPatchedLogger } from '@derzis/common/server';
 import {
   JobTimeoutError,
   MimeTypeError,
+  RequestTimeoutError,
   RobotsForbiddenError,
   TooManyRedirectsError,
+  WorkerError,
   type JobType,
   type RobotsCheckResult,
   type CrawlResourceResult,
@@ -206,8 +214,42 @@ export class Worker extends EventEmitter {
       });
       delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
 
+<<<<<<< HEAD
+=======
+      const resourceTimeoutMs = 60_000; // 60 seconds per resource
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
       for (const r of resources) {
-        const res = await this.crawlResource(jobId, domain.origin, r.url, robots);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Resource crawl timeout after ${resourceTimeoutMs}ms`)),
+            resourceTimeoutMs
+          )
+        );
+        const res = await Promise.race([
+          this.crawlResource(jobId, domain.origin, r.url, robots),
+          timeoutPromise
+        ]).catch((err) => {
+          log.error('crawlResource failed or timed out:', err, { url: r.url, jobId });
+          let workerErr: WorkerError;
+          if (err instanceof WorkerError) {
+            workerErr = err;
+          } else {
+            workerErr = new WorkerError();
+            workerErr.message = err instanceof Error ? err.message : String(err);
+          }
+          return {
+            jobType: 'resourceCrawl' as const,
+            jobId,
+            origin: domain.origin,
+            url: r.url,
+            status: 'not_ok' as const,
+            details: {
+              crawlId: { domainTs: this.crawlTs, counter: this.crawlCounter },
+              ts: Date.now()
+            },
+            err: workerErr
+          };
+        });
         if (!res) {
           break;
         }
@@ -242,8 +284,42 @@ export class Worker extends EventEmitter {
       });
       delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
 
+<<<<<<< HEAD
+=======
+      const resourceTimeoutMs = 60_000; // 60 seconds per resource
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
       for (const r of resources) {
-        const res = await this.fetchResourceLabels(jobId, domain.origin, r.url, robots);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Resource label fetch timeout after ${resourceTimeoutMs}ms`)),
+            resourceTimeoutMs
+          )
+        );
+        const res = await Promise.race([
+          this.fetchResourceLabels(jobId, domain.origin, r.url, robots),
+          timeoutPromise
+        ]).catch((err) => {
+          log.error('fetchResourceLabels failed or timed out:', err, { url: r.url, jobId });
+          let workerErr: WorkerError;
+          if (err instanceof WorkerError) {
+            workerErr = err;
+          } else {
+            workerErr = new WorkerError();
+            workerErr.message = err instanceof Error ? err.message : String(err);
+          }
+          return {
+            jobType: 'resourceLabelFetch' as const,
+            jobId,
+            origin: domain.origin,
+            url: r.url,
+            status: 'not_ok' as const,
+            details: {
+              labelFetchId: { domainTs: this.crawlTs, counter: this.crawlCounter },
+              ts: Date.now()
+            },
+            err: workerErr
+          };
+        });
         if (!res) {
           break;
         }
@@ -258,8 +334,18 @@ export class Worker extends EventEmitter {
     }
   }
 
-  async getResourceFromCache(url: string) {
-    return ResourceCache.findOne({ url });
+  async getResourceFromCache(url: string): Promise<ResourceCacheDocument | null> {
+    try {
+      const timeoutMs = 30000;
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database query timeout')), timeoutMs)
+      );
+      const queryPromise = ResourceCache.findOne({ url }) as Promise<ResourceCacheDocument | null>;
+      return (await Promise.race([queryPromise, timeoutPromise])) as ResourceCacheDocument | null;
+    } catch (err) {
+      log.debug('Cache lookup failed (treating as cache miss):', err, { url });
+      return null;
+    }
   }
 
   /**
@@ -272,6 +358,9 @@ export class Worker extends EventEmitter {
     url: string,
     robots: Robot
   ): Promise<CrawlResourceResult> {
+    const startTime = Date.now();
+    log.debug(`crawlResource START: ${url} (job #${jobId})`);
+
     const jobInfo = {
       jobType: 'resourceCrawl' as const,
       jobId,
@@ -279,6 +368,7 @@ export class Worker extends EventEmitter {
       url
     };
     const crawlId = { domainTs: this.crawlTs, counter: this.crawlCounter };
+
     if (this.jobsTimedout[origin]) {
       delete this.jobsTimedout[origin];
       delete this.currentJobs.domainCrawl[origin];
@@ -291,9 +381,13 @@ export class Worker extends EventEmitter {
       };
     }
     this.crawlCounter++;
+<<<<<<< HEAD
     let jobResult: CrawlResourceResult;
+=======
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
 
     if (robots.isDisallowed(url, config.http.userAgent)) {
+      log.debug(`Robots disallowed: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'not_ok' as const,
@@ -302,22 +396,28 @@ export class Worker extends EventEmitter {
       };
     }
 
+    log.debug(`Checking cache for: ${url} (job #${jobId})`);
     const cachedRes = await this.getResourceFromCache(url);
     if (cachedRes) {
+      log.debug(`Cache HIT: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'ok',
         details: {
           crawlId,
-          triples: cachedRes.triples?.map((t) => t.toObject()),
+          triples: cachedRes.triples?.map((t: WorkerTriple) => (t as any).toObject()),
           ts: crawlId.domainTs.getTime(),
           cached: true
         }
       } as CrawlResourceResultOk;
     }
+    log.debug(`Cache MISS: ${url} (job #${jobId})`);
 
+    log.debug(`Fetching resource: ${url} (job #${jobId})`);
     const res = await this.fetchResource(url);
+    log.debug(`Fetch completed for ${url}, status: ${res.status} (job #${jobId})`);
 
+    let jobResult: CrawlResourceResult;
     if (res.status === 'ok') {
       jobResult = {
         ...jobInfo,
@@ -336,6 +436,10 @@ export class Worker extends EventEmitter {
         err: res.err
       };
     }
+
+    const elapsed = Date.now() - startTime;
+    log.debug(`crawlResource END: ${url} (job #${jobId}) took ${elapsed}ms`);
+
     return jobResult as CrawlResourceResult;
   }
 
@@ -349,6 +453,9 @@ export class Worker extends EventEmitter {
     url: string,
     robots: Robot
   ): Promise<FetchLabelsResourceResult> {
+    const startTime = Date.now();
+    log.debug(`fetchResourceLabels START: ${url} (job #${jobId})`);
+
     const jobInfo = {
       jobType: 'resourceLabelFetch' as const,
       jobId,
@@ -356,6 +463,7 @@ export class Worker extends EventEmitter {
       url
     };
     const labelFetchId = { domainTs: this.crawlTs, counter: this.crawlCounter };
+
     if (this.jobsTimedout[origin]) {
       delete this.jobsTimedout[origin];
       delete this.currentJobs.domainLabelFetch[origin];
@@ -368,9 +476,13 @@ export class Worker extends EventEmitter {
       };
     }
     this.crawlCounter++;
+<<<<<<< HEAD
     let jobResult: FetchLabelsResourceResult;
+=======
+>>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
 
     if (robots.isDisallowed(url, config.http.userAgent)) {
+      log.debug(`Robots disallowed: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'not_ok' as const,
@@ -379,20 +491,26 @@ export class Worker extends EventEmitter {
       };
     }
 
+    log.debug(`Checking cache for: ${url} (job #${jobId})`);
     const cachedRes = await this.getResourceFromCache(url);
     if (cachedRes) {
+      log.debug(`Cache HIT: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'ok',
         details: {
           labelFetchId,
-          triples: cachedRes.triples
+          triples: cachedRes.triples?.map((t: WorkerTriple) => (t as any).toObject())
         }
       } as FetchLabelsResourceResult;
     }
+    log.debug(`Cache MISS: ${url} (job #${jobId})`);
 
+    log.debug(`Fetching resource: ${url} (job #${jobId})`);
     const res = await this.fetchResource(url);
+    log.debug(`Fetch completed for ${url}, status: ${res.status} (job #${jobId})`);
 
+    let jobResult: FetchLabelsResourceResult;
     if (res.status === 'ok') {
       jobResult = {
         ...jobInfo,
@@ -411,6 +529,10 @@ export class Worker extends EventEmitter {
         err: res.err
       };
     }
+
+    const elapsed = Date.now() - startTime;
+    log.debug(`fetchResourceLabels END: ${url} (job #${jobId}) took ${elapsed}ms`);
+
     return jobResult as FetchLabelsResourceResult;
   }
 
@@ -503,10 +625,15 @@ export class Worker extends EventEmitter {
       }
 
       try {
-        await ResourceCache.create({
+        const timeoutMs = 30000;
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Database query timeout')), timeoutMs)
+        );
+        const createPromise = ResourceCache.create({
           url,
           triples: simpleTriples
         });
+        await Promise.race([createPromise, timeoutPromise]);
       } catch (cacheErr) {
         const err = cacheErr as Error & {
           errors?: Record<string, { path: string; value?: unknown }>;
