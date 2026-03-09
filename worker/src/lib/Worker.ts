@@ -214,10 +214,7 @@ export class Worker extends EventEmitter {
       });
       delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
 
-<<<<<<< HEAD
-=======
       const resourceTimeoutMs = 60_000; // 60 seconds per resource
->>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
       for (const r of resources) {
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(
@@ -284,10 +281,7 @@ export class Worker extends EventEmitter {
       });
       delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
 
-<<<<<<< HEAD
-=======
       const resourceTimeoutMs = 60_000; // 60 seconds per resource
->>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
       for (const r of resources) {
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(
@@ -381,10 +375,6 @@ export class Worker extends EventEmitter {
       };
     }
     this.crawlCounter++;
-<<<<<<< HEAD
-    let jobResult: CrawlResourceResult;
-=======
->>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
 
     if (robots.isDisallowed(url, config.http.userAgent)) {
       log.debug(`Robots disallowed: ${url} (job #${jobId})`);
@@ -476,10 +466,6 @@ export class Worker extends EventEmitter {
       };
     }
     this.crawlCounter++;
-<<<<<<< HEAD
-    let jobResult: FetchLabelsResourceResult;
-=======
->>>>>>> 3025f45 (fix(worker): prevent capacity leaks, add timeouts, and improve error logging)
 
     if (robots.isDisallowed(url, config.http.userAgent)) {
       log.debug(`Robots disallowed: ${url} (job #${jobId})`);
