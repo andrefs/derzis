@@ -29,7 +29,7 @@ export async function GET({ params }: RequestEvent) {
             clearInterval(intervalId);
             return;
           }
-          
+
           const pathProgress = await getPathProgress(process);
           const crawlRate = await getCrawlRate(process, 5);
 

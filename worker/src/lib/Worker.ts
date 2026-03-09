@@ -3,12 +3,12 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
+import { db } from '@derzis/models';
 import {
-  ResourceCache,
-  db,
-  type WorkerTriple,
-  type WorkerLiteralTriple,
-  type ResourceCacheDocument
+  Triple,
+  type TripleDocument,
+  type NamedNodeTripleDocument,
+  type LiteralTripleDocument
 } from '@derzis/models';
 import type { LiteralObject } from '@derzis/common';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
@@ -328,14 +328,38 @@ export class Worker extends EventEmitter {
     }
   }
 
-  async getResourceFromCache(url: string): Promise<ResourceCacheDocument | null> {
+  async getTriplesFromCache(url: string): Promise<SimpleTriple[] | null> {
     try {
       const timeoutMs = 30000;
-      const timeoutPromise = new Promise((_, reject) =>
+      const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error('Database query timeout')), timeoutMs)
       );
-      const queryPromise = ResourceCache.findOne({ url }) as Promise<ResourceCacheDocument | null>;
-      return (await Promise.race([queryPromise, timeoutPromise])) as ResourceCacheDocument | null;
+      const queryPromise = Triple.find({ sources: url }) as Promise<
+        (NamedNodeTripleDocument | LiteralTripleDocument)[]
+      >;
+      const triples = (await Promise.race([queryPromise, timeoutPromise])) as (
+        | NamedNodeTripleDocument
+        | LiteralTripleDocument
+      )[];
+      return triples.map((t) => {
+        if (t.type === TripleType.LITERAL) {
+          const lit = t as LiteralTripleDocument;
+          return {
+            subject: lit.subject,
+            predicate: lit.predicate,
+            object: lit.object,
+            type: TripleType.LITERAL
+          };
+        } else {
+          const named = t as NamedNodeTripleDocument;
+          return {
+            subject: named.subject,
+            predicate: named.predicate,
+            object: named.object,
+            type: TripleType.NAMED_NODE
+          };
+        }
+      });
     } catch (err) {
       log.debug('Cache lookup failed (treating as cache miss):', err, { url });
       return null;
@@ -387,15 +411,15 @@ export class Worker extends EventEmitter {
     }
 
     log.debug(`Checking cache for: ${url} (job #${jobId})`);
-    const cachedRes = await this.getResourceFromCache(url);
-    if (cachedRes) {
+    const cachedTriples = await this.getTriplesFromCache(url);
+    if (cachedTriples) {
       log.debug(`Cache HIT: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'ok',
         details: {
           crawlId,
-          triples: cachedRes.triples?.map((t: WorkerTriple) => (t as any).toObject()),
+          triples: cachedTriples,
           ts: crawlId.domainTs.getTime(),
           cached: true
         }
@@ -478,15 +502,15 @@ export class Worker extends EventEmitter {
     }
 
     log.debug(`Checking cache for: ${url} (job #${jobId})`);
-    const cachedRes = await this.getResourceFromCache(url);
-    if (cachedRes) {
+    const cachedTriples = await this.getTriplesFromCache(url);
+    if (cachedTriples) {
       log.debug(`Cache HIT: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'ok',
         details: {
           labelFetchId,
-          triples: cachedRes.triples?.map((t: WorkerTriple) => (t as any).toObject())
+          triples: cachedTriples
         }
       } as FetchLabelsResourceResult;
     }
@@ -570,7 +594,7 @@ export class Worker extends EventEmitter {
         )
         .flatMap((t) => {
           if (t.object.termType === 'NamedNode') {
-            const st: WorkerTriple = {
+            const st: SimpleTriple = {
               subject: t.subject.value,
               predicate: t.predicate.value,
               object: t.object.value,
@@ -578,7 +602,7 @@ export class Worker extends EventEmitter {
             };
             return st;
           } else if (t.object.termType === 'Literal') {
-            const st: WorkerLiteralTriple = {
+            const st: SimpleTriple = {
               subject: t.subject.value,
               predicate: t.predicate.value,
               object: {
@@ -615,25 +639,10 @@ export class Worker extends EventEmitter {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Database query timeout')), timeoutMs)
         );
-        const createPromise = ResourceCache.create({
-          url,
-          triples: simpleTriples
-        });
-        await Promise.race([createPromise, timeoutPromise]);
-      } catch (cacheErr) {
-        const err = cacheErr as Error & {
-          errors?: Record<string, { path: string; value?: unknown }>;
-        };
-        if (err.errors) {
-          for (const [key, val] of Object.entries(err.errors)) {
-            const match = key.match(/triples\.(\d+)/);
-            if (match) {
-              const idx = parseInt(match[1], 10);
-              log.warn(`Offending triple at index ${idx}:`, simpleTriples[idx]);
-            }
-          }
-        }
-        log.warn(`Failed to cache resource ${url}:`, cacheErr);
+        const upsertPromise = Triple.upsertMany(url, simpleTriples);
+        await Promise.race([upsertPromise, timeoutPromise]);
+      } catch (upsertErr) {
+        log.warn(`Failed to store triples for ${url}:`, upsertErr);
       }
 
       return { ...res, triples: simpleTriples };

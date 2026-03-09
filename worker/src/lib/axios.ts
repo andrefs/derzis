@@ -73,10 +73,7 @@ export default function (logger: MonkeyPatchedLogger) {
         }
       } else if (logger) {
         const status = error.code === 'ECONNABORTED' ? 'TIMEOUT' : error.code;
-        logger.http(
-          error.config?.method?.toUpperCase() + ' ' + error.config?.url,
-          status
-        );
+        logger.http(error.config?.method?.toUpperCase() + ' ' + error.config?.url, status);
       }
       return Promise.reject(error);
     }

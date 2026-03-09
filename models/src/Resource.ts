@@ -334,7 +334,10 @@ class ResourceClass {
 
         let result;
         try {
-          log.warn('Attempting to insert/update EndpointPath seeds with bulkWrite', JSON.stringify({ bulkOps }));
+          log.warn(
+            'Attempting to insert/update EndpointPath seeds with bulkWrite',
+            JSON.stringify({ bulkOps })
+          );
           result = await EndpointPath.bulkWrite(bulkOps as any, { ordered: false });
           log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result.upsertedCount });
 

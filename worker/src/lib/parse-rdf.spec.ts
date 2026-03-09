@@ -20,16 +20,16 @@ describe('parse', () => {
     const rdf = `<http://example.org/Alice> <http://xmlns.com/foaf/0.1/name> "Alice" .
 <http://example.org/Alice> <http://example.org/knows> _:b0 .
 _:b0 <http://xmlns.com/foaf/0.1/name> "Bob" .`;
-    
+
     const result = await parseRdf(rdf, 'text/turtle');
-    
+
     expect(result.triples.length).toBeGreaterThan(0);
-    
+
     const triplesWithBlankObjects = result.triples.filter(
       (t) => t.object?.termType === 'BlankNode'
     );
     expect(triplesWithBlankObjects.length).toBeGreaterThan(0);
-    
+
     const filteredTriples = result.triples.filter(
       (t) =>
         t.subject?.termType === 'NamedNode' &&
@@ -37,8 +37,8 @@ _:b0 <http://xmlns.com/foaf/0.1/name> "Bob" .`;
         t.object !== undefined &&
         (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
     );
-    
+
     expect(filteredTriples.length).toBeLessThan(result.triples.length);
-    expect(filteredTriples.every(t => t.object?.termType !== 'BlankNode')).toBe(true);
+    expect(filteredTriples.every((t) => t.object?.termType !== 'BlankNode')).toBe(true);
   });
 });

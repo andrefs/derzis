@@ -10,11 +10,9 @@ import {
 import { urlValidator, type SimpleTriple, directionOk, TripleType } from '@derzis/common';
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
-import type { ResourceClass } from '../Resource';
 import { type DocumentType } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
-import { type WorkerTriple } from '../ResourceCache';
 
 const log = createLogger('Triple');
 
@@ -277,7 +275,7 @@ export function isNamedNode(
 }
 
 export function isLiteral(
-  triple: TripleClass | TripleDocument | WorkerTriple
+  triple: TripleClass | TripleDocument
 ): triple is LiteralTripleClass | LiteralTripleDocument {
   return triple.type === TripleType.LITERAL;
 }

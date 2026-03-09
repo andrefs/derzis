@@ -16,7 +16,13 @@ import {
   type LiteralTripleDocument
 } from '@derzis/models';
 import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
-import { type JobResult, type RobotsCheckResult, type CrawlResourceResult, TripleType, type SimpleLiteralTriple } from '@derzis/common';
+import {
+  type JobResult,
+  type RobotsCheckResult,
+  type CrawlResourceResult,
+  TripleType,
+  type SimpleLiteralTriple
+} from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
@@ -315,7 +321,9 @@ export default class Manager {
 
     if (extendLabelsOnly) {
       log.info('Skipping extendPaths for headUrl:', source.url, 'because dontExtend flag is set');
-      const labelTripleDocs = await Triple.find({ _id: { $in: labelTripleResult.map(r => r.upsertedIds).flat() } }) as TripleDocument[];
+      const labelTripleDocs = (await Triple.find({
+        _id: { $in: labelTripleResult.map((r) => r.upsertedIds).flat() }
+      })) as TripleDocument[];
       await extendPaths({ triples: labelTripleDocs });
       return;
     }
@@ -326,13 +334,11 @@ export default class Manager {
     log.info('extendPaths complete for headUrl:', source.url);
   }
 
-
   /**
    * Returns literal triples with rdfs:label or rdfs:comment predicates that have language 'en'.
    * Returns them as SimpleTriple format for compatibility with the result type.
    */
   getLabelTriples(triples: SimpleTriple[]): SimpleLiteralTriple[] {
-
     const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
     const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
 
@@ -342,12 +348,14 @@ export default class Manager {
         const lit = t as SimpleLiteralTriple;
         return lit.object.language === 'en';
       })
-      .map((t): SimpleLiteralTriple => ({
-        subject: t.subject,
-        predicate: t.predicate,
-        type: TripleType.LITERAL,
-        object: t.object
-      }));
+      .map(
+        (t): SimpleLiteralTriple => ({
+          subject: t.subject,
+          predicate: t.predicate,
+          type: TripleType.LITERAL,
+          object: t.object
+        })
+      );
   }
 
   /**

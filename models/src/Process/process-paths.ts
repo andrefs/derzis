@@ -184,9 +184,10 @@ export async function getPathsForDomainCrawl(
   // Build origin filter: $in eligible origins, optionally excluding user-provided blacklist
   // Note: No need to exclude 'locked' domains via $nin - domains with status 'ready'
   // are already disjoint from 'checking', 'labelFetching', 'crawling'
-  const originFilter = domainBlacklist.length > 0
-    ? { $in: eligibleOrigins.filter(o => !domainBlacklist.includes(o)) }
-    : { $in: eligibleOrigins };
+  const originFilter =
+    domainBlacklist.length > 0
+      ? { $in: eligibleOrigins.filter((o) => !domainBlacklist.includes(o)) }
+      : { $in: eligibleOrigins };
 
   const baseQuery = {
     'head.type': HEAD_TYPE.URL,
@@ -553,9 +554,12 @@ async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
     resourceMap[r.url] = r.status;
   }
 
-  const domains = await Domain.find({ origin: { $in: Object.keys(resourceMap) } }).select('origin status').lean();
-  const domainsUnvisited = new Set(domains.filter((d) => d.status === 'unvisited').map((d) => d.origin));
-
+  const domains = await Domain.find({ origin: { $in: Object.keys(resourceMap) } })
+    .select('origin status')
+    .lean();
+  const domainsUnvisited = new Set(
+    domains.filter((d) => d.status === 'unvisited').map((d) => d.origin)
+  );
 
   for (const np of urlPaths) {
     np.head.status = resourceMap[np.head.url] || 'unvisited';

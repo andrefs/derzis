@@ -68,8 +68,8 @@ type RecursivePartial<T> = {
     if (d) {
       urlHead.domain = {
         origin: d.origin,
-        isUnvisited: d.status === 'unvisited',
-      }
+        isUnvisited: d.status === 'unvisited'
+      };
     }
   }
 })

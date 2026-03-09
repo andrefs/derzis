@@ -168,7 +168,7 @@ class DomainClass {
     await Path.updateMany(
       {
         'head.domain.origin': jobResult.origin,
-        'head.type': HEAD_TYPE.URL,
+        'head.type': HEAD_TYPE.URL
       },
       { 'head.domain.isUnvisited': false }
     );
@@ -222,7 +222,7 @@ class DomainClass {
     await Path.updateMany(
       {
         'head.domain.origin': jobResult.origin,
-        'head.type': HEAD_TYPE.URL,
+        'head.type': HEAD_TYPE.URL
       },
       { 'head.domain.isUnvisited': false }
     );
@@ -521,13 +521,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-        domain,
-        status: 'unvisited',
-        url: { $nin: dPathHeads.map((r) => r.url) }
-      })
-        .limit(limit)
-        .select('url')
-        .lean()
+          domain,
+          status: 'unvisited',
+          url: { $nin: dPathHeads.map((r) => r.url) }
+        })
+          .limit(limit)
+          .select('url')
+          .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
