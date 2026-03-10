@@ -103,4 +103,12 @@ export class StepClass {
    */
   @prop({ type: Boolean, default: false, required: true })
   public resetErrors: boolean = false;
+
+  /**
+   * Whether to convert to endpoint path crawling after this step's expansion.
+   * Only relevant when process.curPathType is 'traversal'. When true, after this step's
+   * path extension completes, all active TraversalPaths are converted to EndpointPaths.
+   */
+  @prop({ type: Boolean, default: false, required: true })
+  public convertToEndpointPaths: boolean = false;
 }
