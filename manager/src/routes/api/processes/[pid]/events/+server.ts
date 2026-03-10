@@ -18,11 +18,18 @@ export async function GET({ params }: RequestEvent) {
       let isActive = true;
 
       const sendEvent = async () => {
-        if (!isActive || controller.desiredSize === null) {
+        if (!isActive) {
+          clearInterval(intervalId);
           return;
         }
 
         try {
+          if (controller.desiredSize === null) {
+            isActive = false;
+            clearInterval(intervalId);
+            return;
+          }
+
           const pathProgress = await getPathProgress(process);
           const crawlRate = await getCrawlRate(process, 5);
 
@@ -31,15 +38,29 @@ export async function GET({ params }: RequestEvent) {
             step: process.steps.length,
             paths: {
               done: pathProgress.done,
-              remaining: pathProgress.remaining.unvisited + pathProgress.remaining.crawling + pathProgress.remaining.checking
+              remaining:
+                pathProgress.remaining.unvisited +
+                pathProgress.remaining.crawling +
+                pathProgress.remaining.checking
             },
             rate: crawlRate
           };
 
           const data = `data: ${JSON.stringify(event)}\n\n`;
-          controller.enqueue(encoder.encode(data));
+          try {
+            controller.enqueue(encoder.encode(data));
+          } catch (enqueueErr) {
+            if ((enqueueErr as any).code === 'ERR_INVALID_STATE') {
+              isActive = false;
+              clearInterval(intervalId);
+              return;
+            }
+            throw enqueueErr;
+          }
         } catch (err) {
           console.error('Error sending progress event:', err);
+          isActive = false;
+          clearInterval(intervalId);
         }
       };
 
@@ -59,7 +80,7 @@ export async function GET({ params }: RequestEvent) {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
+      Connection: 'keep-alive'
     }
   });
 }

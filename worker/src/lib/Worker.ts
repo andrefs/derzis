@@ -3,7 +3,13 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 import Bluebird from 'bluebird';
 import EventEmitter from 'events';
 import robotsParser, { type Robot } from 'robots-parser';
-import { ResourceCache, db, type WorkerTriple, type WorkerLiteralTriple } from '@derzis/models';
+import { db } from '@derzis/models';
+import {
+  Triple,
+  type TripleDocument,
+  type NamedNodeTripleDocument,
+  type LiteralTripleDocument
+} from '@derzis/models';
 import type { LiteralObject } from '@derzis/common';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
@@ -17,8 +23,10 @@ import { createLogger, type MonkeyPatchedLogger } from '@derzis/common/server';
 import {
   JobTimeoutError,
   MimeTypeError,
+  RequestTimeoutError,
   RobotsForbiddenError,
   TooManyRedirectsError,
+  WorkerError,
   type JobType,
   type RobotsCheckResult,
   type CrawlResourceResult,
@@ -29,7 +37,11 @@ const acceptedMimeTypes = config.http.acceptedMimeTypes;
 import setupDelay from './delay';
 let delay = () => Bluebird.resolve();
 import { v4 as uuidv4 } from 'uuid';
-import type { DomainCrawlJobRequest, DomainLabelFetchJobRequest, FetchLabelsResourceResult } from '@derzis/common';
+import type {
+  DomainCrawlJobRequest,
+  DomainLabelFetchJobRequest,
+  FetchLabelsResourceResult
+} from '@derzis/common';
 import type { JobCapacity, OngoingJobs, SimpleTriple } from '@derzis/common';
 import {
   type AxiosResponseHeaders,
@@ -47,10 +59,6 @@ export interface Availability {
 interface JobsTimedOut {
   [domain: string]: boolean;
 }
-
-
-const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
-const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
 
 export class Worker extends EventEmitter {
   /**
@@ -130,7 +138,10 @@ export class Worker extends EventEmitter {
     this.jobsTimedout = {};
   }
 
-  alreadyBeingDone(domain: string, jobType: Exclude<JobType, 'resourceCrawl' | 'resourceLabelFetch'>): boolean {
+  alreadyBeingDone(
+    domain: string,
+    jobType: Exclude<JobType, 'resourceCrawl' | 'resourceLabelFetch'>
+  ): boolean {
     return !!this.currentJobs[jobType][domain];
   }
 
@@ -183,36 +194,70 @@ export class Worker extends EventEmitter {
   }
 
   /**
-  * Crawl a domain and its resources, yielding results for each resource crawl.
-  * Uses robots.txt to check if crawling is allowed and to respect crawl delays.
-  * Caches resource triples in MongoDB for future requests.
-  */
+   * Crawl a domain and its resources, yielding results for each resource crawl.
+   * Uses robots.txt to check if crawling is allowed and to respect crawl delays.
+   * Caches resource triples in MongoDB for future requests.
+   */
   async *crawlDomain({ jobId, domain, resources }: DomainCrawlJobRequest) {
-    this.crawlTs = new Date();
-    this.crawlCounter = 0;
     this.currentJobs.domainCrawl[domain.origin] = true;
-    const robotsText = domain?.robots?.text || '';
-    const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
-
-    this.emit('httpDebug', {
-      type: 'delay',
-      domain: domain.origin,
-      delay: domain.crawl.delay
-    });
-    delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
-
+    log.info(`Acquired domainCrawl capacity for ${domain.origin} (job #${jobId})`);
     try {
+      this.crawlTs = new Date();
+      this.crawlCounter = 0;
+      const robotsText = domain?.robots?.text || '';
+      const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
+
+      this.emit('httpDebug', {
+        type: 'delay',
+        domain: domain.origin,
+        delay: domain.crawl.delay
+      });
+      delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
+
+      const resourceTimeoutMs = 60_000; // 60 seconds per resource
       for (const r of resources) {
-        const res = await this.crawlResource(jobId, domain.origin, r.url, robots);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Resource crawl timeout after ${resourceTimeoutMs}ms`)),
+            resourceTimeoutMs
+          )
+        );
+        const res = await Promise.race([
+          this.crawlResource(jobId, domain.origin, r.url, robots),
+          timeoutPromise
+        ]).catch((err) => {
+          log.error('crawlResource failed or timed out:', err, { url: r.url, jobId });
+          let workerErr: WorkerError;
+          if (err instanceof WorkerError) {
+            workerErr = err;
+          } else {
+            workerErr = new WorkerError();
+            workerErr.message = err instanceof Error ? err.message : String(err);
+          }
+          return {
+            jobType: 'resourceCrawl' as const,
+            jobId,
+            origin: domain.origin,
+            url: r.url,
+            status: 'not_ok' as const,
+            details: {
+              crawlId: { domainTs: this.crawlTs, counter: this.crawlCounter },
+              ts: Date.now()
+            },
+            err: workerErr
+          };
+        });
         if (!res) {
           break;
         }
         yield res;
       }
-      delete this.currentJobs.domainCrawl[domain.origin];
     } catch (err) {
-      log.error('Error in crawlDomain:', err);
+      log.error('Error in crawlDomain:', err, { jobId, origin: domain.origin });
+      throw err;
+    } finally {
       delete this.currentJobs.domainCrawl[domain.origin];
+      log.info(`Released domainCrawl capacity for ${domain.origin} (job #${jobId})`);
     }
   }
 
@@ -221,48 +266,122 @@ export class Worker extends EventEmitter {
    * USes robots.txt to check if fetching is allowed and to respect crawl delays.
    */
   async *fetchDomainLabels({ jobId, domain, resources }: DomainLabelFetchJobRequest) {
-    this.crawlTs = new Date();
-    this.crawlCounter = 0;
     this.currentJobs.domainLabelFetch[domain.origin] = true;
-    const robotsText = domain?.robots?.text || '';
-    const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
-
-    this.emit('httpDebug', {
-      type: 'delay',
-      domain: domain.origin,
-      delay: domain.crawl.delay
-    });
-    delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
-
+    log.info(`Acquired domainLabelFetch capacity for ${domain.origin} (job #${jobId})`);
     try {
+      this.crawlTs = new Date();
+      this.crawlCounter = 0;
+      const robotsText = domain?.robots?.text || '';
+      const robots = robotsParser(domain.origin + '/robots.txt', robotsText);
+
+      this.emit('httpDebug', {
+        type: 'delay',
+        domain: domain.origin,
+        delay: domain.crawl.delay
+      });
+      delay = setupDelay(domain.crawl.delay * 1000 * 1.1); // ms to s, add 10% margin
+
+      const resourceTimeoutMs = 60_000; // 60 seconds per resource
       for (const r of resources) {
-        const res = await this.fetchResourceLabels(jobId, domain.origin, r.url, robots);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Resource label fetch timeout after ${resourceTimeoutMs}ms`)),
+            resourceTimeoutMs
+          )
+        );
+        const res = await Promise.race([
+          this.fetchResourceLabels(jobId, domain.origin, r.url, robots),
+          timeoutPromise
+        ]).catch((err) => {
+          log.error('fetchResourceLabels failed or timed out:', err, { url: r.url, jobId });
+          let workerErr: WorkerError;
+          if (err instanceof WorkerError) {
+            workerErr = err;
+          } else {
+            workerErr = new WorkerError();
+            workerErr.message = err instanceof Error ? err.message : String(err);
+          }
+          return {
+            jobType: 'resourceLabelFetch' as const,
+            jobId,
+            origin: domain.origin,
+            url: r.url,
+            status: 'not_ok' as const,
+            details: {
+              labelFetchId: { domainTs: this.crawlTs, counter: this.crawlCounter },
+              ts: Date.now()
+            },
+            err: workerErr
+          };
+        });
         if (!res) {
           break;
         }
         yield res;
       }
-      delete this.currentJobs.domainLabelFetch[domain.origin];
     } catch (err) {
-      log.error('Error in fetchDomainLabels:', err);
+      log.error('Error in fetchDomainLabels:', err, { jobId, origin: domain.origin });
+      throw err;
+    } finally {
       delete this.currentJobs.domainLabelFetch[domain.origin];
+      log.info(`Released domainLabelFetch capacity for ${domain.origin} (job #${jobId})`);
     }
   }
 
-  async getResourceFromCache(url: string) {
-    return ResourceCache.findOne({ url });
+  async getTriplesFromCache(url: string): Promise<SimpleTriple[] | null> {
+    try {
+      const timeoutMs = 30000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Database query timeout')), timeoutMs)
+      );
+      const queryPromise = Triple.find({ sources: url }) as Promise<
+        (NamedNodeTripleDocument | LiteralTripleDocument)[]
+      >;
+      const docs = (await Promise.race([queryPromise, timeoutPromise])) as (
+        | NamedNodeTripleDocument
+        | LiteralTripleDocument
+      )[];
+      if (!docs || docs.length === 0) {
+        return null;
+      }
+      return docs.map((t) => {
+        if (t.type === TripleType.LITERAL) {
+          const lit = t as LiteralTripleDocument;
+          return {
+            subject: lit.subject,
+            predicate: lit.predicate,
+            object: lit.object,
+            type: TripleType.LITERAL
+          };
+        } else {
+          const named = t as NamedNodeTripleDocument;
+          return {
+            subject: named.subject,
+            predicate: named.predicate,
+            object: named.object,
+            type: TripleType.NAMED_NODE
+          };
+        }
+      });
+    } catch (err) {
+      log.debug('Cache lookup failed (treating as cache miss):', err, { url });
+      return null;
+    }
   }
 
   /**
-  * Crawl a single resource, checking robots.txt permissions and using cached triples if available.
-  * Returns structured results including status, crawl ID, triples, and errors if any.
-  */
+   * Crawl a single resource, checking robots.txt permissions and using cached triples if available.
+   * Returns structured results including status, crawl ID, triples, and errors if any.
+   */
   async crawlResource(
     jobId: number,
     origin: string,
     url: string,
     robots: Robot
   ): Promise<CrawlResourceResult> {
+    const startTime = Date.now();
+    log.debug(`crawlResource START: ${url} (job #${jobId})`);
+
     const jobInfo = {
       jobType: 'resourceCrawl' as const,
       jobId,
@@ -270,6 +389,7 @@ export class Worker extends EventEmitter {
       url
     };
     const crawlId = { domainTs: this.crawlTs, counter: this.crawlCounter };
+
     if (this.jobsTimedout[origin]) {
       delete this.jobsTimedout[origin];
       delete this.currentJobs.domainCrawl[origin];
@@ -282,10 +402,9 @@ export class Worker extends EventEmitter {
       };
     }
     this.crawlCounter++;
-    this.currentJobs.domainCrawl[origin] = true;
-    let jobResult: CrawlResourceResult;
 
     if (robots.isDisallowed(url, config.http.userAgent)) {
+      log.debug(`Robots disallowed: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'not_ok' as const,
@@ -294,22 +413,28 @@ export class Worker extends EventEmitter {
       };
     }
 
-    const cachedRes = await this.getResourceFromCache(url);
-    if (cachedRes) {
+    log.debug(`Checking cache for: ${url} (job #${jobId})`);
+    const cachedTriples = await this.getTriplesFromCache(url);
+    if (cachedTriples) {
+      log.debug(`Cache HIT: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'ok',
         details: {
           crawlId,
-          triples: cachedRes.triples?.map((t) => t.toObject()),
+          triples: cachedTriples,
           ts: crawlId.domainTs.getTime(),
           cached: true
         }
       } as CrawlResourceResultOk;
     }
+    log.debug(`Cache MISS: ${url} (job #${jobId})`);
 
+    log.debug(`Fetching resource: ${url} (job #${jobId})`);
     const res = await this.fetchResource(url);
+    log.debug(`Fetch completed for ${url}, status: ${res.status} (job #${jobId})`);
 
+    let jobResult: CrawlResourceResult;
     if (res.status === 'ok') {
       jobResult = {
         ...jobInfo,
@@ -328,6 +453,10 @@ export class Worker extends EventEmitter {
         err: res.err
       };
     }
+
+    const elapsed = Date.now() - startTime;
+    log.debug(`crawlResource END: ${url} (job #${jobId}) took ${elapsed}ms`);
+
     return jobResult as CrawlResourceResult;
   }
 
@@ -341,6 +470,9 @@ export class Worker extends EventEmitter {
     url: string,
     robots: Robot
   ): Promise<FetchLabelsResourceResult> {
+    const startTime = Date.now();
+    log.debug(`fetchResourceLabels START: ${url} (job #${jobId})`);
+
     const jobInfo = {
       jobType: 'resourceLabelFetch' as const,
       jobId,
@@ -348,6 +480,7 @@ export class Worker extends EventEmitter {
       url
     };
     const labelFetchId = { domainTs: this.crawlTs, counter: this.crawlCounter };
+
     if (this.jobsTimedout[origin]) {
       delete this.jobsTimedout[origin];
       delete this.currentJobs.domainLabelFetch[origin];
@@ -360,10 +493,9 @@ export class Worker extends EventEmitter {
       };
     }
     this.crawlCounter++;
-    this.currentJobs.domainLabelFetch[origin] = true;
-    let jobResult: FetchLabelsResourceResult;
 
     if (robots.isDisallowed(url, config.http.userAgent)) {
+      log.debug(`Robots disallowed: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'not_ok' as const,
@@ -372,30 +504,36 @@ export class Worker extends EventEmitter {
       };
     }
 
-    const cachedRes = await this.getResourceFromCache(url);
-    if (cachedRes) {
+    log.debug(`Checking cache for: ${url} (job #${jobId})`);
+    const cachedTriples = await this.getTriplesFromCache(url);
+    if (cachedTriples) {
+      log.debug(`Cache HIT: ${url} (job #${jobId})`);
       return {
         ...jobInfo,
         status: 'ok',
         details: {
           labelFetchId,
-          triples: this.getLabelTriples(cachedRes.triples || [])
+          triples: cachedTriples
         }
       } as FetchLabelsResourceResult;
     }
+    log.debug(`Cache MISS: ${url} (job #${jobId})`);
 
+    log.debug(`Fetching resource: ${url} (job #${jobId})`);
     const res = await this.fetchResource(url);
+    log.debug(`Fetch completed for ${url}, status: ${res.status} (job #${jobId})`);
 
+    let jobResult: FetchLabelsResourceResult;
     if (res.status === 'ok') {
       jobResult = {
         ...jobInfo,
         status: 'ok',
         details: {
           labelFetchId,
-          triples: this.getLabelTriples(res.triples || []),
+          triples: res.triples,
           ts: res.ts
         }
-      }
+      };
     } else {
       jobResult = {
         ...jobInfo,
@@ -404,26 +542,11 @@ export class Worker extends EventEmitter {
         err: res.err
       };
     }
-    return jobResult as FetchLabelsResourceResult;
-  }
 
-  /**
-   * Returns literal triples with rdfs:label or rdfs:comment predicates that have language 'en'.
-   * Returns them as SimpleTriple format for compatibility with the result type.
-   */
-  getLabelTriples(triples: WorkerTriple[]): SimpleTriple[] {
-    return triples
-      .filter((t): t is WorkerLiteralTriple => {
-        if (t.predicate !== RDFS_LABEL && t.predicate !== RDFS_COMMENT) return false;
-        const lit = t as WorkerLiteralTriple;
-        return lit.object.language === 'en';
-      })
-      .map((t): SimpleTriple => ({
-        subject: t.subject,
-        predicate: t.predicate,
-        type: TripleType.LITERAL,
-        object: t.object
-      }));
+    const elapsed = Date.now() - startTime;
+    log.debug(`fetchResourceLabels END: ${url} (job #${jobId}) took ${elapsed}ms`);
+
+    return jobResult as FetchLabelsResourceResult;
   }
 
   /**
@@ -443,15 +566,18 @@ export class Worker extends EventEmitter {
 
       const invalidTriples = triples.filter(
         (t) =>
-          !(t.subject?.termType === 'NamedNode' &&
+          !(
+            t.subject?.termType === 'NamedNode' &&
             t.predicate?.termType === 'NamedNode' &&
             t.object !== undefined &&
             t.object.termType !== undefined &&
-            (t.object.termType === 'NamedNode' || t.object.termType === 'Literal'))
+            (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
+          )
       );
       if (invalidTriples.length > 0) {
-        log.debug(`Found ${invalidTriples.length} invalid triples, examples:`,
-          invalidTriples.slice(0, 3).map(t => ({
+        log.debug(
+          `Found ${invalidTriples.length} invalid triples, examples:`,
+          invalidTriples.slice(0, 3).map((t) => ({
             subject: t.subject?.value,
             predicate: t.predicate?.value,
             object: t.object,
@@ -469,36 +595,33 @@ export class Worker extends EventEmitter {
             t.object.termType !== undefined &&
             (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
         )
-        .flatMap(
-          (t) => {
-            if (t.object.termType === 'NamedNode') {
-              const st: WorkerTriple = {
-                subject: t.subject.value,
-                predicate: t.predicate.value,
-                object: t.object.value,
-                type: TripleType.NAMED_NODE
-              };
-              return st;
-            } else if (t.object.termType === 'Literal') {
-              const st: WorkerLiteralTriple = {
-                subject: t.subject.value,
-                predicate: t.predicate.value,
-                object: {
-                  value: t.object.value,
-                  language: t.object.language || undefined,
-                  datatype: t.object.datatype?.value || undefined
-                },
-                type: TripleType.LITERAL
-              };
-              return st;
-            }
-            else {
-              // This case should not happen due to the filter,
-              // but we need to satisfy TypeScript
-              return [];
-            }
+        .flatMap((t) => {
+          if (t.object.termType === 'NamedNode') {
+            const st: SimpleTriple = {
+              subject: t.subject.value,
+              predicate: t.predicate.value,
+              object: t.object.value,
+              type: TripleType.NAMED_NODE
+            };
+            return st;
+          } else if (t.object.termType === 'Literal') {
+            const st: SimpleTriple = {
+              subject: t.subject.value,
+              predicate: t.predicate.value,
+              object: {
+                value: t.object.value,
+                language: t.object.language || undefined,
+                datatype: t.object.datatype?.value || undefined
+              },
+              type: TripleType.LITERAL
+            };
+            return st;
+          } else {
+            // This case should not happen due to the filter,
+            // but we need to satisfy TypeScript
+            return [];
           }
-        )
+        })
         // Filter out triples with empty object or object.value
         .filter((t): t is SimpleTriple => {
           if (t.type === TripleType.NAMED_NODE) {
@@ -515,22 +638,14 @@ export class Worker extends EventEmitter {
       }
 
       try {
-        await ResourceCache.create({
-          url,
-          triples: simpleTriples
-        });
-      } catch (cacheErr) {
-        const err = cacheErr as Error & { errors?: Record<string, { path: string; value?: unknown }> };
-        if (err.errors) {
-          for (const [key, val] of Object.entries(err.errors)) {
-            const match = key.match(/triples\.(\d+)/);
-            if (match) {
-              const idx = parseInt(match[1], 10);
-              log.warn(`Offending triple at index ${idx}:`, simpleTriples[idx]);
-            }
-          }
-        }
-        log.warn(`Failed to cache resource ${url}:`, cacheErr);
+        const timeoutMs = 30000;
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Database query timeout')), timeoutMs)
+        );
+        const upsertPromise = Triple.upsertMany(url, simpleTriples);
+        await Promise.race([upsertPromise, timeoutPromise]);
+      } catch (upsertErr) {
+        log.warn(`Failed to store triples for ${url}:`, upsertErr);
       }
 
       return { ...res, triples: simpleTriples };
@@ -539,8 +654,8 @@ export class Worker extends EventEmitter {
   }
 
   /**
-  * Fetches content from a URL, handling HTTP errors and redirects. Returns structured results or errors.
-  */
+   * Fetches content from a URL, handling HTTP errors and redirects. Returns structured results or errors.
+   */
   getHttpContent = async (url: string, redirect = 0): Promise<HttpRequestResult> => {
     const resp = await this.makeHttpRequest(url);
     if (resp?.status === 'not_ok') {
@@ -551,9 +666,9 @@ export class Worker extends EventEmitter {
   };
 
   /**
-  * Makes an HTTP GET request to the specified URL with appropriate headers and timeouts, handling retries and errors.
-  * Respects domain crawl delays between attempts and logs debug information for each request.
-  */
+   * Makes an HTTP GET request to the specified URL with appropriate headers and timeouts, handling retries and errors.
+   * Respects domain crawl delays between attempts and logs debug information for each request.
+   */
   makeHttpRequest = async (url: string) => {
     const timeout = config.http.domainCrawl.timeouts || 10 * 1000;
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
@@ -598,9 +713,9 @@ export class Worker extends EventEmitter {
   };
 
   /**
-  * Handles HTTP responses, checking MIME types, following redirects if necessary, and returning structured results or errors.
-  * Respects maximum redirect limits and logs relevant information for debugging.
-  */
+   * Handles HTTP responses, checking MIME types, following redirects if necessary, and returning structured results or errors.
+   * Respects maximum redirect limits and logs relevant information for debugging.
+   */
   handleHttpResponse = async (resp: MinimalAxiosResponse, redirect: number, url: string) => {
     const maxRedirects = config.http.domainCrawl.maxRedirects || 5;
     const mime = contentType.parse(resp.headers['content-type']).type;

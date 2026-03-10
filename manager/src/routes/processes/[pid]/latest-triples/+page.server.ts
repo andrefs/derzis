@@ -1,5 +1,9 @@
 import { error } from '@sveltejs/kit';
-import { ProcessTriple, type LiteralTripleDocument, type NamedNodeTripleDocument } from '@derzis/models';
+import {
+  ProcessTriple,
+  type LiteralTripleDocument,
+  type NamedNodeTripleDocument
+} from '@derzis/models';
 import { info as processInfo } from '$lib/process-helper';
 import type { PageServerLoad } from './$types';
 import type { Types } from 'mongoose';
@@ -29,7 +33,10 @@ export const load: PageServerLoad = async ({ params, url }) => {
     .map((procTriple) => {
       // After populate, triple can be a document or just an ObjectId
       // We know it's populated because we called .populate('triple'), so we cast
-      const triple = procTriple.triple as NamedNodeTripleDocument | LiteralTripleDocument | undefined;
+      const triple = procTriple.triple as
+        | NamedNodeTripleDocument
+        | LiteralTripleDocument
+        | undefined;
       if (!triple || !('_id' in triple)) return null;
 
       // Check object type directly - NamedNodeTriple has string, LiteralTriple has LiteralObject

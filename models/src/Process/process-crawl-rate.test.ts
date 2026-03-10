@@ -5,16 +5,16 @@ import { Resource } from '../Resource';
 
 vi.mock('../Resource', () => ({
   Resource: {
-    countDocuments: vi.fn(),
-  },
+    countDocuments: vi.fn()
+  }
 }));
 
 describe('getCrawlRate', () => {
   const mockProcess = {
     pid: 'test-pid-123',
     currentStep: {
-      seeds: ['http://example.com/seed1', 'http://example.com/seed2'],
-    },
+      seeds: ['http://example.com/seed1', 'http://example.com/seed2']
+    }
   };
 
   beforeEach(() => {

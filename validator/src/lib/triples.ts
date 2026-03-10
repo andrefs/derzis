@@ -1,5 +1,6 @@
 import { Prefixes } from '../bin/gen-graph';
 import type { SimpleTriple, LiteralObject } from '@derzis/common';
+import { TripleType } from '@derzis/common';
 
 export interface IndexedTriples {
   [subject: string]: SimpleTriple[];
@@ -38,20 +39,19 @@ function literalToString(literal: LiteralObject): string {
  * @param triples - An array of RDF triples.
  * @returns A string in Turtle format representing the RDF triples.
  */
-export function triplesToTurtle(
-  prefixes: Prefixes,
-  triples: SimpleTriple[]
-): string {
+export function triplesToTurtle(prefixes: Prefixes, triples: SimpleTriple[]): string {
   const prefixLines = Object.entries(prefixes).map(
     ([url, prefix]) => `@prefix ${prefix}: <${url}> .`
   );
-  const lines = triples.map((triple) => {
-    if (typeof triple.object === 'string') {
-      return `${triple.subject} ${triple.predicate} ${triple.object} .`;
-    } else {
-      return `${triple.subject} ${triple.predicate} ${literalToString(triple.object)} .`;
-    }
-  }).filter(Boolean);
+  const lines = triples
+    .map((triple) => {
+      if (typeof triple.object === 'string') {
+        return `${triple.subject} ${triple.predicate} ${triple.object} .`;
+      } else {
+        return `${triple.subject} ${triple.predicate} ${literalToString(triple.object)} .`;
+      }
+    })
+    .filter(Boolean);
   return [...prefixLines, '', ...lines].join('\n');
 }
 
@@ -106,11 +106,45 @@ export function parseTriples(turtle: string): IndexedTriples {
   const triples = tripleLines.map((line) => {
     const match = line.match(/^(.+?)\s+(.+?)\s+(.+?)\s*\.\s*$/);
     if (match) {
-      return {
-        subject: replacePrefix(match[1], prefixes),
-        predicate: replacePrefix(match[2], prefixes),
-        object: replacePrefix(match[3], prefixes)
-      };
+      const subject = replacePrefix(match[1], prefixes);
+      const predicate = replacePrefix(match[2], prefixes);
+      const objectStr = replacePrefix(match[3], prefixes);
+      let triple: SimpleTriple;
+
+      if (objectStr.startsWith('"')) {
+        // Try to parse literal with optional language or datatype
+        const literalMatch = objectStr.match(
+          /^"((?:\\.|[^"\\])*)"(?:@([a-zA-Z0-9-]+))?(?:\^\^<([^>]+)>)?$/
+        );
+        if (literalMatch) {
+          const value = literalMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+          const language = literalMatch[2];
+          const datatype = literalMatch[3];
+          triple = {
+            subject,
+            predicate,
+            object: { value, language, datatype },
+            type: TripleType.LITERAL
+          };
+        } else {
+          // Simple quoted string without language/datatype
+          triple = {
+            subject,
+            predicate,
+            object: { value: objectStr.slice(1, -1) },
+            type: TripleType.LITERAL
+          };
+        }
+      } else {
+        triple = {
+          subject,
+          predicate,
+          object: objectStr,
+          type: TripleType.NAMED_NODE
+        };
+      }
+
+      return triple;
     } else {
       throw new Error(`Invalid triple line: ${line}`);
     }

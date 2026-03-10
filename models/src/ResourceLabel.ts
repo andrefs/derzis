@@ -41,19 +41,16 @@ class ResourceLabelClass extends TimeStamps {
     if (labels.length === 0) return;
 
     // Deduplicate by pid+url
-    const uniqueLabels = Array.from(
-      new Map(labels.map(l => [`${l.pid}_${l.url}`, l])).values()
-    );
+    const uniqueLabels = Array.from(new Map(labels.map((l) => [`${l.pid}_${l.url}`, l])).values());
 
     // Single query to get existing labels
-    const existing = await this
-      .find({
-        $or: uniqueLabels.map(l => ({ pid: l.pid, url: l.url }))
-      })
+    const existing = await this.find({
+      $or: uniqueLabels.map((l) => ({ pid: l.pid, url: l.url }))
+    })
       .select('pid url status source extend')
       .lean();
 
-    const existingMap = new Map(existing.map(e => [`${e.pid}_${e.url}`, e]));
+    const existingMap = new Map(existing.map((e) => [`${e.pid}_${e.url}`, e]));
 
     // Extract domain once per unique URL
     const domainCache = new Map<string, string>();

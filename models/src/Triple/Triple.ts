@@ -5,16 +5,14 @@ import {
   type ReturnModelType,
   modelOptions,
   getDiscriminatorModelForClass,
-  index,
+  index
 } from '@typegoose/typegoose';
 import { urlValidator, type SimpleTriple, directionOk, TripleType } from '@derzis/common';
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
-import type { ResourceClass } from '../Resource';
 import { type DocumentType } from '@typegoose/typegoose/lib/types';
 import { BranchFactorClass, SeedPosRatioClass } from '../Process';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
-import { type WorkerTriple } from '../ResourceCache';
 
 const log = createLogger('Triple');
 
@@ -52,14 +50,12 @@ export class TripleClass extends TimeStamps {
   @prop({ default: [], validate: urlValidator, type: [String], index: true }, PropType.ARRAY)
   public sources?: string[];
 
-
   @prop({ required: true, enum: TripleType, type: String, index: true })
   public type!: TripleType;
 
-
   public static async upsertMany(
     this: ReturnModelType<typeof TripleClass>,
-    source: ResourceClass,
+    sourceUrl: string,
     triples: SimpleTriple[]
   ): Promise<BulkWriteResult[]> {
     if (!triples || !triples.length) {
@@ -67,19 +63,19 @@ export class TripleClass extends TimeStamps {
       return [];
     }
 
-    const namedNodeTriples = triples.filter(t => t.type === TripleType.NAMED_NODE);
-    const literalTriples = triples.filter(t => t.type === TripleType.LITERAL);
+    const namedNodeTriples = triples.filter((t) => t.type === TripleType.NAMED_NODE);
+    const literalTriples = triples.filter((t) => t.type === TripleType.LITERAL);
 
     const results: BulkWriteResult[] = [];
 
     if (namedNodeTriples.length > 0) {
-      const namedNodeOps = buildBulkOps(namedNodeTriples, source, TripleType.NAMED_NODE);
+      const namedNodeOps = buildBulkOps(namedNodeTriples, sourceUrl, TripleType.NAMED_NODE);
       const namedNodeResults = await executeBulkOps(NamedNodeTriple, namedNodeOps);
       results.push(...namedNodeResults);
     }
 
     if (literalTriples.length > 0) {
-      const literalOps = buildBulkOps(literalTriples, source, TripleType.LITERAL);
+      const literalOps = buildBulkOps(literalTriples, sourceUrl, TripleType.LITERAL);
       const literalResults = await executeBulkOps(LiteralTriple, literalOps);
       results.push(...literalResults);
     }
@@ -90,56 +86,72 @@ export class TripleClass extends TimeStamps {
 
 function buildBulkOps(
   triples: SimpleTriple[],
-  source: ResourceClass,
-  type: TripleType,
-): ReturnModelType<typeof TripleClass>['bulkWrite'] extends (ops: infer T) => Promise<any> ? T : never {
+  sourceUrl: string,
+  type: TripleType
+): ReturnModelType<typeof TripleClass>['bulkWrite'] extends (ops: infer T) => Promise<any>
+  ? T
+  : never {
   const tripleMap = new Map<string, NamedNodeTripleClass | LiteralTripleClass>();
 
   for (const t of triples) {
-    const key = t.type === TripleType.NAMED_NODE
-      ? `${t.subject}\u0000${t.predicate}\u0000${t.object}`
-      : `${t.subject}\u0000${t.predicate}\u0000${JSON.stringify(t.object)}`;
+    const key =
+      t.type === TripleType.NAMED_NODE
+        ? `${t.subject}\u0000${t.predicate}\u0000${t.object}`
+        : `${t.subject}\u0000${t.predicate}\u0000${JSON.stringify(t.object)}`;
 
     if (tripleMap.has(key)) {
-      tripleMap.get(key)!.sources!.push(source.url);
+      tripleMap.get(key)!.sources!.push(sourceUrl);
     } else {
-      const nodes = t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
-        ? [t.subject, t.object]
-        : [t.subject];
+      const nodes =
+        t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
+          ? [t.subject, t.object]
+          : [t.subject];
       const obj = {
         subject: t.subject,
         predicate: t.predicate,
         object: t.object,
-        sources: [source.url],
+        sources: [sourceUrl],
         nodes,
         type: t.type
       };
-      tripleMap.set(key, t.type === TripleType.NAMED_NODE
-        ? obj as NamedNodeTripleClass
-        : obj as LiteralTripleClass);
+      tripleMap.set(
+        key,
+        t.type === TripleType.NAMED_NODE
+          ? (obj as NamedNodeTripleClass)
+          : (obj as LiteralTripleClass)
+      );
     }
   }
 
   log.debug(`Processing triples: ${triples.length} input, ${tripleMap.size} unique`);
 
   return [...tripleMap.values()].map((t) => {
-    const nodes = t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
-      ? [t.subject, t.object]
-      : [t.subject];
+    const nodes =
+      t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
+        ? [t.subject, t.object]
+        : [t.subject];
+    const isLiteral = t.type !== TripleType.NAMED_NODE;
+    const filter = {
+      subject: t.subject,
+      predicate: t.predicate,
+      ...(isLiteral
+        ? {
+            'object.value': (t.object as LiteralObject).value,
+            'object.language': (t.object as LiteralObject).language,
+            'object.datatype': (t.object as LiteralObject).datatype
+          }
+        : { object: t.object })
+    };
     return {
       updateOne: {
-        filter: {
-          subject: t.subject,
-          predicate: t.predicate,
-          object: t.object
-        },
+        filter,
         update: {
           $setOnInsert: {
             subject: t.subject,
             predicate: t.predicate,
             object: t.object,
             nodes,
-            type,
+            type: t.type
           },
           $addToSet: {
             sources: { $each: t.sources }
@@ -148,18 +160,15 @@ function buildBulkOps(
         upsert: true
       }
     };
-  }) as any;
+  });
 }
 
 interface BulkWriteModel {
   bulkWrite(writes: any[], options?: any): Promise<BulkWriteResult>;
 }
 
-async function executeBulkOps(
-  model: BulkWriteModel,
-  ops: any
-): Promise<BulkWriteResult[]> {
-  const BATCH_SIZE = 500;
+async function executeBulkOps(model: BulkWriteModel, ops: any): Promise<BulkWriteResult[]> {
+  const BATCH_SIZE = 100;
   const results: BulkWriteResult[] = [];
 
   for (let i = 0; i < ops.length; i += BATCH_SIZE) {
@@ -173,7 +182,7 @@ async function executeBulkOps(
 
 @modelOptions({
   schemaOptions: {
-    timestamps: true,
+    timestamps: true
   }
 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
@@ -208,12 +217,17 @@ export class NamedNodeTripleClass extends TripleClass {
       bfRatio
     );
 
-    log.silly(`Direction ${dOk ? '' : 'not '}ok for triple ${this.subject} ${this.predicate} ${this.object}`);
+    log.silly(
+      `Direction ${dOk ? '' : 'not '}ok for triple ${this.subject} ${this.predicate} ${this.object}`
+    );
     return dOk;
   }
 }
 
-@index({ subject: 1, predicate: 1, 'object.value': 1, 'object.language': 1, 'object.datatype': 1 }, { unique: true })
+@index(
+  { subject: 1, predicate: 1, 'object.value': 1, 'object.language': 1, 'object.datatype': 1 },
+  { unique: true }
+)
 export class LiteralTripleClass extends TripleClass {
   @prop({ required: true, type: LiteralObject })
   public object!: LiteralObject;
@@ -222,16 +236,23 @@ export class LiteralTripleClass extends TripleClass {
 export const Triple = getModelForClass(TripleClass);
 export type TripleDocument = DocumentType<TripleClass>;
 
-export const LiteralTriple = getDiscriminatorModelForClass(Triple, LiteralTripleClass, TripleType.LITERAL);
+export const LiteralTriple = getDiscriminatorModelForClass(
+  Triple,
+  LiteralTripleClass,
+  TripleType.LITERAL
+);
 export type LiteralTripleDocument = DocumentType<LiteralTripleClass>;
 
-export const NamedNodeTriple = getDiscriminatorModelForClass(Triple, NamedNodeTripleClass, TripleType.NAMED_NODE);
+export const NamedNodeTriple = getDiscriminatorModelForClass(
+  Triple,
+  NamedNodeTripleClass,
+  TripleType.NAMED_NODE
+);
 export type NamedNodeTripleDocument = DocumentType<NamedNodeTripleClass>;
 
 interface BulkWriteModel {
   bulkWrite(writes: any[], options?: any): Promise<BulkWriteResult>;
 }
-
 
 export function checkForClass(
   doc: TripleDocument,
@@ -243,21 +264,18 @@ export function checkForClass(
   type: TripleType.NAMED_NODE
 ): doc is NamedNodeTripleDocument;
 
-export function checkForClass(
-  doc: TripleDocument,
-  type: TripleType
-): boolean {
+export function checkForClass(doc: TripleDocument, type: TripleType): boolean {
   return doc?.type === type;
 }
 
-
-
-
-export function isNamedNode(triple: TripleClass | TripleDocument): triple is NamedNodeTripleClass | NamedNodeTripleDocument {
+export function isNamedNode(
+  triple: TripleClass | TripleDocument
+): triple is NamedNodeTripleClass | NamedNodeTripleDocument {
   return triple.type === TripleType.NAMED_NODE;
 }
 
-export function isLiteral(triple: TripleClass | TripleDocument | WorkerTriple): triple is LiteralTripleClass | LiteralTripleDocument {
+export function isLiteral(
+  triple: TripleClass | TripleDocument
+): triple is LiteralTripleClass | LiteralTripleDocument {
   return triple.type === TripleType.LITERAL;
 }
-

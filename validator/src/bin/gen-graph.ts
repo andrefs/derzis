@@ -1,4 +1,5 @@
 import type { SimpleTriple } from '@derzis/common';
+import { TripleType } from '@derzis/common';
 import { getRandom } from '../lib/utils';
 import { triplesToTurtle } from '../lib/triples';
 import { genPage } from '../lib/gen-html';
@@ -65,7 +66,8 @@ for (const seed of seeds) {
     triples.push({
       subject: seed,
       predicate,
-      object: res
+      object: res,
+      type: TripleType.NAMED_NODE
     });
   }
 }
@@ -85,7 +87,8 @@ for (let i = 0; i < resCount; i++) {
     triples.push({
       subject: resources[i],
       predicate,
-      object: obj
+      object: obj,
+      type: TripleType.NAMED_NODE
     });
   }
 }
@@ -105,7 +108,8 @@ for (let i = 0; i < resCount2; i++) {
     triples.push({
       subject: resources[i],
       predicate,
-      object: obj
+      object: obj,
+      type: TripleType.NAMED_NODE
     });
   }
 }
@@ -125,7 +129,8 @@ for (let i = 0; i < resCount3; i++) {
     triples.push({
       subject: resources[i],
       predicate,
-      object: obj
+      object: obj,
+      type: TripleType.NAMED_NODE
     });
   }
 }

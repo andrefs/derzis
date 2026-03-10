@@ -36,7 +36,13 @@ export default class RunningJobs extends EventEmitter {
       domainLabelFetch: 0,
       count: () => {
         const bs = this.beingSaved;
-        return bs.domainCrawl + bs.resourceCrawl + bs.robotsCheck + bs.resourceLabelFetch + bs.domainLabelFetch;
+        return (
+          bs.domainCrawl +
+          bs.resourceCrawl +
+          bs.robotsCheck +
+          bs.resourceLabelFetch +
+          bs.domainLabelFetch
+        );
       }
     };
     this.beingSavedByDomain = {};
@@ -108,28 +114,28 @@ export default class RunningJobs extends EventEmitter {
     const customUpdate: UpdateQuery<DomainClass> =
       jobType === 'robotsCheck'
         ? {
-          $set: {
-            'robots.status': 'error'
-          },
-          $push: {
-            lastWarnings: {
-              $each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
-              $slice: -10
+            $set: {
+              'robots.status': 'error'
+            },
+            $push: {
+              lastWarnings: {
+                $each: [{ errType: 'E_ROBOTS_TIMEOUT' }],
+                $slice: -10
+              }
+            },
+            $inc: {
+              'warnings.E_ROBOTS_TIMEOUT': 1
             }
-          },
-          $inc: {
-            'warnings.E_ROBOTS_TIMEOUT': 1
           }
-        }
         : {
-          $push: {
-            lastWarnings: {
-              $each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
-              $slice: -10
-            }
-          },
-          $inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
-        };
+            $push: {
+              lastWarnings: {
+                $each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
+                $slice: -10
+              }
+            },
+            $inc: { 'warnings.E_RESOURCE_TIMEOUT': 1 }
+          };
     return this.cleanJob(origin, jobType, customUpdate);
   }
 
@@ -149,7 +155,7 @@ export default class RunningJobs extends EventEmitter {
       await TraversalPath.updateMany(
         {
           'head.domain': origin,
-          status: 'active',
+          'head.status': 'crawling',
           'head.type': HEAD_TYPE.URL
         },
         {
@@ -176,7 +182,6 @@ export default class RunningJobs extends EventEmitter {
       await TraversalPath.updateMany(
         {
           'head.domain': origin,
-          status: 'active',
           'head.status': 'crawling',
           'head.type': HEAD_TYPE.URL
         },
@@ -266,14 +271,13 @@ export default class RunningJobs extends EventEmitter {
       }
     );
 
-
     // Reset resources being crawled
     log.debug('Resetting outstanding resources being crawled');
     await Resource.updateMany({ status: 'crawling' }, { status: 'unvisited' });
     // Reset path head resources being crawled
     log.debug('Resetting outstanding path head resources being crawled');
     await TraversalPath.updateMany(
-      { 'head.status': 'crawling', status: 'active', 'head.type': HEAD_TYPE.URL },
+      { 'head.status': 'crawling', 'head.type': HEAD_TYPE.URL },
       { $set: { 'head.status': 'unvisited' } }
     );
 
@@ -285,7 +289,8 @@ export default class RunningJobs extends EventEmitter {
     if (this._running[origin]) {
       const jobId = this._running[origin].jobId;
       log.warn(
-        `Job #${jobId} ${jobType} for domain ${origin} timed out (${timeout / 1000
+        `Job #${jobId} ${jobType} for domain ${origin} timed out (${
+          timeout / 1000
         }s started at ${ts.toISOString()})`
       );
     }
@@ -362,7 +367,7 @@ export default class RunningJobs extends EventEmitter {
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
       await TraversalPath.updateMany(
-        { 'head.domain': { $in: domains }, status: 'active', 'head.type': HEAD_TYPE.URL },
+        { 'head.domain': { $in: domains }, 'head.status': 'crawling', 'head.type': HEAD_TYPE.URL },
         { $set: { status: 'unvisited' } }
       );
     }
@@ -386,7 +391,7 @@ export default class RunningJobs extends EventEmitter {
       }
       await Domain.updateMany({ origin: { $in: domains } }, update);
       await TraversalPath.updateMany(
-        { 'head.domain': { $in: domains }, status: 'active', 'head.type': HEAD_TYPE.URL },
+        { 'head.domain': { $in: domains }, 'head.status': 'crawling', 'head.type': HEAD_TYPE.URL },
         {
           $set: {
             'head.status': 'unvisited'

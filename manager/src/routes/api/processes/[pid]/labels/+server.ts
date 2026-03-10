@@ -72,7 +72,7 @@ export async function POST({ params, request }: RequestEvent) {
   }
 
   try {
-    const resData = resources.map(url => ({ pid, url, source, extend }));
+    const resData = resources.map((url) => ({ pid, url, source, extend }));
     await ResourceLabel.upsertMany(resData);
 
     return json({ ok: true, created: resData.length });

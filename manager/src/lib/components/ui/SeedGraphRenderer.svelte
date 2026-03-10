@@ -155,7 +155,10 @@
         settings: sensibleSettings
       });
 
-      const nodeReducer = (node: string, data: NodeDisplayData & { displayLabel?: string }): Partial<NodeDisplayData> => {
+      const nodeReducer = (
+        node: string,
+        data: NodeDisplayData & { displayLabel?: string }
+      ): Partial<NodeDisplayData> => {
         const res: Partial<NodeDisplayData> = { ...data };
         const isSeed = seeds.includes(node);
 

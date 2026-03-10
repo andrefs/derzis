@@ -1,8 +1,13 @@
 import { createLogger } from '@derzis/common/server';
 import { HttpError } from '@derzis/common';
-import type { DomainLabelFetchJobInfo, PathType, RobotsCheckResultError, RobotsCheckResultOk } from '@derzis/common';
+import type {
+  DomainLabelFetchJobInfo,
+  PathType,
+  RobotsCheckResultError,
+  RobotsCheckResultOk
+} from '@derzis/common';
 import { Counter } from './Counter';
-import { HEAD_TYPE, UrlHead } from './Path';
+import { HEAD_TYPE, Path, UrlHead } from './Path';
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type UpdateOneModel, Types } from 'mongoose';
@@ -103,6 +108,8 @@ class CrawlClass {
 })
 @index({ status: 1, 'crawl.nextAllowed': 1 })
 @index({ 'crawl.pathHeads': 1, 'crawl.nextAllowed': 1 })
+@index({ origin: 1 })
+@index({ origin: 1, jobId: 1 })
 class DomainClass {
   @prop({ required: true, type: String })
   public origin!: string;
@@ -159,6 +166,15 @@ class DomainClass {
       { new: true }
     );
 
+    // update all paths 'isUnvisited'
+    await Path.updateMany(
+      {
+        'head.domain.origin': jobResult.origin,
+        'head.type': HEAD_TYPE.URL
+      },
+      { 'head.domain.isUnvisited': false }
+    );
+
     //if (jobResult.err.errorType === 'host_not_found') {
     //  for await (const path of TraversalPath.find({ 'head.domain': jobResult.origin, status: 'active' })) {
     //    // await path.markDisabled(); // TODO make sure this was not needed
@@ -195,7 +211,7 @@ class DomainClass {
         jobId: ''
       }
     };
-    return await this.findOneAndUpdate(
+    await this.findOneAndUpdate(
       {
         origin: jobResult.origin,
         jobId: jobResult.jobId
@@ -203,6 +219,17 @@ class DomainClass {
       doc,
       { new: true }
     );
+
+    // update all paths 'isUnvisited'
+    await Path.updateMany(
+      {
+        'head.domain.origin': jobResult.origin,
+        'head.type': HEAD_TYPE.URL
+      },
+      { 'head.domain.isUnvisited': false }
+    );
+
+    return;
   }
 
   public static async upsertMany(this: ReturnModelType<typeof DomainClass>, urls: string[]) {
@@ -261,6 +288,28 @@ class DomainClass {
     return domains;
   }
 
+  /**
+   * Unlocks domains that were locked for robots.txt checking but not processed
+   * @param wId - The worker ID
+   * @param origins - The origins to unlock
+   * @returns {Promise<void>}
+   */
+  public static async unlockFromRobotsCheck(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    origins: string[]
+  ): Promise<void> {
+    const query = {
+      origin: { $in: origins },
+      status: 'checking',
+      workerId: wId
+    };
+    const update = {
+      $set: { status: 'unvisited' },
+      $unset: { jobId: '', workerId: '' }
+    };
+    await this.updateMany(query, update);
+  }
   public static async lockForLabelFetch(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
@@ -291,6 +340,28 @@ class DomainClass {
     return domains;
   }
 
+  /**
+   * Unlocks domains that were locked for label fetching but not processed
+   * @param wId - The worker ID
+   * @param origins - The origins to unlock
+   * @returns {Promise<void>}
+   */
+  public static async unlockFromLabelFetch(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    origins: string[]
+  ): Promise<void> {
+    const query = {
+      origin: { $in: origins },
+      status: 'labelFetching',
+      workerId: wId
+    };
+    const update = {
+      $set: { status: 'ready' },
+      $unset: { jobId: '', workerId: '' }
+    };
+    await this.updateMany(query, update);
+  }
   /**
    * Locks domains for crawling
    * Also updates the status of associated path head origins to 'crawling'
@@ -325,11 +396,46 @@ class DomainClass {
     return domains;
   }
 
+  /**
+   * Unlocks domains that were locked for crawling but not processed
+   * @param wId - The worker ID
+   * @param origins - The origins to unlock
+   * @returns {Promise<void>}
+   */
+  public static async unlockFromCrawl(
+    this: ReturnModelType<typeof DomainClass>,
+    wId: string,
+    origins: string[]
+  ): Promise<void> {
+    const query = {
+      origin: { $in: origins },
+      status: 'crawling',
+      workerId: wId
+    };
+    const update = {
+      $set: {
+        status: 'ready'
+      },
+      $unset: {
+        jobId: '',
+        workerId: ''
+      }
+    };
+    await this.updateMany(query, update);
+  }
+
+  /**
+   * Generator function to get domains that need robots.txt checking
+   * Iterates over processes and their paths to find domains to check, locking them in the process
+   * @param wId - The worker ID
+   * @param limit - The maximum number of domains to yield
+   * @returns {AsyncGenerator<DomainClass>}
+   */
   public static async *domainsToCheck(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     limit: number
-  ) {
+  ): AsyncGenerator<DomainClass> {
     let domainsFound = 0;
     let procSkip = 0;
     let pathLimit = 20;
@@ -343,11 +449,15 @@ class DomainClass {
 
       let lastSeenCreatedAt: Date | null = null;
       let lastSeenId: Types.ObjectId | null = null;
+      let lastSeenLength: number | null = null;
+      let lastSeenShortestPathLength: number | null = null;
       PATHS_LOOP: while (domainsFound < limit) {
         const paths = await proc.getPathsForRobotsChecking(
           config.manager.pathType as PathType,
           lastSeenCreatedAt,
           lastSeenId,
+          lastSeenLength,
+          lastSeenShortestPathLength,
           pathLimit
         );
 
@@ -359,17 +469,36 @@ class DomainClass {
         const lastPath = paths[paths.length - 1] as any;
         lastSeenCreatedAt = lastPath.createdAt;
         lastSeenId = lastPath._id;
+        // Track length for proper cursor pagination with compound sort
+        if (config.manager.pathType === 'traversal') {
+          lastSeenLength = lastPath.nodes?.count ?? null;
+        } else {
+          lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
+        }
 
-        const origins = new Set<string>(paths
-          .filter((p) => p.head.type === HEAD_TYPE.URL)
-          .map((p) => (p.head as UrlHead).domain));
+        const origins = new Set<string>(
+          paths
+            .filter((p) => p.head.type === HEAD_TYPE.URL)
+            .map((p) => (p.head as UrlHead).domain.origin)
+        );
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
+        log.silly(
+          `Worker ${wId} locked the following domains for robots checking for process ${proc.id}: ${domains.map(
+            (d) => d.origin
+          )}`
+        );
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
           continue PATHS_LOOP;
         }
 
+        const remainingCapacity = limit - domainsFound;
+        if (domains.length > remainingCapacity) {
+          const domainsToUnlock = domains.slice(remainingCapacity).map((d) => d.origin);
+          await this.unlockFromRobotsCheck(wId, domainsToUnlock);
+          domains.splice(remainingCapacity);
+        }
         for (const d of domains) {
           domainsFound++;
           yield d;
@@ -394,13 +523,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-        domain,
-        status: 'unvisited',
-        url: { $nin: dPathHeads.map((r) => r.url) }
-      })
-        .limit(limit)
-        .select('url')
-        .lean()
+          domain,
+          status: 'unvisited',
+          url: { $nin: dPathHeads.map((r) => r.url) }
+        })
+          .limit(limit)
+          .select('url')
+          .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
@@ -466,7 +595,7 @@ class DomainClass {
 
     let hasMore = true;
     while (hasMore) {
-      // 1.1 Query BATCH_SIZE ResourceLabels
+      // Query BATCH_SIZE ResourceLabels
       const query: any = { status: 'new' };
       if (lastSeenCreatedAt) {
         query.createdAt = { $gt: lastSeenCreatedAt };
@@ -482,7 +611,7 @@ class DomainClass {
       } else {
         lastSeenCreatedAt = rls[rls.length - 1].createdAt ?? null;
 
-        // 1.2 Split them by domain
+        // Split them by domain
         for (const rl of rls) {
           if (!labelsByDomain[rl.domain]) {
             labelsByDomain[rl.domain] = [];
@@ -492,34 +621,35 @@ class DomainClass {
           }
         }
 
-        // 1.3 Try to lock domains which already have enough urls (>= resLimit)
+        // Try to lock domains which already have enough urls (>= resLimit)
         const domainsReady = Object.entries(labelsByDomain)
           .filter(([_, urls]) => urls.length >= resLimit)
           .map(([d, _]) => d);
         const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
 
-        // 1.4 Ignore (drop) domains not locked
+        // Ignore (drop) domains not locked
         for (const d of domainsReady) {
           if (!dsLocked.find((dl) => dl.origin === d)) {
             delete labelsByDomain[d];
           }
         }
 
-        // 1.5 For each locked domain, yield it + its urls limited to resLimit
+        const remainingCapacity = domLimit - domainsFound;
+        if (dsLocked.length > remainingCapacity) {
+          const domainsToUnlock = dsLocked.slice(remainingCapacity).map((d) => d.origin);
+          await this.unlockFromLabelFetch(wId, domainsToUnlock);
+          dsLocked.splice(remainingCapacity);
+        }
+        // For each locked domain, yield it + its urls limited to resLimit
         for (const d of dsLocked) {
-          await this.markLabelFetching(
-            d.origin,
-            labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url })),
-            d.jobId);
-          yield {
-            domain: d,
-            resources: labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }))
-          };
+          const resources = labelsByDomain[d.origin].slice(0, resLimit).map((url) => ({ url }));
+          await this.markLabelFetching(d.origin, resources, d.jobId);
+          yield { domain: d, resources };
           domainsFound++;
           delete labelsByDomain[d.origin];
         }
 
-        // 1.6 If domLimit number of domains have been yielded, return
+        // If domLimit number of domains have been yielded, return
         if (domainsFound >= domLimit) {
           return;
         }
@@ -531,7 +661,7 @@ class DomainClass {
       }
     }
 
-    // 1.7 If there are no more ResourceLabels to query, yield whatever domains are left that can be locked
+    // If there are no more ResourceLabels to query, yield whatever domains are left that can be locked
     const domainsReady = Object.entries(labelsByDomain)
       .filter(([_, urls]) => urls.length >= resLimit)
       .map(([d, _]) => d)
@@ -584,8 +714,12 @@ class DomainClass {
         continue PROCESS_LOOP;
       }
 
+      // for pagination of paths within the process
       let lastSeenCreatedAt: Date | null = null;
       let lastSeenId: Types.ObjectId | null = null;
+      let lastSeenLength: number | null = null;
+      let lastSeenShortestPathLength: number | null = null;
+
       // iterate over process' paths
       PATHS_LOOP: while (domainsFound < domLimit) {
         log.info(
@@ -613,6 +747,8 @@ class DomainClass {
           blDomains,
           lastSeenCreatedAt,
           lastSeenId,
+          lastSeenLength,
+          lastSeenShortestPathLength,
           pathLimit
         );
         if (!paths.length) {
@@ -622,6 +758,13 @@ class DomainClass {
         const lastPath = paths[paths.length - 1];
         lastSeenCreatedAt = (lastPath as { createdAt: Date }).createdAt;
         lastSeenId = (lastPath as { _id: Types.ObjectId })._id;
+        // Track length for proper cursor pagination with compound sort
+        if (config.manager.pathType === 'traversal') {
+          lastSeenLength = (lastPath as { nodes: { count: number } }).nodes?.count ?? null;
+        } else {
+          lastSeenShortestPathLength =
+            (lastPath as { shortestPathLength: number }).shortestPathLength ?? null;
+        }
 
         // get only unvisited path heads
         const unvisHeads = paths
@@ -635,12 +778,18 @@ class DomainClass {
           continue PATHS_LOOP;
         }
 
+        // lock domains for crawling based on unvisited path heads
         log.info(
           `Preparing to lock for crawl domains from the following resources`,
           Array.from(new Set(unvisHeads.map((h) => h.url)))
         );
-        const origins = new Set<string>(unvisHeads.map((h) => h.domain));
+        const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
+        log.silly(
+          `Worker ${wId} locked the following domains for crawling for process ${proc.id}: ${domains.map(
+            (d) => d.origin
+          )}`
+        );
 
         // these paths returned no available domains, skip them
         if (!domains.length) {
@@ -667,8 +816,10 @@ class DomainClass {
         if (domainsFound + domains.length > domLimit) {
           const allowed = domLimit - domainsFound;
           log.info(
-            `Domain limit reached, only processing ${allowed} out of ${domains.length} locked domains.`
+            `Domain limit reached, only processing ${allowed} out of ${domains.length} locked domains, unlocking the rest.`
           );
+          const domainsToUnlock = domains.slice(allowed).map((d) => d.origin);
+          await this.unlockFromCrawl(wId, domainsToUnlock);
           domains.splice(allowed);
         }
 
@@ -679,8 +830,8 @@ class DomainClass {
           domainInfo[d.origin] = { domain: d, resources: [] };
         }
         for (const h of unvisHeads) {
-          if (h.domain in domainInfo) {
-            domainInfo[h.domain].resources!.push({ url: h.url });
+          if (h.domain.origin in domainInfo) {
+            domainInfo[h.domain.origin].resources!.push({ url: h.url });
           }
         }
 

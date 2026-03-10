@@ -1,5 +1,12 @@
-import { type Types, Document, type QueryFilter, type QueryWithHelpers, type UpdateWriteOpResult, type UpdateQuery } from 'mongoose';
-import { Resource, ResourceClass, type ResourceDocument } from '../Resource';
+import {
+  type Types,
+  Document,
+  type QueryFilter,
+  type QueryWithHelpers,
+  type UpdateWriteOpResult,
+  type UpdateQuery
+} from 'mongoose';
+import { Resource, type ResourceDocument } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
   TraversalPath,
@@ -7,12 +14,8 @@ import {
   TraversalPathClass,
   EndpointPathClass,
   PathClass,
-  type TraversalPathDocument,
-  type EndpointPathDocument,
   HEAD_TYPE,
-  UrlHead,
-  type PathDocument,
-  hasUrlHead
+  UrlHead
 } from '../Path';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
@@ -32,8 +35,7 @@ import {
   getPathsForDomainCrawl,
   hasPathsDomainRobotsChecking,
   hasPathsHeadBeingCrawled,
-  extendExistingPaths,
-  extendProcessPaths
+  extendPaths
 } from './process-paths';
 import {
   notifyStepStarted,
@@ -54,7 +56,7 @@ import {
   curPredsDirMetrics
 } from './process-data';
 import { BranchFactorClass, SeedPosRatioClass, NotificationClass, StepClass } from './aux-classes';
-import { type SimpleTriple, type PathType } from '@derzis/common';
+import { type SimpleTriple, PathType } from '@derzis/common';
 import config from '@derzis/config';
 
 @index({ status: 1 })
@@ -109,7 +111,7 @@ class ProcessClass extends Document {
     type: String,
     default: config.manager.pathType as PathType
   })
-  public pathType!: 'endpoint' | 'traversal';
+  public pathType!: PathType;
 
   /**
    * All crawling steps, including the current one
@@ -218,16 +220,16 @@ class ProcessClass extends Document {
     // process is not done
     log.info(
       `Process ${this.pid} is not done yet: ` +
-      JSON.stringify(
-        {
-          pathsToCrawl,
-          pathsToCheck,
-          hasPathsChecking,
-          hasPathsCrawling
-        },
-        null,
-        2
-      )
+        JSON.stringify(
+          {
+            pathsToCrawl,
+            pathsToCheck,
+            hasPathsChecking,
+            hasPathsCrawling
+          },
+          null,
+          2
+        )
     );
     return false;
   }
@@ -264,9 +266,19 @@ class ProcessClass extends Document {
     pathType: PathType,
     lastSeenCreatedAt: Date | null = null,
     lastSeenId: Types.ObjectId | null = null,
+    lastSeenLength: number | null = null,
+    lastSeenShortestPathLength: number | null = null,
     limit = 20
   ) {
-    return getPathsForRobotsChecking(this, pathType, lastSeenCreatedAt, lastSeenId, limit);
+    return getPathsForRobotsChecking(
+      this,
+      pathType,
+      lastSeenCreatedAt,
+      lastSeenId,
+      lastSeenLength,
+      lastSeenShortestPathLength,
+      limit
+    );
   }
 
   public async getPathsForDomainCrawl(
@@ -274,9 +286,20 @@ class ProcessClass extends Document {
     domainBlacklist: string[] = [],
     lastSeenCreatedAt: Date | null = null,
     lastSeenId: Types.ObjectId | null = null,
+    lastSeenLength: number | null = null,
+    lastSeenShortestPathLength: number | null = null,
     limit = 20
   ) {
-    return getPathsForDomainCrawl(this, pathType, domainBlacklist, lastSeenCreatedAt, lastSeenId, limit);
+    return getPathsForDomainCrawl(
+      this,
+      pathType,
+      domainBlacklist,
+      lastSeenCreatedAt,
+      lastSeenId,
+      lastSeenLength,
+      lastSeenShortestPathLength,
+      limit
+    );
   }
 
   public async hasPathsDomainRobotsChecking(): Promise<boolean> {
@@ -285,28 +308,6 @@ class ProcessClass extends Document {
 
   public async hasPathsHeadBeingCrawled(): Promise<boolean> {
     return hasPathsHeadBeingCrawled(this);
-  }
-
-  public async extendExistingPaths() {
-    log.info(`Extending existing paths for process ${this.pid}`);
-
-    const procTripleCount = await ProcessTriple.countDocuments({ processId: this.pid });
-
-    try {
-      await extendExistingPaths(this.pid);
-      const newPTC = await ProcessTriple.countDocuments({ processId: this.pid });
-      log.info(
-        `Extended existing paths for process ${this.pid}. ` +
-        `ProcessTriples before: ${procTripleCount}, after: ${newPTC}, added: ${newPTC - procTripleCount}`
-      );
-    } catch (error) {
-      log.error(`Error updating process ${this.pid} status to 'extending':`, error);
-      throw error;
-    }
-  }
-
-  public async extendProcessPaths(headUrl: string, pathType: PathType) {
-    return extendProcessPaths(this, headUrl, pathType);
   }
 
   /**
@@ -367,13 +368,10 @@ class ProcessClass extends Document {
     }
 
     // Before queuing, extend existing paths according to new step limits
-    await process.extendExistingPaths(); // this potentially takes a lot of time
+    await extendPaths({ pid: process.pid }); // this potentially takes a lot of time
 
     // Allow post-crawl path extension by incrementing the counter
-    await Process.updateOne(
-      { pid },
-      { $inc: { pathExtensionCounter: 1 } }
-    );
+    await Process.updateOne({ pid }, { $inc: { pathExtensionCounter: 1 } });
 
     // Set the process to queued
     await Process.updateOne(
@@ -462,24 +460,33 @@ class ProcessClass extends Document {
     let hasMore = true;
 
     while (hasMore) {
-      const cursorCondition: QueryFilter<PathClass> = lastSeenCreatedAt && lastSeenId
-        ? {
-          createdAt: { $gte: lastSeenCreatedAt },
-          _id: { $gt: lastSeenId }
-        }
-        : {};
+      const cursorCondition: QueryFilter<PathClass> =
+        lastSeenCreatedAt && lastSeenId
+          ? {
+              createdAt: { $gte: lastSeenCreatedAt },
+              _id: { $gt: lastSeenId }
+            }
+          : {};
 
       // Fetch a batch of paths for this process
       const paths =
-        config.manager.pathType === 'traversal'
-          ? await TraversalPath.find({ processId: this.pid, status: 'active', 'head.type': HEAD_TYPE.URL, ...cursorCondition } as QueryFilter<TraversalPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
-            .select('head.url head.domain createdAt _id')
-          : await EndpointPath.find({ processId: this.pid, status: 'active', 'head.type': HEAD_TYPE.URL, ...cursorCondition } as QueryFilter<EndpointPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
-            .select('head.url head.domain createdAt _id')
+        config.manager.pathType === PathType.TRAVERSAL
+          ? await TraversalPath.find({
+              processId: this.pid,
+              'head.type': HEAD_TYPE.URL,
+              ...cursorCondition
+            } as QueryFilter<TraversalPathClass>)
+              .sort({ createdAt: 1, _id: 1 })
+              .limit(batchSize)
+              .select('head.url head.domain createdAt _id')
+          : await EndpointPath.find({
+              processId: this.pid,
+              'head.type': HEAD_TYPE.URL,
+              ...cursorCondition
+            } as QueryFilter<EndpointPathClass>)
+              .sort({ createdAt: 1, _id: 1 })
+              .limit(batchSize)
+              .select('head.url head.domain createdAt _id');
 
       if (paths.length === 0) {
         hasMore = false;
@@ -490,20 +497,19 @@ class ProcessClass extends Document {
       lastSeenCreatedAt = lastPath.createdAt || null;
       lastSeenId = lastPath._id as Types.ObjectId;
 
-      const pathHeads = paths.map(p => p.head).filter((h): h is UrlHead => h.type === HEAD_TYPE.URL);
-      const headUrls = new Set(pathHeads.map(h => h.url));
-      const origins = new Set(pathHeads.map(h => h.domain));
+      const pathHeads = paths
+        .map((p) => p.head)
+        .filter((h): h is UrlHead => h.type === HEAD_TYPE.URL);
+      const headUrls = new Set(pathHeads.map((h) => h.url));
+      const origins = new Set(pathHeads.map((h) => h.domain.origin));
 
       const pathQuery = {
         processId: this.pid,
-        status: 'active',
         'head.type': HEAD_TYPE.URL,
         'head.status': 'error',
         'head.url': { $in: Array.from(headUrls) }
       };
-      const pathUpdate = {
-        $set: { 'head.status': 'unvisited' }
-      } as UpdateQuery<PathClass>;
+      const pathUpdate = { $set: { 'head.status': 'unvisited' } } as UpdateQuery<PathClass>;
       const [resourceRes, domainRes, pathRes] = await Promise.all([
         Resource.updateMany(
           { status: 'error', url: { $in: Array.from(headUrls) as string[] } },
@@ -523,7 +529,7 @@ class ProcessClass extends Document {
             $unset: { workerId: '', jobId: '' }
           }
         ) as QueryWithHelpers<UpdateWriteOpResult, DomainDocument>,
-        config.manager.pathType === 'traversal'
+        config.manager.pathType === PathType.TRAVERSAL
           ? TraversalPath.updateMany(pathQuery as QueryFilter<TraversalPathClass>, pathUpdate)
           : EndpointPath.updateMany(pathQuery as QueryFilter<EndpointPathClass>, pathUpdate)
       ]);
@@ -532,9 +538,7 @@ class ProcessClass extends Document {
       summary.domains += domainRes.modifiedCount ?? domainRes.matchedCount ?? 0;
       summary.paths += pathRes.modifiedCount ?? pathRes.matchedCount ?? 0;
 
-      log.debug(
-        `Reset error state in paths batch: ${paths.length} paths processed`
-      );
+      log.debug(`Reset error state in paths batch: ${paths.length} paths processed`);
     }
 
     log.info(`Errored entities reset for process ${this.pid}`, summary);

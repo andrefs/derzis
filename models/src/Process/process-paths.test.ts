@@ -1,9 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { genTraversalPathQuery } from './process-paths';
+// @ts-nocheck
+import 'reflect-metadata';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  genTraversalPathQuery,
+  hasPathsDomainRobotsChecking,
+  hasPathsHeadBeingCrawled
+} from './process-paths';
 import { StepClass, PredicateLimitationClass } from './aux-classes';
 import { QueryFilter } from 'mongoose';
 import type { TraversalPathDocument } from '../Path/TraversalPath';
 import type { ProcessClass } from './Process';
+import { Path, HEAD_TYPE } from '../Path/Path';
+import { Domain } from '../Domain';
+import { Types } from 'mongoose';
+import { PathType } from '@derzis/common';
 
 type TraversalPathQueryWithExpr = QueryFilter<TraversalPathDocument> & {
   $expr: {
@@ -12,6 +22,126 @@ type TraversalPathQueryWithExpr = QueryFilter<TraversalPathDocument> & {
     };
   };
 };
+
+// Mock implementations using vi.mock
+vi.mock('../Path/TraversalPath', () => {
+  type TraversalPathDoc = any;
+
+  const createChainableMock = (result: any) => {
+    return {
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          then: (onfulfilled: any) => Promise.resolve(result).then(onfulfilled)
+        })
+      })
+    };
+  };
+
+  class MockTraversalPathClass {
+    _id = new Types.ObjectId();
+    processId = 'test-pid';
+    status = 'active';
+    createdAt = new Date();
+    extensionCounter = 0;
+    nodes = { count: 1, elems: [] };
+    predicates = { count: 0, elems: [] };
+    head: any = {
+      type: 'url',
+      url: 'http://test.com',
+      status: 'unvisited',
+      domain: { origin: 'http://test.com', isUnvisited: true }
+    };
+    seed: any = { url: 'http://example.com/seed' };
+
+    extendWithExistingTriples(proc: any) {
+      return Promise.resolve({ extendedPaths: [], procTriples: [] });
+    }
+  }
+
+  MockTraversalPathClass.countDocuments = vi.fn();
+  MockTraversalPathClass.find = vi.fn(() => createChainableMock([]));
+  MockTraversalPathClass.updateMany = vi.fn();
+
+  return {
+    TraversalPath: MockTraversalPathClass as any,
+    TraversalPathClass: MockTraversalPathClass as any
+  };
+});
+
+vi.mock('../Path/EndpointPath', () => {
+  const createChainableMock = (result: any) => {
+    return {
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          then: (onfulfilled: any) => Promise.resolve(result).then(onfulfilled)
+        })
+      })
+    };
+  };
+
+  class MockEndpointPathClass {
+    _id = new Types.ObjectId();
+    processId = 'test-pid';
+    status = 'active';
+    createdAt = new Date();
+    extensionCounter = 0;
+    shortestPath: any = { length: 1, seed: { url: 'http://test.com' } };
+    seedPaths: Record<string, number> = {};
+    head: any = {
+      type: 'url',
+      url: 'http://test.com',
+      status: 'unvisited',
+      domain: { origin: 'http://test.com', isUnvisited: true }
+    };
+    seed: any = { url: 'http://example.com/seed' };
+
+    extendWithExistingTriples(proc: any) {
+      return Promise.resolve({ extendedPaths: [], procTriples: [] });
+    }
+  }
+
+  MockEndpointPathClass.countDocuments = vi.fn();
+  MockEndpointPathClass.find = vi.fn(() => createChainableMock([]));
+  MockEndpointPathClass.updateMany = vi.fn();
+
+  return {
+    EndpointPath: MockEndpointPathClass as any,
+    EndpointPathClass: MockEndpointPathClass as any
+  };
+});
+
+vi.mock('../Domain', () => {
+  const mockSelect = vi.fn().mockReturnValue({
+    lean: vi.fn().mockResolvedValue([])
+  });
+
+  const mockFind = vi.fn().mockReturnValue({
+    select: mockSelect
+  });
+
+  return {
+    Domain: {
+      find: mockFind
+    }
+  };
+});
+
+vi.mock('./Process', () => ({
+  Process: {
+    findOne: vi.fn()
+  }
+}));
+
+vi.mock('../Path/Path', () => ({
+  Path: {
+    countDocuments: vi.fn(),
+    updateMany: vi.fn()
+  },
+  HEAD_TYPE: {
+    URL: 'url',
+    LITERAL: 'literal'
+  }
+}));
 
 describe('genTraversalPathQuery', () => {
   const createMockProcess = (overrides: {
@@ -32,7 +162,7 @@ describe('genTraversalPathQuery', () => {
 
     return {
       pid: overrides.pid ?? 'test-pid',
-      currentStep: step,
+      currentStep: step
     } as ProcessClass;
   };
 
@@ -42,7 +172,7 @@ describe('genTraversalPathQuery', () => {
         pid: 'test-pid',
         maxPathLength: 4,
         maxPathProps: 1,
-        predLimit: undefined,
+        predLimit: undefined
       });
 
       const query = genTraversalPathQuery(process);
@@ -52,7 +182,7 @@ describe('genTraversalPathQuery', () => {
         status: 'active',
         'head.type': 'url',
         'nodes.count': { $lt: 4 },
-        'predicates.count': { $lte: 1 },
+        'predicates.count': { $lte: 1 }
       });
     });
 
@@ -60,7 +190,7 @@ describe('genTraversalPathQuery', () => {
       const process = createMockProcess({
         maxPathLength: 5,
         maxPathProps: 3,
-        predLimit: undefined,
+        predLimit: undefined
       });
 
       const query = genTraversalPathQuery(process);
@@ -77,7 +207,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -93,7 +223,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -109,7 +239,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -129,7 +259,7 @@ describe('genTraversalPathQuery', () => {
       const process = createMockProcess({
         maxPathLength: 4,
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -140,7 +270,10 @@ describe('genTraversalPathQuery', () => {
       expect(query['predicates.count']).toEqual({ $lte: 2 });
       expect(query.$expr).toBeDefined();
       expect(query.$expr.$not).toBeDefined();
-      expect(query.$expr.$not.$setIsSubset).toEqual(['$predicates.elems', ['http://blocked1.org', 'http://blocked2.org']]);
+      expect(query.$expr.$not.$setIsSubset).toEqual([
+        '$predicates.elems',
+        ['http://blocked1.org', 'http://blocked2.org']
+      ]);
     });
 
     it('uses $ne for single blacklist predicate', () => {
@@ -150,7 +283,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -166,7 +299,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -185,7 +318,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process);
@@ -202,7 +335,7 @@ describe('genTraversalPathQuery', () => {
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit,
+        predLimit
       });
 
       const query = genTraversalPathQuery(process);
@@ -225,6 +358,143 @@ describe('genTraversalPathQuery', () => {
       const query = genTraversalPathQuery(process);
 
       expect(query['nodes.count']).toEqual({ $lt: 10 });
+    });
+  });
+
+  describe('hasPathsDomainRobotsChecking', () => {
+    const mockDomains = [{ origin: 'http://example.com' }, { origin: 'http://test.com' }];
+    const mockProcess = (
+      pid: string = 'test-pid',
+      pathType: 'traversal' | 'endpoint' = 'traversal'
+    ): ProcessClass => ({
+      pid,
+      config: { manager: { pathType } }
+    });
+
+    beforeEach(() => {
+      const mockLean = vi.fn().mockResolvedValue(mockDomains);
+      Domain.find.mockImplementation(() => ({
+        select: vi.fn().mockReturnValue({
+          lean: mockLean
+        })
+      }));
+      vi.clearAllMocks();
+    });
+
+    it('returns true when endpoint paths match domain filter', async () => {
+      const process = mockProcess('pid-1', 'endpoint');
+      Path.countDocuments.mockResolvedValueOnce(5);
+
+      const result = await hasPathsDomainRobotsChecking(process);
+      expect(result).toBe(true);
+      expect(Path.countDocuments).toHaveBeenCalledWith({
+        processId: 'pid-1',
+        status: 'active',
+        'head.type': 'url',
+        'head.domain.origin': { $in: mockDomains.map((d) => d.origin) }
+      });
+    });
+
+    it('returns true when traversal paths match domain filter', async () => {
+      const process = mockProcess('pid-2', 'traversal');
+      Path.countDocuments.mockResolvedValueOnce(3);
+
+      const result = await hasPathsDomainRobotsChecking(process);
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no paths match domain filter', async () => {
+      const process = mockProcess('pid-3', 'endpoint');
+      Path.countDocuments.mockResolvedValueOnce(0);
+
+      const result = await hasPathsDomainRobotsChecking(process);
+      expect(result).toBe(false);
+    });
+
+    it('returns false when no domains are checking (early return)', async () => {
+      Domain.find.mockImplementation(() => ({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([])
+        })
+      }));
+      const process = mockProcess('pid-4', 'traversal');
+
+      const result = await hasPathsDomainRobotsChecking(process);
+      expect(result).toBe(false);
+      expect(Path.countDocuments).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('hasPathsHeadBeingCrawled', () => {
+    const mockCrawlingDomains = [
+      { origin: 'http://crawling1.com' },
+      { origin: 'http://crawling2.com' }
+    ];
+    const mockProcess = (
+      pid: string = 'test-pid',
+      pathType: 'traversal' | 'endpoint' = 'traversal'
+    ): ProcessClass => ({
+      pid,
+      config: { manager: { pathType } }
+    });
+
+    beforeEach(() => {
+      const mockLean = vi.fn().mockResolvedValue(mockCrawlingDomains);
+      Domain.find.mockImplementation(() => ({
+        select: vi.fn().mockReturnValue({
+          lean: mockLean
+        })
+      }));
+      vi.clearAllMocks();
+    });
+
+    it('returns true when endpoint paths have head in crawling domains', async () => {
+      const process = mockProcess('pid-1', 'endpoint');
+      Path.countDocuments.mockResolvedValueOnce(2);
+
+      const result = await hasPathsHeadBeingCrawled(process);
+      expect(result).toBe(true);
+      expect(Path.countDocuments).toHaveBeenCalledWith({
+        processId: 'pid-1',
+        status: 'active',
+        'head.type': HEAD_TYPE.URL,
+        'head.domain.origin': { $in: mockCrawlingDomains.map((d) => d.origin) }
+      });
+    });
+
+    it('returns true when traversal paths have head in crawling domains', async () => {
+      const process = mockProcess('pid-2', 'traversal');
+      Path.countDocuments.mockResolvedValueOnce(1);
+
+      const result = await hasPathsHeadBeingCrawled(process);
+      expect(result).toBe(true);
+      expect(Path.countDocuments).toHaveBeenCalledWith({
+        processId: 'pid-2',
+        status: 'active',
+        'head.type': HEAD_TYPE.URL,
+        'head.domain.origin': { $in: mockCrawlingDomains.map((d) => d.origin) }
+      });
+    });
+
+    it('returns false when no paths have head in crawling domains', async () => {
+      const process = mockProcess('pid-3', 'endpoint');
+      Path.countDocuments.mockResolvedValueOnce(0);
+
+      const result = await hasPathsHeadBeingCrawled(process);
+      expect(result).toBe(false);
+    });
+
+    it('returns false when no domains are crawling (early return)', async () => {
+      Domain.find.mockImplementation(() => ({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([])
+        })
+      }));
+      const process = mockProcess('pid-4', 'traversal');
+
+      const result = await hasPathsHeadBeingCrawled(process);
+      expect(result).toBe(false);
+      expect(Path.countDocuments).not.toHaveBeenCalled();
     });
   });
 });

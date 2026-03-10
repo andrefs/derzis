@@ -1,17 +1,26 @@
-import type { Types, Document, UpdateQuery } from 'mongoose';
-import { TripleType, urlValidator, WorkerError } from '@derzis/common';
+import type { Types, Document, UpdateQuery, AnyBulkWriteOperation } from 'mongoose';
+import { PathType, TripleType, urlValidator, WorkerError } from '@derzis/common';
 import { Domain, DomainClass } from './Domain';
 import {
   TraversalPath,
   EndpointPath,
   type TraversalPathDocument,
+  type EndpointPathDocument,
   EndpointPathClass,
   HEAD_TYPE,
   UrlHead
 } from './Path';
 import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
-import type { CrawlResourceResultDetails, SimpleTriple } from '@derzis/common';
+import type {
+  CrawlResourceResult,
+  CrawlResourceResultDetails,
+  FetchLabelsResourceResult,
+  FetchLabelsResourceResultDetails,
+  SimpleTriple
+} from '@derzis/common';
 import config from '@derzis/config';
+import { createLogger } from '@derzis/common/server';
+const log = createLogger('Resource');
 
 import {
   prop,
@@ -67,17 +76,22 @@ class ResourceClass {
     let insertedDocs: ResourceClass[] = [];
     const existingDocs: Partial<ResourceClass>[] = [];
 
-    await this.insertMany(resources, { ordered: false })
-      .then((docs) => (insertedDocs = docs.map((d) => d.toObject())))
-      .catch((err) => {
-        for (const e of err.writeErrors) {
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < resources.length; i += BATCH_SIZE) {
+      const batchResources = resources.slice(i, i + BATCH_SIZE);
+      try {
+        const docs = await this.insertMany(batchResources, { ordered: false });
+        insertedDocs.push(...docs.map((d) => d.toObject()));
+      } catch (err) {
+        for (const e of (err as any).writeErrors) {
           if (e.err.code && e.err.code === 11000) {
-            existingDocs.push(resources[e.err.index]);
+            existingDocs.push(batchResources[e.err.index]);
           }
           // TO DO handle other errors
         }
-        insertedDocs = err.insertedDocs;
-      });
+        insertedDocs.push(...(err as any).insertedDocs);
+      }
+    }
 
     if (insertedDocs.length) {
       const domainsSet = new Set<string>(resources.map((r) => r.domain));
@@ -122,23 +136,29 @@ class ResourceClass {
   public static async markAsCrawled(
     this: ReturnModelType<typeof ResourceClass>,
     url: string,
-    details: CrawlResourceResultDetails,
+    jobResult: CrawlResourceResult | FetchLabelsResourceResult,
     error?: WorkerError
   ) {
     // Resource
     const oldRes = await this.findOneAndUpdate(
-      { url, status: 'crawling' },
+      { url },
       {
         status: error ? 'error' : 'done',
-        crawlId: details.crawlId
+        crawlId:
+          jobResult.jobType === 'resourceCrawl'
+            ? jobResult.details.crawlId
+            : jobResult.details.labelFetchId
       },
       { returnDocument: 'before' }
     );
 
-    if (config.manager.pathType === 'traversal') {
+    if (config.manager.pathType === PathType.TRAVERSAL) {
       // TraversalPath
       await TraversalPath.updateMany(
-        { 'head.url': url, status: 'active', 'head.type': HEAD_TYPE.URL },
+        {
+          'head.url': url,
+          'head.type': HEAD_TYPE.URL
+        },
         {
           $set: {
             'head.status': error ? 'error' : 'done'
@@ -148,7 +168,10 @@ class ResourceClass {
     } else {
       // EndpointPath
       await EndpointPath.updateMany(
-        { 'head.url': url, status: 'active', 'head.type': HEAD_TYPE.URL },
+        {
+          'head.url': url,
+          'head.type': HEAD_TYPE.URL
+        },
         {
           $set: {
             'head.status': error ? 'error' : 'done'
@@ -212,7 +235,7 @@ class ResourceClass {
 
     const d = await Domain.findOneAndUpdate(baseFilter, update, { returnDocument: 'after' })!;
     return {
-      domain: await Domain.setNextCrawlAllowed(url, details.ts, d!.crawl.delay)
+      domain: await Domain.setNextCrawlAllowed(url, jobResult.details.ts, d!.crawl.delay)
     };
   }
 
@@ -255,43 +278,128 @@ class ResourceClass {
     seeds: ResourceDocument[]
   ) {
     // Traversal paths
-    if (config.manager.pathType === 'traversal') {
-      const paths = seeds.map((s) => ({
-        processId: pid,
-        seed: { url: s.url },
-        head: { url: s.url, status: s.status, type: HEAD_TYPE.URL },
-        nodes: { elems: [s.url] },
-        predicates: { elems: [] },
-        triples: [],
-        status: 'active'
-      }));
-
-      const insPaths = await TraversalPath.create(paths as any) as any;
-      return this.addTvPaths(insPaths);
-    }
-    // Endpoint paths
-    else {
+    if (config.manager.pathType === PathType.TRAVERSAL) {
       const paths = seeds.map((s) => ({
         processId: pid,
         seed: { url: s.url },
         head: {
           url: s.url,
           status: s.status,
-          domain: { origin: s.domain, status: 'active', type: HEAD_TYPE.URL },
+          type: HEAD_TYPE.URL,
+          domain: {
+            origin: s.domain,
+            isUnvisited: true
+          }
         },
         status: 'active',
-        frontier: true,
-        minPath: {
-          length: 1,
-          seeds: [s.url]
+        nodes: {
+          elems: [s.url],
+          count: 1
         },
-        seedPaths: {
-          [s.url]: 1
-        }
+        predicates: {
+          elems: [],
+          count: 0
+        },
+        triples: []
       }));
 
-      const insPaths = await EndpointPath.create(paths as any) as any;
-      return this.addEpPaths(insPaths);
+      const insPaths = await TraversalPath.create(paths);
+      return this.addTvPaths(insPaths);
+    }
+    // Endpoint paths
+    else {
+      try {
+        const bulkOps = seeds.map((s) => ({
+          updateOne: {
+            filter: {
+              processId: pid,
+              'head.type': HEAD_TYPE.URL,
+              'head.url': s.url
+            },
+            update: {
+              $setOnInsert: {
+                processId: pid,
+                head: {
+                  type: HEAD_TYPE.URL,
+                  url: s.url,
+                  status: s.status,
+                  domain: {
+                    origin: s.domain,
+                    isUnvisited: true
+                  }
+                },
+                status: 'active' as const,
+                shortestPathLength: 1,
+                seedPaths: [{ seed: s.url, minLength: 1 }]
+              }
+            },
+            upsert: true
+          }
+        }));
+
+        let result;
+        try {
+          log.warn(
+            'Attempting to insert/update EndpointPath seeds with bulkWrite',
+            JSON.stringify({ bulkOps })
+          );
+          result = await EndpointPath.bulkWrite(bulkOps as any, { ordered: false });
+          log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result.upsertedCount });
+
+          // Check for validation errors in result (Mongoose includes them even when not thrown)
+          if ((result as any).mongoose?.validationErrors?.length) {
+            log.error('BulkWrite result contains validation errors!', {
+              validationErrors: (result as any).mongoose.validationErrors
+            });
+          }
+        } catch (error: any) {
+          if (error.code !== 11000) {
+            log.error('Failed to upsert EndpointPath seed documents', {
+              error,
+              seedUrls: seeds.map((s) => s.url)
+            });
+            throw error;
+          }
+          log.warn('Duplicate key error on EndpointPath seeds, recovering partial results', {
+            seedUrls: seeds.map((s) => s.url)
+          });
+          result = error.result;
+        }
+
+        const insertedIndices = new Set<number>();
+        if (result.upsertedIds) {
+          for (const key of Object.keys(result.upsertedIds)) {
+            insertedIndices.add(Number(key));
+          }
+        }
+
+        const domainCounts = new Map<string, number>();
+        bulkOps.forEach((_op, idx) => {
+          if (insertedIndices.has(idx)) {
+            const s = seeds[idx];
+            domainCounts.set(s.domain, (domainCounts.get(s.domain) || 0) + 1);
+          }
+        });
+
+        let domainOps: any[] = [];
+        if (domainCounts.size > 0) {
+          domainOps = Array.from(domainCounts.entries()).map(([origin, count]) => ({
+            updateOne: {
+              filter: { origin },
+              update: { $inc: { 'crawl.pathHeads': count } }
+            }
+          }));
+          await Domain.bulkWrite(domainOps);
+        }
+
+        return { ep: result, dom: { modifiedCount: domainOps.length } };
+      } catch (error) {
+        log.error('Failed to insert EndpointPath seed documents', {
+          error,
+          seedUrls: seeds.map((s) => s.url)
+        });
+        throw error;
+      }
     }
   }
 
@@ -304,7 +412,9 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: EndpointPathClass[]
   ) {
-    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (EndpointPathClass & { head: UrlHead })[];
+    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (EndpointPathClass & {
+      head: UrlHead;
+    })[];
     if (!urlPaths.length) {
       return { dom: null };
     }
@@ -312,7 +422,7 @@ class ResourceClass {
     const dom = await Domain.bulkWrite(
       urlPaths.map((p) => ({
         updateOne: {
-          filter: { origin: p.head.domain },
+          filter: { origin: p.head.domain.origin },
           update: { $inc: { 'crawl.pathHeads': 1 } }
         }
       }))
@@ -330,7 +440,9 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: TraversalPathDocument[]
   ) {
-    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (TraversalPathDocument & { head: UrlHead })[];
+    const urlPaths = paths.filter(
+      (p) => p.head.type === HEAD_TYPE.URL
+    ) as (TraversalPathDocument & { head: UrlHead })[];
 
     if (!urlPaths.length) {
       return { res: null, dom: null };

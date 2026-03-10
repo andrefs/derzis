@@ -2,35 +2,43 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getPathProgress } from './process-data';
 import { TraversalPath } from '../Path/TraversalPath';
+import { EndpointPath } from '../Path/EndpointPath';
 import type { ProcessClass } from './Process';
+
+// Mock config
+vi.mock('@derzis/config', () => ({
+  default: {
+    manager: {
+      pathType: 'traversal',
+      predicates: {
+        branchingFactor: {
+          neutralZone: { min: 0.5, max: 2 }
+        }
+      }
+    }
+  }
+}));
 
 vi.mock('../Path/TraversalPath', () => ({
   TraversalPath: {
     aggregate: vi.fn(),
-    countDocuments: vi.fn(),
-  },
+    countDocuments: vi.fn()
+  }
 }));
 
 vi.mock('../Path/EndpointPath', () => ({
   EndpointPath: {
     aggregate: vi.fn(),
-    countDocuments: vi.fn(),
-  },
-}));
-
-vi.mock('../Path/EndpointPath', () => ({
-  EndpointPath: {
-    aggregate: vi.fn(),
-    countDocuments: vi.fn(),
-  },
+    countDocuments: vi.fn()
+  }
 }));
 
 describe('getPathProgress', () => {
   const mockProcess = {
     pid: 'test-pid-123',
     currentStep: {
-      seeds: ['http://example.com/seed1', 'http://example.com/seed2'],
-    },
+      seeds: ['http://example.com/seed1', 'http://example.com/seed2']
+    }
   } as unknown as ProcessClass;
 
   beforeEach(() => {
@@ -43,7 +51,7 @@ describe('getPathProgress', () => {
       { _id: 'done', count: 100 },
       { _id: 'crawling', count: 50 },
       { _id: 'checking', count: 25 },
-      { _id: 'unvisited', count: 200 },
+      { _id: 'unvisited', count: 200 }
     ];
 
     vi.mocked(TraversalPath.aggregate).mockResolvedValue(mockAggregateResult as any);
@@ -62,7 +70,7 @@ describe('getPathProgress', () => {
       { _id: 'done', count: 150 },
       { _id: 'crawling', count: 30 },
       { _id: 'checking', count: 20 },
-      { _id: 'unvisited', count: 300 },
+      { _id: 'unvisited', count: 300 }
     ];
 
     vi.mocked(TraversalPath.aggregate).mockResolvedValue(mockAggregateResult as any);

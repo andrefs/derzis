@@ -6,7 +6,6 @@ import { type LiteralTripleDocument } from '../Triple';
 import { getLabelDataForProcess } from './process-data';
 const log = createLogger('ProcessNotifications');
 
-
 /**
  * Notify Cardea that all labels for a process have been fetched and are ready to be sent.
  * This will fetch all labels with status 'done' for the given process, and send them to Cardea via the process webhook.
@@ -41,10 +40,7 @@ export async function notifyLabelsFetched(pid: string) {
 
   const notif: ProcessNotification = { ok: true, data };
 
-  log.info(
-    `Sending labels to Cardea for process ${pid}`,
-    process.notification.webhook ?? ''
-  );
+  log.info(`Sending labels to Cardea for process ${pid}`, process.notification.webhook ?? '');
 
   if (process.notification.webhook) {
     await notifyWebhook(process.notification.webhook, notif);
@@ -222,7 +218,7 @@ export type LabelsFetchedNotification = BaseProcNotification & {
   details: {
     labels: Array<{
       url: string;
-      triples: LiteralTripleDocument[]
+      triples: LiteralTripleDocument[];
     }>;
   };
   messageType: 'OK_LABELS_FETCHED';
@@ -231,9 +227,9 @@ export type LabelsFetchedNotification = BaseProcNotification & {
 type ProcessNotification = {
   ok: boolean;
   data:
-  | StepStartedNotification
-  | StepFinishedNotification
-  | ProcStartNotification
-  | ProcCreatedNotification
-  | LabelsFetchedNotification;
+    | StepStartedNotification
+    | StepFinishedNotification
+    | ProcStartNotification
+    | ProcCreatedNotification
+    | LabelsFetchedNotification;
 };

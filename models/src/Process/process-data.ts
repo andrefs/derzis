@@ -3,24 +3,29 @@ import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath, EndpointPath } from '../Path';
-import { LiteralTriple, LiteralTripleClass, type LiteralTripleDocument, NamedNodeTriple, NamedNodeTripleClass, Triple } from '../Triple';
+import {
+  LiteralTriple,
+  LiteralTripleClass,
+  type LiteralTripleDocument,
+  NamedNodeTriple,
+  NamedNodeTripleClass,
+  Triple
+} from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
-import { type SimpleTriple, TripleType, type PathType } from '@derzis/common';
+import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
 import config from '@derzis/config';
 import { ResourceLabel } from '../ResourceLabel';
 
 const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
 const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
 
-
 export async function getLabelDataForProcess(pid: string) {
-  const labels = await ResourceLabel
-    .find({
-      pid,
-      status: 'done',
-      source: 'cardea',
-      extend: false
-    })
+  const labels = await ResourceLabel.find({
+    pid,
+    status: 'done',
+    source: 'cardea',
+    extend: false
+  })
     .select('url -_id')
     .lean();
 
@@ -28,13 +33,12 @@ export async function getLabelDataForProcess(pid: string) {
     return [];
   }
 
-  const triples: LiteralTripleDocument[] = await LiteralTriple
-    .find({
-      subject: { $in: labels.map(l => l.url) },
-      predicate: {
-        $in: [RDFS_LABEL, RDFS_COMMENT]
-      }
-    });
+  const triples: LiteralTripleDocument[] = await LiteralTriple.find({
+    subject: { $in: labels.map((l) => l.url) },
+    predicate: {
+      $in: [RDFS_LABEL, RDFS_COMMENT]
+    }
+  });
 
   const triplesBySubj: { [url: string]: LiteralTripleDocument[] } = {};
   for (const triple of triples) {
@@ -44,8 +48,8 @@ export async function getLabelDataForProcess(pid: string) {
     triplesBySubj[triple.subject].push(triple);
   }
 
-  const res: { url: string, triples: LiteralTripleDocument[] }[] = [];
-  for (const url of labels.map(l => l.url)) {
+  const res: { url: string; triples: LiteralTripleDocument[] }[] = [];
+  for (const url of labels.map((l) => l.url)) {
     if (triplesBySubj[url]) {
       res.push({
         url,
@@ -57,14 +61,21 @@ export async function getLabelDataForProcess(pid: string) {
   return res;
 }
 
-
 export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleTriple> {
   const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();
-  const tripleIds = procTriples.map(pt => pt.triple);
+  const tripleIds = procTriples.map((pt) => pt.triple);
+
+  console.log(
+    '[DEBUG getTriples] procTriples count:',
+    procTriples.length,
+    'tripleIds count:',
+    tripleIds.length
+  );
 
   if (tripleIds.length === 0) return;
 
   const triples = await Triple.find({ _id: { $in: tripleIds } }).lean();
+  console.log('[DEBUG getTriples] Triple.find returned:', triples.length, 'documents');
 
   const tripleMap = new Map<string, { type: TripleType; data: any }>();
   for (const t of triples) {
@@ -312,11 +323,16 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
   const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
-  const lastTriple = [lastLT, lastNNT].reduce((latest, t) => {
-    if (!t) return latest;
-    return !latest || (t.updatedAt ?? new Date(0)) > (latest.updatedAt ?? new Date(0)) ? t : latest;
-  }, null as (LiteralTripleClass | NamedNodeTripleClass | null));
-  const lastPath = await TraversalPath.findOne({ status: 'active' }).sort({ updatedAt: -1 });
+  const lastTriple = [lastLT, lastNNT].reduce(
+    (latest, t) => {
+      if (!t) return latest;
+      return !latest || (t.updatedAt ?? new Date(0)) > (latest.updatedAt ?? new Date(0))
+        ? t
+        : latest;
+    },
+    null as LiteralTripleClass | NamedNodeTripleClass | null
+  );
+  const lastPath = await TraversalPath.findOne().sort({ updatedAt: -1 });
   const last = Math.max(
     lastResource?.updatedAt?.getTime() || 0,
     lastTriple?.updatedAt?.getTime() || 0,
@@ -324,21 +340,33 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   );
 
   const totalPaths = await TraversalPath.countDocuments({
-    'seed.url': { $in: process.currentStep.seeds },
-    status: 'active'
+    processId: process.pid,
+    'seed.url': { $in: process.currentStep.seeds }
   }).lean();
   const avgPathLength = totalPaths
     ? await TraversalPath.aggregate([
-      { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-      { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-    ]).then((res) => res[0]?.avgLength || 0)
+        {
+          $match: {
+            processId: process.pid,
+            type: PathType.TRAVERSAL,
+            'seed.url': { $in: process.currentStep.seeds }
+          }
+        },
+        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+      ]).then((res) => res[0]?.avgLength || 0)
     : 0;
 
   const avgPathProps = totalPaths
     ? await TraversalPath.aggregate([
-      { $match: { 'seed.url': { $in: process.currentStep.seeds }, status: 'active' } },
-      { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-    ]).then((res) => res[0]?.avgProps || 0)
+        {
+          $match: {
+            processId: process.pid,
+            type: PathType.TRAVERSAL,
+            'seed.url': { $in: process.currentStep.seeds }
+          }
+        },
+        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+      ]).then((res) => res[0]?.avgProps || 0)
     : 0;
 
   const timeToLastResource = lastResource
@@ -391,15 +419,15 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
     },
     paths: {
       total: await TraversalPath.countDocuments({
+        processId: process.pid,
+        type: PathType.TRAVERSAL,
         'seed.url': { $in: process.currentStep.seeds }
       }).lean(),
-      deleted: await TraversalPath.countDocuments({
-        'seed.url': { $in: process.currentStep.seeds },
-        status: 'deleted'
-      }).lean(), // TODO add index
-      active: await TraversalPath.countDocuments({
-        'seed.url': { $in: process.currentStep.seeds },
-        status: 'active'
+      headUnvisited: await TraversalPath.countDocuments({
+        processId: process.pid,
+        type: PathType.TRAVERSAL,
+        'head.status': 'unvisited',
+        'seed.url': { $in: process.currentStep.seeds }
       }).lean(), // TODO add index
       avgPathLength,
       avgPathProps
@@ -449,16 +477,12 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
   const seeds = process.currentStep.seeds;
 
   const baseQuery = {
-    'seed.url': { $in: seeds },
-    status: 'active'
+    'seed.url': { $in: seeds }
   };
 
-  const pipeline = [
-    { $match: baseQuery },
-    { $group: { _id: '$head.status', count: { $sum: 1 } } }
-  ];
+  const pipeline = [{ $match: baseQuery }, { $group: { _id: '$head.status', count: { $sum: 1 } } }];
 
-  const PathModel = pathType === 'traversal' ? TraversalPath : EndpointPath;
+  const PathModel = pathType === PathType.TRAVERSAL ? TraversalPath : EndpointPath;
   const results = await PathModel.aggregate(pipeline);
 
   const counts: Record<string, number> = {};
@@ -482,7 +506,10 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
   };
 }
 
-export async function getCrawlRate(process: ProcessClass, windowMinutes: number = 5): Promise<number> {
+export async function getCrawlRate(
+  process: ProcessClass,
+  windowMinutes: number = 5
+): Promise<number> {
   const cutoffTime = new Date(Date.now() - windowMinutes * 60 * 1000);
 
   const count = await Resource.countDocuments({
@@ -493,5 +520,3 @@ export async function getCrawlRate(process: ProcessClass, windowMinutes: number 
 
   return count / windowMinutes;
 }
-
-

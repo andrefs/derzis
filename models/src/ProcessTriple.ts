@@ -1,6 +1,12 @@
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { TripleClass, Triple, NamedNodeTripleClass, LiteralTripleClass } from './Triple';
-import { prop, index, getModelForClass, type ReturnModelType, type Ref } from '@typegoose/typegoose';
+import {
+  prop,
+  index,
+  getModelForClass,
+  type ReturnModelType,
+  type Ref
+} from '@typegoose/typegoose';
 import { Types } from 'mongoose';
 import { TripleType } from '@derzis/common';
 
@@ -36,8 +42,14 @@ class ProcessTripleClass extends TimeStamps {
       }
     }));
 
-    if (bulkOps.length > 0) {
-      await this.bulkWrite(bulkOps as any);
+    if (bulkOps.length === 0) {
+      return;
+    }
+
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < bulkOps.length; i += BATCH_SIZE) {
+      const batchOps = bulkOps.slice(i, i + BATCH_SIZE);
+      await this.bulkWrite(batchOps as any, { ordered: false });
     }
   }
 }
