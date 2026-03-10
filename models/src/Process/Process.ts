@@ -109,7 +109,7 @@ class ProcessClass extends Document {
     enum: ['endpoint', 'traversal'],
     required: true,
     type: String,
-    default: config.manager.pathType as PathType
+    default: PathType.TRAVERSAL
   })
   public pathType!: PathType;
 
