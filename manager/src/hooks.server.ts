@@ -49,7 +49,6 @@ Triple.schema.pre('find', function (this: any) {
   }
 });
 
-
 const initManager = async () => {
   console.log('Manager init');
   mps.start();

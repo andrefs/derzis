@@ -648,10 +648,14 @@ export default class Manager {
       'head.url': url,
       'head.type': HEAD_TYPE.URL,
       status: 'active'
-    }).select('processId').lean();
-    
+    })
+      .select('processId')
+      .lean();
+
     if (tp) {
-      const proc = await Process.findOne({ pid: (tp as any).processId }).select('curPathType').lean();
+      const proc = await Process.findOne({ pid: (tp as any).processId })
+        .select('curPathType')
+        .lean();
       if (proc) {
         pathType = (proc as any).curPathType ?? PathType.TRAVERSAL;
       }
@@ -660,8 +664,10 @@ export default class Manager {
         'head.url': url,
         'head.type': HEAD_TYPE.URL,
         status: 'active'
-      }).select('processId').lean();
-      
+      })
+        .select('processId')
+        .lean();
+
       if (ep) {
         pathType = PathType.ENDPOINT;
       }
