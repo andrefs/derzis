@@ -26,6 +26,9 @@ class ManagerPubSub {
   _pubChannel!: string;
   _broadChannel!: string;
   _messageHandler!: (msg: string, channel: string) => Promise<void>;
+  // Store references to event handlers for cleanup
+  private _reconnectorHandlers: Map<RedisReconnector, Map<string, Function>> = new Map();
+  private _jobTimeoutHandler?: (payload: any) => void;
 
   constructor() {
     this._m = new Manager();
@@ -39,7 +42,7 @@ class ManagerPubSub {
 
   private setupReconnectionHandlers(): void {
     // Handle main Redis reconnection
-    this._redisReconnector.on('reconnected', async () => {
+    const onReconnected = async () => {
       log.info('Main Redis reconnected, reconnecting pub/sub clients');
       try {
         await this.reconnectClients();
@@ -47,12 +50,16 @@ class ManagerPubSub {
       } catch (err) {
         log.error('Error resubscribing after reconnection:', err);
       }
-    });
+    };
+    this._redisReconnector.on('reconnected', onReconnected);
+    this.storeHandler(this._redisReconnector, 'reconnected', onReconnected);
 
-    this._redisReconnector.on('gaveUp', (error) => {
+    const onGaveUp = (error: Error) => {
       log.error('Redis reconnection failed, giving up:', error.message);
       process.exit(1);
-    });
+    };
+    this._redisReconnector.on('gaveUp', onGaveUp);
+    this.storeHandler(this._redisReconnector, 'gaveUp', onGaveUp);
 
     // Also monitor pub/sub reconnectors
     const monitorReconnector = (
@@ -60,23 +67,41 @@ class ManagerPubSub {
       name: string,
       isSubscriber: boolean
     ) => {
-      reconnector.on('reconnected', () => {
+      const onReconnectedPub = () => {
         log.info(`${name} Redis reconnected`);
-      });
-      reconnector.on('error', (error) => {
+      };
+      reconnector.on('reconnected', onReconnectedPub);
+      this.storeHandler(reconnector, 'reconnected', onReconnectedPub);
+
+      const onError = (error: Error) => {
         log.error(`${name} Redis error:`, error.message);
-      });
-      reconnector.on('disconnected', () => {
+      };
+      reconnector.on('error', onError);
+      this.storeHandler(reconnector, 'error', onError);
+
+      const onDisconnected = () => {
         log.warn(`${name} Redis disconnected`);
-      });
-      reconnector.on('gaveUp', (error) => {
+      };
+      reconnector.on('disconnected', onDisconnected);
+      this.storeHandler(reconnector, 'disconnected', onDisconnected);
+
+      const onGaveUpPub = (error: Error) => {
         log.error(`${name} Redis reconnection failed:`, error.message);
-      });
+      };
+      reconnector.on('gaveUp', onGaveUpPub);
+      this.storeHandler(reconnector, 'gaveUp', onGaveUpPub);
     };
 
     monitorReconnector(this._pubReconnector, 'Pub', false);
     monitorReconnector(this._subReconnector, 'Sub', true);
     monitorReconnector(this._broadReconnector, 'Broad', false);
+  }
+
+  private storeHandler(reconnector: RedisReconnector, event: string, handler: Function): void {
+    if (!this._reconnectorHandlers.has(reconnector)) {
+      this._reconnectorHandlers.set(reconnector, new Map());
+    }
+    this._reconnectorHandlers.get(reconnector)!.set(event, handler);
   }
 
   private async reconnectClients(): Promise<void> {
@@ -145,9 +170,10 @@ class ManagerPubSub {
   }
 
    listenManager() {
-    this._m.jobs.on('jobTimeout', (payload) => {
+    this._jobTimeoutHandler = (payload: any) => {
       return this.broad({ type: 'jobTimeout', payload });
-    });
+    };
+    this._m.jobs.on('jobTimeout', this._jobTimeoutHandler);
   }
 
   async start() {
@@ -169,6 +195,7 @@ class ManagerPubSub {
     
     process.on('uncaughtException', (...args) => {
       log.error('Uncaught exception', args);
+      this.shutdown();
       this._redisReconnector.abort();
       this._pubReconnector.abort();
       this._subReconnector.abort();
@@ -240,12 +267,39 @@ class ManagerPubSub {
   private handleSignal(signal: string): () => void {
     return () => {
       log.info(`Received ${signal}, shutting down gracefully`);
-      this._redisReconnector.abort();
-      this._pubReconnector.abort();
-      this._subReconnector.abort();
-      this._broadReconnector.abort();
+      this.shutdown();
       process.exit(0);
     };
+  }
+
+  private shutdown(): void {
+    log.info('Shutting down ManagerPubSub, removing event listeners');
+
+    // Remove jobTimeout listener
+    if (this._jobTimeoutHandler) {
+      this._m.jobs.off('jobTimeout', this._jobTimeoutHandler);
+      this._jobTimeoutHandler = undefined;
+      log.debug('Removed jobTimeout listener');
+    }
+
+    // Remove all RedisReconnector listeners
+    for (const [reconnector, events] of this._reconnectorHandlers.entries()) {
+      for (const [event, handler] of events.entries()) {
+        // Use 'off' method to remove the listener
+        (reconnector as any).off?.(event, handler);
+        // Since RedisReconnector doesn't have a public off method for all events,
+        // we need to call off on the underlying client's event emitter for some events
+        // But reconnector.off is defined in the class - let's try to use it
+        try {
+          reconnector.off?.(event as any, handler);
+        } catch (err) {
+          log.warn(`Could not remove listener for ${event} on reconnector:`, err);
+        }
+      }
+    }
+    this._reconnectorHandlers.clear();
+
+    log.info('Event cleanup complete');
   }
 
   pub(workerId: string, { type, payload }: Message) {
