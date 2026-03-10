@@ -209,6 +209,33 @@ export default class Manager {
         `Received completion of domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}:`,
         jobResult.details
       );
+      // Update domain status to ready and clean up job tracking
+      try {
+        const res = await Domain.updateOne(
+          {
+            origin: jobResult.origin,
+            jobId: jobResult.jobId
+          },
+          {
+            $set: { status: 'ready' },
+            $unset: {
+              workerId: '',
+              jobId: ''
+            }
+          }
+        );
+        if (res.acknowledged && res.modifiedCount) {
+          log.debug(`Domain status updated for ${jobResult.origin} after domain crawl`);
+        } else {
+          log.warn(`Domain update returned no modifications for ${jobResult.origin} after domain crawl`);
+        }
+      } catch (err) {
+        log.error(`Failed to update domain status after domain crawl for ${jobResult.origin}`, err);
+      } finally {
+        // Always deregister the domainCrawl job
+        this.jobs.deregisterJob(jobResult.origin);
+        log.debug(`Job #${jobResult.jobId} deregistered for ${jobResult.origin} (domainCrawl)`);
+      }
     }
     if (jobResult.jobType === 'domainLabelFetch') {
       log.warn(
