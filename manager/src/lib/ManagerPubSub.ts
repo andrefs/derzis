@@ -140,7 +140,7 @@ class ManagerPubSub {
     }
     const pattern = config.pubsub.workers.from + '*';
     log.info(`Resubscribing to ${pattern}`);
-    
+
     // Unsubscribe first to prevent duplicate handlers
     try {
       await this._sub.pUnsubscribe(pattern);
@@ -151,16 +151,15 @@ class ManagerPubSub {
     const maxRetries = 5;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await this._sub.pSubscribe(
-          pattern,
-          (msg: string, channel: string) => this._messageHandler(msg, channel)
+        await this._sub.pSubscribe(pattern, (msg: string, channel: string) =>
+          this._messageHandler(msg, channel)
         );
         log.info(`Resubscribe successful on attempt ${attempt}`);
         return;
       } catch (err) {
         log.warn(`Resubscribe attempt ${attempt} failed:`, err as Error);
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
         } else {
           log.error('Resubscribe failed after all retries');
           throw err;
@@ -169,7 +168,7 @@ class ManagerPubSub {
     }
   }
 
-   listenManager() {
+  listenManager() {
     this._jobTimeoutHandler = (payload: any) => {
       return this.broad({ type: 'jobTimeout', payload });
     };
@@ -189,10 +188,10 @@ class ManagerPubSub {
   async connect() {
     log.info('Using Mailtrap API token ' + '...' + MAILTRAP_API_TOKEN.slice(-4));
     log.info('Connecting to Redis');
-    
+
     process.on('SIGINT', this.handleSignal('SIGINT'));
     process.on('SIGTERM', this.handleSignal('SIGTERM'));
-    
+
     process.on('uncaughtException', (...args) => {
       log.error('Uncaught exception', args);
       this.shutdown();
@@ -253,9 +252,8 @@ class ManagerPubSub {
       }
     };
 
-    this._sub.pSubscribe(
-      config.pubsub.workers.from + '*',
-      (msg: string, channel: string) => this._messageHandler(msg, channel)
+    this._sub.pSubscribe(config.pubsub.workers.from + '*', (msg: string, channel: string) =>
+      this._messageHandler(msg, channel)
     );
 
     this._broadChannel = config.pubsub.manager.from;

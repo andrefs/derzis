@@ -180,26 +180,19 @@ export default class Manager {
             if (res.acknowledged && res.modifiedCount) {
               log.debug(`Domain status updated for ${jobResult.origin} after label fetch`);
             } else {
-              log.warn(`Domain update returned no modifications for ${jobResult.origin} after label fetch`);
+              log.warn(
+                `Domain update returned no modifications for ${jobResult.origin} after label fetch`
+              );
             }
           } catch (err) {
-            log.error(`Failed to update domain status after label fetch for ${jobResult.origin}`, err);
+            log.error(
+              `Failed to update domain status after label fetch for ${jobResult.origin}`,
+              err
+            );
           } finally {
             // Always deregister the job to prevent memory leak
             this.jobs.deregisterJob(jobResult.origin);
             log.debug(`Job #${jobResult.jobId} deregistered for ${jobResult.origin}`);
-          }
-        }
-      }
-    }
-            }
-          );
-
-          if (res.acknowledged && res.modifiedCount) {
-            this.jobs.deregisterJob(jobResult.origin);
-            log.debug(
-              `Done saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
-            );
           }
         }
       }
@@ -227,7 +220,9 @@ export default class Manager {
         if (res.acknowledged && res.modifiedCount) {
           log.debug(`Domain status updated for ${jobResult.origin} after domain crawl`);
         } else {
-          log.warn(`Domain update returned no modifications for ${jobResult.origin} after domain crawl`);
+          log.warn(
+            `Domain update returned no modifications for ${jobResult.origin} after domain crawl`
+          );
         }
       } catch (err) {
         log.error(`Failed to update domain status after domain crawl for ${jobResult.origin}`, err);
@@ -260,14 +255,21 @@ export default class Manager {
         if (res.acknowledged && res.modifiedCount) {
           log.debug(`Domain status updated for ${jobResult.origin} after domain label fetch`);
         } else {
-          log.warn(`Domain update returned no modifications for ${jobResult.origin} after domain label fetch`);
+          log.warn(
+            `Domain update returned no modifications for ${jobResult.origin} after domain label fetch`
+          );
         }
       } catch (err) {
-        log.error(`Failed to update domain status after domain label fetch for ${jobResult.origin}`, err);
+        log.error(
+          `Failed to update domain status after domain label fetch for ${jobResult.origin}`,
+          err
+        );
       } finally {
         // Always deregister the domainLabelFetch job
         this.jobs.deregisterJob(jobResult.origin);
-        log.debug(`Job #${jobResult.jobId} deregistered for ${jobResult.origin} (domainLabelFetch)`);
+        log.debug(
+          `Job #${jobResult.jobId} deregistered for ${jobResult.origin} (domainLabelFetch)`
+        );
       }
     }
   }
