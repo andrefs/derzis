@@ -1169,21 +1169,21 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
         }));
         const finalShortest = Math.min(shortestPathLength, existing.shortestPathLength);
 
-        const res = await EndpointPath.updateOne(
-          { _id: existing._id, updatedAt: existing.updatedAt },
-          {
-            $set: {
-              'head.type': 'url',
-              'head.status': existing.head.status,
-              'head.domain.origin': domain.origin,
-              type: 'endpoint',
-              shortestPathLength: finalShortest,
-              seedPaths: mergedSeedPaths,
-              extensionCounter: 0,
-              updatedAt: new Date()
-            }
-          }
-        );
+         const res = await EndpointPath.updateOne(
+           { _id: existing._id, updatedAt: existing.updatedAt },
+           {
+             $set: {
+               'head.type': 'url',
+               'head.status': (existing.head as UrlHead).status,
+               'head.domain.origin': domain.origin,
+               type: 'endpoint',
+               shortestPathLength: finalShortest,
+               seedPaths: mergedSeedPaths,
+               extensionCounter: 0,
+               updatedAt: new Date()
+             }
+           }
+         );
 
         if (res.matchedCount === 0) continue;
         success = true;
@@ -1226,7 +1226,5 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   process.curPathType = PathType.ENDPOINT;
   await process.save();
 
-  log.info(`Converted ${headUrlGroups.size} endpoint paths from ${traversalPaths.length} traversal paths for process ${pid}`);
-}
-
-export { convertTraversalToEndpointPaths };
+   log.info(`Converted ${headUrlGroups.size} endpoint paths from ${traversalPaths.length} traversal paths for process ${pid}`);
+ }

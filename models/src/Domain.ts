@@ -451,15 +451,15 @@ class DomainClass {
       let lastSeenId: Types.ObjectId | null = null;
       let lastSeenLength: number | null = null;
       let lastSeenShortestPathLength: number | null = null;
-      PATHS_LOOP: while (domainsFound < limit) {
-        const paths = await proc.getPathsForRobotsChecking(
-          config.manager.pathType as PathType,
-          lastSeenCreatedAt,
-          lastSeenId,
-          lastSeenLength,
-          lastSeenShortestPathLength,
-          pathLimit
-        );
+        PATHS_LOOP: while (domainsFound < limit) {
+          const paths = await proc.getPathsForRobotsChecking(
+            proc.curPathType,
+            lastSeenCreatedAt,
+            lastSeenId,
+            lastSeenLength,
+            lastSeenShortestPathLength,
+            pathLimit
+          );
 
         // if this process has no more available paths, skip it
         if (!paths.length) {
@@ -470,7 +470,7 @@ class DomainClass {
         lastSeenCreatedAt = lastPath.createdAt;
         lastSeenId = lastPath._id;
         // Track length for proper cursor pagination with compound sort
-        if (config.manager.pathType === 'traversal') {
+        if (proc.curPathType === 'traversal') {
           lastSeenLength = lastPath.nodes?.count ?? null;
         } else {
           lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
@@ -743,7 +743,7 @@ class DomainClass {
 
         // get paths for this process
         const paths = await proc.getPathsForDomainCrawl(
-          config.manager.pathType as PathType,
+          proc.curPathType,
           blDomains,
           lastSeenCreatedAt,
           lastSeenId,
