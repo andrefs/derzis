@@ -111,7 +111,7 @@ class ProcessClass extends Document {
     type: String,
     default: PathType.TRAVERSAL
   })
-  public pathType!: PathType;
+  public curPathType!: PathType;
 
   /**
    * All crawling steps, including the current one
