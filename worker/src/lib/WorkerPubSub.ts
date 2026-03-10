@@ -106,21 +106,28 @@ export class WorkerPubSub {
       log.warn('No message handler to resubscribe');
       return;
     }
+    
     const managerChannel = config.pubsub.manager.from;
     const selfChannel = config.pubsub.workers.to + this.w.wId;
     log.info(`Resubscribing to ${managerChannel} and ${selfChannel}`);
-    
+
+    // Unsubscribe from both channels first to prevent duplicate handlers
+    try {
+      await this._sub.pUnsubscribe(managerChannel);
+    } catch (err) {
+      log.warn('Error unsubscribing from manager channel:', err);
+    }
+    try {
+      await this._sub.pUnsubscribe(selfChannel);
+    } catch (err) {
+      log.warn('Error unsubscribing from self channel:', err);
+    }
+
     const maxRetries = 5;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await this._sub.pSubscribe(
-          managerChannel,
-          (msg: string, channel: string) => this._messageHandler(msg, channel)
-        );
-        await this._sub.pSubscribe(
-          selfChannel,
-          (msg: string, channel: string) => this._messageHandler(msg, channel)
-        );
+        await this._sub.pSubscribe(managerChannel, this._messageHandler);
+        await this._sub.pSubscribe(selfChannel, this._messageHandler);
         log.info(`Resubscribe successful on attempt ${attempt}`);
         return;
       } catch (err) {
@@ -167,71 +174,19 @@ export class WorkerPubSub {
     }
   }
 
-  async connect() {
-    log.info('Connecting to Redis');
-    await this._redisReconnector.connect();
-    this._pub = this._pubReconnector.clientInstance;
-    this._sub = this._subReconnector.clientInstance;
+   async connect() {
+     log.info('Connecting to Redis');
+     await this._redisReconnector.connect();
+     this._pub = this._pubReconnector.clientInstance;
+     this._sub = this._subReconnector.clientInstance;
 
-    if (config.http.debug && this._httpReconnector) {
-      await this._httpReconnector.connect();
-      this._http = this._httpReconnector.clientInstance;
-      this.w.on('httpDebug', (ev) =>
-        this._http!.publish(config.http.debug.pubsubChannel, JSON.stringify(ev, null, 2))
-      );
+     if (config.http.debug && this._httpReconnector) {
+       await this._httpReconnector.connect();
+       this._http = this._httpReconnector.clientInstance;
+       this.w.on('httpDebug', (ev) =>
+         this._http!.publish(config.http.debug.pubsubChannel, JSON.stringify(ev, null, 2))
+       );
     }
-
-    process.on('SIGINT', this.exitHandler({ signal: 'SIGINT' }));
-    process.on('SIGUSR1', this.signalHandler());
-    process.on('SIGUSR2', this.signalHandler());
-    process.on('uncaughtException', (...args) => {
-      log.error('Uncaught exception', args);
-      process.exit(1);
-    });
-
-    const handleMessage = (channel: string) => (msg: string) => {
-      const message: Message = JSON.parse(msg);
-      log.pubsub?.('message from ' + channel, message.type);
-      if (Object.keys(message.payload).length) {
-        log.debug('', message.payload);
-      }
-
-      if (message.type === 'askCurCap') {
-        return this.reportCurrentCapacity();
-      }
-      if (message.type === 'jobTimeout') {
-        if (this.w.currentJobs.domainCrawl[message.payload.origin]) {
-          this.w.jobsTimedout[message.payload.origin] = true;
-        }
-        return;
-      }
-      if (message.type === 'doJob') {
-        // Use immediate invocation to catch errors
-        (async () => {
-          try {
-            await this.doJob(message.payload);
-          } catch (err) {
-            log.error('Error in doJob:', err, { job: message.payload });
-          }
-        })();
-        return;
-      }
-    };
-
-     this._pubChannel = config.pubsub.workers.from + this.w.wId;
-     log.pubsub?.(`Publishing to ${this._pubChannel}`);
-     log.pubsub?.('Subscribing to', [
-       config.pubsub.manager.from,
-       config.pubsub.workers.to + this.w.wId
-     ]);
-    this._sub.pSubscribe(
-      config.pubsub.manager.from,
-      handleMessage(config.pubsub.manager.from)
-    );
-    this._sub.pSubscribe(
-      config.pubsub.workers.to + this.w.wId,
-      handleMessage(config.pubsub.workers.to + this.w.wId)
-    );
   }
 
   pub({ type, payload }: Message) {

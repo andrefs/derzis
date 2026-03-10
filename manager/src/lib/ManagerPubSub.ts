@@ -116,6 +116,13 @@ class ManagerPubSub {
     const pattern = config.pubsub.workers.from + '*';
     log.info(`Resubscribing to ${pattern}`);
     
+    // Unsubscribe first to prevent duplicate handlers
+    try {
+      await this._sub.pUnsubscribe(pattern);
+    } catch (err) {
+      log.warn('Error unsubscribing during resubscribe:', err);
+    }
+
     const maxRetries = 5;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
