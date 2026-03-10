@@ -453,7 +453,7 @@ async function createNewPaths(
             {
               $set: {
                 'head.type': 'url',
-                'head.status': existingHead.status === 'error' ? 'unvisited' : existingHead.status,
+                'head.status': existingHead.status,
                 'head.domain.origin': domain.origin,
                 type: 'endpoint',
                 shortestPathLength: finalShortest,
@@ -1021,14 +1021,14 @@ export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsA
   let needsMoreWork = true;
 
   // Create generator outside loop to preserve pagination cursor across iterations
-  const generator = triples
+  const pathGen = triples
     ? queryPathsForTriples(process, triples, batchSize)
     : headUrl
       ? queryPathsForHeadUrl(process, headUrl, batchSize)
       : null;
 
   // For full extend, we need a separate generator since it's a different code path
-  const fullGenerator = !triples && !headUrl ? queryAllExtendablePaths(process, batchSize) : null;
+  const fullPathGen = !triples && !headUrl ? queryAllExtendablePaths(process, batchSize) : null;
 
   while (needsMoreWork && iteration < 100) {
     iteration++;
@@ -1038,15 +1038,15 @@ export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsA
       // Direct list provided
       pathsToProcess = paths;
       needsMoreWork = false;
-    } else if (generator) {
+    } else if (pathGen) {
       // Reuse same generator - pagination cursor is preserved internally
-      pathsToProcess = await collectBatch(generator, batchSize);
+      pathsToProcess = await collectBatch(pathGen, batchSize);
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }
-    } else if (fullGenerator) {
+    } else if (fullPathGen) {
       // Full extend - reuse same generator for pagination
-      pathsToProcess = await collectBatch(fullGenerator, batchSize);
+      pathsToProcess = await collectBatch(fullPathGen, batchSize);
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }
