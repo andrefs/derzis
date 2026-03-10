@@ -584,7 +584,7 @@ interface ExtendPathsArgs {
  * @returns The PathType for the process.
  */
 function getPathType(process: ProcessClass): PathType {
-  return process.pathType ?? config.manager.pathType;
+  return process.curPathType ?? PathType.TRAVERSAL;
 }
 
 /**
