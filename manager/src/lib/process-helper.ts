@@ -39,7 +39,7 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
     currentStep: p.currentStep!,
     notification: p.notification!,
     pathHeads: p.pathHeads,
-    pathType: p.pathType ?? config.manager.pathType ?? PathType.ENDPOINT
+    curPathType: p.pathType ?? PathType.TRAVERSAL
   } as Parameters<typeof Process.create>[0];
 
   const proc = await Process.create(processData);
