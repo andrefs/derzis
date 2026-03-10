@@ -110,24 +110,33 @@ export default class Manager {
           log.debug(
             `Done saving resource crawl (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
           );
-          const res = await Domain.updateOne(
-            {
-              origin: jobResult.origin,
-              jobId: jobResult.jobId,
-              'crawl.ongoing': 0
-            },
-            {
-              $set: { status: 'ready' },
-              $unset: {
-                workerId: '',
-                jobId: ''
+          // Always attempt to update domain status and deregister, even if update fails
+          try {
+            const res = await Domain.updateOne(
+              {
+                origin: jobResult.origin,
+                jobId: jobResult.jobId,
+                'crawl.ongoing': 0
+              },
+              {
+                $set: { status: 'ready' },
+                $unset: {
+                  workerId: '',
+                  jobId: ''
+                }
               }
+            );
+            if (res.acknowledged && res.modifiedCount) {
+              log.debug(`Domain status updated for ${jobResult.origin}`);
+            } else {
+              log.warn(`Domain update returned no modifications for ${jobResult.origin}`);
             }
-          );
-
-          if (res.acknowledged && res.modifiedCount) {
+          } catch (err) {
+            log.error(`Failed to update domain status for ${jobResult.origin}`, err);
+          } finally {
+            // Always deregister the job to prevent memory leak
             this.jobs.deregisterJob(jobResult.origin);
-            log.debug(`Done saving domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}`);
+            log.debug(`Job #${jobResult.jobId} deregistered for ${jobResult.origin}`);
           }
         }
       }
