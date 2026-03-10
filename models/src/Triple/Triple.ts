@@ -168,7 +168,7 @@ interface BulkWriteModel {
 }
 
 async function executeBulkOps(model: BulkWriteModel, ops: any): Promise<BulkWriteResult[]> {
-  const BATCH_SIZE = 500;
+  const BATCH_SIZE = 100;
   const results: BulkWriteResult[] = [];
 
   for (let i = 0; i < ops.length; i += BATCH_SIZE) {

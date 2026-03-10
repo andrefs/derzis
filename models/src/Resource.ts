@@ -76,17 +76,22 @@ class ResourceClass {
     let insertedDocs: ResourceClass[] = [];
     const existingDocs: Partial<ResourceClass>[] = [];
 
-    await this.insertMany(resources, { ordered: false })
-      .then((docs) => (insertedDocs = docs.map((d) => d.toObject())))
-      .catch((err) => {
-        for (const e of err.writeErrors) {
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < resources.length; i += BATCH_SIZE) {
+      const batchResources = resources.slice(i, i + BATCH_SIZE);
+      try {
+        const docs = await this.insertMany(batchResources, { ordered: false });
+        insertedDocs.push(...docs.map((d) => d.toObject()));
+      } catch (err) {
+        for (const e of (err as any).writeErrors) {
           if (e.err.code && e.err.code === 11000) {
-            existingDocs.push(resources[e.err.index]);
+            existingDocs.push(batchResources[e.err.index]);
           }
           // TO DO handle other errors
         }
-        insertedDocs = err.insertedDocs;
-      });
+        insertedDocs.push(...(err as any).insertedDocs);
+      }
+    }
 
     if (insertedDocs.length) {
       const domainsSet = new Set<string>(resources.map((r) => r.domain));
