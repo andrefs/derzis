@@ -39,7 +39,7 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
     currentStep: p.currentStep!,
     notification: p.notification!,
     pathHeads: p.pathHeads,
-    curPathType: p.pathType ?? PathType.TRAVERSAL
+    pathType: p.pathType ?? config.manager.pathType ?? PathType.ENDPOINT
   } as Parameters<typeof Process.create>[0];
 
   const proc = await Process.create(processData);
@@ -73,8 +73,7 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
     maxPathProps: newMPP,
     predLimit: params.predLimit,
     followDirection: params.followDirection as boolean,
-    predsDirMetrics: params.predsDirMetrics,
-      convertToEndpointPaths: params.convertToEndpointPaths ?? false
+    predsDirMetrics: params.predsDirMetrics
   };
 
   try {

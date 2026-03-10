@@ -183,7 +183,7 @@ class ProcessClass extends Document {
 
     const pathsToCrawl = await getPathsForDomainCrawl(
       this,
-      config.manager.pathType as PathType,
+      this.curPathType,
       [],
       null,
       null,
@@ -191,7 +191,7 @@ class ProcessClass extends Document {
     );
     const pathsToCheck = await getPathsForRobotsChecking(
       this,
-      config.manager.pathType as PathType,
+      this.curPathType,
       null,
       null,
       1
@@ -470,7 +470,7 @@ class ProcessClass extends Document {
 
       // Fetch a batch of paths for this process
       const paths =
-        config.manager.pathType === PathType.TRAVERSAL
+        this.curPathType === PathType.TRAVERSAL
           ? await TraversalPath.find({
               processId: this.pid,
               'head.type': HEAD_TYPE.URL,
@@ -529,7 +529,7 @@ class ProcessClass extends Document {
             $unset: { workerId: '', jobId: '' }
           }
         ) as QueryWithHelpers<UpdateWriteOpResult, DomainDocument>,
-        config.manager.pathType === PathType.TRAVERSAL
+        this.curPathType === PathType.TRAVERSAL
           ? TraversalPath.updateMany(pathQuery as QueryFilter<TraversalPathClass>, pathUpdate)
           : EndpointPath.updateMany(pathQuery as QueryFilter<EndpointPathClass>, pathUpdate)
       ]);
