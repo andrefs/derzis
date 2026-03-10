@@ -23,8 +23,11 @@
     "baseUrl": "..",
     "paths": {
       "@derzis/models": ["models/src"],
+      "@derzis/models/*": ["models/src/*"],
       "@derzis/common": ["common/src"],
-      "@derzis/config": ["config/src"]
+      "@derzis/common/*": ["common/src/*"],
+      "@derzis/config": ["config/src"],
+      "@derzis/config/*": ["config/src/*"]
     }
   },
   "include": ["src/**/*.ts"],
