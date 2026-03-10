@@ -34,7 +34,7 @@ const getColor = (level: number) => {
 
 // Custom transport that works in both Node.js and browser environments
 const customTransport = {
-  write(chunk: any, encoding: any, callback: (error?: Error | null) => void): boolean {
+  write(chunk: any): boolean {
     try {
       const log = JSON.parse(chunk.toString());
       const levelColor = getColor(log.level);
@@ -45,7 +45,6 @@ const customTransport = {
     } catch (err) {
       console.error('Error in custom transport:', err);
     }
-    callback();
     return true; // indicate successful write
   }
 };
