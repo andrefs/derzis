@@ -218,12 +218,12 @@ export class WorkerPubSub {
       }
     };
 
-    this._pubChannel = config.pubsub.workers.to + this.w.wId;
-    log.pubsub?.(`Publishing to ${this._pubChannel}`);
-    log.pubsub?.('Subscribing to', [
-      config.pubsub.manager.from,
-      config.pubsub.workers.to + this.w.wId
-    ]);
+     this._pubChannel = config.pubsub.workers.from + this.w.wId;
+     log.pubsub?.(`Publishing to ${this._pubChannel}`);
+     log.pubsub?.('Subscribing to', [
+       config.pubsub.manager.from,
+       config.pubsub.workers.to + this.w.wId
+     ]);
     this._sub.pSubscribe(
       config.pubsub.manager.from,
       handleMessage(config.pubsub.manager.from)
