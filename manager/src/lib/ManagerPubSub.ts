@@ -1,33 +1,143 @@
-import { createClient } from 'redis';
 import config from '@derzis/config';
+import { createClient } from 'redis';
 import { MAILTRAP_API_TOKEN } from '@derzis/common/server';
-import { createLogger } from '@derzis/common/lib/logger';
+import { createLogger } from '@derzis/common';
+import { RedisReconnector } from '@derzis/common';
 const log = createLogger('Manager');
 import Manager from './Manager';
 import process from 'process';
 import type { JobCapacity, Message } from '@derzis/common';
 import { Process } from '@derzis/models';
-const redisOpts = {
+
+const REDIS_OPTS = {
   url: `redis://${config.pubsub.host}:${config.pubsub.port}`
 };
 
 /** PubSub wrapper for Manager */
 class ManagerPubSub {
   _m: Manager;
-  _redisClient: ReturnType<typeof createClient>;
-  _broad!: ReturnType<typeof createClient>;
-  _pub!: ReturnType<typeof createClient>;
-  _sub!: ReturnType<typeof createClient>;
+  _redisReconnector: RedisReconnector;
+  _pubReconnector: RedisReconnector;
+  _subReconnector: RedisReconnector;
+  _broadReconnector: RedisReconnector;
+  _pub!: any;
+  _sub!: any;
+  _broad!: any;
   _pubChannel!: string;
   _broadChannel!: string;
+  _messageHandler!: (msg: string, channel: string) => Promise<void>;
 
   constructor() {
     this._m = new Manager();
-    this._redisClient = createClient(redisOpts);
+    this._redisReconnector = new RedisReconnector(REDIS_OPTS);
+    this._pubReconnector = new RedisReconnector(REDIS_OPTS);
+    this._subReconnector = new RedisReconnector(REDIS_OPTS);
+    this._broadReconnector = new RedisReconnector(REDIS_OPTS);
+    this.setupReconnectionHandlers();
     this.listenManager();
   }
 
-  listenManager() {
+  private setupReconnectionHandlers(): void {
+    // Handle main Redis reconnection
+    this._redisReconnector.on('reconnected', async () => {
+      log.info('Main Redis reconnected, reconnecting pub/sub clients');
+      try {
+        await this.reconnectClients();
+        this.resubscribe();
+      } catch (err) {
+        log.error('Error resubscribing after reconnection:', err);
+      }
+    });
+
+    this._redisReconnector.on('gaveUp', (error) => {
+      log.error('Redis reconnection failed, giving up:', error.message);
+      process.exit(1);
+    });
+
+    // Also monitor pub/sub reconnectors
+    const monitorReconnector = (
+      reconnector: RedisReconnector,
+      name: string,
+      isSubscriber: boolean
+    ) => {
+      reconnector.on('reconnected', () => {
+        log.info(`${name} Redis reconnected`);
+      });
+      reconnector.on('error', (error) => {
+        log.error(`${name} Redis error:`, error.message);
+      });
+      reconnector.on('disconnected', () => {
+        log.warn(`${name} Redis disconnected`);
+      });
+      reconnector.on('gaveUp', (error) => {
+        log.error(`${name} Redis reconnection failed:`, error.message);
+      });
+    };
+
+    monitorReconnector(this._pubReconnector, 'Pub', false);
+    monitorReconnector(this._subReconnector, 'Sub', true);
+    monitorReconnector(this._broadReconnector, 'Broad', false);
+  }
+
+  private async reconnectClients(): Promise<void> {
+    // Disconnect old clients if they exist and are open
+    if (this._pub && this._pub.isOpen) {
+      await this._pub.quit();
+    }
+    if (this._sub && this._sub.isOpen) {
+      await this._sub.quit();
+    }
+    if (this._broad && this._broad.isOpen) {
+      await this._broad.quit();
+    }
+
+    // Replace with new client instances from reconnectors
+    this._pub = this._pubReconnector.clientInstance;
+    this._sub = this._subReconnector.clientInstance;
+    this._broad = this._broadReconnector.clientInstance;
+
+    // Ensure all clients are connected
+    if (!this._pub.isOpen) {
+      await this._pubReconnector.connect();
+    }
+    if (!this._sub.isOpen) {
+      await this._subReconnector.connect();
+    }
+    if (!this._broad.isOpen) {
+      await this._broadReconnector.connect();
+    }
+  }
+
+  private async resubscribe(): Promise<void> {
+    if (!this._messageHandler) {
+      log.warn('No message handler to resubscribe');
+      return;
+    }
+    const pattern = config.pubsub.workers.from + '*';
+    log.info(`Resubscribing to ${pattern}`);
+    
+    const maxRetries = 5;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this._sub.pSubscribe(
+          pattern,
+          (msg: string, channel: string) => this._messageHandler(msg, channel)
+        );
+        log.info(`Resubscribe successful on attempt ${attempt}`);
+        return;
+      } catch (err) {
+        log.warn(`Resubscribe attempt ${attempt} failed:`, err as Error);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        } else {
+          log.error('Resubscribe failed after all retries');
+          throw err;
+        }
+      }
+    }
+  }
+
+   listenManager() {
     this._m.jobs.on('jobTimeout', (payload) => {
       return this.broad({ type: 'jobTimeout', payload });
     });
@@ -46,22 +156,36 @@ class ManagerPubSub {
   async connect() {
     log.info('Using Mailtrap API token ' + '...' + MAILTRAP_API_TOKEN.slice(-4));
     log.info('Connecting to Redis');
-    await this._redisClient.connect();
-    this._pub = this._redisClient.duplicate();
-    this._sub = this._redisClient.duplicate();
-    this._broad = this._redisClient.duplicate();
-    await this._pub.connect();
-    await this._sub.connect();
-    await this._broad.connect();
-
+    
+    process.on('SIGINT', this.handleSignal('SIGINT'));
+    process.on('SIGTERM', this.handleSignal('SIGTERM'));
+    
     process.on('uncaughtException', (...args) => {
       log.error('Uncaught exception', args);
+      this._redisReconnector.abort();
+      this._pubReconnector.abort();
+      this._subReconnector.abort();
+      this._broadReconnector.abort();
       process.exit(1);
     });
 
+    try {
+      await this._redisReconnector.connect();
+      await this._pubReconnector.connect();
+      await this._subReconnector.connect();
+      await this._broadReconnector.connect();
+
+      this._pub = this._pubReconnector.clientInstance;
+      this._sub = this._subReconnector.clientInstance;
+      this._broad = this._broadReconnector.clientInstance;
+    } catch (error) {
+      log.error('Failed to connect to Redis:', (error as Error).message);
+      throw error;
+    }
+
     log.pubsub(`Subscribing to ${config.pubsub.workers.from.replace(/-.*$/, '')}*`);
 
-    const handleMessage = async (msg: string, channel: string) => {
+    this._messageHandler = async (msg: string, channel: string) => {
       const workerId = channel.match(/:([-\w]+)$/)?.[1];
       const message: Message = JSON.parse(msg);
       log.pubsub('Got message from ' + channel.replace(/-.*$/, ''), message.type);
@@ -95,12 +219,26 @@ class ManagerPubSub {
       }
     };
 
-    this._sub.pSubscribe(config.pubsub.workers.from + '*', handleMessage);
+    this._sub.pSubscribe(
+      config.pubsub.workers.from + '*',
+      (msg: string, channel: string) => this._messageHandler(msg, channel)
+    );
 
     this._broadChannel = config.pubsub.manager.from;
     log.pubsub(`Broadcasting to ${this._broadChannel}`);
     this._pubChannel = config.pubsub.workers.to;
     log.pubsub(`Publishing to ${this._pubChannel}{workerId}`);
+  }
+
+  private handleSignal(signal: string): () => void {
+    return () => {
+      log.info(`Received ${signal}, shutting down gracefully`);
+      this._redisReconnector.abort();
+      this._pubReconnector.abort();
+      this._subReconnector.abort();
+      this._broadReconnector.abort();
+      process.exit(0);
+    };
   }
 
   pub(workerId: string, { type, payload }: Message) {
