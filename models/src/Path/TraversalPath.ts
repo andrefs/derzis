@@ -242,6 +242,7 @@ export class TraversalPathClass extends PathClass {
       if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
         const domain = new URL(newHeadUrl).origin;
         const ep = this.copy();
+        const domain = new URL(newHeadUrl).origin;
         ep.head = {
           type: HEAD_TYPE.URL,
           url: newHeadUrl,
