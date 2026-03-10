@@ -73,7 +73,8 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
     maxPathProps: newMPP,
     predLimit: params.predLimit,
     followDirection: params.followDirection as boolean,
-    predsDirMetrics: params.predsDirMetrics
+    predsDirMetrics: params.predsDirMetrics,
+      convertToEndpointPaths: params.convertToEndpointPaths ?? false
   };
 
   try {
