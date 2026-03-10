@@ -243,25 +243,31 @@ export default class Manager {
         jobResult.details
       );
       // Reset domain status from 'labelFetching' to 'ready'
-      const res = await Domain.updateOne(
-        {
-          origin: jobResult.origin,
-          jobId: jobResult.jobId
-        },
-        {
-          $set: { status: 'ready' },
-          $unset: {
-            workerId: '',
-            jobId: ''
+      try {
+        const res = await Domain.updateOne(
+          {
+            origin: jobResult.origin,
+            jobId: jobResult.jobId
+          },
+          {
+            $set: { status: 'ready' },
+            $unset: {
+              workerId: '',
+              jobId: ''
+            }
           }
-        }
-      );
-
-      if (res.acknowledged && res.modifiedCount) {
-        this.jobs.deregisterJob(jobResult.origin);
-        log.debug(
-          `Done saving domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}`
         );
+        if (res.acknowledged && res.modifiedCount) {
+          log.debug(`Domain status updated for ${jobResult.origin} after domain label fetch`);
+        } else {
+          log.warn(`Domain update returned no modifications for ${jobResult.origin} after domain label fetch`);
+        }
+      } catch (err) {
+        log.error(`Failed to update domain status after domain label fetch for ${jobResult.origin}`, err);
+      } finally {
+        // Always deregister the domainLabelFetch job
+        this.jobs.deregisterJob(jobResult.origin);
+        log.debug(`Job #${jobResult.jobId} deregistered for ${jobResult.origin} (domainLabelFetch)`);
       }
     }
   }
