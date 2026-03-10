@@ -174,19 +174,58 @@ export class WorkerPubSub {
     }
   }
 
-   async connect() {
-     log.info('Connecting to Redis');
-     await this._redisReconnector.connect();
-     this._pub = this._pubReconnector.clientInstance;
-     this._sub = this._subReconnector.clientInstance;
+  async connect() {
+    log.info('Connecting to Redis');
+    await this._redisReconnector.connect();
+    this._pub = this._pubReconnector.clientInstance;
+    this._sub = this._subReconnector.clientInstance;
 
-     if (config.http.debug && this._httpReconnector) {
-       await this._httpReconnector.connect();
-       this._http = this._httpReconnector.clientInstance;
-       this.w.on('httpDebug', (ev) =>
-         this._http!.publish(config.http.debug.pubsubChannel, JSON.stringify(ev, null, 2))
-       );
+    if (config.http.debug && this._httpReconnector) {
+      await this._httpReconnector.connect();
+      this._http = this._httpReconnector.clientInstance;
+      this.w.on('httpDebug', (ev) =>
+        this._http!.publish(config.http.debug.pubsubChannel, JSON.stringify(ev, null, 2))
+      );
     }
+
+    // Set up stable message handler
+    this._messageHandler = (msg: string, channel: string) => {
+      const message: Message = JSON.parse(msg);
+      log.pubsub?.('message from ' + channel, message.type);
+      if (Object.keys(message.payload).length) {
+        log.debug('', message.payload);
+      }
+
+      if (message.type === 'askCurCap') {
+        return this.reportCurrentCapacity();
+      }
+      if (message.type === 'jobTimeout') {
+        if (this.w.currentJobs.domainCrawl[message.payload.origin]) {
+          this.w.jobsTimedout[message.payload.origin] = true;
+        }
+        return;
+      }
+      if (message.type === 'doJob') {
+        (async () => {
+          try {
+            await this.doJob(message.payload);
+          } catch (err) {
+            log.error('Error in doJob:', err, { job: message.payload });
+          }
+        })();
+        return;
+      }
+    };
+
+    const managerChannel = config.pubsub.manager.from;
+    const selfChannel = config.pubsub.workers.to + this.w.wId;
+
+    this._sub.pSubscribe(managerChannel, this._messageHandler);
+    this._sub.pSubscribe(selfChannel, this._messageHandler);
+
+    this._pubChannel = config.pubsub.workers.from + this.w.wId;
+    log.pubsub?.(`Publishing to ${this._pubChannel}`);
+    log.pubsub?.('Subscribed to', [managerChannel, selfChannel]);
   }
 
   pub({ type, payload }: Message) {
