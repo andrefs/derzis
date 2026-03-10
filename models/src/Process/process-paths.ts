@@ -1072,3 +1072,161 @@ export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsA
     `extendPaths complete for process ${pid}: processed ${totalProcessed} paths in ${iteration} iterations`
   );
 }
+
+/**
+ * Converts all active TraversalPaths for a process to EndpointPaths.
+ * Aggregates by head.url, merges seed distances (taking min), marks traversal paths deleted,
+ * and updates process curPathType to ENDPOINT.
+ * @param pid - The Process ID to convert.
+ */
+export async function convertTraversalToEndpointPaths(pid: string): Promise<void> {
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.warn(`Process ${pid} not found for conversion`);
+    return;
+  }
+
+  if (process.curPathType !== PathType.TRAVERSAL) {
+    log.info(`Process ${pid} already ${process.curPathType}, skipping conversion`);
+    return;
+  }
+
+  // Query all active TraversalPaths with URL heads for this process
+  const traversalPaths = await TraversalPath.find({
+    processId: pid,
+    status: 'active',
+    'head.type': HEAD_TYPE.URL
+  }).lean();
+
+  if (traversalPaths.length === 0) {
+    log.info(`No active traversal paths to convert for process ${pid}`);
+    return;
+  }
+
+  // Group by head.url and collect seed -> min distance
+  const headUrlGroups = new Map<string, Map<string, number>>();
+
+  for (const tp of traversalPaths as any[]) {
+    const headUrl = tp.head.url;
+    const seedUrl = tp.seed.url;
+    const nodesCount = tp.nodes.count;
+
+    let seedMap = headUrlGroups.get(headUrl);
+    if (!seedMap) {
+      seedMap = new Map<string, number>();
+      headUrlGroups.set(headUrl, seedMap);
+    }
+    const existing = seedMap.get(seedUrl);
+    if (existing === undefined || nodesCount < existing) {
+      seedMap.set(seedUrl, nodesCount);
+    }
+  }
+
+  const domainCache = new Map<string, any>();
+
+  for (const [headUrl, seedMap] of headUrlGroups.entries()) {
+    // Get or compute domain
+    let domain = domainCache.get(headUrl);
+    if (!domain) {
+      try {
+        const origin = new URL(headUrl).origin;
+        domain = { origin, isUnvisited: true };
+        domainCache.set(headUrl, domain);
+      } catch (err) {
+        log.warn(`Invalid head URL during conversion, skipping: ${headUrl}`);
+        continue;
+      }
+    }
+
+    const seedPaths = Array.from(seedMap.entries()).map(([seed, minLength]) => ({ seed, minLength }));
+    const shortestPathLength = Math.min(...seedMap.values());
+
+    // Upsert EndpointPath with optimistic locking
+    let attempts = 0;
+    const maxAttempts = 3;
+    let success = false;
+
+    while (attempts < maxAttempts && !success) {
+      attempts++;
+      const existing = await EndpointPath.findOne({
+        processId: pid,
+        'head.type': HEAD_TYPE.URL,
+        'head.url': headUrl
+      }).select('_id updatedAt seedPaths shortestPathLength').exec();
+
+      if (existing) {
+        // Merge with existing seedPaths
+        const existingSeedMap = new Map(existing.seedPaths.map((sp: any) => [sp.seed, sp.minLength]));
+        for (const [seed, minLength] of seedMap.entries()) {
+          const cur = existingSeedMap.get(seed);
+          if (cur === undefined || minLength < cur) {
+            existingSeedMap.set(seed, minLength);
+          }
+        }
+        const mergedSeedPaths = Array.from(existingSeedMap.entries()).map(([seed, minLength]) => ({
+          seed,
+          minLength
+        }));
+        const finalShortest = Math.min(shortestPathLength, existing.shortestPathLength);
+
+        const res = await EndpointPath.updateOne(
+          { _id: existing._id, updatedAt: existing.updatedAt },
+          {
+            $set: {
+              'head.type': 'url',
+              'head.status': existing.head.status,
+              'head.domain.origin': domain.origin,
+              type: 'endpoint',
+              shortestPathLength: finalShortest,
+              seedPaths: mergedSeedPaths,
+              extensionCounter: 0,
+              updatedAt: new Date()
+            }
+          }
+        );
+
+        if (res.matchedCount === 0) continue;
+        success = true;
+      } else {
+        // Create new EndpointPath
+        await new EndpointPath({
+          processId: pid,
+          head: {
+            type: HEAD_TYPE.URL,
+            url: headUrl,
+            domain: { origin: domain.origin, isUnvisited: domain.isUnvisited }
+          },
+          status: 'active',
+          type: 'endpoint',
+          shortestPathLength,
+          seedPaths,
+          extensionCounter: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).save();
+        success = true;
+      }
+    }
+
+    if (!success) {
+      log.warn(`Failed to create/update endpoint path for ${headUrl} after retries`);
+    }
+  }
+
+  // Mark traversal paths as deleted
+  const traversalIds = (traversalPaths as any[]).map((tp) => tp._id);
+  if (traversalIds.length > 0) {
+    await TraversalPath.updateMany(
+      { _id: { $in: traversalIds } },
+      { $set: { status: 'deleted' } }
+    );
+  }
+
+  // Update process curPathType to ENDPOINT
+  process.curPathType = PathType.ENDPOINT;
+  await process.save();
+
+  log.info(`Converted ${headUrlGroups.size} endpoint paths from ${traversalPaths.length} traversal paths for process ${pid}`);
+}
+
+export { convertTraversalToEndpointPaths };
