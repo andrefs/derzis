@@ -13,7 +13,8 @@ import {
   extendPaths,
   LiteralTripleClass,
   type TripleDocument,
-  type LiteralTripleDocument
+  type LiteralTripleDocument,
+  HEAD_TYPE
 } from '@derzis/models';
 import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
 import {
@@ -99,8 +100,8 @@ export default class Manager {
             e
           );
           log.info(JSON.stringify(jobResult, null, 2));
-          // Reset statuses to prevent stuck state
-          await Resource.markAsCrawled(jobResult.url, jobResult, {
+          const pathType = await this.getPathTypeForUrl(jobResult.url);
+          await Resource.markAsCrawled(jobResult.url, pathType, jobResult, {
             errorType: 'database_error',
             name: 'Save Error',
             message: (e as Error).message
@@ -323,11 +324,12 @@ export default class Manager {
    * @param jobResult Result of the resource crawl job to save
    */
   async saveCrawl2(jobResult: CrawlResourceResult | FetchLabelsResourceResult) {
+    const pathType = await this.getPathTypeForUrl(jobResult.url);
     if (jobResult.status === 'not_ok') {
-      return await Resource.markAsCrawled(jobResult.url, jobResult, jobResult.err);
+      return await Resource.markAsCrawled(jobResult.url, pathType, jobResult, jobResult.err);
     }
     // mark head as crawled
-    await Resource.markAsCrawled(jobResult.url, jobResult);
+    await Resource.markAsCrawled(jobResult.url, pathType, jobResult);
 
     log.silly('jobResult.url', jobResult.url);
     log.silly('jobResult.details.triples', JSON.stringify(jobResult.details.triples, null, 2));
@@ -638,5 +640,32 @@ export default class Manager {
         this.jobs.toString()
       );
     }
+  }
+
+  private async getPathTypeForUrl(url: string): Promise<PathType> {
+    let pathType = PathType.TRAVERSAL;
+    const tp = await TraversalPath.findOne({
+      'head.url': url,
+      'head.type': HEAD_TYPE.URL,
+      status: 'active'
+    }).select('processId').lean();
+    
+    if (tp) {
+      const proc = await Process.findOne({ pid: (tp as any).processId }).select('curPathType').lean();
+      if (proc) {
+        pathType = (proc as any).curPathType ?? PathType.TRAVERSAL;
+      }
+    } else {
+      const ep = await EndpointPath.findOne({
+        'head.url': url,
+        'head.type': HEAD_TYPE.URL,
+        status: 'active'
+      }).select('processId').lean();
+      
+      if (ep) {
+        pathType = PathType.ENDPOINT;
+      }
+    }
+    return pathType;
   }
 }

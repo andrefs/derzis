@@ -473,7 +473,7 @@ export interface PathProgress {
 }
 
 export async function getPathProgress(process: ProcessClass): Promise<PathProgress> {
-  const pathType = config.manager.pathType as PathType;
+  const pathType = process.curPathType;
   const seeds = process.currentStep.seeds;
 
   const baseQuery = {

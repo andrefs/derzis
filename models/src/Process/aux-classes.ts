@@ -110,5 +110,5 @@ export class StepClass {
     * path extension completes, all active TraversalPaths are converted to EndpointPaths.
     */
    @prop({ type: Boolean, default: false, required: true })
-   public convertToEndpoint: boolean = false;
+   public convertToEndpointPaths: boolean = false;
 }
