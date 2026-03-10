@@ -1,5 +1,4 @@
 import pino from 'pino';
-import { Writable } from 'stream';
 import * as colorette from 'colorette';
 import config from '@derzis/config';
 import util from 'util';
@@ -33,8 +32,9 @@ const getColor = (level: number) => {
   return levelColors[level] || colorette.white;
 };
 
-const customTransport = new Writable({
-  write(chunk, enc, cb) {
+// Custom transport that works in both Node.js and browser environments
+const customTransport = {
+  write(chunk: any, encoding: any, callback: (error?: Error | null) => void): boolean {
     try {
       const log = JSON.parse(chunk.toString());
       const levelColor = getColor(log.level);
@@ -45,9 +45,10 @@ const customTransport = new Writable({
     } catch (err) {
       console.error('Error in custom transport:', err);
     }
-    cb();
+    callback();
+    return true; // indicate successful write
   }
-});
+};
 
 const logger = pino(
   {
@@ -56,7 +57,8 @@ const logger = pino(
     level: config.logLevel || 'debug',
     timestamp: pino.stdTimeFunctions.isoTime
   },
-  customTransport
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customTransport as any
 );
 
 export type MonkeyPatchedLogger = {
