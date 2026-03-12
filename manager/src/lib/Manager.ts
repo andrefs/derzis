@@ -117,7 +117,8 @@ export default class Manager {
               const res = await Domain.updateOne(
                 {
                   origin: jobResult.origin,
-                  jobId: jobResult.jobId
+                  jobId: jobResult.jobId,
+                  'crawl.ongoing': 0
                 },
                 {
                   $set: { status: 'ready' },
@@ -143,6 +144,7 @@ export default class Manager {
         }
       }
     }
+
     if (jobResult.jobType === 'resourceLabelFetch') {
       log.info(
         `Saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
@@ -169,7 +171,8 @@ export default class Manager {
               const res = await Domain.updateOne(
                 {
                   origin: jobResult.origin,
-                  jobId: jobResult.jobId
+                  jobId: jobResult.jobId,
+                  'crawl.ongoing': 0
                 },
                 {
                   $set: { status: 'ready' },
