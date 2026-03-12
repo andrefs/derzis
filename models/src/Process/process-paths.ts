@@ -1141,11 +1141,10 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
     return;
   }
 
-  // Query all active TraversalPaths with URL heads for this process
+  // Query all active TraversalPaths (both URL and LITERAL heads)
   const traversalPaths = await TraversalPath.find({
     processId: pid,
-    status: 'active',
-    'head.type': HEAD_TYPE.URL
+    status: 'active'
   }).lean();
 
   if (traversalPaths.length === 0) {
@@ -1153,39 +1152,73 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
     return;
   }
 
-  // Group by head.url and collect seed -> min distance
-  const headUrlGroups = new Map<string, Map<string, number>>();
+  // Group by head identifier and collect seed -> min distance
+  // For URL heads: group by head.url
+  // For LITERAL heads: group by literal:${value}:${datatype}:${language}
+  const headGroups = new Map<string, { type: string; identifier: string; seedMap: Map<string, number> }>();
 
   for (const tp of traversalPaths as any[]) {
-    const headUrl = tp.head.url;
-    const seedUrl = tp.seed.url;
-    const nodesCount = tp.nodes.count;
+    const headType = tp.head.type;
+    let identifier: string;
+    let seedUrl: string;
+    let nodesCount = tp.nodes.count;
 
-    let seedMap = headUrlGroups.get(headUrl);
-    if (!seedMap) {
-      seedMap = new Map<string, number>();
-      headUrlGroups.set(headUrl, seedMap);
+    if (headType === HEAD_TYPE.URL) {
+      identifier = tp.head.url;
+      seedUrl = tp.seed.url;
+    } else if (headType === HEAD_TYPE.LITERAL) {
+      const value = tp.head.value || '';
+      const datatype = tp.head.datatype || '';
+      const language = tp.head.language || '';
+      identifier = `literal:${value}:${datatype}:${language}`;
+      seedUrl = tp.seed.url;
+    } else {
+      log.warn(`Unknown head type during conversion: ${headType}, skipping`);
+      continue;
     }
-    const existing = seedMap.get(seedUrl);
+
+    let group = headGroups.get(identifier);
+    if (!group) {
+      group = { type: headType, identifier, seedMap: new Map<string, number>() };
+      headGroups.set(identifier, group);
+    }
+    const existing = group.seedMap.get(seedUrl);
     if (existing === undefined || nodesCount < existing) {
-      seedMap.set(seedUrl, nodesCount);
+      group.seedMap.set(seedUrl, nodesCount);
     }
   }
 
   const domainCache = new Map<string, any>();
 
-  for (const [headUrl, seedMap] of headUrlGroups.entries()) {
-    // Get or compute domain
-    let domain = domainCache.get(headUrl);
-    if (!domain) {
-      try {
-        const origin = new URL(headUrl).origin;
-        domain = { origin, isUnvisited: true };
-        domainCache.set(headUrl, domain);
-      } catch (err) {
-        log.warn(`Invalid head URL during conversion, skipping: ${headUrl}`);
-        continue;
+  for (const [, group] of headGroups.entries()) {
+    const { type: headType, identifier, seedMap } = group;
+
+    let domain: { origin: string; isUnvisited: boolean } | undefined;
+    let literalHead: { type: string; value: string; datatype?: string; language?: string } | undefined;
+
+    if (headType === HEAD_TYPE.URL) {
+      // Get or compute domain
+      let cachedDomain = domainCache.get(identifier);
+      if (!cachedDomain) {
+        try {
+          const origin = new URL(identifier).origin;
+          cachedDomain = { origin, isUnvisited: true };
+          domainCache.set(identifier, cachedDomain);
+        } catch (err) {
+          log.warn(`Invalid head URL during conversion, skipping: ${identifier}`);
+          continue;
+        }
       }
+      domain = cachedDomain;
+    } else if (headType === HEAD_TYPE.LITERAL) {
+      // Parse literal identifier: literal:${value}:${datatype}:${language}
+      const parts = identifier.slice(8).split(':'); // Remove 'literal:' prefix
+      literalHead = {
+        type: HEAD_TYPE.LITERAL,
+        value: parts[0] || '',
+        datatype: parts[1] || undefined,
+        language: parts[2] || undefined
+      };
     }
 
     const seedPaths = Array.from(seedMap.entries()).map(([seed, minLength]) => ({
@@ -1194,6 +1227,17 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
     }));
     const shortestPathLength = Math.min(...seedMap.values());
 
+    // Build query based on head type
+    const query: Record<string, unknown> = {
+      processId: pid,
+      'head.type': headType
+    };
+    if (headType === HEAD_TYPE.URL) {
+      (query as any)['head.url'] = identifier;
+    } else {
+      (query as any)['head.value'] = identifier.slice(identifier.indexOf(':') + 1).split(':')[0];
+    }
+
     // Upsert EndpointPath with optimistic locking
     let attempts = 0;
     const maxAttempts = 3;
@@ -1201,11 +1245,7 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
 
     while (attempts < maxAttempts && !success) {
       attempts++;
-      const existing = await EndpointPath.findOne({
-        processId: pid,
-        'head.type': HEAD_TYPE.URL,
-        'head.url': headUrl
-      })
+      const existing = await EndpointPath.findOne(query)
         .select('_id updatedAt seedPaths shortestPathLength head')
         .exec();
 
@@ -1226,33 +1266,60 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
         }));
         const finalShortest = Math.min(shortestPathLength, existing.shortestPathLength);
 
-        const res = await EndpointPath.updateOne(
-          { _id: existing._id, updatedAt: existing.updatedAt },
-          {
-            $set: {
-              'head.type': 'url',
-              'head.status': (existing.head as UrlHead).status,
-              'head.domain.origin': domain.origin,
-              type: 'endpoint',
-              shortestPathLength: finalShortest,
-              seedPaths: mergedSeedPaths,
-              extensionCounter: 0,
-              updatedAt: new Date()
+        const updateSet: Record<string, unknown> = {
+          type: 'endpoint',
+          shortestPathLength: finalShortest,
+          seedPaths: mergedSeedPaths,
+          extensionCounter: 0,
+          updatedAt: new Date()
+        };
+
+        if (headType === HEAD_TYPE.URL) {
+          updateSet['head.type'] = 'url';
+          // Only set status if existing head has it (URL heads have status, literals don't)
+          if (existing.head && (existing.head as any).status) {
+            updateSet['head.status'] = (existing.head as any).status;
+          }
+          if (domain) {
+            updateSet['head.domain.origin'] = domain.origin;
+          }
+        } else {
+          updateSet['head.type'] = HEAD_TYPE.LITERAL;
+          if (literalHead) {
+            updateSet['head.value'] = literalHead.value;
+            if (literalHead.datatype) {
+              updateSet['head.datatype'] = literalHead.datatype;
+            }
+            if (literalHead.language) {
+              updateSet['head.language'] = literalHead.language;
             }
           }
+        }
+
+        const res = await EndpointPath.updateOne(
+          { _id: existing._id, updatedAt: existing.updatedAt },
+          { $set: updateSet }
         );
 
         if (res.matchedCount === 0) continue;
         success = true;
       } else {
         // Create new EndpointPath
+        const head: Record<string, unknown> = {};
+        if (headType === HEAD_TYPE.URL && domain) {
+          head.type = HEAD_TYPE.URL;
+          head.url = identifier;
+          head.domain = { origin: domain.origin, isUnvisited: domain.isUnvisited };
+        } else if (headType === HEAD_TYPE.LITERAL && literalHead) {
+          head.type = HEAD_TYPE.LITERAL;
+          head.value = literalHead.value;
+          if (literalHead.datatype) head.datatype = literalHead.datatype;
+          if (literalHead.language) head.language = literalHead.language;
+        }
+
         await new EndpointPath({
           processId: pid,
-          head: {
-            type: HEAD_TYPE.URL,
-            url: headUrl,
-            domain: { origin: domain.origin, isUnvisited: domain.isUnvisited }
-          },
+          head,
           status: 'active',
           type: 'endpoint',
           shortestPathLength,
@@ -1266,7 +1333,7 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
     }
 
     if (!success) {
-      log.warn(`Failed to create/update endpoint path for ${headUrl} after retries`);
+      log.warn(`Failed to create/update endpoint path for ${identifier} after retries`);
     }
   }
 
@@ -1281,6 +1348,6 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   await process.save();
 
   log.info(
-    `Converted ${headUrlGroups.size} endpoint paths from ${traversalPaths.length} traversal paths for process ${pid}`
+    `Converted ${headGroups.size} endpoint paths from ${traversalPaths.length} traversal paths for process ${pid}`
   );
 }
