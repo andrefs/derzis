@@ -750,6 +750,9 @@ class DomainClass {
             `Skipping domains: ${Object.keys(skipDomains)} because they cannot be crawled yet.`
           );
         }
+        if (getRunningDomains) {
+          blDomains.push(...getRunningDomains());
+        }
 
         // get paths for this process
         const paths = await proc.getPathsForDomainCrawl(
@@ -794,9 +797,6 @@ class DomainClass {
           Array.from(new Set(unvisHeads.map((h) => h.url)))
         );
         const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
-        if (getRunningDomains) {
-          getRunningDomains().forEach((r) => origins.delete(r));
-        }
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
         log.silly(
           `Worker ${wId} locked the following domains for crawling for process ${proc.id}: ${domains.map(
