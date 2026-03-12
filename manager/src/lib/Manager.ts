@@ -116,8 +116,7 @@ export default class Manager {
             const res = await Domain.updateOne(
               {
                 origin: jobResult.origin,
-                jobId: jobResult.jobId,
-                'crawl.ongoing': 0
+                jobId: jobResult.jobId
               },
               {
                 $set: { status: 'ready' },
@@ -167,8 +166,7 @@ export default class Manager {
             const res = await Domain.updateOne(
               {
                 origin: jobResult.origin,
-                jobId: jobResult.jobId,
-                'crawl.ongoing': 0
+                jobId: jobResult.jobId
               },
               {
                 $set: { status: 'ready' },
