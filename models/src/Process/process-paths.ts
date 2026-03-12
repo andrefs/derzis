@@ -1003,7 +1003,7 @@ function convertToEndpointSkeletons(
     if ('seedPaths' in s) {
       return s as EndpointPathSkeleton;
     }
-    const tp = s as unknown as TraversalPathSkeleton & { seed: string };
+    const tp = s as TraversalPathSkeleton & { seed: { url: string } };
     const pathLength = (tp.nodes?.count ?? 0) + 1;
     return {
       processId: tp.processId,
@@ -1011,7 +1011,7 @@ function convertToEndpointSkeletons(
       type: PathType.ENDPOINT,
       status: 'active',
       shortestPathLength: pathLength,
-      seedPaths: [{ seed: tp.seed, minLength: pathLength }]
+      seedPaths: [{ seed: tp.seed.url, minLength: pathLength }]
     } as EndpointPathSkeleton;
   });
 }
