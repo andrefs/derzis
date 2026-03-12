@@ -1235,7 +1235,12 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
     if (headType === HEAD_TYPE.URL) {
       (query as any)['head.url'] = identifier;
     } else {
-      (query as any)['head.value'] = identifier.slice(identifier.indexOf(':') + 1).split(':')[0];
+      // For literal heads, match by value, datatype, and language
+      const literalKey = identifier.slice(8); // Remove 'literal:' prefix
+      const parts = literalKey.split(':');
+      (query as any)['head.value'] = parts[0];
+      if (parts[1]) (query as any)['head.datatype'] = parts[1];
+      if (parts[2]) (query as any)['head.language'] = parts[2];
     }
 
     // Upsert EndpointPath with optimistic locking
