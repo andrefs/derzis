@@ -1206,7 +1206,7 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
         'head.type': HEAD_TYPE.URL,
         'head.url': headUrl
       })
-        .select('_id updatedAt seedPaths shortestPathLength')
+        .select('_id updatedAt seedPaths shortestPathLength head')
         .exec();
 
       if (existing) {
