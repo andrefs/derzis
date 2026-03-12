@@ -35,7 +35,8 @@ import {
   getPathsForDomainCrawl,
   hasPathsDomainRobotsChecking,
   hasPathsHeadBeingCrawled,
-  extendPaths
+  extendPaths,
+  convertTraversalToEndpointPaths
 } from './process-paths';
 import {
   notifyStepStarted,
@@ -181,21 +182,8 @@ class ProcessClass extends Document {
 
     // check for more paths to crawl or check
 
-    const pathsToCrawl = await getPathsForDomainCrawl(
-      this,
-      this.curPathType,
-      [],
-      null,
-      null,
-      1
-    );
-    const pathsToCheck = await getPathsForRobotsChecking(
-      this,
-      this.curPathType,
-      null,
-      null,
-      1
-    );
+    const pathsToCrawl = await getPathsForDomainCrawl(this, this.curPathType, [], null, null, 1);
+    const pathsToCheck = await getPathsForRobotsChecking(this, this.curPathType, null, null, 1);
     const hasPathsChecking = await hasPathsDomainRobotsChecking(this);
     const hasPathsCrawling = await hasPathsHeadBeingCrawled(this);
 
@@ -368,7 +356,14 @@ class ProcessClass extends Document {
     }
 
     // Before queuing, extend existing paths according to new step limits
-    await extendPaths({ pid: process.pid }); // this potentially takes a lot of time
+    const convertToEndpoint = process.currentStep.convertToEndpointPaths;
+    await extendPaths({ pid: process.pid, convertToEndpoint }); // this potentially takes a lot of time
+
+    // Convert remaining traversal paths to endpoint paths if flag is set
+    if (convertToEndpoint) {
+      await convertTraversalToEndpointPaths(pid);
+      await Process.updateOne({ pid }, { $set: { curPathType: PathType.ENDPOINT } });
+    }
 
     // Allow post-crawl path extension by incrementing the counter
     await Process.updateOne({ pid }, { $inc: { pathExtensionCounter: 1 } });

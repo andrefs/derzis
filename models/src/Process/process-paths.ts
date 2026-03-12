@@ -576,6 +576,7 @@ interface ExtendPathsArgs {
   headUrl?: string;
   triples?: TripleDocument[];
   paths?: (TraversalPathDocument | EndpointPathDocument)[];
+  convertToEndpoint?: boolean;
 }
 
 /**
@@ -968,9 +969,10 @@ async function collectBatch<T>(generator: AsyncGenerator<T>, batchSize: number):
 async function extendPathsBatch(
   process: ProcessClass,
   pathsBatch: (TraversalPathDocument | EndpointPathDocument)[],
-  triples?: TripleDocument[]
+  triples?: TripleDocument[],
+  convertToEndpoint?: boolean
 ) {
-  const pathType = getPathType(process);
+  const pathType = convertToEndpoint ? PathType.ENDPOINT : getPathType(process);
   for (const path of pathsBatch) {
     const result = await path.genExtendedPaths(process, triples);
 
@@ -992,12 +994,18 @@ async function extendPathsBatch(
  * Uses batched queries and loops until no more paths are found.
  * @param args - ExtendPathsArgs with optional pid, headUrl, triples, paths.
  */
-export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsArgs) {
+export async function extendPaths({
+  pid,
+  triples,
+  headUrl,
+  paths,
+  convertToEndpoint
+}: ExtendPathsArgs) {
   // If no pid, get all process IDs and recurse for each
   if (!pid) {
     const pids = await Process.distinct('pid');
     for (const p of pids) {
-      await extendPaths({ pid: p, triples, headUrl, paths });
+      await extendPaths({ pid: p, triples, headUrl, paths, convertToEndpoint });
     }
     return;
   }
@@ -1056,7 +1064,7 @@ export async function extendPaths({ pid, triples, headUrl, paths }: ExtendPathsA
       break;
     }
 
-    await extendPathsBatch(process, pathsToProcess, triples);
+    await extendPathsBatch(process, pathsToProcess, triples, convertToEndpoint);
     totalProcessed += pathsToProcess.length;
 
     if (isFullExtend) {
@@ -1138,7 +1146,10 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
       }
     }
 
-    const seedPaths = Array.from(seedMap.entries()).map(([seed, minLength]) => ({ seed, minLength }));
+    const seedPaths = Array.from(seedMap.entries()).map(([seed, minLength]) => ({
+      seed,
+      minLength
+    }));
     const shortestPathLength = Math.min(...seedMap.values());
 
     // Upsert EndpointPath with optimistic locking
@@ -1152,11 +1163,15 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
         processId: pid,
         'head.type': HEAD_TYPE.URL,
         'head.url': headUrl
-      }).select('_id updatedAt seedPaths shortestPathLength').exec();
+      })
+        .select('_id updatedAt seedPaths shortestPathLength')
+        .exec();
 
       if (existing) {
         // Merge with existing seedPaths
-        const existingSeedMap = new Map(existing.seedPaths.map((sp: any) => [sp.seed, sp.minLength]));
+        const existingSeedMap = new Map(
+          existing.seedPaths.map((sp: any) => [sp.seed, sp.minLength])
+        );
         for (const [seed, minLength] of seedMap.entries()) {
           const cur = existingSeedMap.get(seed);
           if (cur === undefined || minLength < cur) {
@@ -1169,21 +1184,21 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
         }));
         const finalShortest = Math.min(shortestPathLength, existing.shortestPathLength);
 
-         const res = await EndpointPath.updateOne(
-           { _id: existing._id, updatedAt: existing.updatedAt },
-           {
-             $set: {
-               'head.type': 'url',
-               'head.status': (existing.head as UrlHead).status,
-               'head.domain.origin': domain.origin,
-               type: 'endpoint',
-               shortestPathLength: finalShortest,
-               seedPaths: mergedSeedPaths,
-               extensionCounter: 0,
-               updatedAt: new Date()
-             }
-           }
-         );
+        const res = await EndpointPath.updateOne(
+          { _id: existing._id, updatedAt: existing.updatedAt },
+          {
+            $set: {
+              'head.type': 'url',
+              'head.status': (existing.head as UrlHead).status,
+              'head.domain.origin': domain.origin,
+              type: 'endpoint',
+              shortestPathLength: finalShortest,
+              seedPaths: mergedSeedPaths,
+              extensionCounter: 0,
+              updatedAt: new Date()
+            }
+          }
+        );
 
         if (res.matchedCount === 0) continue;
         success = true;
@@ -1216,15 +1231,14 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   // Mark traversal paths as deleted
   const traversalIds = (traversalPaths as any[]).map((tp) => tp._id);
   if (traversalIds.length > 0) {
-    await TraversalPath.updateMany(
-      { _id: { $in: traversalIds } },
-      { $set: { status: 'deleted' } }
-    );
+    await TraversalPath.updateMany({ _id: { $in: traversalIds } }, { $set: { status: 'deleted' } });
   }
 
   // Update process curPathType to ENDPOINT
   process.curPathType = PathType.ENDPOINT;
   await process.save();
 
-   log.info(`Converted ${headUrlGroups.size} endpoint paths from ${traversalPaths.length} traversal paths for process ${pid}`);
- }
+  log.info(
+    `Converted ${headUrlGroups.size} endpoint paths from ${traversalPaths.length} traversal paths for process ${pid}`
+  );
+}

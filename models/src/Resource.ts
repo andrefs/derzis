@@ -134,27 +134,27 @@ class ResourceClass {
    * @param error - Optional error information if the crawl failed.
    * @returns An object containing updated domain crawl information.
    */
-   public static async markAsCrawled(
-     this: ReturnModelType<typeof ResourceClass>,
-     url: string,
-     pathType: PathType,
-     jobResult: CrawlResourceResult | FetchLabelsResourceResult,
-     error?: WorkerError
-   ) {
-     // Resource
-     const oldRes = await this.findOneAndUpdate(
-       { url },
-       {
-         status: error ? 'error' : 'done',
-         crawlId:
-           jobResult.jobType === 'resourceCrawl'
-             ? jobResult.details.crawlId
-             : jobResult.details.labelFetchId
-       },
-       { returnDocument: 'before' }
-     );
+  public static async markAsCrawled(
+    this: ReturnModelType<typeof ResourceClass>,
+    url: string,
+    pathType: PathType,
+    jobResult: CrawlResourceResult | FetchLabelsResourceResult,
+    error?: WorkerError
+  ) {
+    // Resource
+    const oldRes = await this.findOneAndUpdate(
+      { url },
+      {
+        status: error ? 'error' : 'done',
+        crawlId:
+          jobResult.jobType === 'resourceCrawl'
+            ? jobResult.details.crawlId
+            : jobResult.details.labelFetchId
+      },
+      { returnDocument: 'before' }
+    );
 
-     if (pathType === PathType.TRAVERSAL) {
+    if (pathType === PathType.TRAVERSAL) {
       // TraversalPath
       await TraversalPath.updateMany(
         {
@@ -274,20 +274,20 @@ class ResourceClass {
    * @param seeds - An array of ResourceDocument objects representing the seed resources.
    * @returns An object containing the results of the path insertions and related updates.
    */
-   public static async insertSeedPaths(
-     this: ReturnModelType<typeof ResourceClass>,
-     pid: string,
-     seeds: ResourceDocument[]
-   ) {
-     // Get the process to determine its current path type
-     const process = await Process.findOne({ pid }).select('curPathType').exec();
-     if (!process) {
-       throw new Error(`Process ${pid} not found`);
-     }
-     const pathType = process.curPathType;
+  public static async insertSeedPaths(
+    this: ReturnModelType<typeof ResourceClass>,
+    pid: string,
+    seeds: ResourceDocument[]
+  ) {
+    // Get the process to determine its current path type
+    const process = await Process.findOne({ pid }).select('curPathType').exec();
+    if (!process) {
+      throw new Error(`Process ${pid} not found`);
+    }
+    const pathType = process.curPathType;
 
-     // Traversal paths
-     if (pathType === PathType.TRAVERSAL) {
+    // Traversal paths
+    if (pathType === PathType.TRAVERSAL) {
       const paths = seeds.map((s) => ({
         processId: pid,
         seed: { url: s.url },

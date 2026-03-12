@@ -451,15 +451,15 @@ class DomainClass {
       let lastSeenId: Types.ObjectId | null = null;
       let lastSeenLength: number | null = null;
       let lastSeenShortestPathLength: number | null = null;
-        PATHS_LOOP: while (domainsFound < limit) {
-          const paths = await proc.getPathsForRobotsChecking(
-            proc.curPathType,
-            lastSeenCreatedAt,
-            lastSeenId,
-            lastSeenLength,
-            lastSeenShortestPathLength,
-            pathLimit
-          );
+      PATHS_LOOP: while (domainsFound < limit) {
+        const paths = await proc.getPathsForRobotsChecking(
+          proc.curPathType,
+          lastSeenCreatedAt,
+          lastSeenId,
+          lastSeenLength,
+          lastSeenShortestPathLength,
+          pathLimit
+        );
 
         // if this process has no more available paths, skip it
         if (!paths.length) {
