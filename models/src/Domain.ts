@@ -484,9 +484,6 @@ class DomainClass {
             .filter((p) => p.head.type === HEAD_TYPE.URL)
             .map((p) => (p.head as UrlHead).domain.origin)
         );
-        if (getRunningDomains) {
-          getRunningDomains().forEach((r) => origins.delete(r));
-        }
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
         log.silly(
           `Worker ${wId} locked the following domains for robots checking for process ${proc.id}: ${domains.map(
