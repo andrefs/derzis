@@ -81,7 +81,7 @@ export default class Manager {
         log.info(JSON.stringify(jobResult, null, 2));
       } finally {
         this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
-        this.jobs.deregisterJob(jobResult.origin);
+        this.jobs.deregisterJob(jobResult.origin, jobResult.jobId);
         log.debug(`Done saving robots data (job #${jobResult.jobId}) for ${jobResult.origin}`);
       }
     }
@@ -111,32 +111,34 @@ export default class Manager {
           log.debug(
             `Done saving resource crawl (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
           );
-          // Always attempt to update domain status and deregister, even if update fails
-          try {
-            const res = await Domain.updateOne(
-              {
-                origin: jobResult.origin,
-                jobId: jobResult.jobId
-              },
-              {
-                $set: { status: 'ready' },
-                $unset: {
-                  workerId: '',
-                  jobId: ''
+          const deregistered = this.jobs.deregisterJob(jobResult.origin, jobResult.jobId);
+          if (deregistered) {
+            try {
+              const res = await Domain.updateOne(
+                {
+                  origin: jobResult.origin,
+                  jobId: jobResult.jobId
+                },
+                {
+                  $set: { status: 'ready' },
+                  $unset: {
+                    workerId: '',
+                    jobId: ''
+                  }
                 }
+              );
+              if (res.acknowledged && res.modifiedCount) {
+                log.debug(`Domain status updated for ${jobResult.origin}`);
+              } else {
+                log.warn(`Domain update returned no modifications for ${jobResult.origin}`);
               }
-            );
-            if (res.acknowledged && res.modifiedCount) {
-              log.debug(`Domain status updated for ${jobResult.origin}`);
-            } else {
-              log.warn(`Domain update returned no modifications for ${jobResult.origin}`);
+            } catch (err) {
+              log.error(`Failed to update domain status for ${jobResult.origin}`, err);
             }
-          } catch (err) {
-            log.error(`Failed to update domain status for ${jobResult.origin}`, err);
-          } finally {
-            // Always deregister the job to prevent memory leak
-            this.jobs.deregisterJob(jobResult.origin);
-            log.debug(`Job #${jobResult.jobId} deregistered for ${jobResult.origin}`);
+          } else {
+            log.warn(
+              `Skipping domain update for ${jobResult.origin}: deregister failed (jobId mismatch or not found)`
+            );
           }
         }
       }
@@ -161,37 +163,39 @@ export default class Manager {
           log.debug(
             `Done saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
           );
-          // Always attempt to update domain status and deregister, even if update fails
-          try {
-            const res = await Domain.updateOne(
-              {
-                origin: jobResult.origin,
-                jobId: jobResult.jobId
-              },
-              {
-                $set: { status: 'ready' },
-                $unset: {
-                  workerId: '',
-                  jobId: ''
+          const deregistered = this.jobs.deregisterJob(jobResult.origin, jobResult.jobId);
+          if (deregistered) {
+            try {
+              const res = await Domain.updateOne(
+                {
+                  origin: jobResult.origin,
+                  jobId: jobResult.jobId
+                },
+                {
+                  $set: { status: 'ready' },
+                  $unset: {
+                    workerId: '',
+                    jobId: ''
+                  }
                 }
+              );
+              if (res.acknowledged && res.modifiedCount) {
+                log.debug(`Domain status updated for ${jobResult.origin} after label fetch`);
+              } else {
+                log.warn(
+                  `Domain update returned no modifications for ${jobResult.origin} after label fetch`
+                );
               }
-            );
-            if (res.acknowledged && res.modifiedCount) {
-              log.debug(`Domain status updated for ${jobResult.origin} after label fetch`);
-            } else {
-              log.warn(
-                `Domain update returned no modifications for ${jobResult.origin} after label fetch`
+            } catch (err) {
+              log.error(
+                `Failed to update domain status after label fetch for ${jobResult.origin}`,
+                err
               );
             }
-          } catch (err) {
-            log.error(
-              `Failed to update domain status after label fetch for ${jobResult.origin}`,
-              err
+          } else {
+            log.warn(
+              `Skipping domain update for ${jobResult.origin}: deregister failed (jobId mismatch or not found)`
             );
-          } finally {
-            // Always deregister the job to prevent memory leak
-            this.jobs.deregisterJob(jobResult.origin);
-            log.debug(`Job #${jobResult.jobId} deregistered for ${jobResult.origin}`);
           }
         }
       }
@@ -201,34 +205,39 @@ export default class Manager {
         `Received completion of domain crawl (job #${jobResult.jobId}) for ${jobResult.origin}:`,
         jobResult.details
       );
-      // Update domain status to ready and clean up job tracking
-      try {
-        const res = await Domain.updateOne(
-          {
-            origin: jobResult.origin,
-            jobId: jobResult.jobId
-          },
-          {
-            $set: { status: 'ready' },
-            $unset: {
-              workerId: '',
-              jobId: ''
+      const deregistered = this.jobs.deregisterJob(jobResult.origin, jobResult.jobId);
+      if (deregistered) {
+        try {
+          const res = await Domain.updateOne(
+            {
+              origin: jobResult.origin,
+              jobId: jobResult.jobId
+            },
+            {
+              $set: { status: 'ready' },
+              $unset: {
+                workerId: '',
+                jobId: ''
+              }
             }
+          );
+          if (res.acknowledged && res.modifiedCount) {
+            log.debug(`Domain status updated for ${jobResult.origin} after domain crawl`);
+          } else {
+            log.warn(
+              `Domain update returned no modifications for ${jobResult.origin} after domain crawl`
+            );
           }
-        );
-        if (res.acknowledged && res.modifiedCount) {
-          log.debug(`Domain status updated for ${jobResult.origin} after domain crawl`);
-        } else {
-          log.warn(
-            `Domain update returned no modifications for ${jobResult.origin} after domain crawl`
+        } catch (err) {
+          log.error(
+            `Failed to update domain status after domain crawl for ${jobResult.origin}`,
+            err
           );
         }
-      } catch (err) {
-        log.error(`Failed to update domain status after domain crawl for ${jobResult.origin}`, err);
-      } finally {
-        // Always deregister the domainCrawl job
-        this.jobs.deregisterJob(jobResult.origin);
-        log.debug(`Job #${jobResult.jobId} deregistered for ${jobResult.origin} (domainCrawl)`);
+      } else {
+        log.warn(
+          `Skipping domain update for ${jobResult.origin}: deregister failed (jobId mismatch or not found)`
+        );
       }
     }
     if (jobResult.jobType === 'domainLabelFetch') {
@@ -236,38 +245,38 @@ export default class Manager {
         `Received completion of domain label fetch (job #${jobResult.jobId}) for ${jobResult.origin}:`,
         jobResult.details
       );
-      // Reset domain status from 'labelFetching' to 'ready'
-      try {
-        const res = await Domain.updateOne(
-          {
-            origin: jobResult.origin,
-            jobId: jobResult.jobId
-          },
-          {
-            $set: { status: 'ready' },
-            $unset: {
-              workerId: '',
-              jobId: ''
+      const deregistered = this.jobs.deregisterJob(jobResult.origin, jobResult.jobId);
+      if (deregistered) {
+        try {
+          const res = await Domain.updateOne(
+            {
+              origin: jobResult.origin,
+              jobId: jobResult.jobId
+            },
+            {
+              $set: { status: 'ready' },
+              $unset: {
+                workerId: '',
+                jobId: ''
+              }
             }
+          );
+          if (res.acknowledged && res.modifiedCount) {
+            log.debug(`Domain status updated for ${jobResult.origin} after domain label fetch`);
+          } else {
+            log.warn(
+              `Domain update returned no modifications for ${jobResult.origin} after domain label fetch`
+            );
           }
-        );
-        if (res.acknowledged && res.modifiedCount) {
-          log.debug(`Domain status updated for ${jobResult.origin} after domain label fetch`);
-        } else {
-          log.warn(
-            `Domain update returned no modifications for ${jobResult.origin} after domain label fetch`
+        } catch (err) {
+          log.error(
+            `Failed to update domain status after domain label fetch for ${jobResult.origin}`,
+            err
           );
         }
-      } catch (err) {
-        log.error(
-          `Failed to update domain status after domain label fetch for ${jobResult.origin}`,
-          err
-        );
-      } finally {
-        // Always deregister the domainLabelFetch job
-        this.jobs.deregisterJob(jobResult.origin);
-        log.debug(
-          `Job #${jobResult.jobId} deregistered for ${jobResult.origin} (domainLabelFetch)`
+      } else {
+        log.warn(
+          `Skipping domain update for ${jobResult.origin}: deregister failed (jobId mismatch or not found)`
         );
       }
     }
@@ -458,12 +467,14 @@ export default class Manager {
     log.debug(
       `Getting ${workerAvail.domainLabelFetch.capacity} domainLabelFetch jobs for ${workerId}`
     );
+    const getRunningDomains = () => this.jobs.getRunningDomains();
     let gotRes = false;
 
     for await (const labelJob of Domain.labelsToFetch(
       workerId,
       workerAvail.domainLabelFetch.capacity,
-      workerAvail.domainLabelFetch.resourcesPerDomain
+      workerAvail.domainLabelFetch.resourcesPerDomain,
+      getRunningDomains
     )) {
       gotRes = true;
       if (
@@ -507,11 +518,13 @@ export default class Manager {
     }
 
     log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
+    const getRunningDomains = () => this.jobs.getRunningDomains();
     let gotRes = false;
     for await (const crawl of Domain.domainsToCrawl2(
       workerId,
       workerAvail.domainCrawl.capacity,
-      workerAvail.domainCrawl.resourcesPerDomain
+      workerAvail.domainCrawl.resourcesPerDomain,
+      getRunningDomains
     )) {
       log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning domainCrawl', {
         workerId,
@@ -556,8 +569,13 @@ export default class Manager {
     }
 
     log.debug(`Getting ${workerAvail.robotsCheck.capacity} robotsCheck jobs for ${workerId}`);
+    const getRunningDomains = () => this.jobs.getRunningDomains();
     let gotRes = false;
-    for await (const check of Domain.domainsToCheck(workerId, workerAvail.robotsCheck.capacity)) {
+    for await (const check of Domain.domainsToCheck(
+      workerId,
+      workerAvail.robotsCheck.capacity,
+      getRunningDomains
+    )) {
       gotRes = true;
       if (await this.jobs.registerJob(check.jobId, check.origin, 'robotsCheck')) {
         log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning robotsCheck', {

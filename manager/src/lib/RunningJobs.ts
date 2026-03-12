@@ -87,15 +87,6 @@ export default class RunningJobs extends EventEmitter {
     return true;
   }
 
-  deregisterJob(domain: string) {
-    if (this._running[domain]) {
-      const jobId = this._running[domain].jobId;
-      clearTimeout(this._running[domain].timeout);
-      delete this._running[domain];
-      log.info(`Deregistered job #${jobId} from domain ${domain}`);
-    }
-  }
-
   postponeTimeout(domain: string) {
     if (!this.isJobRegistered(domain)) {
       return false;
@@ -423,5 +414,27 @@ export default class RunningJobs extends EventEmitter {
 
   count() {
     return Object.keys(this._running).length;
+  }
+
+  getRunningDomains(): string[] {
+    return Object.keys(this._running);
+  }
+
+  deregisterJob(domain: string, jobId?: number): boolean {
+    const entry = this._running[domain];
+    if (!entry) {
+      log.warn(`No job registered for domain ${domain} during deregister`);
+      return false;
+    }
+    if (jobId !== undefined && entry.jobId !== jobId) {
+      log.error(
+        `Job ID mismatch for domain ${domain}: expected ${jobId} but found ${entry.jobId}. Not deregistering.`
+      );
+      return false;
+    }
+    clearTimeout(entry.timeout);
+    delete this._running[domain];
+    log.info(`Deregistered job #${entry.jobId} from domain ${domain}`);
+    return true;
   }
 }

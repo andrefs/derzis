@@ -434,7 +434,8 @@ class DomainClass {
   public static async *domainsToCheck(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
-    limit: number
+    limit: number,
+    getRunningDomains?: () => string[]
   ): AsyncGenerator<DomainClass> {
     let domainsFound = 0;
     let procSkip = 0;
@@ -481,6 +482,9 @@ class DomainClass {
             .filter((p) => p.head.type === HEAD_TYPE.URL)
             .map((p) => (p.head as UrlHead).domain.origin)
         );
+        if (getRunningDomains) {
+          getRunningDomains().forEach((r) => origins.delete(r));
+        }
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
         log.silly(
           `Worker ${wId} locked the following domains for robots checking for process ${proc.id}: ${domains.map(
@@ -582,7 +586,8 @@ class DomainClass {
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     domLimit: number,
-    resLimit: number
+    resLimit: number,
+    getRunningDomains?: () => string[]
   ): AsyncGenerator<DomainLabelFetchJobInfo> {
     log.info(
       `Starting label fetch locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
@@ -622,9 +627,13 @@ class DomainClass {
         }
 
         // Try to lock domains which already have enough urls (>= resLimit)
-        const domainsReady = Object.entries(labelsByDomain)
+        let domainsReady = Object.entries(labelsByDomain)
           .filter(([_, urls]) => urls.length >= resLimit)
           .map(([d, _]) => d);
+        if (getRunningDomains) {
+          const running = getRunningDomains();
+          domainsReady = domainsReady.filter((d) => !running.includes(d));
+        }
         const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
 
         // Ignore (drop) domains not locked
@@ -689,7 +698,8 @@ class DomainClass {
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     domLimit: number,
-    resLimit: number
+    resLimit: number,
+    getRunningDomains?: () => string[]
   ): AsyncGenerator<DomainCrawlJobInfo> {
     log.info(
       `Starting domain crawl locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
@@ -784,6 +794,9 @@ class DomainClass {
           Array.from(new Set(unvisHeads.map((h) => h.url)))
         );
         const origins = new Set<string>(unvisHeads.map((h) => h.domain.origin));
+        if (getRunningDomains) {
+          getRunningDomains().forEach((r) => origins.delete(r));
+        }
         const domains = await this.lockForCrawl(wId, Array.from(origins).slice(0, 20));
         log.silly(
           `Worker ${wId} locked the following domains for crawling for process ${proc.id}: ${domains.map(
