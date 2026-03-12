@@ -183,7 +183,7 @@ class ProcessClass extends Document {
     // check for more paths to crawl or check
 
     const pathsToCrawl = await getPathsForDomainCrawl(this, this.curPathType, [], null, null, 1);
-    const pathsToCheck = await getPathsForRobotsChecking(this, this.curPathType, null, null, 1);
+    const pathsToCheck = await getPathsForRobotsChecking(this, this.curPathType, [], null, null, 1);
     const hasPathsChecking = await hasPathsDomainRobotsChecking(this);
     const hasPathsCrawling = await hasPathsHeadBeingCrawled(this);
 
@@ -252,6 +252,7 @@ class ProcessClass extends Document {
 
   public async getPathsForRobotsChecking(
     pathType: PathType,
+    domainBlacklist: string[] = [],
     lastSeenCreatedAt: Date | null = null,
     lastSeenId: Types.ObjectId | null = null,
     lastSeenLength: number | null = null,
@@ -261,6 +262,7 @@ class ProcessClass extends Document {
     return getPathsForRobotsChecking(
       this,
       pathType,
+      domainBlacklist,
       lastSeenCreatedAt,
       lastSeenId,
       lastSeenLength,

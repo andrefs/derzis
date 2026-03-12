@@ -453,8 +453,10 @@ class DomainClass {
       let lastSeenLength: number | null = null;
       let lastSeenShortestPathLength: number | null = null;
       PATHS_LOOP: while (domainsFound < limit) {
+        const runningDomains = getRunningDomains ? getRunningDomains() : [];
         const paths = await proc.getPathsForRobotsChecking(
           proc.curPathType,
+          runningDomains,
           lastSeenCreatedAt,
           lastSeenId,
           lastSeenLength,

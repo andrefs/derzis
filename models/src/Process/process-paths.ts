@@ -65,6 +65,7 @@ async function getLockedDomainFilter(domainBlacklist: string[] = []) {
 export async function getPathsForRobotsChecking(
   process: ProcessClass,
   pathType: PathType,
+  domainBlacklist: string[] = [],
   lastSeenCreatedAt: Date | null = null,
   lastSeenId: Types.ObjectId | null = null,
   lastSeenLength: number | null = null,
@@ -80,12 +81,21 @@ export async function getPathsForRobotsChecking(
     return [];
   }
 
+  // Filter out blacklisted domains
+  const originFilter =
+    domainBlacklist.length > 0
+      ? eligibleOrigins.filter((o) => !domainBlacklist.includes(o))
+      : eligibleOrigins;
+  if (!originFilter.length) {
+    return [];
+  }
+
   const baseQuery = {
     processId: process.pid,
     'head.domain.isUnvisited': true,
     'head.status': 'unvisited',
     'head.type': HEAD_TYPE.URL,
-    'head.domain.origin': { $in: eligibleOrigins },
+    'head.domain.origin': { $in: originFilter },
     status: 'active'
   };
   const select = 'head.domain head.type createdAt _id nodes.count shortestPathLength';
