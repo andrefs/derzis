@@ -4,6 +4,7 @@ import {
   EndpointPath,
   type EndpointPathDocument,
   type PathSkeleton,
+  type TraversalPathSkeleton,
   type EndpointPathSkeleton,
   HEAD_TYPE,
   UrlHead,
@@ -977,11 +978,42 @@ async function extendPathsBatch(
     const result = await path.genExtendedPaths(process, triples);
 
     if (result.extendedPaths.length > 0) {
+      let pathsToCreate = result.extendedPaths;
+      if (convertToEndpoint) {
+        pathsToCreate = convertToEndpointSkeletons(pathsToCreate, path);
+      }
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
-      await createNewPaths(result.extendedPaths, pathType);
+      await createNewPaths(pathsToCreate, pathType);
       await deleteOldPaths(new Set([path._id]), pathType);
     }
   }
+}
+
+/**
+ * Converts TraversalPathSkeleton objects to EndpointPathSkeleton when converting from traversal to endpoint.
+ * @param skeletons - Array of path skeletons (may be TraversalPathSkeleton or EndpointPathSkeleton)
+ * @param parentPath - The parent path from which these were extended
+ * @returns Array of EndpointPathSkeleton
+ */
+function convertToEndpointSkeletons(
+  skeletons: PathSkeleton[],
+  parentPath: TraversalPathDocument | EndpointPathDocument
+): EndpointPathSkeleton[] {
+  return skeletons.map((s) => {
+    if ('seedPaths' in s) {
+      return s as EndpointPathSkeleton;
+    }
+    const tp = s as unknown as TraversalPathSkeleton & { seed: string };
+    const pathLength = (tp.nodes?.count ?? 0) + 1;
+    return {
+      processId: tp.processId,
+      head: tp.head,
+      type: PathType.ENDPOINT,
+      status: 'active',
+      shortestPathLength: pathLength,
+      seedPaths: [{ seed: tp.seed, minLength: pathLength }]
+    } as EndpointPathSkeleton;
+  });
 }
 
 /**
