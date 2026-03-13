@@ -30,6 +30,277 @@ function isUrlHead(head: PathClass['head']): head is UrlHead {
 }
 
 /**
+ * Validates the process for conversion and handles early exits.
+ * @param pid - The Process ID to validate.
+ * @returns The validated Process document or null if validation fails.
+ */
+async function validateProcessForConversion(pid: string): Promise<ProcessClass | null> {
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.warn(`Process ${pid} not found for conversion`);
+    return null;
+  }
+
+  if (process.curPathType !== PathType.TRAVERSAL) {
+    log.info(`Process ${pid} already ${process.curPathType}, skipping conversion`);
+    return null;
+  }
+
+  return process;
+}
+
+/**
+ * Fetches a batch of traversal paths for the given process.
+ * @param pid - The Process ID.
+ * @param lastSeenId - The last seen ObjectId for pagination (null for first batch).
+ * @param batchSize - The number of paths to fetch in this batch.
+ * @returns Array of traversal path lean documents.
+ */
+async function fetchTraversalPathsBatch(
+  pid: string,
+  lastSeenId: Types.ObjectId | null,
+  batchSize: number
+): Promise<any[]> {
+  const query: QueryFilter<TraversalPathDocument> = {
+    processId: pid,
+    status: 'active'
+  };
+
+  if (lastSeenId) {
+    query._id = { $gt: lastSeenId };
+  }
+
+  return await TraversalPath.find(query)
+    .sort({ _id: 1 })
+    .limit(batchSize)
+    .lean();
+}
+
+/**
+ * Groups traversal paths by head identifier and collects seed -> min distance mappings.
+ * @param traversalPaths - Array of traversal path documents to group.
+ * @returns Map of head identifiers to group data containing type, identifier, and seedMap.
+ */
+function groupTraversalPathsByHead(traversalPaths: TraversalPathDocument[]): Map<string, { type: string; identifier: string; seedMap: Map<string, number> }> {
+  // Group by head identifier and collect seed -> min distance
+  // For URL heads: group by head.url
+  // For LITERAL heads: group by literal:${value}:${datatype}:${language}
+  const headGroups = new Map<string, { type: string; identifier: string; seedMap: Map<string, number> }>();
+
+  for (const tp of traversalPaths as any[]) {
+    const headType = tp.head.type;
+    let identifier: string;
+    let seedUrl: string;
+    let nodesCount = tp.nodes.count;
+
+    if (headType === HEAD_TYPE.URL) {
+      identifier = tp.head.url;
+      seedUrl = tp.seed.url;
+    } else if (headType === HEAD_TYPE.LITERAL) {
+      const value = tp.head.value || '';
+      const datatype = tp.head.datatype || '';
+      const language = tp.head.language || '';
+      identifier = `literal:${value}:${datatype}:${language}`;
+      seedUrl = tp.seed.url;
+    } else {
+      log.warn(`Unknown head type during conversion: ${headType}, skipping`);
+      continue;
+    }
+
+    let group = headGroups.get(identifier);
+    if (!group) {
+      group = { type: headType, identifier, seedMap: new Map<string, number>() };
+      headGroups.set(identifier, group);
+    }
+    const existing = group.seedMap.get(seedUrl);
+    if (existing === undefined || nodesCount < existing) {
+      group.seedMap.set(seedUrl, nodesCount);
+    }
+  }
+
+  return headGroups;
+}
+
+/**
+ * Processes a single head group to create or update EndpointPath documents.
+ * @param group - The head group data containing type, identifier, and seedMap.
+ * @param pid - The Process ID.
+ * @param domainCache - Cache for domain information to avoid recomputation.
+ * @returns Array of traversal path IDs that were processed (for cleanup).
+ */
+async function processHeadGroup(
+  group: { type: string; identifier: string; seedMap: Map<string, number> },
+  pid: string,
+  domainCache: Map<string, { origin: string; isUnvisited: boolean }>
+): Promise<Types.ObjectId[]> {
+  const { type: headType, identifier, seedMap } = group;
+
+  let domain: { origin: string; isUnvisited: boolean } | undefined;
+  let literalHead: { type: string; value: string; datatype?: string; language?: string } | undefined;
+
+  if (headType === HEAD_TYPE.URL) {
+    // Get or compute domain
+    let cachedDomain = domainCache.get(identifier);
+    if (!cachedDomain) {
+      try {
+        const origin = new URL(identifier).origin;
+        cachedDomain = { origin, isUnvisited: true };
+        domainCache.set(identifier, cachedDomain);
+      } catch (err) {
+        log.warn(`Invalid head URL during conversion, skipping: ${identifier}`);
+        return [];
+      }
+    }
+    domain = cachedDomain;
+  } else if (headType === HEAD_TYPE.LITERAL) {
+    // Parse literal identifier: literal:${value}:${datatype}:${language}
+    const parts = identifier.slice(8).split(':'); // Remove 'literal:' prefix
+    literalHead = {
+      type: HEAD_TYPE.LITERAL,
+      value: parts[0] || '',
+      datatype: parts[1] || undefined,
+      language: parts[2] || undefined
+    };
+  }
+
+  const seedPaths = Array.from(seedMap.entries()).map(([seed, minLength]) => ({
+    seed,
+    minLength
+  }));
+  const shortestPathLength = Math.min(...seedMap.values());
+
+  // Build query based on head type
+  const query: Record<string, unknown> = {
+    processId: pid,
+    'head.type': headType
+  };
+  if (headType === HEAD_TYPE.URL) {
+    (query as any)['head.url'] = identifier;
+  } else {
+    // For literal heads, match by value, datatype, and language
+    const literalKey = identifier.slice(8); // Remove 'literal:' prefix
+    const parts = literalKey.split(':');
+    (query as any)['head.value'] = parts[0];
+    if (parts[1]) (query as any)['head.datatype'] = parts[1];
+    if (parts[2]) (query as any)['head.language'] = parts[2];
+  }
+
+  // Upsert EndpointPath with optimistic locking
+  let attempts = 0;
+  const maxAttempts = 3;
+  let success = false;
+
+  while (attempts < maxAttempts && !success) {
+    attempts++;
+    const existing = await EndpointPath.findOne(query)
+      .select('_id updatedAt seedPaths shortestPathLength head')
+      .exec();
+
+    if (existing) {
+      // Merge with existing seedPaths
+      const existingSeedMap = new Map(
+        existing.seedPaths.map((sp: any) => [sp.seed, sp.minLength])
+      );
+      for (const [seed, minLength] of seedMap.entries()) {
+        const cur = existingSeedMap.get(seed);
+        if (cur === undefined || minLength < cur) {
+          existingSeedMap.set(seed, minLength);
+        }
+      }
+      const mergedSeedPaths = Array.from(existingSeedMap.entries()).map(([seed, minLength]) => ({
+        seed,
+        minLength
+      }));
+      const finalShortest = Math.min(shortestPathLength, existing.shortestPathLength);
+
+      const updateSet: Record<string, unknown> = {
+        type: 'endpoint',
+        shortestPathLength: finalShortest,
+        seedPaths: mergedSeedPaths,
+        extensionCounter: 0,
+        updatedAt: new Date()
+      };
+
+      if (headType === HEAD_TYPE.URL) {
+        updateSet['head.type'] = 'url';
+        // Only set status if existing head has it (URL heads have status, literals don't)
+        if (existing.head && (existing.head as any).status) {
+          updateSet['head.status'] = (existing.head as any).status;
+        }
+        if (domain) {
+          updateSet['head.domain.origin'] = domain.origin;
+        }
+      } else {
+        updateSet['head.type'] = HEAD_TYPE.LITERAL;
+        if (literalHead) {
+          updateSet['head.value'] = literalHead.value;
+          if (literalHead.datatype) {
+            updateSet['head.datatype'] = literalHead.datatype;
+          }
+          if (literalHead.language) {
+            updateSet['head.language'] = literalHead.language;
+          }
+        }
+      }
+
+      const res = await EndpointPath.updateOne(
+        { _id: existing._id, updatedAt: existing.updatedAt },
+        { $set: updateSet }
+      );
+
+      if (res.matchedCount === 0) continue;
+      success = true;
+    } else {
+      // Create new EndpointPath
+      const head: Record<string, unknown> = {};
+      if (headType === HEAD_TYPE.URL && domain) {
+        head.type = HEAD_TYPE.URL;
+        head.url = identifier;
+        head.domain = { origin: domain.origin, isUnvisited: domain.isUnvisited };
+      } else if (headType === HEAD_TYPE.LITERAL && literalHead) {
+        head.type = HEAD_TYPE.LITERAL;
+        head.value = literalHead.value;
+        if (literalHead.datatype) head.datatype = literalHead.datatype;
+        if (literalHead.language) head.language = literalHead.language;
+      }
+
+      await new EndpointPath({
+        processId: pid,
+        head,
+        status: 'active',
+        type: 'endpoint',
+        shortestPathLength,
+        seedPaths,
+        extensionCounter: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).save();
+      success = true;
+    }
+  }
+
+  if (!success) {
+    log.warn(`Failed to create/update endpoint path for ${identifier} after retries`);
+  }
+
+  // Note: This function doesn't return traversal IDs since those are collected separately
+  // The caller is responsible for collecting traversal path IDs for cleanup
+  return [];
+}
+
+/**
+ * Updates the process curPathType to ENDPOINT.
+ * @param pid - The Process ID.
+ */
+async function updateProcessPathType(pid: string): Promise<void> {
+  const process = await Process.findOne({ pid });
+  if (process) {
+    process.curPathType = PathType.ENDPOINT;
+    await process.save();
+  }
+}
+
+/**
  * Get locked domain filter to exclude from path selection.
  */
 async function getLockedDomainFilter(domainBlacklist: string[] = []) {
@@ -1127,232 +1398,85 @@ export async function extendPaths({
  * Converts all active TraversalPaths for a process to EndpointPaths.
  * Aggregates by head.url, merges seed distances (taking min), marks traversal paths deleted,
  * and updates process curPathType to ENDPOINT.
+ * Uses batching to avoid loading all paths into memory at once.
  * @param pid - The Process ID to convert.
  */
 export async function convertTraversalToEndpointPaths(pid: string): Promise<void> {
-  const process = await Process.findOne({ pid });
+  // Validate process and handle early exits
+  const process = await validateProcessForConversion(pid);
   if (!process) {
-    log.warn(`Process ${pid} not found for conversion`);
     return;
   }
 
-  if (process.curPathType !== PathType.TRAVERSAL) {
-    log.info(`Process ${pid} already ${process.curPathType}, skipping conversion`);
-    return;
+  // Configuration
+  const BATCH_SIZE = 100;
+  const traversalIdsToDelete: Types.ObjectId[] = [];
+  let headGroups: Map<string, { type: string; identifier: string; seedMap: Map<string, number> }> = new Map();
+  const domainCache = new Map<string, { origin: string; isUnvisited: boolean }>();
+
+  // Process traversal paths in batches
+  let hasMorePaths = true;
+  let lastSeenId: Types.ObjectId | null = null;
+
+  while (hasMorePaths) {
+    // Fetch a batch of traversal paths
+    const batch = await fetchTraversalPathsBatch(pid, lastSeenId, BATCH_SIZE);
+    
+    if (batch.length === 0) {
+      hasMorePaths = false;
+      break;
+    }
+
+    // Group the batch of paths by head identifier
+    const batchHeadGroups = groupTraversalPathsByHead(batch);
+    
+    // Merge batch head groups into the main headGroups map
+    for (const [identifier, group] of batchHeadGroups.entries()) {
+      const existingGroup = headGroups.get(identifier);
+      if (existingGroup) {
+        // Merge seed maps, taking the minimum distance
+        for (const [seed, minLength] of group.seedMap.entries()) {
+          const existingLength = existingGroup.seedMap.get(seed);
+          if (existingLength === undefined || minLength < existingLength) {
+            existingGroup.seedMap.set(seed, minLength);
+          }
+        }
+      } else {
+        headGroups.set(identifier, group);
+      }
+    }
+
+    // Collect traversal path IDs for cleanup
+    const batchTraversalIds = (batch as any[]).map((tp) => tp._id);
+    traversalIdsToDelete.push(...batchTraversalIds);
+
+    // Check if we need to fetch more batches
+    hasMorePaths = batch.length === BATCH_SIZE;
+    if (hasMorePaths) {
+      lastSeenId = batch[batch.length - 1]._id;
+    }
   }
 
-  // Query all active TraversalPaths (both URL and LITERAL heads)
-  const traversalPaths = await TraversalPath.find({
-    processId: pid,
-    status: 'active'
-  }).lean();
-
-  if (traversalPaths.length === 0) {
+  // If no paths were found, exit early
+  if (headGroups.size === 0) {
     log.info(`No active traversal paths to convert for process ${pid}`);
     return;
   }
 
-  // Group by head identifier and collect seed -> min distance
-  // For URL heads: group by head.url
-  // For LITERAL heads: group by literal:${value}:${datatype}:${language}
-  const headGroups = new Map<string, { type: string; identifier: string; seedMap: Map<string, number> }>();
-
-  for (const tp of traversalPaths as any[]) {
-    const headType = tp.head.type;
-    let identifier: string;
-    let seedUrl: string;
-    let nodesCount = tp.nodes.count;
-
-    if (headType === HEAD_TYPE.URL) {
-      identifier = tp.head.url;
-      seedUrl = tp.seed.url;
-    } else if (headType === HEAD_TYPE.LITERAL) {
-      const value = tp.head.value || '';
-      const datatype = tp.head.datatype || '';
-      const language = tp.head.language || '';
-      identifier = `literal:${value}:${datatype}:${language}`;
-      seedUrl = tp.seed.url;
-    } else {
-      log.warn(`Unknown head type during conversion: ${headType}, skipping`);
-      continue;
-    }
-
-    let group = headGroups.get(identifier);
-    if (!group) {
-      group = { type: headType, identifier, seedMap: new Map<string, number>() };
-      headGroups.set(identifier, group);
-    }
-    const existing = group.seedMap.get(seedUrl);
-    if (existing === undefined || nodesCount < existing) {
-      group.seedMap.set(seedUrl, nodesCount);
-    }
-  }
-
-  const domainCache = new Map<string, any>();
-
+  // Process each head group to create/update EndpointPath documents
   for (const [, group] of headGroups.entries()) {
-    const { type: headType, identifier, seedMap } = group;
-
-    let domain: { origin: string; isUnvisited: boolean } | undefined;
-    let literalHead: { type: string; value: string; datatype?: string; language?: string } | undefined;
-
-    if (headType === HEAD_TYPE.URL) {
-      // Get or compute domain
-      let cachedDomain = domainCache.get(identifier);
-      if (!cachedDomain) {
-        try {
-          const origin = new URL(identifier).origin;
-          cachedDomain = { origin, isUnvisited: true };
-          domainCache.set(identifier, cachedDomain);
-        } catch (err) {
-          log.warn(`Invalid head URL during conversion, skipping: ${identifier}`);
-          continue;
-        }
-      }
-      domain = cachedDomain;
-    } else if (headType === HEAD_TYPE.LITERAL) {
-      // Parse literal identifier: literal:${value}:${datatype}:${language}
-      const parts = identifier.slice(8).split(':'); // Remove 'literal:' prefix
-      literalHead = {
-        type: HEAD_TYPE.LITERAL,
-        value: parts[0] || '',
-        datatype: parts[1] || undefined,
-        language: parts[2] || undefined
-      };
-    }
-
-    const seedPaths = Array.from(seedMap.entries()).map(([seed, minLength]) => ({
-      seed,
-      minLength
-    }));
-    const shortestPathLength = Math.min(...seedMap.values());
-
-    // Build query based on head type
-    const query: Record<string, unknown> = {
-      processId: pid,
-      'head.type': headType
-    };
-    if (headType === HEAD_TYPE.URL) {
-      (query as any)['head.url'] = identifier;
-    } else {
-      // For literal heads, match by value, datatype, and language
-      const literalKey = identifier.slice(8); // Remove 'literal:' prefix
-      const parts = literalKey.split(':');
-      (query as any)['head.value'] = parts[0];
-      if (parts[1]) (query as any)['head.datatype'] = parts[1];
-      if (parts[2]) (query as any)['head.language'] = parts[2];
-    }
-
-    // Upsert EndpointPath with optimistic locking
-    let attempts = 0;
-    const maxAttempts = 3;
-    let success = false;
-
-    while (attempts < maxAttempts && !success) {
-      attempts++;
-      const existing = await EndpointPath.findOne(query)
-        .select('_id updatedAt seedPaths shortestPathLength head')
-        .exec();
-
-      if (existing) {
-        // Merge with existing seedPaths
-        const existingSeedMap = new Map(
-          existing.seedPaths.map((sp: any) => [sp.seed, sp.minLength])
-        );
-        for (const [seed, minLength] of seedMap.entries()) {
-          const cur = existingSeedMap.get(seed);
-          if (cur === undefined || minLength < cur) {
-            existingSeedMap.set(seed, minLength);
-          }
-        }
-        const mergedSeedPaths = Array.from(existingSeedMap.entries()).map(([seed, minLength]) => ({
-          seed,
-          minLength
-        }));
-        const finalShortest = Math.min(shortestPathLength, existing.shortestPathLength);
-
-        const updateSet: Record<string, unknown> = {
-          type: 'endpoint',
-          shortestPathLength: finalShortest,
-          seedPaths: mergedSeedPaths,
-          extensionCounter: 0,
-          updatedAt: new Date()
-        };
-
-        if (headType === HEAD_TYPE.URL) {
-          updateSet['head.type'] = 'url';
-          // Only set status if existing head has it (URL heads have status, literals don't)
-          if (existing.head && (existing.head as any).status) {
-            updateSet['head.status'] = (existing.head as any).status;
-          }
-          if (domain) {
-            updateSet['head.domain.origin'] = domain.origin;
-          }
-        } else {
-          updateSet['head.type'] = HEAD_TYPE.LITERAL;
-          if (literalHead) {
-            updateSet['head.value'] = literalHead.value;
-            if (literalHead.datatype) {
-              updateSet['head.datatype'] = literalHead.datatype;
-            }
-            if (literalHead.language) {
-              updateSet['head.language'] = literalHead.language;
-            }
-          }
-        }
-
-        const res = await EndpointPath.updateOne(
-          { _id: existing._id, updatedAt: existing.updatedAt },
-          { $set: updateSet }
-        );
-
-        if (res.matchedCount === 0) continue;
-        success = true;
-      } else {
-        // Create new EndpointPath
-        const head: Record<string, unknown> = {};
-        if (headType === HEAD_TYPE.URL && domain) {
-          head.type = HEAD_TYPE.URL;
-          head.url = identifier;
-          head.domain = { origin: domain.origin, isUnvisited: domain.isUnvisited };
-        } else if (headType === HEAD_TYPE.LITERAL && literalHead) {
-          head.type = HEAD_TYPE.LITERAL;
-          head.value = literalHead.value;
-          if (literalHead.datatype) head.datatype = literalHead.datatype;
-          if (literalHead.language) head.language = literalHead.language;
-        }
-
-        await new EndpointPath({
-          processId: pid,
-          head,
-          status: 'active',
-          type: 'endpoint',
-          shortestPathLength,
-          seedPaths,
-          extensionCounter: 0,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }).save();
-        success = true;
-      }
-    }
-
-    if (!success) {
-      log.warn(`Failed to create/update endpoint path for ${identifier} after retries`);
-    }
+    await processHeadGroup(group, pid, domainCache);
   }
 
   // Mark traversal paths as deleted
-  const traversalIds = (traversalPaths as any[]).map((tp) => tp._id);
-  if (traversalIds.length > 0) {
-    await TraversalPath.updateMany({ _id: { $in: traversalIds } }, { $set: { status: 'deleted' } });
+  if (traversalIdsToDelete.length > 0) {
+    await TraversalPath.updateMany({ _id: { $in: traversalIdsToDelete } }, { $set: { status: 'deleted' } });
   }
 
   // Update process curPathType to ENDPOINT
-  process.curPathType = PathType.ENDPOINT;
-  await process.save();
+  await updateProcessPathType(pid);
 
   log.info(
-    `Converted ${headGroups.size} endpoint paths from ${traversalPaths.length} traversal paths for process ${pid}`
+    `Converted ${headGroups.size} endpoint paths from ${traversalIdsToDelete.length} traversal paths for process ${pid}`
   );
 }
