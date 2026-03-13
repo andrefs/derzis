@@ -532,11 +532,24 @@ export async function getPathsForDomainCrawl(
   if (pathType === PathType.TRAVERSAL) {
     const traversalQuery = genTraversalPathQuery(process);
 
-    const paths = await TraversalPath.find({
+    // Merge $or from traversalQuery (predicate filters) with cursorCondition (pagination)
+    // Both may have $or keys - need to combine them, not overwrite
+    const mergedQuery: Record<string, unknown> = {
       ...baseQuery,
       ...traversalQuery,
       ...cursorCondition
-    })
+    };
+
+    if (traversalQuery.$or && cursorCondition.$or) {
+      // Combine: path must match BOTH the traversal predicate filter AND the cursor condition
+      mergedQuery.$and = [
+        { $or: traversalQuery.$or },
+        { $or: cursorCondition.$or }
+      ];
+      delete mergedQuery.$or;
+    }
+
+    const paths = await TraversalPath.find(mergedQuery)
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
