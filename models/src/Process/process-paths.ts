@@ -607,22 +607,33 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
     query.extensionCounter = { $lt: process.pathExtensionCounter };
   }
 
-  // if there is a whitelist, path must have at least one whitelisted predicate in its existing predicates
+  // if there is a whitelist, path must either have room to add a whitelisted predicate,
+  // or already have at least one whitelisted predicate (if already at max)
   if (limType === 'whitelist') {
-    query['predicates.elems'] =
-      limPredicates.length === 1 ? limPredicates[0] : { $in: limPredicates };
+    query.$or = [
+      { 'predicates.count': { $lt: maxPathProps } },  // room to add
+      {
+        'predicates.count': maxPathProps,
+        'predicates.elems': limPredicates.length === 1
+          ? limPredicates[0]
+          : { $in: limPredicates }
+      }  // already has one
+    ];
   }
-  // if there is a blacklist, path must have at least one non-blacklisted predicate in its existing predicates
+  // if there is a blacklist, path must either have room to add a non-blacklisted predicate,
+  // or already have at least one non-blacklisted predicate (if already at max)
   else if (limType === 'blacklist' && limPredicates.length > 0) {
-    if (limPredicates.length === 1) {
-      query['predicates.elems'] = { $ne: limPredicates[0] };
-    } else {
-      query.$expr = {
-        $not: {
-          $setIsSubset: ['$predicates.elems', limPredicates]
+    query.$or = [
+      { 'predicates.count': { $lt: maxPathProps } },  // room to add
+      {
+        'predicates.count': maxPathProps,
+        $expr: {
+          $not: {
+            $setIsSubset: ['$predicates.elems', limPredicates]
+          }
         }
-      };
-    }
+      }  // already has at least one non-blacklisted
+    ];
   }
 
   return query;

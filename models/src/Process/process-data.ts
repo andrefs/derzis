@@ -545,7 +545,7 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
 
   const PathModel = pathType === PathType.TRAVERSAL ? TraversalPath : EndpointPath;
   const aggregateResult = PathModel.aggregate(pipeline);
-  
+
   const counts: Record<string, number> = {};
   for await (const r of aggregateResult) {
     counts[r._id as string] = r.count;

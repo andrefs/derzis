@@ -32,7 +32,7 @@ describe('getDoneResourceCount', () => {
   it('should return count of done resources', async () => {
     // Mock aggregation result
     const mockAggregateResult = [{ count: 5 }];
-    
+
     vi.spyOn(ProcessTriple, 'aggregate').mockResolvedValue(mockAggregateResult as any);
 
     const result = await getDoneResourceCount(mockProcess);
@@ -100,7 +100,7 @@ describe('getDoneResourceCount', () => {
   it('should return 0 when no done resources found', async () => {
     // Mock aggregation result with empty array
     const mockAggregateResult: any[] = [];
-    
+
     vi.spyOn(ProcessTriple, 'aggregate').mockResolvedValue(mockAggregateResult);
 
     const result = await getDoneResourceCount(mockProcess);

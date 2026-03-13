@@ -105,7 +105,7 @@ export async function notifyProcessCreated(process: ProcessClass) {
 
 export async function notifyStepFinished(process: ProcessClass) {
   const doneResourceCount = process.currentStep.doneResourceCount ?? 0;
-  
+
   const notif = {
     ok: true,
     data: {
