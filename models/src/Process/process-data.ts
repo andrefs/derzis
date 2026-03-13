@@ -172,6 +172,67 @@ export async function getResourceCount(process: ProcessClass) {
   return res.length > 0 ? res[0].count : 0;
 }
 
+export async function getDoneResourceCount(process: ProcessClass) {
+  const res = await ProcessTriple.aggregate(
+    [
+      {
+        $match: {
+          processId: process.pid
+        }
+      },
+      { $group: { _id: '$triple' } },
+      {
+        $lookup: {
+          from: 'triples',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'ts'
+        }
+      },
+      {
+        $unwind: {
+          path: '$ts',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      { $project: { sources: '$ts.sources' } },
+      {
+        $unwind: {
+          path: '$sources',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // group by source to avoid duplicates
+      { $group: { _id: '$sources' } },
+      {
+        $lookup: {
+          from: 'resources',
+          let: { resourceUrl: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ['$url', '$$resourceUrl']
+                }
+              }
+            },
+            {
+              $match: {
+                status: 'done'
+              }
+            }
+          ],
+          as: 'doneResources'
+        }
+      },
+      { $match: { 'doneResources.0': { $exists: true } } },
+      { $count: 'count' }
+    ],
+    { maxTimeMS: 60000, allowDiskUse: true }
+  );
+  return res.length > 0 ? res[0].count : 0;
+}
+
 export async function* getAllResources(process: ProcessClass) {
   const res = ProcessTriple.aggregate(
     [
@@ -483,10 +544,10 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
   const pipeline = [{ $match: baseQuery }, { $group: { _id: '$head.status', count: { $sum: 1 } } }];
 
   const PathModel = pathType === PathType.TRAVERSAL ? TraversalPath : EndpointPath;
-  const results = await PathModel.aggregate(pipeline);
-
+  const aggregateResult = PathModel.aggregate(pipeline);
+  
   const counts: Record<string, number> = {};
-  for (const r of results) {
+  for await (const r of aggregateResult) {
     counts[r._id as string] = r.count;
   }
 

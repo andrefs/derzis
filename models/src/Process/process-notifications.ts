@@ -3,7 +3,7 @@ import { createLogger } from '@derzis/common/server';
 import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
 import { type LiteralTripleDocument } from '../Triple';
-import { getLabelDataForProcess } from './process-data';
+import { getLabelDataForProcess, getDoneResourceCount } from './process-data';
 const log = createLogger('ProcessNotifications');
 
 /**
@@ -104,13 +104,18 @@ export async function notifyProcessCreated(process: ProcessClass) {
 }
 
 export async function notifyStepFinished(process: ProcessClass) {
+  const doneResourceCount = await getDoneResourceCount(process);
+  
   const notif = {
     ok: true,
     data: {
       pid: process.pid,
       messageType: 'OK_STEP_FINISHED',
-      message: `Process ${process.pid} just finished step #${process.steps.length}.`,
-      details: process.currentStep
+      message: `Process ${process.pid} just finished step #${process.steps.length} with ${doneResourceCount} resources completed.`,
+      details: {
+        ...process.currentStep,
+        doneResourceCount
+      }
     } as StepFinishedNotification
   };
 
