@@ -70,10 +70,7 @@ async function fetchTraversalPathsBatch(
     query._id = { $gt: lastSeenId };
   }
 
-  return await TraversalPath.find(query)
-    .sort({ _id: 1 })
-    .limit(batchSize)
-    .lean();
+  return await TraversalPath.find(query).sort({ _id: 1 }).limit(batchSize).lean();
 }
 
 /**
@@ -81,11 +78,16 @@ async function fetchTraversalPathsBatch(
  * @param traversalPaths - Array of traversal path documents to group.
  * @returns Map of head identifiers to group data containing type, identifier, and seedMap.
  */
-function groupTraversalPathsByHead(traversalPaths: TraversalPathDocument[]): Map<string, { type: string; identifier: string; seedMap: Map<string, number> }> {
+function groupTraversalPathsByHead(
+  traversalPaths: TraversalPathDocument[]
+): Map<string, { type: string; identifier: string; seedMap: Map<string, number> }> {
   // Group by head identifier and collect seed -> min distance
   // For URL heads: group by head.url
   // For LITERAL heads: group by literal:${value}:${datatype}:${language}
-  const headGroups = new Map<string, { type: string; identifier: string; seedMap: Map<string, number> }>();
+  const headGroups = new Map<
+    string,
+    { type: string; identifier: string; seedMap: Map<string, number> }
+  >();
 
   for (const tp of traversalPaths as any[]) {
     const headType = tp.head.type;
@@ -136,7 +138,9 @@ async function processHeadGroup(
   const { type: headType, identifier, seedMap } = group;
 
   let domain: { origin: string; isUnvisited: boolean } | undefined;
-  let literalHead: { type: string; value: string; datatype?: string; language?: string } | undefined;
+  let literalHead:
+    | { type: string; value: string; datatype?: string; language?: string }
+    | undefined;
 
   if (headType === HEAD_TYPE.URL) {
     // Get or compute domain
@@ -198,9 +202,7 @@ async function processHeadGroup(
 
     if (existing) {
       // Merge with existing seedPaths
-      const existingSeedMap = new Map(
-        existing.seedPaths.map((sp: any) => [sp.seed, sp.minLength])
-      );
+      const existingSeedMap = new Map(existing.seedPaths.map((sp: any) => [sp.seed, sp.minLength]));
       for (const [seed, minLength] of seedMap.entries()) {
         const cur = existingSeedMap.get(seed);
         if (cur === undefined || minLength < cur) {
@@ -1421,7 +1423,7 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   while (hasMorePaths) {
     // Fetch a batch of traversal paths
     const batch = await fetchTraversalPathsBatch(pid, lastSeenId, BATCH_SIZE);
-    
+
     if (batch.length === 0) {
       hasMorePaths = false;
       break;
@@ -1429,12 +1431,12 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
 
     // Group the batch of paths by head identifier
     const batchHeadGroups = groupTraversalPathsByHead(batch);
-    
+
     // Process each head group in this batch immediately
     for (const [, group] of batchHeadGroups.entries()) {
       await processHeadGroup(group, pid, domainCache);
     }
-    
+
     totalHeadGroups += batchHeadGroups.size;
 
     // Collect traversal path IDs for cleanup
@@ -1456,14 +1458,15 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
 
   // Mark traversal paths as deleted
   if (traversalIdsToDelete.length > 0) {
-    await TraversalPath.updateMany({ _id: { $in: traversalIdsToDelete } }, { $set: { status: 'deleted' } });
+    await TraversalPath.updateMany(
+      { _id: { $in: traversalIdsToDelete } },
+      { $set: { status: 'deleted' } }
+    );
   }
 
-  // Update process curPathType to ENDPOINT
-  await updateProcessPathType(pid);
-
-const ratio = totalHeadGroups > 0 ? (traversalIdsToDelete.length / totalHeadGroups).toFixed(2) : '0';
-log.info(
+  const ratio =
+    totalHeadGroups > 0 ? (traversalIdsToDelete.length / totalHeadGroups).toFixed(2) : '0';
+  log.info(
     `Converted ${traversalIdsToDelete.length} TraversalPaths into ${totalHeadGroups} EndpointPaths (1:${ratio} ratio) for process ${pid}`
-);
+  );
 }
