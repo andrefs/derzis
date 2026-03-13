@@ -111,35 +111,28 @@ export default class Manager {
           log.debug(
             `Done saving resource crawl (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
           );
-          const deregistered = this.jobs.deregisterJob(jobResult.origin, jobResult.jobId);
-          if (deregistered) {
-            try {
-              const res = await Domain.updateOne(
-                {
-                  origin: jobResult.origin,
-                  jobId: jobResult.jobId,
-                  'crawl.ongoing': 0
-                },
-                {
-                  $set: { status: 'ready' },
-                  $unset: {
-                    workerId: '',
-                    jobId: ''
-                  }
+          try {
+            const res = await Domain.updateOne(
+              {
+                origin: jobResult.origin,
+                jobId: jobResult.jobId,
+                'crawl.ongoing': 0
+              },
+              {
+                $set: { status: 'ready' },
+                $unset: {
+                  workerId: '',
+                  jobId: ''
                 }
-              );
-              if (res.acknowledged && res.modifiedCount) {
-                log.debug(`Domain status updated for ${jobResult.origin}`);
-              } else {
-                log.warn(`Domain update returned no modifications for ${jobResult.origin}`);
               }
-            } catch (err) {
-              log.error(`Failed to update domain status for ${jobResult.origin}`, err);
-            }
-          } else {
-            log.warn(
-              `Skipping domain update for ${jobResult.origin}: deregister failed (jobId mismatch or not found)`
             );
+            if (res.acknowledged && res.modifiedCount) {
+              log.debug(`Domain status updated for ${jobResult.origin}`);
+            } else {
+              log.debug(`Domain update skipped for ${jobResult.origin}: crawl.ongoing > 0 or jobId mismatch`);
+            }
+          } catch (err) {
+            log.error(`Failed to update domain status for ${jobResult.origin}`, err);
           }
         }
       }
@@ -165,39 +158,30 @@ export default class Manager {
           log.debug(
             `Done saving resource label fetch (job #${jobResult.jobId}) for domain ${jobResult.origin}: ${jobResult.url}`
           );
-          const deregistered = this.jobs.deregisterJob(jobResult.origin, jobResult.jobId);
-          if (deregistered) {
-            try {
-              const res = await Domain.updateOne(
-                {
-                  origin: jobResult.origin,
-                  jobId: jobResult.jobId,
-                  'crawl.ongoing': 0
-                },
-                {
-                  $set: { status: 'ready' },
-                  $unset: {
-                    workerId: '',
-                    jobId: ''
-                  }
+          try {
+            const res = await Domain.updateOne(
+              {
+                origin: jobResult.origin,
+                jobId: jobResult.jobId,
+                'crawl.ongoing': 0
+              },
+              {
+                $set: { status: 'ready' },
+                $unset: {
+                  workerId: '',
+                  jobId: ''
                 }
-              );
-              if (res.acknowledged && res.modifiedCount) {
-                log.debug(`Domain status updated for ${jobResult.origin} after label fetch`);
-              } else {
-                log.warn(
-                  `Domain update returned no modifications for ${jobResult.origin} after label fetch`
-                );
               }
-            } catch (err) {
-              log.error(
-                `Failed to update domain status after label fetch for ${jobResult.origin}`,
-                err
-              );
+            );
+            if (res.acknowledged && res.modifiedCount) {
+              log.debug(`Domain status updated for ${jobResult.origin} after label fetch`);
+            } else {
+              log.debug(`Domain update skipped for ${jobResult.origin}: crawl.ongoing > 0 or jobId mismatch`);
             }
-          } else {
-            log.warn(
-              `Skipping domain update for ${jobResult.origin}: deregister failed (jobId mismatch or not found)`
+          } catch (err) {
+            log.error(
+              `Failed to update domain status after label fetch for ${jobResult.origin}`,
+              err
             );
           }
         }
