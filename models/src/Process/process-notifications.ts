@@ -3,7 +3,7 @@ import { createLogger } from '@derzis/common/server';
 import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
 import { type LiteralTripleDocument } from '../Triple';
-import { getLabelDataForProcess, getDoneResourceCount } from './process-data';
+import { getLabelDataForProcess } from './process-data';
 const log = createLogger('ProcessNotifications');
 
 /**
@@ -104,8 +104,7 @@ export async function notifyProcessCreated(process: ProcessClass) {
 }
 
 export async function notifyStepFinished(process: ProcessClass) {
-  const doneResourceCount = await getDoneResourceCount(process);
-  process.currentStep.doneResourceCount = doneResourceCount;
+  const doneResourceCount = process.currentStep.doneResourceCount ?? 0;
   
   const notif = {
     ok: true,

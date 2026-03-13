@@ -54,7 +54,8 @@ import {
   getAllResources,
   getAllDomains,
   getInfo,
-  curPredsDirMetrics
+  curPredsDirMetrics,
+  getDoneResourceCount
 } from './process-data';
 import { BranchFactorClass, SeedPosRatioClass, NotificationClass, StepClass } from './aux-classes';
 import { type SimpleTriple, PathType } from '@derzis/common';
@@ -404,6 +405,8 @@ class ProcessClass extends Document {
       return;
     }
     this.status = 'done';
+    // Calculate doneResourceCount before saving
+    this.currentStep.doneResourceCount = await getDoneResourceCount(this);
     // save to DB
     await this.save();
 
