@@ -54,16 +54,22 @@ async function validateProcessForConversion(pid: string): Promise<ProcessClass |
  * @param pid - The Process ID.
  * @param lastSeenId - The last seen ObjectId for pagination (null for first batch).
  * @param batchSize - The number of paths to fetch in this batch.
+ * @param maxPathLength - Maximum path length filter (nodes.count < maxPathLength).
+ * @param maxPathProps - Maximum predicate count filter (predicates.count <= maxPathProps).
  * @returns Array of traversal path lean documents.
  */
 async function fetchTraversalPathsBatch(
   pid: string,
   lastSeenId: Types.ObjectId | null,
-  batchSize: number
+  batchSize: number,
+  maxPathLength: number,
+  maxPathProps: number
 ): Promise<any[]> {
   const query: QueryFilter<TraversalPathDocument> = {
     processId: pid,
-    status: 'active'
+    status: 'active',
+    'nodes.count': { $lt: maxPathLength },
+    'predicates.count': { $lte: maxPathProps }
   };
 
   if (lastSeenId) {
@@ -732,22 +738,22 @@ async function createNewPaths(
           }));
           const finalShortest = Math.min(incomingShortest, existing.shortestPathLength);
 
-           const res = await EndpointPath.updateOne(
-             { _id: existing._id, updatedAt: existing.updatedAt },
-             {
-               $set: {
-                 'head.type': 'url',
-                 'head.status': existingHead.status,
-                 'head.domain.origin': domain.origin,
-                 'head.domain.isUnvisited': domain.isUnvisited,
-                 type: 'endpoint',
-                 shortestPathLength: finalShortest,
-                 seedPaths: finalSeedPaths,
-                 extensionCounter: 0,
-                 updatedAt: new Date()
-               }
-             }
-           );
+          const res = await EndpointPath.updateOne(
+            { _id: existing._id, updatedAt: existing.updatedAt },
+            {
+              $set: {
+                'head.type': 'url',
+                'head.status': existingHead.status,
+                'head.domain.origin': domain.origin,
+                'head.domain.isUnvisited': domain.isUnvisited,
+                type: 'endpoint',
+                shortestPathLength: finalShortest,
+                seedPaths: finalSeedPaths,
+                extensionCounter: 0,
+                updatedAt: new Date()
+              }
+            }
+          );
 
           if (res.matchedCount === 0) continue; // retry
           success = true;
@@ -1420,6 +1426,8 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
 
   // Configuration
   const BATCH_SIZE = 100;
+  const maxPathLength = process.currentStep.maxPathLength;
+  const maxPathProps = process.currentStep.maxPathProps;
   const traversalIdsToDelete: Types.ObjectId[] = [];
   const domainCache = new Map<string, { origin: string; isUnvisited: boolean }>();
 
@@ -1430,7 +1438,13 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
 
   while (hasMorePaths) {
     // Fetch a batch of traversal paths
-    const batch = await fetchTraversalPathsBatch(pid, lastSeenId, BATCH_SIZE);
+    const batch = await fetchTraversalPathsBatch(
+      pid,
+      lastSeenId,
+      BATCH_SIZE,
+      maxPathLength,
+      maxPathProps
+    );
 
     if (batch.length === 0) {
       hasMorePaths = false;
