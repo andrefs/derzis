@@ -394,7 +394,7 @@ export default class RunningJobs extends EventEmitter {
     log.info(`Canceling worker ${workerId} domainLabelFetch jobs on ${domains.join(', ')}`);
     domains = Object.keys(ongoingJobs.domainLabelFetch);
     if (domains.length) {
-      for (const d in domains) {
+      for (const d of domains) {
         delete this._running[d];
       }
       const update = {
