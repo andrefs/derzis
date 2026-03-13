@@ -111,4 +111,10 @@ export class StepClass {
    */
   @prop({ type: Boolean, default: false, required: true })
   public convertToEndpointPaths: boolean = false;
+
+  /**
+   * Number of resources with status=done for this step (populated in notifications)
+   */
+  @prop({ type: Number })
+  public doneResourceCount?: number;
 }

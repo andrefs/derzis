@@ -105,6 +105,7 @@ export async function notifyProcessCreated(process: ProcessClass) {
 
 export async function notifyStepFinished(process: ProcessClass) {
   const doneResourceCount = await getDoneResourceCount(process);
+  process.currentStep.doneResourceCount = doneResourceCount;
   
   const notif = {
     ok: true,
@@ -112,10 +113,7 @@ export async function notifyStepFinished(process: ProcessClass) {
       pid: process.pid,
       messageType: 'OK_STEP_FINISHED',
       message: `Process ${process.pid} just finished step #${process.steps.length} with ${doneResourceCount} resources completed.`,
-      details: {
-        ...process.currentStep,
-        doneResourceCount
-      }
+      details: process.currentStep
     } as StepFinishedNotification
   };
 
