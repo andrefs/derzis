@@ -339,7 +339,7 @@ export default class RunningJobs extends EventEmitter {
     domains = Object.keys(ongoingJobs.robotsCheck);
     log.info(`Canceling worker ${workerId} robotsCheck jobs on ${domains.join(', ')}`);
     if (domains.length) {
-      for (const d in domains) {
+      for (const d of domains) {
         this.deregisterJob(d);
       }
       const update = {
@@ -366,7 +366,7 @@ export default class RunningJobs extends EventEmitter {
     log.info(`Canceling worker ${workerId} domainCrawl jobs on ${domains.join(', ')}`);
     domains = Object.keys(ongoingJobs.domainCrawl);
     if (domains.length) {
-      for (const d in domains) {
+      for (const d of domains) {
         delete this._running[d];
       }
       const update = {
