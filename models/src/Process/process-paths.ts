@@ -732,28 +732,36 @@ async function createNewPaths(
           }));
           const finalShortest = Math.min(incomingShortest, existing.shortestPathLength);
 
-          const res = await EndpointPath.updateOne(
-            { _id: existing._id, updatedAt: existing.updatedAt },
-            {
-              $set: {
-                'head.type': 'url',
-                'head.status': existingHead.status,
-                'head.domain.origin': domain.origin,
-                type: 'endpoint',
-                shortestPathLength: finalShortest,
-                seedPaths: finalSeedPaths,
-                extensionCounter: 0,
-                updatedAt: new Date()
-              }
-            }
-          );
+           const res = await EndpointPath.updateOne(
+             { _id: existing._id, updatedAt: existing.updatedAt },
+             {
+               $set: {
+                 'head.type': 'url',
+                 'head.status': existingHead.status,
+                 'head.domain.origin': domain.origin,
+                 'head.domain.isUnvisited': domain.isUnvisited,
+                 type: 'endpoint',
+                 shortestPathLength: finalShortest,
+                 seedPaths: finalSeedPaths,
+                 extensionCounter: 0,
+                 updatedAt: new Date()
+               }
+             }
+           );
 
           if (res.matchedCount === 0) continue; // retry
           success = true;
         } else {
           await new EndpointPath({
             processId,
-            head: { type: 'url', url: headUrl, domain },
+            head: {
+              type: 'url',
+              url: headUrl,
+              domain: {
+                origin: domain.origin,
+                isUnvisited: domain.isUnvisited ?? false
+              }
+            },
             status: 'active',
             type: 'endpoint',
             shortestPathLength: incomingShortest,
