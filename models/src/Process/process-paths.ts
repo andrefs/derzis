@@ -1411,12 +1411,12 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   // Configuration
   const BATCH_SIZE = 100;
   const traversalIdsToDelete: Types.ObjectId[] = [];
-  let headGroups: Map<string, { type: string; identifier: string; seedMap: Map<string, number> }> = new Map();
   const domainCache = new Map<string, { origin: string; isUnvisited: boolean }>();
 
   // Process traversal paths in batches
   let hasMorePaths = true;
   let lastSeenId: Types.ObjectId | null = null;
+  let totalHeadGroups = 0;
 
   while (hasMorePaths) {
     // Fetch a batch of traversal paths
@@ -1430,21 +1430,12 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
     // Group the batch of paths by head identifier
     const batchHeadGroups = groupTraversalPathsByHead(batch);
     
-    // Merge batch head groups into the main headGroups map
-    for (const [identifier, group] of batchHeadGroups.entries()) {
-      const existingGroup = headGroups.get(identifier);
-      if (existingGroup) {
-        // Merge seed maps, taking the minimum distance
-        for (const [seed, minLength] of group.seedMap.entries()) {
-          const existingLength = existingGroup.seedMap.get(seed);
-          if (existingLength === undefined || minLength < existingLength) {
-            existingGroup.seedMap.set(seed, minLength);
-          }
-        }
-      } else {
-        headGroups.set(identifier, group);
-      }
+    // Process each head group in this batch immediately
+    for (const [, group] of batchHeadGroups.entries()) {
+      await processHeadGroup(group, pid, domainCache);
     }
+    
+    totalHeadGroups += batchHeadGroups.size;
 
     // Collect traversal path IDs for cleanup
     const batchTraversalIds = (batch as any[]).map((tp) => tp._id);
@@ -1458,14 +1449,9 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   }
 
   // If no paths were found, exit early
-  if (headGroups.size === 0) {
+  if (traversalIdsToDelete.length === 0) {
     log.info(`No active traversal paths to convert for process ${pid}`);
     return;
-  }
-
-  // Process each head group to create/update EndpointPath documents
-  for (const [, group] of headGroups.entries()) {
-    await processHeadGroup(group, pid, domainCache);
   }
 
   // Mark traversal paths as deleted
@@ -1476,7 +1462,8 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   // Update process curPathType to ENDPOINT
   await updateProcessPathType(pid);
 
-  log.info(
-    `Converted ${headGroups.size} endpoint paths from ${traversalIdsToDelete.length} traversal paths for process ${pid}`
-  );
+const ratio = totalHeadGroups > 0 ? (traversalIdsToDelete.length / totalHeadGroups).toFixed(2) : '0';
+log.info(
+    `Converted ${traversalIdsToDelete.length} TraversalPaths into ${totalHeadGroups} EndpointPaths (1:${ratio} ratio) for process ${pid}`
+);
 }
