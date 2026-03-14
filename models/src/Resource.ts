@@ -286,6 +286,15 @@ class ResourceClass {
     }
     const pathType = process.curPathType;
 
+    // Get domain statuses from database
+    const origins = [...new Set(seeds.map((s) => s.domain))];
+    const domains = await Domain.find({ origin: { $in: origins } })
+      .select('origin status')
+      .lean();
+    const domainsUnvisited = new Set(
+      domains.filter((d) => d.status === 'unvisited').map((d) => d.origin)
+    );
+
     // Traversal paths
     if (pathType === PathType.TRAVERSAL) {
       const paths = seeds.map((s) => ({
@@ -297,7 +306,7 @@ class ResourceClass {
           type: HEAD_TYPE.URL,
           domain: {
             origin: s.domain,
-            isUnvisited: true
+            isUnvisited: domainsUnvisited.has(s.domain)
           }
         },
         status: 'active',
@@ -334,7 +343,7 @@ class ResourceClass {
                   status: s.status,
                   domain: {
                     origin: s.domain,
-                    isUnvisited: true
+                    isUnvisited: domainsUnvisited.has(s.domain)
                   }
                 },
                 status: 'active' as const,

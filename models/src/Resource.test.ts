@@ -7,21 +7,21 @@ import { Process } from './Process';
 import { PathType } from '@derzis/common';
 import config from '@derzis/config';
 
-vi.mock('./Process', () => ({
-  Process: {
-    findOne: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        exec: vi.fn().mockResolvedValue({ curPathType: 'endpoint' })
-      })
-    })
-  }
-}));
-
 describe('Resource.insertSeedPaths', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset config pathType to default (endpoint)
     config.manager.pathType = PathType.ENDPOINT;
+    vi.spyOn(Process, 'findOne').mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
+      })
+    } as any);
+    vi.spyOn(Domain, 'find').mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([])
+      })
+    } as any);
   });
 
   describe('EndpointPath', () => {
@@ -30,6 +30,14 @@ describe('Resource.insertSeedPaths', () => {
       vi.spyOn(Process, 'findOne').mockReturnValue({
         select: vi.fn().mockReturnValue({
           exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
+        })
+      } as any);
+      vi.spyOn(Domain, 'find').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([
+            { origin: 'http://example.com', status: 'unvisited' },
+            { origin: 'http://dbpedia.org', status: 'unvisited' }
+          ])
         })
       } as any);
       vi.spyOn(EndpointPath, 'bulkWrite').mockResolvedValue({
@@ -161,6 +169,13 @@ describe('Resource.insertSeedPaths', () => {
       vi.spyOn(Process, 'findOne').mockReturnValue({
         select: vi.fn().mockReturnValue({
           exec: vi.fn().mockResolvedValue({ curPathType: PathType.TRAVERSAL })
+        })
+      } as any);
+      vi.spyOn(Domain, 'find').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([
+            { origin: 'http://example.com', status: 'unvisited' }
+          ])
         })
       } as any);
       vi.spyOn(TraversalPath, 'create').mockResolvedValue([]);
