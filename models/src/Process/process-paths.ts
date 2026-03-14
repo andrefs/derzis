@@ -655,7 +655,7 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
       { 'predicates.count': { $lt: maxPathProps } },
       {
         'predicates.count': maxPathProps,
-        $or: fullPathFilters
+        $and: fullPathFilters
       }
     ];
   }
