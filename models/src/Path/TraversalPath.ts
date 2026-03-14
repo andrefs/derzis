@@ -541,13 +541,16 @@ export class TraversalPathClass extends PathClass {
     }
 
     const urlHead = this.head as UrlHead;
-    const limType = process.currentStep.predLimit.limType;
-    const limPredicates = process.currentStep.predLimit.limPredicates || [];
+    const limType = process.currentStep.predLimit?.limType;
+    const limPredicates = process.currentStep.predLimit?.limPredicates || [];
     const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
 
     // filter based on predicate limits and path fullness
-    const predResult = this.genPredicatesFilter(limType, limPredicates, pathFull);
-    if (!predResult) {
+    // Only apply legacy filter if predLimit is defined
+    const predResult = limType
+      ? this.genPredicatesFilter(limType, limPredicates, pathFull)
+      : null;
+    if (!limType || !predResult) {
       log.silly(`Path ${this._id} cannot be extended based on current limits`);
       return null;
     }

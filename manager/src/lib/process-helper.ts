@@ -8,7 +8,8 @@ import {
   LiteralTriple,
   LiteralTripleClass,
   NamedNodeTripleClass,
-  type ProcessDocument
+  type ProcessDocument,
+  type PredicateLimitationType
 } from '@derzis/models';
 import { PathType, type RecursivePartial } from '@derzis/common';
 import { secondsToString, type MakeOptional } from './utils';
@@ -55,7 +56,12 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
  * @param pid Process ID
  * @param params Step parameters
  */
-export async function addStep(pid: string, params: MakeOptional<StepClass, 'seeds'>) {
+export async function addStep(
+  pid: string,
+  params: MakeOptional<StepClass, 'seeds'> & {
+    predLimitations?: { predicate: string; lims: PredicateLimitationType[] }[];
+  }
+) {
   const p = await Process.findOne({ pid, status: 'done' });
 
   if (!p) {
@@ -72,6 +78,7 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
     maxPathLength: newMPL,
     maxPathProps: newMPP,
     predLimit: params.predLimit,
+    predLimitations: params.predLimitations,
     followDirection: params.followDirection as boolean,
     predsDirMetrics: params.predsDirMetrics,
     convertToEndpointPaths: params.convertToEndpointPaths ?? false

@@ -42,10 +42,7 @@ export const actions: { [name: string]: Action } = {
       seeds,
       maxPathLength,
       maxPathProps,
-      predLimit: {
-        limType: predLimType as 'whitelist' | 'blacklist',
-        limPredicates: predList
-      },
+      predLimitations: [],
       followDirection,
       predsDirMetrics: undefined,
       resetErrors,

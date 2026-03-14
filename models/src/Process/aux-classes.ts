@@ -96,10 +96,10 @@ export class StepClass {
   public maxPathProps!: number;
 
   /**
-   * Predicate limitation (whitelist/blacklist) for this step
+   * Predicate limitation (whitelist/blacklist) for this step (deprecated, use predLimitations)
    */
-  @prop({ required: true, type: PredicateLimitationClass })
-  public predLimit!: PredicateLimitationClass;
+  @prop({ type: PredicateLimitationClass })
+  public predLimit?: PredicateLimitationClass;
 
   /**
    * Per-predicate limitations with past/future constraints

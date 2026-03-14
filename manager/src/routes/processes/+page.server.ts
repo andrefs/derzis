@@ -24,13 +24,7 @@ export const actions: { [name: string]: Action } = {
     const firstStep: RecursivePartial<StepClass> = {
       maxPathLength: Number(data.get('maxPathLength')),
       maxPathProps: Number(data.get('maxPathProps')),
-      predLimit: {
-        limType: data.get('limitation-type') as 'blacklist' | 'whitelist',
-
-        limPredicates: (data.get('pred-list') as string)
-          ?.split(/\s*[\n]\s*/)
-          .filter((s: string) => !s.match(/^\s*$/))
-      },
+      predLimitations: [],
       seeds: uniqueSeeds
     };
 
