@@ -603,8 +603,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
  * @returns MongoDB query object
  */
 export function genTraversalPathQuery(process: ProcessClass): QueryFilter<TraversalPathDocument> {
-  const limType = process.currentStep.predLimit?.limType;
-  const limPredicates = process.currentStep.predLimit?.limPredicates || [];
+  const predLimitations = process.currentStep.predLimitations || [];
   const maxPathProps = process.currentStep.maxPathProps;
 
   const query: QueryFilter<TraversalPathDocument> = {
@@ -615,38 +614,65 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
     'predicates.count': { $lte: maxPathProps }
   };
 
-  // Filter paths that haven't been considered for extension with the current step
   if (process.pathExtensionCounter !== undefined) {
     query.extensionCounter = { $lt: process.pathExtensionCounter };
   }
 
-  // if there is a whitelist, path must either have room to add a whitelisted predicate,
-  // or already have at least one whitelisted predicate (if already at max)
-  if (limType === 'whitelist') {
+  // Extract constraints by type
+  const requirePast: string[] = [];
+  const disallowPast: string[] = [];
+  const requireFuture: string[] = [];
+  const disallowFuture: string[] = [];
+
+  for (const pl of predLimitations) {
+    if (pl.lims.includes('require-past')) requirePast.push(pl.predicate);
+    if (pl.lims.includes('disallow-past')) disallowPast.push(pl.predicate);
+    if (pl.lims.includes('require-future')) requireFuture.push(pl.predicate);
+    if (pl.lims.includes('disallow-future')) disallowFuture.push(pl.predicate);
+  }
+
+  // For full paths, apply require-future and disallow-future constraints
+  const hasFutureConstraints = requireFuture.length > 0 || disallowFuture.length > 0;
+
+  if (hasFutureConstraints) {
+    const fullPathFilters: object[] = [];
+
+    // require-future: full paths must already have at least one required predicate
+    if (requireFuture.length > 0) {
+      fullPathFilters.push({
+        'predicates.elems': requireFuture.length === 1 ? requireFuture[0] : { $in: requireFuture }
+      });
+    }
+
+    // disallow-future: full paths must have at least one non-disallowed predicate
+    if (disallowFuture.length > 0) {
+      fullPathFilters.push({
+        $expr: { $not: { $setIsSubset: ['$predicates.elems', disallowFuture] } }
+      });
+    }
+
     query.$or = [
-      { 'predicates.count': { $lt: maxPathProps } },  // room to add
+      { 'predicates.count': { $lt: maxPathProps } },
       {
         'predicates.count': maxPathProps,
-        'predicates.elems': limPredicates.length === 1
-          ? limPredicates[0]
-          : { $in: limPredicates }
-      }  // already has one
+        $or: fullPathFilters
+      }
     ];
   }
-  // if there is a blacklist, path must either have room to add a non-blacklisted predicate,
-  // or already have at least one non-blacklisted predicate (if already at max)
-  else if (limType === 'blacklist' && limPredicates.length > 0) {
-    query.$or = [
-      { 'predicates.count': { $lt: maxPathProps } },  // room to add
-      {
-        'predicates.count': maxPathProps,
-        $expr: {
-          $not: {
-            $setIsSubset: ['$predicates.elems', limPredicates]
-          }
-        }
-      }  // already has at least one non-blacklisted
-    ];
+
+  // Past constraints apply regardless of fullness
+  if (requirePast.length > 0) {
+    query['predicates.elems'] = { $all: requirePast };
+  }
+  if (disallowPast.length > 0) {
+    if (query['predicates.elems']) {
+      query['predicates.elems'] = {
+        ...query['predicates.elems'] as object,
+        $nin: disallowPast
+      };
+    } else {
+      query['predicates.elems'] = { $nin: disallowPast };
+    }
   }
 
   return query;
