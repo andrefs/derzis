@@ -6,7 +6,7 @@ import {
   hasPathsDomainRobotsChecking,
   hasPathsHeadBeingCrawled
 } from './process-paths';
-import { StepClass, PredicateLimitationClass } from './aux-classes';
+import { StepClass, PredicateLimitationClass, PredLimitation } from './aux-classes';
 import { QueryFilter } from 'mongoose';
 import type { TraversalPathDocument } from '../Path/TraversalPath';
 import type { ProcessClass } from './Process';
@@ -148,13 +148,13 @@ describe('genTraversalPathQuery', () => {
     pid?: string;
     maxPathLength?: number;
     maxPathProps?: number;
-    predLimit?: PredicateLimitationClass;
+    predLimitations?: { predicate: string; lims: readonly string[] }[];
   }) => {
     const step = new StepClass();
     step.maxPathLength = overrides.maxPathLength ?? 4;
     step.maxPathProps = overrides.maxPathProps ?? 1;
-    if (overrides.predLimit !== undefined) {
-      step.predLimit = overrides.predLimit;
+    if (overrides.predLimitations !== undefined) {
+      step.predLimitations = overrides.predLimitations as any;
     }
     step.seeds = [];
     step.followDirection = false;
@@ -172,7 +172,7 @@ describe('genTraversalPathQuery', () => {
         pid: 'test-pid',
         maxPathLength: 4,
         maxPathProps: 1,
-        predLimit: undefined
+        predLimitations: []
       });
 
       const query = genTraversalPathQuery(process);
@@ -199,67 +199,60 @@ describe('genTraversalPathQuery', () => {
     });
   });
 
-  describe('when there is a whitelist predicate limit', () => {
-    it('returns query with predicates.elems $in and predicates.count $lte', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = ['http://pred1.org', 'http://pred2.org'];
+  describe('when there is a require-future predicate limit', () => {
+    it('returns query with $or for full vs non-full paths', () => {
+      const predLimitations = [
+        { predicate: 'http://pred1.org', lims: ['require-future'] as const },
+        { predicate: 'http://pred2.org', lims: ['require-future'] as const }
+      ];
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit
+        predLimitations
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
-      expect(query['predicates.elems']).toEqual({ $in: ['http://pred1.org', 'http://pred2.org'] });
+      // With future constraints, we have $or
+      expect(query.$or).toBeDefined();
+      expect(query.$or).toHaveLength(2);
+      // First part: non-full paths
+      expect(query.$or?.[0]).toEqual({ 'predicates.count': { $lt: 2 } });
+      // Second part: full paths with constraint
+      expect(query.$or?.[1]).toBeDefined();
+      expect(query.$or?.[1]?.['predicates.count']).toBe(2);
       expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
 
-    it('uses direct equality for single whitelist predicate', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = ['http://only-one.org'];
+    it('creates $or with require-future constraint for full paths', () => {
+      const predLimitations = [
+        { predicate: 'http://only-one.org', lims: ['require-future'] as const }
+      ];
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit
+        predLimitations
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
-      expect(query['predicates.elems']).toBe('http://only-one.org');
-      expect(query['predicates.count']).toEqual({ $lte: 2 });
-    });
-
-    it('applies predicate filter and count limit at top level (no $or)', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = ['http://pred1.org'];
-
-      const process = createMockProcess({
-        maxPathProps: 2,
-        predLimit
-      });
-
-      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
-
-      expect(query.$or).toBeUndefined();
-      expect(query['predicates.elems']).toEqual('http://pred1.org');
+      expect(query.$or).toBeDefined();
+      expect(query.$or).toHaveLength(2);
       expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
   });
 
-  describe('when there is a blacklist predicate limit', () => {
-    it('returns query with $expr $not $setIsSubset and predicates.count $lte', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = ['http://blocked1.org', 'http://blocked2.org'];
+  describe('when there is a disallow-future predicate limit', () => {
+    it('returns query with $or for full vs non-full paths', () => {
+      const predLimitations = [
+        { predicate: 'http://blocked1.org', lims: ['disallow-future'] as const },
+        { predicate: 'http://blocked2.org', lims: ['disallow-future'] as const }
+      ];
 
       const process = createMockProcess({
         maxPathLength: 4,
         maxPathProps: 2,
-        predLimit
+        predLimitations
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -268,80 +261,41 @@ describe('genTraversalPathQuery', () => {
       expect(query.status).toBe('active');
       expect(query['nodes.count']).toEqual({ $lt: 4 });
       expect(query['predicates.count']).toEqual({ $lte: 2 });
-      expect(query.$expr).toBeDefined();
-      expect(query.$expr.$not).toBeDefined();
-      expect(query.$expr.$not.$setIsSubset).toEqual([
-        '$predicates.elems',
-        ['http://blocked1.org', 'http://blocked2.org']
-      ]);
+      // With future constraints, we have $or
+      expect(query.$or).toBeDefined();
+      expect(query.$or).toHaveLength(2);
     });
 
-    it('uses $ne for single blacklist predicate', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = ['http://blocked.org'];
+    it('creates $or with disallow-future constraint for full paths', () => {
+      const predLimitations = [
+        { predicate: 'http://blocked.org', lims: ['disallow-future'] as const }
+      ];
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit
+        predLimitations
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
-      expect(query['predicates.elems']).toEqual({ $ne: 'http://blocked.org' });
-      expect(query['predicates.count']).toEqual({ $lte: 2 });
-    });
-
-    it('applies predicate filter and count limit at top level (no $or)', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = ['http://blocked1.org', 'http://blocked2.org'];
-
-      const process = createMockProcess({
-        maxPathProps: 2,
-        predLimit
-      });
-
-      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
-
-      expect(query.$or).toBeUndefined();
-      expect(query.$expr).toBeDefined();
+      expect(query.$or).toBeDefined();
+      expect(query.$or).toHaveLength(2);
       expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
   });
 
   describe('edge cases', () => {
-    it('handles empty limPredicates array for blacklist - no filter added', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = [];
-
+    it('handles empty predLimitations array - no filter added', () => {
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit
+        predLimitations: []
       });
 
       const query = genTraversalPathQuery(process);
 
-      // With empty blacklist, no predicates are blocked - no filter should be added
+      // With empty predLimitations, no filters should be added
       expect(query['predicates.elems']).toBeUndefined();
       expect(query.$expr).toBeUndefined();
-    });
-
-    it('handles empty limPredicates array for whitelist - matches nothing', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = [];
-
-      const process = createMockProcess({
-        maxPathProps: 2,
-        predLimit
-      });
-
-      const query = genTraversalPathQuery(process);
-
-      // With empty whitelist, $in: [] matches nothing
-      expect(query['predicates.elems']).toEqual({ $in: [] });
     });
 
     it('includes processId in all queries', () => {
