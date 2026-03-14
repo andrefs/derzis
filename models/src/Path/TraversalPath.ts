@@ -17,7 +17,7 @@ import {
   isNamedNode,
   isLiteral
 } from '../Triple';
-import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
+import { BranchFactorClass, ProcessClass, SeedPosRatioClass, type PredLimitation } from '../Process';
 import { Domain } from '../Domain';
 import {
   PathClass,
@@ -343,51 +343,74 @@ export class TraversalPathClass extends PathClass {
 
   /**
    * Generates a filter for existing triples based on predicate limits and path fullness.
-   * @param limType The type of predicate limit ('whitelist' or 'blacklist').
-   * @param limPredicates The list of predicates in the limit.
+   * Uses predLimitations to determine allowed/disallowed predicates for future extensions.
+   * @param predLimitations Array of predicate limitations with past/future constraints.
    * @param pathFull Boolean indicating whether the path is considered full based on predicate count.
    * @returns An object containing allowed and not allowed predicates, and the corresponding filter for existing triples, or null if no triples should be returned.
    */
   public genPredicatesFilter(
-    limType: string,
-    limPredicates: string[],
+    predLimitations: PredLimitation[],
     pathFull: boolean
   ): {
     allowed: Set<string>;
     notAllowed: Set<string>;
     predFilter: QueryFilter<NamedNodeTripleClass>;
   } | null {
+    // Extract future constraints from predLimitations
+    const requireFuture: string[] = [];
+    const disallowFuture: string[] = [];
+
+    for (const pl of predLimitations) {
+      if (pl.lims.includes('require-future')) {
+        requireFuture.push(pl.predicate);
+      }
+      if (pl.lims.includes('disallow-future')) {
+        disallowFuture.push(pl.predicate);
+      }
+    }
+
+    // If no future constraints, allow all predicates
+    if (requireFuture.length === 0 && disallowFuture.length === 0) {
+      return { allowed: new Set(), notAllowed: new Set(), predFilter: {} };
+    }
+
     const allowed = new Set<string>();
     const notAllowed = new Set<string>();
 
+    // Map limType to legacy values for literal predicate handling
+    const hasRequireFuture = requireFuture.length > 0;
+    const hasDisallowFuture = disallowFuture.length > 0;
+    const limType = hasRequireFuture ? 'whitelist' : 'blacklist';
+
     if (!pathFull) {
-      if (limType === 'whitelist') {
-        allowed.clear();
-        for (const p of limPredicates) {
+      if (hasRequireFuture) {
+        for (const p of requireFuture) {
           allowed.add(p);
         }
-      } else {
-        for (const p of limPredicates) {
+      }
+      if (hasDisallowFuture) {
+        for (const p of disallowFuture) {
           notAllowed.add(p);
         }
       }
     } else {
-      if (limType === 'whitelist') {
+      // Path is full - can only extend with predicates already in path
+      if (hasRequireFuture) {
         for (const p of this.predicates.elems) {
-          if (limPredicates.includes(p)) {
+          if (requireFuture.includes(p)) {
             allowed.add(p);
           }
         }
-      } else {
+      }
+      if (hasDisallowFuture) {
         for (const p of this.predicates.elems) {
-          if (!limPredicates.includes(p)) {
+          if (!disallowFuture.includes(p)) {
             allowed.add(p);
           }
         }
       }
     }
 
-    // TODO FIXME hardcoded for now
     // Allow predicates with literal objects (e.g. rdfs:label, rdfs:comment)
     const litPred = [
       'http://www.w3.org/2000/01/rdf-schema#label',
@@ -541,20 +564,22 @@ export class TraversalPathClass extends PathClass {
     }
 
     const urlHead = this.head as UrlHead;
-    const limType = process.currentStep.predLimit?.limType;
-    const limPredicates = process.currentStep.predLimit?.limPredicates || [];
+    const predLimitations = process.currentStep.predLimitations || [];
     const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
 
     // filter based on predicate limits and path fullness
-    // Only apply legacy filter if predLimit is defined
-    const predResult = limType
-      ? this.genPredicatesFilter(limType, limPredicates, pathFull)
+    const predResult = predLimitations.length > 0
+      ? this.genPredicatesFilter(predLimitations, pathFull)
       : null;
-    if (!limType || !predResult) {
+    if (!predResult) {
       log.silly(`Path ${this._id} cannot be extended based on current limits`);
       return null;
     }
     const { allowed, notAllowed, predFilter } = predResult;
+
+    // Determine limType for direction filter
+    const hasRequireFuture = predLimitations.some(pl => pl.lims.includes('require-future'));
+    const limType = hasRequireFuture ? 'whitelist' : 'blacklist';
 
     const followDirection = process.currentStep.followDirection;
     const predsDirMetrics = process.curPredsDirMetrics();
