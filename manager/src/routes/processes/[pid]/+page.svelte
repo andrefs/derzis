@@ -177,18 +177,17 @@
               >
             </tr>
             <tr>
-              <th scope="row">Predicate limitation</th>
-              <td>{data.proc.currentStep.predLimit?.limType}</td>
-            </tr>
-            <tr>
-              <th scope="row">Predicate list</th>
+              <th scope="row">Predicate limitations</th>
               <td>
-                {#each data.proc.currentStep.predLimit?.limPredicates || [] as p}
-                  <p style="margin-bottom: 0">
-                    <a href={p}>{p}</a>
-                  </p>
-                {/each}
-                N/A
+                {#if data.proc.currentStep.predLimitations && data.proc.currentStep.predLimitations.length > 0}
+                  {#each data.proc.currentStep.predLimitations as pl}
+                    <p style="margin-bottom: 0">
+                      <a href={pl.predicate}>{pl.predicate}</a>: {pl.lims.join(', ')}
+                    </p>
+                  {/each}
+                {:else}
+                  N/A
+                {/if}
               </td>
             </tr>
           </tbody>
@@ -213,18 +212,17 @@
             </tr>
 
             <tr>
-              <th scope="row">Predicate limitation</th>
-              <td>{step.predLimit.limType}</td>
-            </tr>
-            <tr>
-              <th scope="row">Predicate list</th>
+              <th scope="row">Predicate limitations</th>
               <td>
-                {#each step.predLimit.limPredicates as p}
-                  <p style="margin-bottom: 0">
-                    <a href={p}>{p}</a>
-                  </p>
-                {/each}
-                N/A
+                {#if step.predLimitations && step.predLimitations.length > 0}
+                  {#each step.predLimitations as pl}
+                    <p style="margin-bottom: 0">
+                      <a href={pl.predicate}>{pl.predicate}</a>: {pl.lims.join(', ')}
+                    </p>
+                  {/each}
+                {:else}
+                  N/A
+                {/if}
               </td>
             </tr>
           {/each}
