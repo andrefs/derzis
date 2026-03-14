@@ -167,6 +167,24 @@ class ProcessClass extends Document {
   }
 
   /**
+   * Check if a predicate is allowed by the current step's per-predicate limitations
+   * Only checks 'disallow-future' constraints
+   * @param predicate - The predicate to check
+   * @returns {boolean} - Whether the predicate is allowed
+   */
+  public predicateLimitationsAllow(this: ProcessClass, predicate: string): boolean {
+    if (!this.currentStep.predLimitations || this.currentStep.predLimitations.length === 0) {
+      return true;
+    }
+    for (const pl of this.currentStep.predLimitations) {
+      if (pl.lims.includes('disallow-future') && matchesOne(predicate, [pl.predicate])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * Check if the process is done
    * @returns {Promise<boolean>} - Whether the process is done
    */
