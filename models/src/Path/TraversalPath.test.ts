@@ -4,7 +4,8 @@ import {
   StepClass,
   PredicateLimitationClass,
   BranchFactorClass,
-  SeedPosRatioClass
+  SeedPosRatioClass,
+  PredLimitation
 } from '../Process/aux-classes';
 import { Head } from './Path';
 
@@ -843,6 +844,84 @@ describe('TraversalPathClass.tripleIsOutOfBounds', () => {
       const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
 
       expect(result).toBe(false);
+    });
+  });
+});
+
+describe('TraversalPathClass.genPredicatesFilter', () => {
+  const LITERAL_PREDS = [
+    'http://www.w3.org/2000/01/rdf-schema#label',
+    'http://www.w3.org/2000/01/rdf-schema#comment'
+  ];
+
+  const createMockPath = (predicatesElems: string[] = []) => {
+    const path = new TraversalPathClass();
+    path.processId = 'test-pid';
+    path.seed = { url: 'http://example.com/seed' };
+    path.head = {
+      url: 'http://example.com/head',
+      status: 'unvisited',
+      domain: { origin: 'http://example.com', isUnvisited: true },
+      type: 'url'
+    } as Head;
+    path.predicates = { count: predicatesElems.length, elems: predicatesElems };
+    path.nodes = { count: 1, elems: ['http://example.com/node1'] };
+    path.triples = [];
+    return path;
+  };
+
+  describe('when path is NOT full', () => {
+    it('with whitelist limType, adds whitelisted predicates to allowed', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter('whitelist', ['http://pred1.org'], false);
+
+      expect(result).not.toBeNull();
+      expect(result!.allowed).toContain('http://pred1.org');
+    });
+
+    it('with blacklist limType, adds blacklisted predicates to notAllowed', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter('blacklist', ['http://bad.org'], false);
+
+      expect(result).not.toBeNull();
+      expect(result!.notAllowed).toContain('http://bad.org');
+    });
+
+    it('always adds literal predicates to allowed with whitelist', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter('whitelist', LITERAL_PREDS, false);
+
+      expect(result!.allowed).toContain(LITERAL_PREDS[0]);
+      expect(result!.allowed).toContain(LITERAL_PREDS[1]);
+    });
+  });
+
+  describe('when path IS full', () => {
+    it('with whitelist, only allows predicates already in path that match whitelist', () => {
+      const path = createMockPath(['http://existing.org', 'http://whitelisted.org']);
+      const result = path.genPredicatesFilter('whitelist', ['http://whitelisted.org'], true);
+
+      expect(result).not.toBeNull();
+      expect(result!.allowed).toContain('http://whitelisted.org');
+    });
+
+    it('with blacklist, allows predicates in path that are not blacklisted', () => {
+      const path = createMockPath(['http://good.org', 'http://bad.org']);
+      const result = path.genPredicatesFilter('blacklist', ['http://bad.org'], true);
+
+      expect(result).not.toBeNull();
+      expect(result!.allowed).toContain('http://good.org');
+      expect(result!.allowed).not.toContain('http://bad.org');
+    });
+  });
+
+  describe('returns null', () => {
+    it('when path is full and allowed is empty with blacklist', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter('blacklist', ['http://bad.org'], true);
+
+      // When path is full and path has no predicates, returns null (no predicates to extend from)
+      expect(result).toBeNull();
     });
   });
 });
