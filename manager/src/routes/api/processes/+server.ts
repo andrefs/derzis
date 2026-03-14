@@ -3,6 +3,9 @@ import { NotificationClass, Process, StepClass, type ProcessClass } from '@derzi
 import { error, json } from '@sveltejs/kit';
 import type { RecursivePartial } from '@derzis/common';
 import type { RequestEvent } from './$types';
+import { createLogger } from '@derzis/common/server';
+
+const log = createLogger('process-api');
 
 export type BaseAPIResponse = {
   ok: boolean;
@@ -35,6 +38,7 @@ interface ProcessSkel {
  */
 export async function POST({ request }: RequestEvent) {
   const { ok, err, data }: BaseAPIResponse = await request.json();
+  log.info('POST /api/processes received:', { ok, err, data });
   if (!ok) {
     throw error(424, err);
   }

@@ -64,10 +64,10 @@ export class PredLimitation {
 
   @prop({
     required: true,
-    type: [String],
+    type: String,
     enum: ['disallow-past', 'require-past', 'disallow-future', 'require-future'],
     default: []
-  })
+  }, PropType.ARRAY)
   public lims!: PredicateLimitationType[];
 }
 
@@ -104,7 +104,7 @@ export class StepClass {
   /**
    * Per-predicate limitations with past/future constraints
    */
-  @prop({ type: [PredLimitation], default: [] })
+  @prop({ type: PredLimitation, default: [] }, PropType.ARRAY)
   public predLimitations!: PredLimitation[];
 
   /**
