@@ -568,9 +568,8 @@ export class TraversalPathClass extends PathClass {
     const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
 
     // filter based on predicate limits and path fullness
-    const predResult = predLimitations.length > 0
-      ? this.genPredicatesFilter(predLimitations, pathFull)
-      : null;
+    // Always call genPredicatesFilter - it handles empty predLimitations correctly
+    const predResult = this.genPredicatesFilter(predLimitations, pathFull);
     if (!predResult) {
       log.silly(`Path ${this._id} cannot be extended based on current limits`);
       return null;
