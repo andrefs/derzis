@@ -48,7 +48,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed1',
-          domain: { origin: 'http://example.com', isUnvisited: true },
+          domain: 'http://example.com',
           status: 'unvisited' as const
         }
       ];
@@ -72,7 +72,7 @@ describe('Resource.insertSeedPaths', () => {
                     type: 'url',
                     url: seeds[0].url,
                     status: seeds[0].status,
-                    domain: seeds[0].domain
+                    domain: { origin: 'http://example.com', isUnvisited: true }
                   }),
                   status: 'active',
                   shortestPathLength: 1,
@@ -96,7 +96,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://dbpedia.org/resource/Cheese',
-          domain: { origin: 'http://dbpedia.org', isUnvisited: true },
+          domain: 'http://dbpedia.org',
           status: 'unvisited' as const
         }
       ];
@@ -171,7 +171,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: { origin: 'http://example.com', isUnvisited: true },
+          domain: 'http://example.com',
           status: 'unvisited' as const
         }
       ];
@@ -188,7 +188,7 @@ describe('Resource.insertSeedPaths', () => {
               url: seeds[0].url,
               status: seeds[0].status,
               type: 'url',
-              domain: seeds[0].domain
+              domain: { origin: 'http://example.com', isUnvisited: true }
             }),
             status: 'active',
             nodes: expect.objectContaining({
@@ -209,7 +209,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: { origin: 'http://example.com', isUnvisited: true },
+          domain: 'http://example.com',
           status: 'unvisited' as const
         }
       ];
