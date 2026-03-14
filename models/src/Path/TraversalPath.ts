@@ -229,7 +229,7 @@ export class TraversalPathClass extends PathClass {
       .filter(
         (t) =>
           this.shouldCreateNewPath(t) &&
-          process?.whiteBlackListsAllow(t) &&
+          process?.predicateLimitationsAllow(t.predicate) &&
           t.directionOk(urlHead.url, followDirection, predsDirMetrics)
       );
 

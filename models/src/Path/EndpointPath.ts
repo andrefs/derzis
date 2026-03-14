@@ -254,7 +254,7 @@ function collectNamedNodeCandidates(
     .filter(
       (t) =>
         this.shouldCreateNewPath(t, urlHead) &&
-        process?.whiteBlackListsAllow(t) &&
+        process?.predicateLimitationsAllow(t.predicate) &&
         t.directionOk(urlHead.url, followDirection, predsDirMetrics)
     );
 
