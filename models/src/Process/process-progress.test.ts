@@ -84,7 +84,7 @@ describe('getPathProgress', () => {
   });
 
   it('should return zero counts when no paths exist', async () => {
-    const { TraversalPath: TP } = await import('../Path/TraversalPath');
+    const TP = TraversalPath;
     const originalAggregate = TP.aggregate;
     TP.aggregate = vi.fn().mockImplementation(() => createMockAggregate([]));
 
@@ -100,7 +100,7 @@ describe('getPathProgress', () => {
   });
 
   it('should filter by process ID', async () => {
-    const { TraversalPath: TP } = await import('../Path/TraversalPath');
+    const TP = TraversalPath;
     const originalAggregate = TP.aggregate;
     TP.aggregate = vi.fn().mockImplementation(() => createMockAggregate([]));
 
@@ -111,7 +111,7 @@ describe('getPathProgress', () => {
   });
 
   it('should return object with correct structure', async () => {
-    const { TraversalPath: TP } = await import('../Path/TraversalPath');
+    const TP = TraversalPath;
     const originalAggregate = TP.aggregate;
     TP.aggregate = vi.fn().mockImplementation(() => createMockAggregate([]));
 
