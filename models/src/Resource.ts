@@ -20,6 +20,7 @@ import type {
 } from '@derzis/common';
 import config from '@derzis/config';
 import { createLogger } from '@derzis/common/server';
+import { Process } from './Process';
 const log = createLogger('Resource');
 
 import {
@@ -136,6 +137,7 @@ class ResourceClass {
   public static async markAsCrawled(
     this: ReturnModelType<typeof ResourceClass>,
     url: string,
+    pathType: PathType,
     jobResult: CrawlResourceResult | FetchLabelsResourceResult,
     error?: WorkerError
   ) {
@@ -152,7 +154,7 @@ class ResourceClass {
       { returnDocument: 'before' }
     );
 
-    if (config.manager.pathType === PathType.TRAVERSAL) {
+    if (pathType === PathType.TRAVERSAL) {
       // TraversalPath
       await TraversalPath.updateMany(
         {
@@ -277,8 +279,15 @@ class ResourceClass {
     pid: string,
     seeds: ResourceDocument[]
   ) {
+    // Get the process to determine its current path type
+    const process = await Process.findOne({ pid }).select('curPathType').exec();
+    if (!process) {
+      throw new Error(`Process ${pid} not found`);
+    }
+    const pathType = process.curPathType;
+
     // Traversal paths
-    if (config.manager.pathType === PathType.TRAVERSAL) {
+    if (pathType === PathType.TRAVERSAL) {
       const paths = seeds.map((s) => ({
         processId: pid,
         seed: { url: s.url },

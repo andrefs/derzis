@@ -36,6 +36,7 @@ export const actions: { [name: string]: Action } = {
       .filter((s: string) => !s.match(/^\s*$/));
     const followDirection = data.get('followDirection') === 'true';
     const resetErrors = data.get('resetErrors') === 'true';
+    const convertToEndpointPaths = data.get('convertToEndpointPaths') === 'on';
 
     const procParams = {
       seeds,
@@ -47,7 +48,8 @@ export const actions: { [name: string]: Action } = {
       },
       followDirection,
       predsDirMetrics: undefined,
-      resetErrors
+      resetErrors,
+      convertToEndpointPaths
     };
 
     await addStepHelper(params!.pid, procParams);

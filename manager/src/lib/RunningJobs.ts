@@ -87,15 +87,6 @@ export default class RunningJobs extends EventEmitter {
     return true;
   }
 
-  deregisterJob(domain: string) {
-    if (this._running[domain]) {
-      const jobId = this._running[domain].jobId;
-      clearTimeout(this._running[domain].timeout);
-      delete this._running[domain];
-      log.info(`Deregistered job #${jobId} from domain ${domain}`);
-    }
-  }
-
   postponeTimeout(domain: string) {
     if (!this.isJobRegistered(domain)) {
       return false;
@@ -348,7 +339,7 @@ export default class RunningJobs extends EventEmitter {
     domains = Object.keys(ongoingJobs.robotsCheck);
     log.info(`Canceling worker ${workerId} robotsCheck jobs on ${domains.join(', ')}`);
     if (domains.length) {
-      for (const d in domains) {
+      for (const d of domains) {
         this.deregisterJob(d);
       }
       const update = {
@@ -375,7 +366,7 @@ export default class RunningJobs extends EventEmitter {
     log.info(`Canceling worker ${workerId} domainCrawl jobs on ${domains.join(', ')}`);
     domains = Object.keys(ongoingJobs.domainCrawl);
     if (domains.length) {
-      for (const d in domains) {
+      for (const d of domains) {
         delete this._running[d];
       }
       const update = {
@@ -403,7 +394,7 @@ export default class RunningJobs extends EventEmitter {
     log.info(`Canceling worker ${workerId} domainLabelFetch jobs on ${domains.join(', ')}`);
     domains = Object.keys(ongoingJobs.domainLabelFetch);
     if (domains.length) {
-      for (const d in domains) {
+      for (const d of domains) {
         delete this._running[d];
       }
       const update = {
@@ -423,5 +414,27 @@ export default class RunningJobs extends EventEmitter {
 
   count() {
     return Object.keys(this._running).length;
+  }
+
+  getRunningDomains(): string[] {
+    return Object.keys(this._running);
+  }
+
+  deregisterJob(domain: string, jobId?: number): boolean {
+    const entry = this._running[domain];
+    if (!entry) {
+      log.warn(`No job registered for domain ${domain} during deregister`);
+      return false;
+    }
+    if (jobId !== undefined && entry.jobId !== jobId) {
+      log.error(
+        `Job ID mismatch for domain ${domain}: expected ${jobId} but found ${entry.jobId}. Not deregistering.`
+      );
+      return false;
+    }
+    clearTimeout(entry.timeout);
+    delete this._running[domain];
+    log.info(`Deregistered job #${entry.jobId} from domain ${domain}`);
+    return true;
   }
 }

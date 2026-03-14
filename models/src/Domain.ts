@@ -434,7 +434,8 @@ class DomainClass {
   public static async *domainsToCheck(
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
-    limit: number
+    limit: number,
+    getRunningDomains?: () => string[]
   ): AsyncGenerator<DomainClass> {
     let domainsFound = 0;
     let procSkip = 0;
@@ -452,8 +453,10 @@ class DomainClass {
       let lastSeenLength: number | null = null;
       let lastSeenShortestPathLength: number | null = null;
       PATHS_LOOP: while (domainsFound < limit) {
+        const runningDomains = getRunningDomains ? getRunningDomains() : [];
         const paths = await proc.getPathsForRobotsChecking(
-          config.manager.pathType as PathType,
+          proc.curPathType,
+          runningDomains,
           lastSeenCreatedAt,
           lastSeenId,
           lastSeenLength,
@@ -470,7 +473,7 @@ class DomainClass {
         lastSeenCreatedAt = lastPath.createdAt;
         lastSeenId = lastPath._id;
         // Track length for proper cursor pagination with compound sort
-        if (config.manager.pathType === 'traversal') {
+        if (proc.curPathType === 'traversal') {
           lastSeenLength = lastPath.nodes?.count ?? null;
         } else {
           lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
@@ -582,7 +585,8 @@ class DomainClass {
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     domLimit: number,
-    resLimit: number
+    resLimit: number,
+    getRunningDomains?: () => string[]
   ): AsyncGenerator<DomainLabelFetchJobInfo> {
     log.info(
       `Starting label fetch locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
@@ -622,9 +626,13 @@ class DomainClass {
         }
 
         // Try to lock domains which already have enough urls (>= resLimit)
-        const domainsReady = Object.entries(labelsByDomain)
+        let domainsReady = Object.entries(labelsByDomain)
           .filter(([_, urls]) => urls.length >= resLimit)
           .map(([d, _]) => d);
+        if (getRunningDomains) {
+          const running = getRunningDomains();
+          domainsReady = domainsReady.filter((d) => !running.includes(d));
+        }
         const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
 
         // Ignore (drop) domains not locked
@@ -689,7 +697,8 @@ class DomainClass {
     this: ReturnModelType<typeof DomainClass>,
     wId: string,
     domLimit: number,
-    resLimit: number
+    resLimit: number,
+    getRunningDomains?: () => string[]
   ): AsyncGenerator<DomainCrawlJobInfo> {
     log.info(
       `Starting domain crawl locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
@@ -740,10 +749,13 @@ class DomainClass {
             `Skipping domains: ${Object.keys(skipDomains)} because they cannot be crawled yet.`
           );
         }
+        if (getRunningDomains) {
+          blDomains.push(...getRunningDomains());
+        }
 
         // get paths for this process
         const paths = await proc.getPathsForDomainCrawl(
-          config.manager.pathType as PathType,
+          proc.curPathType,
           blDomains,
           lastSeenCreatedAt,
           lastSeenId,

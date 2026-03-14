@@ -37,6 +37,8 @@ export class LiteralObject {
 @index({ type: 1, nodes: 1, createdAt: 1 })
 @index({ nodes: 1, createdAt: 1 })
 @index({ updatedAt: -1 })
+@index({ nodes: 1, predicate: 1 })
+@index({ object: 1, predicate: 1 })  // for object-origin queries
 export class TripleClass extends TimeStamps {
   @prop({ required: true, validate: urlValidator, type: String, index: true })
   public subject!: string;
@@ -136,10 +138,10 @@ function buildBulkOps(
       predicate: t.predicate,
       ...(isLiteral
         ? {
-            'object.value': (t.object as LiteralObject).value,
-            'object.language': (t.object as LiteralObject).language,
-            'object.datatype': (t.object as LiteralObject).datatype
-          }
+          'object.value': (t.object as LiteralObject).value,
+          'object.language': (t.object as LiteralObject).language,
+          'object.datatype': (t.object as LiteralObject).datatype
+        }
         : { object: t.object })
     };
     return {

@@ -49,30 +49,8 @@ Triple.schema.pre('find', function (this: any) {
   }
 });
 
-async function dbSanityCheck() {
-  // check pathType
-  const pathType = config.manager.pathType;
-  const procPTs = await Process.find({}, { pid: 1, pathType: 1 }).lean();
-
-  if (!procPTs || procPTs.length === 0) {
-    log.info(`No processes found in DB, path type set to ${pathType}`);
-    return;
-  }
-
-  if (procPTs.some((p) => p.pathType !== pathType)) {
-    log.error(
-      `DB sanity check failed: found processes with different path types than the one currently set in config (${pathType})`
-    );
-    log.error(
-      `Processes found: ${procPTs.map((p) => `pid ${p.pid} with path type ${p.pathType}`).join(', ')}`
-    );
-    throw new Error('DB sanity check failed: inconsistent path types');
-  }
-}
-
 const initManager = async () => {
   console.log('Manager init');
-  await dbSanityCheck();
   mps.start();
 };
 

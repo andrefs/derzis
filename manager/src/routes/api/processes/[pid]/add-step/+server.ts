@@ -18,6 +18,7 @@ interface NewStepReqBody {
     followDirection: boolean;
     predsDirMetrics?: PredDirMetrics[];
     resetErrors: boolean;
+    convertToEndpointPaths: boolean;
   };
 }
 
@@ -37,7 +38,8 @@ export const POST: RequestHandler = async ({ request, params }) => {
     predLimit: resp.data.predLimit,
     followDirection: resp.data.followDirection,
     predsDirMetrics: resp.data.predsDirMetrics,
-    resetErrors: resp.data.resetErrors
+    resetErrors: resp.data.resetErrors,
+    convertToEndpointPaths: resp.data.convertToEndpointPaths
   };
 
   const proc = await Process.findOne({ pid: params.pid });
