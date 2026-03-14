@@ -295,10 +295,7 @@ class ResourceClass {
           url: s.url,
           status: s.status,
           type: HEAD_TYPE.URL,
-          domain: {
-            origin: s.domain,
-            isUnvisited: true
-          }
+          domain: s.domain
         },
         status: 'active',
         nodes: {
@@ -332,10 +329,7 @@ class ResourceClass {
                   type: HEAD_TYPE.URL,
                   url: s.url,
                   status: s.status,
-                  domain: {
-                    origin: s.domain,
-                    isUnvisited: true
-                  }
+                  domain: s.domain
                 },
                 status: 'active' as const,
                 shortestPathLength: 1,
