@@ -295,6 +295,12 @@ class ResourceClass {
       domains.filter((d) => d.status === 'unvisited').map((d) => d.origin)
     );
 
+    // If domains don't exist yet (first run), default to unvisited
+    const getIsUnvisited = (origin: string) => {
+      if (domains.length === 0) return true;
+      return domainsUnvisited.has(origin);
+    };
+
     // Traversal paths
     if (pathType === PathType.TRAVERSAL) {
       const paths = seeds.map((s) => ({
@@ -306,7 +312,7 @@ class ResourceClass {
           type: HEAD_TYPE.URL,
           domain: {
             origin: s.domain,
-            isUnvisited: domainsUnvisited.has(s.domain)
+            isUnvisited: getIsUnvisited(s.domain)
           }
         },
         status: 'active',
@@ -343,7 +349,7 @@ class ResourceClass {
                   status: s.status,
                   domain: {
                     origin: s.domain,
-                    isUnvisited: domainsUnvisited.has(s.domain)
+                    isUnvisited: getIsUnvisited(s.domain)
                   }
                 },
                 status: 'active' as const,
