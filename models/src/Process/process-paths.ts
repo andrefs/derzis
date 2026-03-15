@@ -454,6 +454,50 @@ export async function getPathsForRobotsChecking(
  * @param limit Maximum number of paths to return
  * @returns Array of TraversalPathClass or EndpointPathClass documents with only head domain origin and head url selected
  */
+
+function buildBaseQuery(process: ProcessClass): Record<string, unknown> {
+  return {
+    'head.type': HEAD_TYPE.URL,
+    'head.domain.isUnvisited': false,
+    'head.status': 'unvisited',
+    processId: process.pid,
+    status: 'active'
+  };
+}
+
+function buildPathTypeFilter(
+  process: ProcessClass,
+  pathType: PathType
+): Record<string, unknown> {
+  if (pathType === PathType.TRAVERSAL) {
+    return genTraversalPathQuery(process);
+  } else {
+    return {
+      shortestPathLength: { $lt: process.currentStep.maxPathLength }
+    };
+  }
+}
+
+function mergePathQueryWithCursor(
+  pathFilter: Record<string, unknown>,
+  cursorCondition: Record<string, unknown>
+): Record<string, unknown> {
+  const merged = {
+    ...pathFilter,
+    ...cursorCondition
+  };
+
+  if (pathFilter.$or && cursorCondition.$or) {
+    merged.$and = [
+      { $or: pathFilter.$or as any[] },
+      { $or: cursorCondition.$or as any[] }
+    ];
+    delete merged.$or;
+  }
+
+  return merged;
+}
+
 export async function getPathsForDomainCrawl(
   process: ProcessClass,
   pathType: PathType,
@@ -480,12 +524,8 @@ export async function getPathsForDomainCrawl(
       : { $in: eligibleOrigins };
 
   const baseQuery = {
-    'head.type': HEAD_TYPE.URL,
-    'head.domain.isUnvisited': false,
-    'head.status': 'unvisited',
-    'head.domain.origin': originFilter,
-    processId: process.pid,
-    status: 'active'
+    ...buildBaseQuery(process),
+    'head.domain.origin': originFilter
   };
   const select =
     'head.status head.type head.domain head.url createdAt _id nodes.count shortestPathLength';
@@ -534,20 +574,10 @@ export async function getPathsForDomainCrawl(
 
     // Merge $or from traversalQuery (predicate filters) with cursorCondition (pagination)
     // Both may have $or keys - need to combine them, not overwrite
-    const mergedQuery: Record<string, unknown> = {
-      ...baseQuery,
-      ...traversalQuery,
-      ...cursorCondition
-    };
-
-    if (traversalQuery.$or && cursorCondition.$or) {
-      // Combine: path must match BOTH the traversal predicate filter AND the cursor condition
-      mergedQuery.$and = [
-        { $or: traversalQuery.$or },
-        { $or: cursorCondition.$or }
-      ];
-      delete mergedQuery.$or;
-    }
+    const mergedQuery: Record<string, unknown> = mergePathQueryWithCursor(
+      { ...baseQuery, ...traversalQuery },
+      cursorCondition
+    );
 
     const paths = await TraversalPath.find(mergedQuery)
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
@@ -565,6 +595,32 @@ export async function getPathsForDomainCrawl(
       .select(select);
     return paths;
   }
+}
+
+export function buildStepPathQuery(
+  process: ProcessClass,
+  pathType: PathType
+): QueryFilter<TraversalPathDocument> | QueryFilter<EndpointPathDocument> {
+  const baseQuery = buildBaseQuery(process);
+  const pathTypeFilter = buildPathTypeFilter(process, pathType);
+
+  // Merge base query with path type filter (no cursor)
+  const merged = {
+    ...baseQuery,
+    ...pathTypeFilter
+  };
+
+  // Handle potential $or conflicts between baseQuery and pathTypeFilter
+  // (though unlikely since baseQuery doesn't typically have $or)
+  if (baseQuery.$or && pathTypeFilter.$or) {
+    merged.$and = [
+      { $or: baseQuery.$or as any[] },
+      { $or: pathTypeFilter.$or as any[] }
+    ];
+    delete merged.$or;
+  }
+
+  return merged;
 }
 
 export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promise<boolean> {
@@ -635,44 +691,50 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   const hasFutureConstraints = requireFuture.length > 0 || disallowFuture.length > 0;
 
   if (hasFutureConstraints) {
-    const fullPathFilters: object[] = [];
-
-    // require-future: full paths must already have at least one required predicate
+    // If require-future exists, it takes precedence (already restricts to those predicates)
+    // Otherwise use disallow-future if it exists
+    let fullPathFilter: object;
     if (requireFuture.length > 0) {
-      fullPathFilters.push({
+      fullPathFilter = {
         'predicates.elems': requireFuture.length === 1 ? requireFuture[0] : { $in: requireFuture }
-      });
-    }
-
-    // disallow-future: full paths must have at least one non-disallowed predicate
-    if (disallowFuture.length > 0) {
-      fullPathFilters.push({
+      };
+    } else {
+      fullPathFilter = {
         $expr: { $not: { $setIsSubset: ['$predicates.elems', disallowFuture] } }
-      });
+      };
     }
 
     query.$or = [
       { 'predicates.count': { $lt: maxPathProps } },
       {
         'predicates.count': maxPathProps,
-        $and: fullPathFilters
+        ...fullPathFilter
       }
     ];
   }
 
   // Past constraints apply regardless of fullness
-  if (requirePast.length > 0) {
-    query['predicates.elems'] = { $all: requirePast };
-  }
-  if (disallowPast.length > 0) {
-    if (query['predicates.elems']) {
-      query['predicates.elems'] = {
-        ...query['predicates.elems'] as object,
-        $nin: disallowPast
-      };
-    } else {
-      query['predicates.elems'] = { $nin: disallowPast };
-    }
+  if (requirePast.length > 0 && disallowPast.length > 0) {
+    // Both require-past and disallow-past: need $and to combine
+    const requireFilter =
+      requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
+    const disallowFilter =
+      disallowPast.length === 1
+        ? { $ne: disallowPast[0] }
+        : { $nin: disallowPast };
+
+    query.$and = [
+      { 'predicates.elems': requireFilter },
+      { 'predicates.elems': disallowFilter }
+    ];
+  } else if (requirePast.length > 0) {
+    query['predicates.elems'] =
+      requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
+  } else if (disallowPast.length > 0) {
+    query['predicates.elems'] =
+      disallowPast.length === 1
+        ? { $ne: disallowPast[0] }
+        : { $nin: disallowPast };
   }
 
   return query;
