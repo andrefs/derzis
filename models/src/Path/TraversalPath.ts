@@ -17,7 +17,12 @@ import {
   isNamedNode,
   isLiteral
 } from '../Triple';
-import { BranchFactorClass, ProcessClass, SeedPosRatioClass, type PredLimitation } from '../Process';
+import {
+  BranchFactorClass,
+  ProcessClass,
+  SeedPosRatioClass,
+  type PredLimitation
+} from '../Process';
 import { Domain } from '../Domain';
 import {
   PathClass,
@@ -577,7 +582,7 @@ export class TraversalPathClass extends PathClass {
     const { allowed, notAllowed, predFilter } = predResult;
 
     // Determine limType for direction filter
-    const hasRequireFuture = predLimitations.some(pl => pl.lims.includes('require-future'));
+    const hasRequireFuture = predLimitations.some((pl) => pl.lims.includes('require-future'));
     const limType = hasRequireFuture ? 'whitelist' : 'blacklist';
 
     const followDirection = process.currentStep.followDirection;

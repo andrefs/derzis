@@ -56,18 +56,25 @@ export class PredicateLimitationClass {
   public limPredicates!: string[];
 }
 
-export type PredicateLimitationType = 'disallow-past' | 'require-past' | 'disallow-future' | 'require-future';
+export type PredicateLimitationType =
+  | 'disallow-past'
+  | 'require-past'
+  | 'disallow-future'
+  | 'require-future';
 
 export class PredLimitation {
   @prop({ required: true, type: String })
   public predicate!: string;
 
-  @prop({
-    required: true,
-    type: String,
-    enum: ['disallow-past', 'require-past', 'disallow-future', 'require-future'],
-    default: []
-  }, PropType.ARRAY)
+  @prop(
+    {
+      required: true,
+      type: String,
+      enum: ['disallow-past', 'require-past', 'disallow-future', 'require-future'],
+      default: []
+    },
+    PropType.ARRAY
+  )
   public lims!: PredicateLimitationType[];
 }
 

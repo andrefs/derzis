@@ -173,9 +173,7 @@ describe('Resource.insertSeedPaths', () => {
       } as any);
       vi.spyOn(Domain, 'find').mockReturnValue({
         select: vi.fn().mockReturnValue({
-          lean: vi.fn().mockResolvedValue([
-            { origin: 'http://example.com', status: 'unvisited' }
-          ])
+          lean: vi.fn().mockResolvedValue([{ origin: 'http://example.com', status: 'unvisited' }])
         })
       } as any);
       vi.spyOn(TraversalPath, 'create').mockResolvedValue([]);

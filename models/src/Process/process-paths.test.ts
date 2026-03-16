@@ -455,24 +455,25 @@ describe('genTraversalPathQuery', () => {
 });
 
 describe('buildStepPathQuery', () => {
-  const createMockProcess = (overrides: Partial<ProcessClass> = {}): ProcessClass => ({
-    pid: 'test-pid',
-    currentStep: {
-      maxPathLength: 6,
-      maxPathProps: 2,
-      predLimitations: [
-        { predicate: 'http://purl.org/dc/terms/subject', lims: ['require-past'] },
-        { predicate: 'http://dbpedia.org/ontology/wikiPageWikiLink', lims: ['disallow-past'] }
-      ]
-    },
-    pathExtensionCounter: 5,
-    ...overrides
-  } as ProcessClass);
+  const createMockProcess = (overrides: Partial<ProcessClass> = {}): ProcessClass =>
+    ({
+      pid: 'test-pid',
+      currentStep: {
+        maxPathLength: 6,
+        maxPathProps: 2,
+        predLimitations: [
+          { predicate: 'http://purl.org/dc/terms/subject', lims: ['require-past'] },
+          { predicate: 'http://dbpedia.org/ontology/wikiPageWikiLink', lims: ['disallow-past'] }
+        ]
+      },
+      pathExtensionCounter: 5,
+      ...overrides
+    }) as ProcessClass;
 
   it('returns traversal query with predicate filters for traversal path type', () => {
     const process = createMockProcess();
     const query = buildStepPathQuery(process, PathType.TRAVERSAL);
-    
+
     expect(query.processId).toBe('test-pid');
     expect(query.status).toBe('active');
     expect(query['head.type']).toBe('url');
@@ -486,14 +487,16 @@ describe('buildStepPathQuery', () => {
     // First condition: require-past (single element, so direct value)
     expect(query.$and[0]).toEqual({ 'predicates.elems': 'http://purl.org/dc/terms/subject' });
     // Second condition: disallow-past (single element, so $ne)
-    expect(query.$and[1]).toEqual({ 'predicates.elems': { $ne: 'http://dbpedia.org/ontology/wikiPageWikiLink' } });
+    expect(query.$and[1]).toEqual({
+      'predicates.elems': { $ne: 'http://dbpedia.org/ontology/wikiPageWikiLink' }
+    });
     expect(query.extensionCounter).toEqual({ $lt: 5 });
   });
 
   it('returns endpoint query with shortestPathLength for endpoint path type', () => {
     const process = createMockProcess();
     const query = buildStepPathQuery(process, PathType.ENDPOINT);
-    
+
     expect(query.processId).toBe('test-pid');
     expect(query.status).toBe('active');
     expect(query['head.type']).toBe('url');
@@ -507,7 +510,7 @@ describe('buildStepPathQuery', () => {
     const process = createMockProcess();
     const traversalQuery = buildStepPathQuery(process, PathType.TRAVERSAL);
     const endpointQuery = buildStepPathQuery(process, PathType.ENDPOINT);
-    
+
     expect(traversalQuery['head.domain.origin']).toBeUndefined();
     expect(endpointQuery['head.domain.origin']).toBeUndefined();
   });
@@ -516,13 +519,15 @@ describe('buildStepPathQuery', () => {
     const process = createMockProcess();
     const traversalQuery = buildStepPathQuery(process, PathType.TRAVERSAL);
     const endpointQuery = buildStepPathQuery(process, PathType.ENDPOINT);
-    
+
     // Should not have cursor pagination fields
     expect(traversalQuery['nodes.count'] && traversalQuery['nodes.count'].$gt).toBeUndefined();
     expect(traversalQuery.createdAt && traversalQuery.createdAt.$gt).toBeUndefined();
     expect(traversalQuery._id && traversalQuery._id.$gt).toBeUndefined();
-    
-    expect(endpointQuery.shortestPathLength && endpointQuery.shortestPathLength.$gt).toBeUndefined();
+
+    expect(
+      endpointQuery.shortestPathLength && endpointQuery.shortestPathLength.$gt
+    ).toBeUndefined();
     expect(endpointQuery.createdAt && endpointQuery.createdAt.$gt).toBeUndefined();
     expect(endpointQuery._id && endpointQuery._id.$gt).toBeUndefined();
   });
