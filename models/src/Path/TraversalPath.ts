@@ -91,6 +91,8 @@ type RecursivePartial<T> = {
 })
 // For keyset pagination (cursor-based pagination)
 @index({ createdAt: 1, _id: 1 })
+// Base indexes
+@index({ type: 1 }, { name: 'idx_traversal_type' })
 // For the predicates count/elems filtering
 @index({ 'predicates.count': 1, processId: 1, status: 1 })
 @index({ 'nodes.count': 1, processId: 1, status: 1 })
@@ -114,10 +116,10 @@ type RecursivePartial<T> = {
   'nodes.count': 1,
   'predicates.count': 1
 })
-@index({ 'head.status': 1, status: 1 })
-@index({ type: 1, 'head.domain.origin': 1, status: 1 })
-@index({ processId: 1, 'head.url': 1 })
-@index({ processId: 1, status: 1, extensionCounter: 1 })
+@index({ 'head.status': 1, status: 1 }, { name: 'idx_traversal_head_status' })
+@index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_traversal_domain_status' })
+@index({ processId: 1, 'head.url': 1 }, { name: 'idx_traversal_process_url' })
+@index({ processId: 1, status: 1, extensionCounter: 1 }, { name: 'idx_traversal_extend' })
 // Indexes for path extension API (headUrl and full extend)
 @index({
   processId: 1,

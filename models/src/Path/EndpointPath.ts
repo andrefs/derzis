@@ -56,8 +56,9 @@ export type EndpointPathSkeleton = Pick<
     seedPaths: Array<{ seed: string; minLength: number }>;
   };
 
-@index({ processId: 1 })
+@index({ processId: 1 }, { name: 'idx_endpoint_process' })
 @index({ createdAt: 1, _id: 1 })
+@index({ type: 1 }, { name: 'idx_endpoint_type' })
 @index(
   { processId: 1, 'head.url': 1 },
   {
@@ -65,9 +66,9 @@ export type EndpointPathSkeleton = Pick<
     partialFilterExpression: { 'head.type': HEAD_TYPE.URL }
   }
 )
-@index({ 'head.url': 1, status: 1 })
-@index({ 'head.status': 1, status: 1 })
-@index({ type: 1, 'head.domain.origin': 1, status: 1 })
+@index({ 'head.url': 1, status: 1 }, { name: 'idx_endpoint_head_url_status' })
+@index({ 'head.status': 1, status: 1 }, { name: 'idx_endpoint_head_status' })
+@index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_endpoint_domain_status' })
 // Optimized index for endpoint path queries with shortestPathLength sort
 @index(
   {

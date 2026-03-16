@@ -666,9 +666,6 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
     'nodes.count': { $lt: process.currentStep.maxPathLength },
     'predicates.count': { $lte: maxPathProps }
   };
-  console.log(
-    `[DEBUG genTraversalPathQuery] process=${process.pid}, maxPathLength=${process.currentStep.maxPathLength}, maxPathProps=${maxPathProps}, predLimitations=${predLimitations.length}`
-  );
 
   // Extract constraints by type
   const requirePast: string[] = [];
@@ -990,11 +987,7 @@ interface ExtendPathsArgs {
  * @returns The PathType for the process.
  */
 function getPathType(process: ProcessClass): PathType {
-  const pathType = process.curPathType ?? PathType.TRAVERSAL;
-  console.log(
-    `[DEBUG getPathType] process=${process.pid}, curPathType=${process.curPathType}, returning=${pathType}`
-  );
-  return pathType;
+  return process.curPathType ?? PathType.TRAVERSAL;
 }
 
 /**
@@ -1172,9 +1165,6 @@ async function* queryAllExtendableTraversalPaths(
   process: ProcessClass,
   batchSize = 100
 ): AsyncGenerator<TraversalPathDocument> {
-  console.log(
-    `[DEBUG TraversalPath generator] === STARTING GENERATOR for process ${process.pid} ===`
-  );
   const pathExtCounter = process.pathExtensionCounter ?? 1;
   const baseQuery = {
     status: 'active',
@@ -1221,9 +1211,6 @@ async function* queryAllExtendableTraversalPaths(
     yield* paths;
 
     if (paths.length < batchSize) {
-      console.log(
-        `[DEBUG generator] paths.length (${paths.length}) < batchSize (${batchSize}), setting hasMore=false`
-      );
       hasMore = false;
     }
   }
@@ -1478,9 +1465,6 @@ export async function extendPaths({
   let needsMoreWork = true;
 
   // Create generator outside loop to preserve pagination cursor across iterations
-  console.log(
-    `[DEBUG extendPaths] Creating generators - triples=${!!triples}, headUrl=${!!headUrl}, paths=${!!paths}`
-  );
   const pathGen = triples
     ? queryPathsForTriples(process, triples, batchSize)
     : headUrl

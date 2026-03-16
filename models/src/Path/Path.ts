@@ -103,10 +103,6 @@ export { ResourceCount, SeedClass };
     strict: false
   }
 })
-@index({ processId: 1, status: 1 })
-@index({ type: 1 })
-@index({ createdAt: 1 })
-@index({ processId: 1, status: 1, 'head.type': 1, 'head.domain.origin': 1 })
 export class PathClass extends TimeStamps {
   @prop({ type: Types.ObjectId, auto: true })
   public _id!: Types.ObjectId;

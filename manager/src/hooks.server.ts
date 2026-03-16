@@ -1,5 +1,5 @@
 import { building } from '$app/environment';
-import { db, Process, Triple, TraversalPath, EndpointPath } from '@derzis/models';
+import { db, Process, Triple, Path } from '@derzis/models';
 import ManagerPubSub from './lib/ManagerPubSub';
 import type { Handle } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
@@ -27,11 +27,8 @@ const log = createLogger('Manager');
 log.info('Connecting to MongoDB', connStr);
 await db.connect(connStr);
 
-log.info('Syncing indexes for TraversalPath, EndpointPath');
-await Promise.all([
-  TraversalPath.syncIndexes(),
-  EndpointPath.syncIndexes()
-]);
+log.info('Syncing indexes for Path');
+await Path.syncIndexes();
 log.info('Index sync complete');
 
 const logDir = './logs';
