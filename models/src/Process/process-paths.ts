@@ -660,6 +660,9 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
     'nodes.count': { $lt: process.currentStep.maxPathLength },
     'predicates.count': { $lte: maxPathProps }
   };
+  console.log(
+    `[DEBUG genTraversalPathQuery] process=${process.pid}, maxPathLength=${process.currentStep.maxPathLength}, maxPathProps=${maxPathProps}, predLimitations=${predLimitations.length}`
+  );
 
   // Extract constraints by type
   const requirePast: string[] = [];
@@ -973,7 +976,11 @@ interface ExtendPathsArgs {
  * @returns The PathType for the process.
  */
 function getPathType(process: ProcessClass): PathType {
-  return process.curPathType ?? PathType.TRAVERSAL;
+  const pathType = process.curPathType ?? PathType.TRAVERSAL;
+  console.log(
+    `[DEBUG getPathType] process=${process.pid}, curPathType=${process.curPathType}, returning=${pathType}`
+  );
+  return pathType;
 }
 
 /**
@@ -1131,9 +1138,14 @@ async function* queryAllExtendablePaths(
   batchSize = 100
 ): AsyncGenerator<TraversalPathDocument | EndpointPathDocument> {
   const pathType = getPathType(process);
+  console.log(
+    `[DEBUG queryAllExtendablePaths] process=${process.pid}, pathType=${pathType}, PathType.TRAVERSAL=${PathType.TRAVERSAL}`
+  );
   if (pathType === PathType.TRAVERSAL) {
+    console.log(`[DEBUG queryAllExtendablePaths] Using TraversalPath generator`);
     yield* queryAllExtendableTraversalPaths(process, batchSize);
   } else {
+    console.log(`[DEBUG queryAllExtendablePaths] Using EndpointPath generator`);
     yield* queryAllExtendableEndpointPaths(process, batchSize);
   }
 }
@@ -1154,6 +1166,7 @@ async function* queryAllExtendableTraversalPaths(
     'head.status': 'done',
     ...genTraversalPathQuery(process)
   };
+  console.log(`[DEBUG generator] baseQuery =`, JSON.stringify(baseQuery));
   let lastLength: number | null = null;
   let lastCreatedAt: Date | null = null;
   let lastId: Types.ObjectId | null = null;
@@ -1224,6 +1237,7 @@ async function* queryAllExtendableEndpointPaths(
   process: ProcessClass,
   batchSize = 100
 ): AsyncGenerator<EndpointPathDocument> {
+  console.log(`[DEBUG EndpointPath generator] Starting for process ${process.pid}`);
   let lastLength: number | null = null;
   let lastCreatedAt: Date | null = null;
   let lastId: Types.ObjectId | null = null;
@@ -1239,6 +1253,9 @@ async function* queryAllExtendableEndpointPaths(
     };
 
     let cursor: Record<string, unknown> = {};
+    console.log(
+      `[DEBUG EndpointPath generator] state: lastLength=${lastLength}, lastId=${lastId}, hasMore=${hasMore}`
+    );
     if (lastLength !== null && lastCreatedAt && lastId) {
       cursor = {
         $or: [
@@ -1258,7 +1275,12 @@ async function* queryAllExtendableEndpointPaths(
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(batchSize);
 
+    console.log(
+      `[DEBUG EndpointPath generator] Query returned ${paths.length}, cursor=`,
+      JSON.stringify(cursor)
+    );
     if (paths.length === 0) {
+      console.log(`[DEBUG EndpointPath generator] No paths, breaking`);
       hasMore = false;
       break;
     }
