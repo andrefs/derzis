@@ -1175,9 +1175,11 @@ async function* queryAllExtendableTraversalPaths(
   console.log(
     `[DEBUG TraversalPath generator] === STARTING GENERATOR for process ${process.pid} ===`
   );
+  const pathExtCounter = process.pathExtensionCounter ?? 1;
   const baseQuery = {
     status: 'active',
     'head.status': 'done',
+    extensionCounter: { $lt: pathExtCounter },
     ...genTraversalPathQuery(process)
   };
   let lastLength: number | null = null;
@@ -1245,11 +1247,13 @@ async function* queryAllExtendableEndpointPaths(
   let hasMore = true;
 
   while (hasMore) {
+    const pathExtCounter = process.pathExtensionCounter ?? 1;
     const baseQuery: QueryFilter<EndpointPathDocument> = {
       processId: process.pid,
       status: 'active',
       'head.status': 'done',
       'head.type': HEAD_TYPE.URL,
+      extensionCounter: { $lt: pathExtCounter },
       shortestPathLength: { $lt: process.currentStep.maxPathLength }
     };
 

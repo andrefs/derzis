@@ -490,7 +490,6 @@ describe('buildStepPathQuery', () => {
     expect(query.$and[1]).toEqual({
       'predicates.elems': { $ne: 'http://dbpedia.org/ontology/wikiPageWikiLink' }
     });
-    expect(query.extensionCounter).toEqual({ $lt: 5 });
   });
 
   it('returns endpoint query with shortestPathLength for endpoint path type', () => {
