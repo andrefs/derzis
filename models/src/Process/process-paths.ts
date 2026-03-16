@@ -1137,6 +1137,7 @@ async function* queryAllExtendablePaths(
   process: ProcessClass,
   batchSize = 100
 ): AsyncGenerator<TraversalPathDocument | EndpointPathDocument> {
+  console.log(`[DEBUG queryAllExtendablePaths] === START for process ${process.pid} ===`);
   const pathType = getPathType(process);
   console.log(
     `[DEBUG queryAllExtendablePaths] process=${process.pid}, pathType=${pathType}, PathType.TRAVERSAL=${PathType.TRAVERSAL}`
@@ -1175,6 +1176,7 @@ async function* queryAllExtendableTraversalPaths(
   let lastId: Types.ObjectId | null = null;
   let hasMore = true;
 
+  console.log(`[DEBUG TraversalPath generator] === WHILE LOOP START ===`);
   while (hasMore) {
     let cursor: Record<string, unknown> = {};
     console.log(
@@ -1369,6 +1371,7 @@ async function* queryPathsForTriples(
 
 // Helper: collect up to batchSize items from a generator
 async function collectBatch<T>(generator: AsyncGenerator<T>, batchSize: number): Promise<T[]> {
+  console.log(`[DEBUG collectBatch] === START collectBatch batchSize=${batchSize} ===`);
   const result: T[] = [];
   let count = 0;
   for await (const item of generator) {
@@ -1458,9 +1461,13 @@ export async function extendPaths({
   paths,
   convertToEndpoint
 }: ExtendPathsArgs) {
+  console.log(
+    `[DEBUG extendPaths] === START extendPaths pid=${pid}, convertToEndpoint=${convertToEndpoint}, triples=${!!triples}, headUrl=${!!headUrl}, paths=${!!paths} ===`
+  );
   // If no pid, get all process IDs and recurse for each
   if (!pid) {
     const pids = await Process.distinct('pid');
+    console.log(`[DEBUG extendPaths] No pid provided, iterating over ${pids.length} processes`);
     for (const p of pids) {
       await extendPaths({ pid: p, triples, headUrl, paths, convertToEndpoint });
     }
@@ -1486,6 +1493,9 @@ export async function extendPaths({
   let needsMoreWork = true;
 
   // Create generator outside loop to preserve pagination cursor across iterations
+  console.log(
+    `[DEBUG extendPaths] Creating generators - triples=${!!triples}, headUrl=${!!headUrl}, paths=${!!paths}`
+  );
   const pathGen = triples
     ? queryPathsForTriples(process, triples, batchSize)
     : headUrl
@@ -1494,6 +1504,9 @@ export async function extendPaths({
 
   // For full extend, we need a separate generator since it's a different code path
   const fullPathGen = !triples && !headUrl ? queryAllExtendablePaths(process, batchSize) : null;
+  console.log(
+    `[DEBUG extendPaths] Generators created - pathGen=${!!pathGen}, fullPathGen=${!!fullPathGen}`
+  );
 
   while (needsMoreWork && iteration < 100) {
     iteration++;
