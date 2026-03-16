@@ -661,10 +661,6 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
     'predicates.count': { $lte: maxPathProps }
   };
 
-  if (process.pathExtensionCounter !== undefined) {
-    query.extensionCounter = { $lt: process.pathExtensionCounter };
-  }
-
   // Extract constraints by type
   const requirePast: string[] = [];
   const disallowPast: string[] = [];
@@ -1227,10 +1223,6 @@ async function* queryAllExtendableEndpointPaths(
       'head.type': HEAD_TYPE.URL,
       shortestPathLength: { $lt: process.currentStep.maxPathLength }
     };
-
-    if (process.pathExtensionCounter !== undefined) {
-      baseQuery.extensionCounter = { $lt: process.pathExtensionCounter };
-    }
 
     let cursor: Record<string, unknown> = {};
     if (lastLength !== null && lastCreatedAt && lastId) {
