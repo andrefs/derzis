@@ -150,40 +150,7 @@ class ProcessClass extends Document {
   @prop({ default: 1, type: Number })
   public pathExtensionCounter!: number;
 
-  /**
-   * Check if a triple is allowed by the current step's white/blacklist
-   * @param t - Triple to check
-   * @returns {boolean} - Whether the triple is allowed
-   */
-  public whiteBlackListsAllow(this: ProcessClass, t: { predicate: string }): boolean {
-    // triple predicate allowed by white/blacklist
-    if (!this.currentStep.predLimit) {
-      return true;
-    }
-    if (this.currentStep.predLimit.limType === 'whitelist') {
-      return matchesOne(t.predicate, this.currentStep.predLimit.limPredicates);
-    }
-    // blacklist
-    return !matchesOne(t.predicate, this.currentStep.predLimit.limPredicates);
-  }
 
-  /**
-   * Check if a predicate is allowed by the current step's per-predicate limitations
-   * Only checks 'disallow-future' constraints
-   * @param predicate - The predicate to check
-   * @returns {boolean} - Whether the predicate is allowed
-   */
-  public predicateLimitationsAllow(this: ProcessClass, predicate: string): boolean {
-    if (!this.currentStep.predLimitations || this.currentStep.predLimitations.length === 0) {
-      return true;
-    }
-    for (const pl of this.currentStep.predLimitations) {
-      if (pl.lims.includes('disallow-future') && matchesOne(predicate, [pl.predicate])) {
-        return false;
-      }
-    }
-    return true;
-  }
 
   /**
    * Check if the process is done
@@ -230,16 +197,16 @@ class ProcessClass extends Document {
     // process is not done
     log.info(
       `Process ${this.pid} is not done yet: ` +
-        JSON.stringify(
-          {
-            pathsToCrawl,
-            pathsToCheck,
-            hasPathsChecking,
-            hasPathsCrawling
-          },
-          null,
-          2
-        )
+      JSON.stringify(
+        {
+          pathsToCrawl,
+          pathsToCheck,
+          hasPathsChecking,
+          hasPathsCrawling
+        },
+        null,
+        2
+      )
     );
     return false;
   }
@@ -490,30 +457,30 @@ class ProcessClass extends Document {
       const cursorCondition: QueryFilter<PathClass> =
         lastSeenCreatedAt && lastSeenId
           ? {
-              createdAt: { $gte: lastSeenCreatedAt },
-              _id: { $gt: lastSeenId }
-            }
+            createdAt: { $gte: lastSeenCreatedAt },
+            _id: { $gt: lastSeenId }
+          }
           : {};
 
       // Fetch a batch of paths for this process
       const paths =
         this.curPathType === PathType.TRAVERSAL
           ? await TraversalPath.find({
-              processId: this.pid,
-              'head.type': HEAD_TYPE.URL,
-              ...cursorCondition
-            } as QueryFilter<TraversalPathClass>)
-              .sort({ createdAt: 1, _id: 1 })
-              .limit(batchSize)
-              .select('head.url head.domain createdAt _id')
+            processId: this.pid,
+            'head.type': HEAD_TYPE.URL,
+            ...cursorCondition
+          } as QueryFilter<TraversalPathClass>)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize)
+            .select('head.url head.domain createdAt _id')
           : await EndpointPath.find({
-              processId: this.pid,
-              'head.type': HEAD_TYPE.URL,
-              ...cursorCondition
-            } as QueryFilter<EndpointPathClass>)
-              .sort({ createdAt: 1, _id: 1 })
-              .limit(batchSize)
-              .select('head.url head.domain createdAt _id');
+            processId: this.pid,
+            'head.type': HEAD_TYPE.URL,
+            ...cursorCondition
+          } as QueryFilter<EndpointPathClass>)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize)
+            .select('head.url head.domain createdAt _id');
 
       if (paths.length === 0) {
         hasMore = false;

@@ -19,8 +19,11 @@ import {
 } from '../Triple';
 import {
   BranchFactorClass,
+  matchesAny,
+  matchesOne,
   ProcessClass,
   SeedPosRatioClass,
+  StepClass,
   type PredLimitation
 } from '../Process';
 import { Domain } from '../Domain';
@@ -241,8 +244,8 @@ export class TraversalPathClass extends PathClass {
       .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
       .filter(
         (t) =>
-          this.shouldCreateNewPath(t) &&
-          process?.predicateLimitationsAllow(t.predicate) &&
+          this.isExtensionValid(t) &&
+          this.isExtensionAllowed(t, process.currentStep) &&
           t.directionOk(urlHead.url, followDirection, predsDirMetrics)
       );
 
@@ -278,7 +281,7 @@ export class TraversalPathClass extends PathClass {
     // Literal triples
     const literalTriples = triplesToExtend
       .filter((t): t is LiteralTripleDocument => isLiteral(t))
-      .filter((t) => this.shouldCreateNewPath(t));
+      .filter((t) => this.isExtensionValid(t));
 
     for (const t of literalTriples) {
       log.silly('Extending path with LiteralTriple', t);
@@ -309,14 +312,19 @@ export class TraversalPathClass extends PathClass {
     return { extendedPaths: eps, procTriples };
   }
 
-  public shouldCreateNewPath(
+  /**
+   * Determines whether a new path should be created based on the given triple and the current path's head and nodes.
+   * For URL heads, checks if the triple can extend the path without creating cycles.
+   * For literal heads, no new paths can be created.
+   * @param t The triple to evaluate for path extension.
+   * @returns A boolean indicating whether a new path should be created based on the triple.
+   */
+  public isExtensionValid(
     this: TraversalPathClass,
     t: NamedNodeTripleClass | LiteralTripleDocument
   ): boolean {
     // If the head is not a URL, we cannot extend
-    if (this.head.type !== HEAD_TYPE.URL) {
-      return false;
-    }
+    if (this.head.type !== HEAD_TYPE.URL) { return false; }
 
     const urlHead = this.head as UrlHead;
     if (t.type === TripleType.LITERAL) {
@@ -327,19 +335,49 @@ export class TraversalPathClass extends PathClass {
     }
 
     const namedNodeTriple = t as NamedNodeTripleClass;
-
-    if (namedNodeTriple.subject === namedNodeTriple.object) {
-      return false;
-    }
-
-    if (namedNodeTriple.predicate === urlHead.url) {
-      return false;
-    }
+    if (namedNodeTriple.subject === namedNodeTriple.object) { return false; }
+    if (namedNodeTriple.predicate === urlHead.url) { return false; }
 
     const newHeadUrl: string =
       namedNodeTriple.subject === urlHead.url ? namedNodeTriple.object : namedNodeTriple.subject;
 
-    if (this.nodes.elems.includes(newHeadUrl)) {
+    if (this.nodes.elems.includes(newHeadUrl)) { return false; }
+    return true;
+  }
+
+  public isExtensionAllowed(
+    this: TraversalPathClass,
+    t: NamedNodeTripleClass,
+    currentStep: StepClass
+  ): boolean {
+    if (!currentStep?.predLimitations?.length) { return true; }
+    if (this.nodes.count >= currentStep?.maxPathLength) { return false; }
+
+    // if path predicates are maxed out, predicate must be in predicates.elems
+    if (this.predicates.count >= currentStep.maxPathProps && !(t.predicate in this.predicates.elems)) {
+      return false
+    }
+
+    for (const pl of currentStep.predLimitations) {
+      // check future
+      if (pl.lims.includes('require-future') && matchesOne(t.predicate, [pl.predicate])) {
+        return true;
+      }
+      if (pl.lims.includes('disallow-future') && matchesOne(t.predicate, [pl.predicate])) {
+        return false;
+      }
+    }
+
+    const reqPast = currentStep.predLimitations
+      .filter((pl) => pl.lims.includes('require-past'))
+      .map((pl) => pl.predicate);
+    if (reqPast.length && !matchesAny(this.predicates.elems, reqPast)) {
+      return false;
+    }
+    const disallowPast = currentStep.predLimitations
+      .filter((pl) => pl.lims.includes('disallow-past'))
+      .map((pl) => pl.predicate);
+    if (disallowPast.length && matchesAny(this.predicates.elems, disallowPast)) {
       return false;
     }
 

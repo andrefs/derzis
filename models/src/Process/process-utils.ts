@@ -28,3 +28,7 @@ export const matchesOne = (str: string, patterns: string[]) => {
   }
   return matched;
 };
+
+export const matchesAny = (str: string[], patterns: string[]) => {
+  return str.some(s => matchesOne(s, patterns));
+}

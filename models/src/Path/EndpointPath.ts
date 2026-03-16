@@ -15,7 +15,7 @@ import {
   isNamedNode,
   isLiteral
 } from '../Triple';
-import { ProcessClass } from '../Process';
+import { matchesOne, ProcessClass, StepClass } from '../Process';
 import {
   PathClass,
   Path,
@@ -122,7 +122,7 @@ export class EndpointPathClass extends PathClass {
   @prop({ required: true, default: [], type: [SeedPathEntryClass] })
   public seedPaths!: SeedPathEntryClass[];
 
-  public shouldCreateNewPath(
+  public isExtensionValid(
     this: EndpointPathClass,
     t: NamedNodeTripleClass | LiteralTripleDocument,
     urlHead: UrlHead
@@ -140,6 +140,30 @@ export class EndpointPathClass extends PathClass {
 
     if (t.predicate === urlHead.url) {
       return false;
+    }
+
+    return true;
+  }
+
+
+  public isExtensionAllowed(
+    this: EndpointPathClass,
+    t: NamedNodeTripleClass,
+    currentStep: StepClass
+  ): boolean {
+    if (!currentStep?.predLimitations?.length) { return true; }
+    if (this.shortestPathLength >= currentStep?.maxPathLength) { return false; }
+
+    for (const pl of currentStep.predLimitations) {
+      // check future
+      if (pl.lims.includes('require-future') && matchesOne(t.predicate, [pl.predicate])) {
+        return true;
+      }
+      if (pl.lims.includes('disallow-future') && matchesOne(t.predicate, [pl.predicate])) {
+        return false;
+      }
+
+
     }
 
     return true;
@@ -269,8 +293,8 @@ function collectNamedNodeCandidates(
     .filter((t): t is NamedNodeTripleDocument => typeof t.object === 'string')
     .filter(
       (t) =>
-        this.shouldCreateNewPath(t, urlHead) &&
-        process?.predicateLimitationsAllow(t.predicate) &&
+        this.isExtensionValid(t, urlHead) &&
+        this.isExtensionAllowed(t, process.currentStep) &&
         t.directionOk(urlHead.url, followDirection, predsDirMetrics)
     );
 
@@ -307,6 +331,7 @@ function collectNamedNodeCandidates(
   return candidates;
 }
 
+
 function collectLiteralCandidates(
   this: EndpointPathClass,
   triples: TripleDocument[],
@@ -318,7 +343,7 @@ function collectLiteralCandidates(
 
   const literalTriples = triples
     .filter((t): t is LiteralTripleDocument => isLiteral(t))
-    .filter((t) => this.shouldCreateNewPath(t, urlHead));
+    .filter((t) => this.isExtensionValid(t, urlHead));
 
   for (const t of literalTriples) {
     const literalKey = JSON.stringify({

@@ -536,7 +536,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
   });
 });
 
-describe('TraversalPathClass.shouldCreateNewPath', () => {
+describe('TraversalPathClass.isExtensionValid', () => {
   const createMockPath = (overrides: {
     headUrl?: string;
     nodesElems?: string[];
@@ -569,7 +569,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
       const path = createMockPath({ headUrl: 'http://example.com/head' });
       const triple = createMockTriple('http://same.org', 'http://same.org', 'http://pred.org');
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(false);
     });
@@ -582,7 +582,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://example.com/head'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(false);
     });
@@ -599,7 +599,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(false);
     });
@@ -616,7 +616,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(false);
     });
@@ -634,7 +634,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(true);
     });
@@ -650,7 +650,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(true);
     });
@@ -666,7 +666,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(true);
     });
