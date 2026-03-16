@@ -1161,6 +1161,9 @@ async function* queryAllExtendableTraversalPaths(
   process: ProcessClass,
   batchSize = 100
 ): AsyncGenerator<TraversalPathDocument> {
+  console.log(
+    `[DEBUG TraversalPath generator] === STARTING GENERATOR for process ${process.pid} ===`
+  );
   const baseQuery = {
     status: 'active',
     'head.status': 'done',
