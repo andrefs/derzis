@@ -1364,8 +1364,7 @@ async function extendPathsBatch(
   triples?: TripleDocument[],
   convertToEndpoint?: boolean
 ) {
-  const newPathType = convertToEndpoint ? PathType.ENDPOINT : getPathType(process);
-  const oldPathType = convertToEndpoint ? PathType.TRAVERSAL : newPathType;
+  const pathType = convertToEndpoint ? PathType.ENDPOINT : getPathType(process);
   for (const path of pathsBatch) {
     const result = await path.genExtendedPaths(process, triples);
 
@@ -1375,8 +1374,8 @@ async function extendPathsBatch(
         pathsToCreate = convertToEndpointSkeletons(pathsToCreate, path);
       }
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
-      await createNewPaths(pathsToCreate, newPathType);
-      await deleteOldPaths(new Set([path._id]), oldPathType);
+      await createNewPaths(pathsToCreate, pathType);
+      await deleteOldPaths(new Set([path._id]), convertToEndpoint ? PathType.TRAVERSAL : pathType);
     }
   }
 }
