@@ -1161,6 +1161,9 @@ async function* queryAllExtendableTraversalPaths(
 
   while (hasMore) {
     let cursor: Record<string, unknown> = {};
+    console.log(
+      `[DEBUG generator] Iteration state: lastLength=${lastLength}, lastCreatedAt=${lastCreatedAt}, lastId=${lastId}, hasMore=${hasMore}`
+    );
     if (lastLength !== null && lastCreatedAt && lastId) {
       cursor = {
         $or: [
