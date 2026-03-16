@@ -1137,17 +1137,11 @@ async function* queryAllExtendablePaths(
   process: ProcessClass,
   batchSize = 100
 ): AsyncGenerator<TraversalPathDocument | EndpointPathDocument> {
-  console.log(`[DEBUG queryAllExtendablePaths] === START for process ${process.pid} ===`);
   const pathType = getPathType(process);
-  console.log(
-    `[DEBUG queryAllExtendablePaths] process=${process.pid}, pathType=${pathType}, PathType.TRAVERSAL=${PathType.TRAVERSAL}`
-  );
   if (pathType === PathType.TRAVERSAL) {
-    console.log(`[DEBUG queryAllExtendablePaths] Using TraversalPath generator`);
     const innerGen = queryAllExtendableTraversalPaths(process, batchSize);
     yield* innerGen;
   } else {
-    console.log(`[DEBUG queryAllExtendablePaths] Using EndpointPath generator`);
     const innerGen = queryAllExtendableEndpointPaths(process, batchSize);
     yield* innerGen;
   }
@@ -1172,18 +1166,13 @@ async function* queryAllExtendableTraversalPaths(
     'head.status': 'done',
     ...genTraversalPathQuery(process)
   };
-  console.log(`[DEBUG generator] baseQuery =`, JSON.stringify(baseQuery));
   let lastLength: number | null = null;
   let lastCreatedAt: Date | null = null;
   let lastId: Types.ObjectId | null = null;
   let hasMore = true;
 
-  console.log(`[DEBUG TraversalPath generator] === WHILE LOOP START ===`);
   while (hasMore) {
     let cursor: Record<string, unknown> = {};
-    console.log(
-      `[DEBUG generator] Iteration state: lastLength=${lastLength}, lastCreatedAt=${lastCreatedAt}, lastId=${lastId}, hasMore=${hasMore}`
-    );
     if (lastLength !== null && lastCreatedAt && lastId) {
       cursor = {
         $or: [
@@ -1203,12 +1192,7 @@ async function* queryAllExtendableTraversalPaths(
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(batchSize);
 
-    console.log(
-      `[DEBUG generator] Query returned ${paths.length} paths, cursor=`,
-      JSON.stringify(cursor)
-    );
     if (paths.length === 0) {
-      console.log(`[DEBUG generator] No paths found, breaking`);
       hasMore = false;
       break;
     }
@@ -1218,9 +1202,6 @@ async function* queryAllExtendableTraversalPaths(
     lastId = last._id as Types.ObjectId;
     lastLength = last.nodes.count;
 
-    console.log(
-      `[DEBUG generator] Yielding ${paths.length} paths, lastLength=${lastLength}, lastId=${lastId}`
-    );
     yield* paths;
 
     if (paths.length < batchSize) {
@@ -1244,7 +1225,6 @@ async function* queryAllExtendableEndpointPaths(
   process: ProcessClass,
   batchSize = 100
 ): AsyncGenerator<EndpointPathDocument> {
-  console.log(`[DEBUG EndpointPath generator] Starting for process ${process.pid}`);
   let lastLength: number | null = null;
   let lastCreatedAt: Date | null = null;
   let lastId: Types.ObjectId | null = null;
@@ -1260,9 +1240,6 @@ async function* queryAllExtendableEndpointPaths(
     };
 
     let cursor: Record<string, unknown> = {};
-    console.log(
-      `[DEBUG EndpointPath generator] state: lastLength=${lastLength}, lastId=${lastId}, hasMore=${hasMore}`
-    );
     if (lastLength !== null && lastCreatedAt && lastId) {
       cursor = {
         $or: [
@@ -1282,12 +1259,7 @@ async function* queryAllExtendableEndpointPaths(
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(batchSize);
 
-    console.log(
-      `[DEBUG EndpointPath generator] Query returned ${paths.length}, cursor=`,
-      JSON.stringify(cursor)
-    );
     if (paths.length === 0) {
-      console.log(`[DEBUG EndpointPath generator] No paths, breaking`);
       hasMore = false;
       break;
     }
@@ -1373,7 +1345,6 @@ async function* queryPathsForTriples(
 
 // Helper: collect up to batchSize items from a generator without closing it
 async function collectBatch<T>(generator: AsyncGenerator<T>, batchSize: number): Promise<T[]> {
-  console.log(`[DEBUG collectBatch] === START collectBatch batchSize=${batchSize} ===`);
   const result: T[] = [];
   while (result.length < batchSize) {
     const { value, done } = await generator.next();
@@ -1382,7 +1353,6 @@ async function collectBatch<T>(generator: AsyncGenerator<T>, batchSize: number):
     }
     result.push(value);
   }
-  console.log(`[DEBUG collectBatch] Collected ${result.length} items`);
   return result;
 }
 
@@ -1462,13 +1432,9 @@ export async function extendPaths({
   paths,
   convertToEndpoint
 }: ExtendPathsArgs) {
-  console.log(
-    `[DEBUG extendPaths] === START extendPaths pid=${pid}, convertToEndpoint=${convertToEndpoint}, triples=${!!triples}, headUrl=${!!headUrl}, paths=${!!paths} ===`
-  );
   // If no pid, get all process IDs and recurse for each
   if (!pid) {
     const pids = await Process.distinct('pid');
-    console.log(`[DEBUG extendPaths] No pid provided, iterating over ${pids.length} processes`);
     for (const p of pids) {
       await extendPaths({ pid: p, triples, headUrl, paths, convertToEndpoint });
     }
@@ -1512,15 +1478,8 @@ export async function extendPaths({
         ? queryAllExtendableTraversalPaths(process, batchSize)
         : queryAllExtendableEndpointPaths(process, batchSize)
       : null;
-  console.log(
-    `[DEBUG extendPaths] Generators created - pathGen=${!!pathGen}, fullPathGen=${!!fullPathGen}, pathType=${pathType}`
-  );
 
-  while (needsMoreWork && iteration < 100) {
-    iteration++;
-    console.log(
-      `[DEBUG extendPaths] Starting iteration ${iteration}, needsMoreWork=${needsMoreWork}`
-    );
+  while (needsMoreWork) {
     let pathsToProcess: (TraversalPathDocument | EndpointPathDocument)[] = [];
 
     if (paths) {
@@ -1530,27 +1489,18 @@ export async function extendPaths({
     } else if (pathGen) {
       // Reuse same generator - pagination cursor is preserved internally
       pathsToProcess = await collectBatch(pathGen, batchSize);
-      console.log(`[DEBUG extendPaths] pathGen returned ${pathsToProcess.length} paths`);
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }
     } else if (fullPathGen) {
       // Full extend - reuse same generator for pagination
-      console.log(`[DEBUG extendPaths] fullPathGen is truthy, calling collectBatch`);
       pathsToProcess = await collectBatch(fullPathGen, batchSize);
-      console.log(`[DEBUG extendPaths] fullPathGen returned ${pathsToProcess.length} paths`);
       if (pathsToProcess.length === 0) {
-        console.log(`[DEBUG extendPaths] fullPathGen returned 0, setting needsMoreWork=false`);
         needsMoreWork = false;
       }
-    } else {
-      console.log(
-        `[DEBUG extendPaths] NO GENERATOR! paths=${!!paths}, pathGen=${!!pathGen}, fullPathGen=${!!fullPathGen}`
-      );
     }
 
     if (pathsToProcess.length === 0) {
-      console.log(`[DEBUG extendPaths] No paths to process, breaking`);
       break;
     }
 
