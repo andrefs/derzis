@@ -465,10 +465,7 @@ function buildBaseQuery(process: ProcessClass): Record<string, unknown> {
   };
 }
 
-function buildPathTypeFilter(
-  process: ProcessClass,
-  pathType: PathType
-): Record<string, unknown> {
+function buildPathTypeFilter(process: ProcessClass, pathType: PathType): Record<string, unknown> {
   if (pathType === PathType.TRAVERSAL) {
     return genTraversalPathQuery(process);
   } else {
@@ -488,10 +485,7 @@ function mergePathQueryWithCursor(
   };
 
   if (pathFilter.$or && cursorCondition.$or) {
-    merged.$and = [
-      { $or: pathFilter.$or as any[] },
-      { $or: cursorCondition.$or as any[] }
-    ];
+    merged.$and = [{ $or: pathFilter.$or as any[] }, { $or: cursorCondition.$or as any[] }];
     delete merged.$or;
   }
 
@@ -613,10 +607,7 @@ export function buildStepPathQuery(
   // Handle potential $or conflicts between baseQuery and pathTypeFilter
   // (though unlikely since baseQuery doesn't typically have $or)
   if (baseQuery.$or && pathTypeFilter.$or) {
-    merged.$and = [
-      { $or: baseQuery.$or as any[] },
-      { $or: pathTypeFilter.$or as any[] }
-    ];
+    merged.$and = [{ $or: baseQuery.$or as any[] }, { $or: pathTypeFilter.$or as any[] }];
     delete merged.$or;
   }
 
@@ -716,25 +707,16 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   // Past constraints apply regardless of fullness
   if (requirePast.length > 0 && disallowPast.length > 0) {
     // Both require-past and disallow-past: need $and to combine
-    const requireFilter =
-      requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
+    const requireFilter = requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
     const disallowFilter =
-      disallowPast.length === 1
-        ? { $ne: disallowPast[0] }
-        : { $nin: disallowPast };
+      disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
 
-    query.$and = [
-      { 'predicates.elems': requireFilter },
-      { 'predicates.elems': disallowFilter }
-    ];
+    query.$and = [{ 'predicates.elems': requireFilter }, { 'predicates.elems': disallowFilter }];
   } else if (requirePast.length > 0) {
-    query['predicates.elems'] =
-      requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
+    query['predicates.elems'] = requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
   } else if (disallowPast.length > 0) {
     query['predicates.elems'] =
-      disallowPast.length === 1
-        ? { $ne: disallowPast[0] }
-        : { $nin: disallowPast };
+      disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
   }
 
   return query;
@@ -1603,4 +1585,12 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   log.info(
     `Converted ${traversalIdsToDelete.length} TraversalPaths into ${totalHeadGroups} EndpointPaths (1:${ratio} ratio) for process ${pid}`
   );
+}
+
+export async function deleteRemainingTraversalPaths(pid: string): Promise<number> {
+  const result = await TraversalPath.updateMany(
+    { processId: pid, status: 'active' },
+    { $set: { status: 'deleted' } }
+  );
+  return result.modifiedCount;
 }
