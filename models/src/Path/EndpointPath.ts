@@ -2,6 +2,7 @@ import { Types, type QueryFilter } from 'mongoose';
 import {
   prop,
   index,
+  pre,
   getDiscriminatorModelForClass,
   type DocumentType
 } from '@typegoose/typegoose';
@@ -98,6 +99,21 @@ export type EndpointPathSkeleton = Pick<
     partialFilterExpression: { type: PathType.ENDPOINT }
   }
 )
+
+@pre<EndpointPathClass>('save', async function () {
+  if (this.head.type === HEAD_TYPE.URL) {
+    const urlHead = this.head as UrlHead;
+    if (!urlHead.url || typeof urlHead.url !== 'string' || urlHead.url.trim() === '') {
+      throw new Error(`Invalid EndpointPath: head.type is 'url' but head.url is missing or empty`);
+    }
+    try {
+      new URL(urlHead.url);
+    } catch {
+      throw new Error(`Invalid EndpointPath: head.url '${urlHead.url}' is not a valid URL`);
+    }
+  }
+})
+
 export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Number, default: 0 })
   public shortestPathLength!: number;
