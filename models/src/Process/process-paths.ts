@@ -1487,11 +1487,17 @@ export async function extendPaths({
       }
     } else if (fullPathGen) {
       // Full extend - reuse same generator for pagination
+      console.log(`[DEBUG extendPaths] fullPathGen is truthy, calling collectBatch`);
       pathsToProcess = await collectBatch(fullPathGen, batchSize);
       console.log(`[DEBUG extendPaths] fullPathGen returned ${pathsToProcess.length} paths`);
       if (pathsToProcess.length === 0) {
+        console.log(`[DEBUG extendPaths] fullPathGen returned 0, setting needsMoreWork=false`);
         needsMoreWork = false;
       }
+    } else {
+      console.log(
+        `[DEBUG extendPaths] NO GENERATOR! paths=${!!paths}, pathGen=${!!pathGen}, fullPathGen=${!!fullPathGen}`
+      );
     }
 
     if (pathsToProcess.length === 0) {
