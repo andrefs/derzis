@@ -154,7 +154,11 @@ async function processHeadGroup(
     if (!cachedDomain) {
       try {
         const origin = new URL(identifier).origin;
-        cachedDomain = { origin, isUnvisited: true };
+        const domainDoc = await Domain.findOne({ origin }).lean();
+        cachedDomain = {
+          origin,
+          isUnvisited: domainDoc ? domainDoc.status === 'unvisited' : true
+        };
         domainCache.set(identifier, cachedDomain);
       } catch (err) {
         log.warn(`Invalid head URL during conversion, skipping: ${identifier}`);
