@@ -259,7 +259,6 @@ async function processHeadGroup(
       if (res.matchedCount === 0) continue;
       success = true;
     } else {
-      // Create new EndpointPath
       const head: Record<string, unknown> = {};
       if (headType === HEAD_TYPE.URL && domain) {
         head.type = HEAD_TYPE.URL;
@@ -271,19 +270,26 @@ async function processHeadGroup(
         if (literalHead.datatype) head.datatype = literalHead.datatype;
         if (literalHead.language) head.language = literalHead.language;
       }
-
-      await new EndpointPath({
-        processId: pid,
-        head,
-        status: 'active',
-        type: 'endpoint',
-        shortestPathLength,
-        seedPaths,
-        extensionCounter: 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).save();
-      success = true;
+      try {
+        await new EndpointPath({
+          processId: pid,
+          head,
+          status: 'active',
+          type: 'endpoint',
+          shortestPathLength,
+          seedPaths,
+          extensionCounter: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).save();
+        success = true;
+      } catch (err: any) {
+        if (err.code === 11000 || err.message?.includes('duplicate key')) {
+          log.warn('Duplicate key detected in processHeadGroup, fetching and merging', { pid, identifier });
+          continue;
+        }
+        throw err;
+      }
     }
   }
 
@@ -851,28 +857,36 @@ async function createNewPaths(
           if (res.matchedCount === 0) continue; // retry
           success = true;
         } else {
-          await new EndpointPath({
-            processId,
-            head: {
-              type: 'url',
-              url: headUrl,
-              domain: {
-                origin: domain.origin,
-                isUnvisited: domain.isUnvisited ?? false
-              }
-            },
-            status: 'active',
-            type: 'endpoint',
-            shortestPathLength: incomingShortest,
-            seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({
-              seed,
-              minLength
-            })),
-            extensionCounter: 0,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }).save();
-          success = true;
+          try {
+            await new EndpointPath({
+              processId,
+              head: {
+                type: 'url',
+                url: headUrl,
+                domain: {
+                  origin: domain.origin,
+                  isUnvisited: domain.isUnvisited ?? false
+                }
+              },
+              status: 'active',
+              type: 'endpoint',
+              shortestPathLength: incomingShortest,
+              seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({
+                seed,
+                minLength
+              })),
+              extensionCounter: 0,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }).save();
+            success = true;
+          } catch (err: any) {
+            if (err.code === 11000 || err.message?.includes('duplicate key')) {
+              log.warn('Duplicate key detected during insert, fetching and merging', { processId, headUrl });
+              continue;
+            }
+            throw err;
+          }
         }
       }
 
