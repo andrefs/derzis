@@ -1144,10 +1144,12 @@ async function* queryAllExtendablePaths(
   );
   if (pathType === PathType.TRAVERSAL) {
     console.log(`[DEBUG queryAllExtendablePaths] Using TraversalPath generator`);
-    yield* queryAllExtendableTraversalPaths(process, batchSize);
+    const innerGen = queryAllExtendableTraversalPaths(process, batchSize);
+    yield* innerGen;
   } else {
     console.log(`[DEBUG queryAllExtendablePaths] Using EndpointPath generator`);
-    yield* queryAllExtendableEndpointPaths(process, batchSize);
+    const innerGen = queryAllExtendableEndpointPaths(process, batchSize);
+    yield* innerGen;
   }
 }
 
@@ -1369,19 +1371,18 @@ async function* queryPathsForTriples(
   }
 }
 
-// Helper: collect up to batchSize items from a generator
+// Helper: collect up to batchSize items from a generator without closing it
 async function collectBatch<T>(generator: AsyncGenerator<T>, batchSize: number): Promise<T[]> {
   console.log(`[DEBUG collectBatch] === START collectBatch batchSize=${batchSize} ===`);
   const result: T[] = [];
-  let count = 0;
-  for await (const item of generator) {
-    result.push(item);
-    count++;
-    if (result.length >= batchSize) {
+  while (result.length < batchSize) {
+    const { value, done } = await generator.next();
+    if (done) {
       break;
     }
+    result.push(value);
   }
-  console.log(`[DEBUG collectBatch] Collected ${count} items, returned ${result.length}`);
+  console.log(`[DEBUG collectBatch] Collected ${result.length} items`);
   return result;
 }
 
@@ -1502,10 +1503,17 @@ export async function extendPaths({
       ? queryPathsForHeadUrl(process, headUrl, batchSize)
       : null;
 
-  // For full extend, we need a separate generator since it's a different code path
-  const fullPathGen = !triples && !headUrl ? queryAllExtendablePaths(process, batchSize) : null;
+  // For full extend, we need to call the inner generator directly (not through queryAllExtendablePaths wrapper
+  // which completes after yielding all items, losing pagination state across iterations)
+  const pathType = getPathType(process);
+  const fullPathGen: AsyncGenerator<TraversalPathDocument | EndpointPathDocument> | null =
+    !triples && !headUrl
+      ? pathType === PathType.TRAVERSAL
+        ? queryAllExtendableTraversalPaths(process, batchSize)
+        : queryAllExtendableEndpointPaths(process, batchSize)
+      : null;
   console.log(
-    `[DEBUG extendPaths] Generators created - pathGen=${!!pathGen}, fullPathGen=${!!fullPathGen}`
+    `[DEBUG extendPaths] Generators created - pathGen=${!!pathGen}, fullPathGen=${!!fullPathGen}, pathType=${pathType}`
   );
 
   while (needsMoreWork && iteration < 100) {
