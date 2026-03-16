@@ -155,16 +155,22 @@ export class EndpointPathClass extends PathClass {
     if (!currentStep?.predLimitations?.length) { return true; }
     if (this.shortestPathLength >= currentStep?.maxPathLength) { return false; }
 
-    for (const pl of currentStep.predLimitations) {
-      // check future
-      if (pl.lims.includes('require-future') && matchesOne(t.predicate, [pl.predicate])) {
-        return true;
-      }
-      if (pl.lims.includes('disallow-future') && matchesOne(t.predicate, [pl.predicate])) {
-        return false;
-      }
+    const limsByType = currentStep.predLimitations.reduce(
+      (acc, pl) => {
+        for (const lim of pl.lims) {
+          acc[lim] = acc[lim] || [];
+          acc[lim].push(pl.predicate);
+        }
+        return acc;
+      },
+      {} as Record<string, string[]>
+    );
 
-
+    if (limsByType['require-future'] && !matchesOne(t.predicate, limsByType['require-future'])) {
+      return false;
+    }
+    if (limsByType['disallow-future'] && matchesOne(t.predicate, limsByType['disallow-future'])) {
+      return false;
     }
 
     return true;

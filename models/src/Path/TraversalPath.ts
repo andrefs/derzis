@@ -360,26 +360,28 @@ export class TraversalPathClass extends PathClass {
       return false
     }
 
-    for (const pl of currentStep.predLimitations) {
-      // check future
-      if (pl.lims.includes('require-future') && matchesOne(t.predicate, [pl.predicate])) {
-        return true;
-      }
-      if (pl.lims.includes('disallow-future') && matchesOne(t.predicate, [pl.predicate])) {
-        return false;
-      }
-    }
+    const limsByType = currentStep.predLimitations.reduce(
+      (acc, pl) => {
+        for (const lim of pl.lims) {
+          acc[lim] = acc[lim] || [];
+          acc[lim].push(pl.predicate);
+        }
+        return acc;
+      },
+      {} as Record<string, string[]>
+    );
 
-    const reqPast = currentStep.predLimitations
-      .filter((pl) => pl.lims.includes('require-past'))
-      .map((pl) => pl.predicate);
-    if (reqPast.length && !matchesAny(this.predicates.elems, reqPast)) {
+    if (limsByType['require-future'] && !matchesOne(t.predicate, limsByType['require-future'])) {
       return false;
     }
-    const disallowPast = currentStep.predLimitations
-      .filter((pl) => pl.lims.includes('disallow-past'))
-      .map((pl) => pl.predicate);
-    if (disallowPast.length && matchesAny(this.predicates.elems, disallowPast)) {
+    if (limsByType['disallow-future'] && matchesOne(t.predicate, limsByType['disallow-future'])) {
+      return false;
+    }
+
+    if (limsByType['require-past'] && !matchesAny(this.predicates.elems, limsByType['require-past'])) {
+      return false;
+    }
+    if (limsByType['disallow-past'] && matchesAny(this.predicates.elems, limsByType['disallow-past'])) {
       return false;
     }
 
