@@ -983,6 +983,7 @@ interface ExtendPathsArgs {
   triples?: TripleDocument[];
   paths?: (TraversalPathDocument | EndpointPathDocument)[];
   convertToEndpoint?: boolean;
+  headStatus?: 'done' | 'unvisited';
 }
 
 /**
@@ -1167,12 +1168,13 @@ async function* queryAllExtendablePaths(
  */
 async function* queryAllExtendableTraversalPaths(
   process: ProcessClass,
-  batchSize = 100
+  batchSize = 100,
+  headStatus: 'done' | 'unvisited' = 'done'
 ): AsyncGenerator<TraversalPathDocument> {
   const pathExtCounter = process.pathExtensionCounter ?? 1;
   const baseQuery = {
     status: 'active',
-    'head.status': 'done',
+    'head.status': headStatus,
     extensionCounter: { $lt: pathExtCounter },
     ...genTraversalPathQuery(process)
   };
@@ -1397,8 +1399,8 @@ async function extendPathsBatch(
     }
     // convert paths even if they were not extended
     if (convertToEndpoint) {
-      await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL);
       let pathsToCreate = convertToEndpointSkeletons([path]);
+      await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL);
       await createNewPaths(pathsToCreate, PathType.ENDPOINT);
     }
   }
@@ -1445,7 +1447,8 @@ export async function extendPaths({
   triples,
   headUrl,
   paths,
-  convertToEndpoint
+  convertToEndpoint,
+  headStatus = 'done'
 }: ExtendPathsArgs) {
   // If no pid, get all process IDs and recurse for each
   if (!pid) {
@@ -1487,7 +1490,7 @@ export async function extendPaths({
   const fullPathGen: AsyncGenerator<TraversalPathDocument | EndpointPathDocument> | null =
     !triples && !headUrl
       ? pathType === PathType.TRAVERSAL
-        ? queryAllExtendableTraversalPaths(process, batchSize)
+        ? queryAllExtendableTraversalPaths(process, batchSize, headStatus)
         : queryAllExtendableEndpointPaths(process, batchSize)
       : null;
 
