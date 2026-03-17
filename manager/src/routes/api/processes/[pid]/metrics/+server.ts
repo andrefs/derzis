@@ -14,7 +14,7 @@ export const GET = async ({ params, url }: RequestEvent) => {
   }
 
   const seedsParam = url.searchParams.get('seeds');
-  const seeds = seedsParam ? seedsParam.split(',') : [];
+  const seeds = seedsParam ? seedsParam.split(',').map((s) => decodeURIComponent(s)) : [];
 
   log.info(`Calculating metrics for process ${pid}, seeds count: ${seeds.length}`);
 
