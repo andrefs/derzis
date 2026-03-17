@@ -36,7 +36,6 @@ import {
   hasPathsDomainRobotsChecking,
   hasPathsHeadBeingCrawled,
   extendPaths,
-  convertTraversalToEndpointPaths,
   deleteRemainingTraversalPaths
 } from './process-paths';
 import {
@@ -45,7 +44,6 @@ import {
   notifyStepFinished,
   notifyStart
 } from './process-notifications';
-import { matchesOne } from './process-utils';
 import {
   getTriples,
   getTriplesJson,
@@ -55,12 +53,11 @@ import {
   getAllResources,
   getAllDomains,
   getInfo,
-  curPredsDirMetrics,
+  curPredsBranchFactor,
   getDoneResourceCount
 } from './process-data';
-import { BranchFactorClass, SeedPosRatioClass, NotificationClass, StepClass } from './aux-classes';
+import { BranchFactorClass, NotificationClass, StepClass } from './aux-classes';
 import { type SimpleTriple, PathType } from '@derzis/common';
-import config from '@derzis/config';
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
@@ -195,16 +192,16 @@ class ProcessClass extends Document {
     // process is not done
     log.info(
       `Process ${this.pid} is not done yet: ` +
-        JSON.stringify(
-          {
-            pathsToCrawl,
-            pathsToCheck,
-            hasPathsChecking,
-            hasPathsCrawling
-          },
-          null,
-          2
-        )
+      JSON.stringify(
+        {
+          pathsToCrawl,
+          pathsToCheck,
+          hasPathsChecking,
+          hasPathsCrawling
+        },
+        null,
+        2
+      )
     );
     return false;
   }
@@ -288,13 +285,13 @@ class ProcessClass extends Document {
   }
 
   /**
-   * Get predicates branching factor and seed position ratio for the current step as a map
-   * @returns {Map<string, {bf: number, spr: number}> | undefined} - map of predicate URL to branching factor and seeds position ratio
+   * Get predicates branching factor for the current step as a map
+   * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor 
    */
-  public curPredsDirMetrics(
+  public curPredsBranchFactor(
     this: ProcessClass
-  ): Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined {
-    return curPredsDirMetrics(this);
+  ): Map<string, BranchFactorClass> | undefined {
+    return curPredsBranchFactor(this);
   }
 
   public async getResourceCount(this: ProcessClass) {
@@ -473,30 +470,30 @@ class ProcessClass extends Document {
       const cursorCondition: QueryFilter<PathClass> =
         lastSeenCreatedAt && lastSeenId
           ? {
-              createdAt: { $gte: lastSeenCreatedAt },
-              _id: { $gt: lastSeenId }
-            }
+            createdAt: { $gte: lastSeenCreatedAt },
+            _id: { $gt: lastSeenId }
+          }
           : {};
 
       // Fetch a batch of paths for this process
       const paths =
         this.curPathType === PathType.TRAVERSAL
           ? await TraversalPath.find({
-              processId: this.pid,
-              'head.type': HEAD_TYPE.URL,
-              ...cursorCondition
-            } as QueryFilter<TraversalPathClass>)
-              .sort({ createdAt: 1, _id: 1 })
-              .limit(batchSize)
-              .select('head.url head.domain createdAt _id')
+            processId: this.pid,
+            'head.type': HEAD_TYPE.URL,
+            ...cursorCondition
+          } as QueryFilter<TraversalPathClass>)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize)
+            .select('head.url head.domain createdAt _id')
           : await EndpointPath.find({
-              processId: this.pid,
-              'head.type': HEAD_TYPE.URL,
-              ...cursorCondition
-            } as QueryFilter<EndpointPathClass>)
-              .sort({ createdAt: 1, _id: 1 })
-              .limit(batchSize)
-              .select('head.url head.domain createdAt _id');
+            processId: this.pid,
+            'head.type': HEAD_TYPE.URL,
+            ...cursorCondition
+          } as QueryFilter<EndpointPathClass>)
+            .sort({ createdAt: 1, _id: 1 })
+            .limit(batchSize)
+            .select('head.url head.domain createdAt _id');
 
       if (paths.length === 0) {
         hasMore = false;

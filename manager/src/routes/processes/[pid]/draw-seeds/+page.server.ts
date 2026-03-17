@@ -10,20 +10,20 @@ export const load: PageServerLoad = async ({ params }) => {
     });
   }
 
-  if (!p.currentStep?.predsDirMetrics) {
+  if (!p.currentStep?.predsBranchFactor) {
     throw error(400, {
-      message: 'No predsDirMetrics found for current step'
+      message: 'No predsBranchFactor found for current step'
     });
   }
 
-  console.log('XXXXXXXXXXXXX', p.currentStep.predsDirMetrics);
+  console.log('XXXXXXXXXXXXX', p.currentStep.predsBranchFactor);
 
   return {
     proc: {
       pid: p.pid,
       currentStep: {
         seeds: p.currentStep.seeds,
-        branchFactors: p.currentStep.predsDirMetrics.reduce((acc, metric) => {
+        branchFactors: p.currentStep.predsBranchFactor.reduce((acc, metric) => {
           if (!metric.branchFactor) {
             return acc;
           }

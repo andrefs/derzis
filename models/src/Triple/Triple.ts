@@ -11,7 +11,7 @@ import { urlValidator, type SimpleTriple, directionOk, TripleType } from '@derzi
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import { type DocumentType } from '@typegoose/typegoose/lib/types';
-import { BranchFactorClass, SeedPosRatioClass } from '../Process';
+import { BranchFactorClass } from '../Process';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 
 const log = createLogger('Triple');
@@ -140,10 +140,10 @@ function buildBulkOps(
       predicate: t.predicate,
       ...(isLiteral
         ? {
-            'object.value': (t.object as LiteralObject).value,
-            'object.language': (t.object as LiteralObject).language,
-            'object.datatype': (t.object as LiteralObject).datatype
-          }
+          'object.value': (t.object as LiteralObject).value,
+          'object.language': (t.object as LiteralObject).language,
+          'object.datatype': (t.object as LiteralObject).datatype
+        }
         : { object: t.object })
     };
     return {
@@ -198,22 +198,22 @@ export class NamedNodeTripleClass extends TripleClass {
   public directionOk(
     headUrl: string,
     followDirection: boolean,
-    predsDirMetrics?: Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>
+    predsBF?: Map<string, BranchFactorClass>
   ): boolean {
     if (!followDirection) {
       return true;
     }
 
-    if (!predsDirMetrics || !predsDirMetrics.size) {
-      log.warn('Predicate direction metrics not provided, cannot enforce directionality');
+    if (!predsBF || !predsBF.size) {
+      log.warn('Predicate branching factor not provided, cannot enforce directionality');
       return true;
     }
 
-    if (!predsDirMetrics.has(this.predicate)) {
+    if (!predsBF.has(this.predicate)) {
       return true;
     }
 
-    const bf = predsDirMetrics.get(this.predicate)!.bf!;
+    const bf = predsBF.get(this.predicate)!;
     const bfRatio = bf.subj / bf.obj;
 
     const dOk = directionOk(

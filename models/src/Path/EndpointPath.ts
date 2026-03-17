@@ -285,7 +285,7 @@ function collectNamedNodeCandidates(
 ): Candidate[] {
   const candidates: Candidate[] = [];
   const followDirection = process.currentStep.followDirection;
-  const predsDirMetrics = process.curPredsDirMetrics();
+  const predsBF = process.curPredsBranchFactor();
 
   const namedNodeTriples = triples
     .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
@@ -294,7 +294,7 @@ function collectNamedNodeCandidates(
       (t) =>
         this.isExtensionValid(t, urlHead) &&
         this.isExtensionAllowed(t, process.currentStep) &&
-        t.directionOk(urlHead.url, followDirection, predsDirMetrics)
+        t.directionOk(urlHead.url, followDirection, predsBF)
     );
 
   for (const t of namedNodeTriples) {

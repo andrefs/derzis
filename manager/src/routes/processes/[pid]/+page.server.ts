@@ -72,7 +72,7 @@ export const actions: { [name: string]: Action } = {
       maxPathProps,
       predLimitations,
       followDirection,
-      predsDirMetrics: undefined,
+      predsBranchFactor: undefined,
       resetErrors,
       convertToEndpointPaths
     };

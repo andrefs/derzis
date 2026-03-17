@@ -1,5 +1,5 @@
 import { addStep } from '$lib/process-helper';
-import { PredDirMetrics, Process, StepClass, type PredicateLimitationType } from '@derzis/models';
+import { PredBranchFactor, Process, StepClass, type PredicateLimitationType } from '@derzis/models';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
 import type { MakeOptional } from '$lib/utils';
@@ -16,7 +16,7 @@ interface NewStepReqBody {
       lims: PredicateLimitationType[];
     }[];
     followDirection: boolean;
-    predsDirMetrics?: PredDirMetrics[];
+    predsBranchFactor?: PredBranchFactor[];
     resetErrors: boolean;
     convertToEndpointPaths: boolean;
   };
@@ -74,7 +74,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
     maxPathProps: resp.data.maxPathProps,
     predLimitations: predLimitations,
     followDirection: resp.data.followDirection,
-    predsDirMetrics: resp.data.predsDirMetrics,
+    predsBranchFactor: resp.data.predsBranchFactor,
     resetErrors: resp.data.resetErrors,
     convertToEndpointPaths: resp.data.convertToEndpointPaths
   };

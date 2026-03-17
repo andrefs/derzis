@@ -81,7 +81,7 @@ export async function addStep(
     predLimit: params.predLimit,
     predLimitations: params.predLimitations,
     followDirection: params.followDirection as boolean,
-    predsDirMetrics: params.predsDirMetrics,
+    predsBranchFactor: params.predsBranchFactor,
     convertToEndpointPaths: params.convertToEndpointPaths ?? false
   };
 
