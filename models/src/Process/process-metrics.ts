@@ -57,7 +57,7 @@ export async function calcProcMetrics(pid: string, seeds: string[]): Promise<Pro
   return { predicates, globalMetrics };
 }
 
-async function getPredicateCounts(pid: string) {
+export async function getPredicateCounts(pid: string) {
   const result = await ProcessTriple.aggregate([
     { $match: { processId: pid } },
     {
@@ -75,7 +75,7 @@ async function getPredicateCounts(pid: string) {
   return result;
 }
 
-async function getSeedCoverage(
+export async function getSeedCoverage(
   pid: string,
   predicate: string,
   field: 'subject' | 'object',
@@ -84,6 +84,10 @@ async function getSeedCoverage(
   if (!seeds || seeds.length === 0) {
     return 0;
   }
+
+  log.info(
+    `getSeedCoverage: pid=${pid}, predicate=${predicate}, field=${field}, seeds=${JSON.stringify(seeds)}`
+  );
 
   const result = await ProcessTriple.aggregate([
     { $match: { processId: pid } },
@@ -101,10 +105,11 @@ async function getSeedCoverage(
     { $count: 'coverage' }
   ]);
 
+  log.info(`getSeedCoverage result: ${JSON.stringify(result)}`);
   return result[0]?.coverage || 0;
 }
 
-async function getBranchingFactor(
+export async function getBranchingFactor(
   pid: string,
   predicate: string
 ): Promise<{ subj: number; obj: number }> {
@@ -139,7 +144,7 @@ async function getBranchingFactor(
   return result[0] || { subj: 0, obj: 0 };
 }
 
-async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
+export async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
   const [triplesResult, subjectsResult, objectsResult, resourcesResult] = await Promise.all([
     ProcessTriple.countDocuments({ processId: pid }),
     ProcessTriple.aggregate([
