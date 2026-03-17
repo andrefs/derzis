@@ -101,11 +101,11 @@ export async function getSeedCoverage(
     },
     { $unwind: '$tripleData' },
     { $match: { 'tripleData.predicate': predicate, [`tripleData.${field}`]: { $in: seeds } } },
-    { $group: { _id: `$${field}` } },
+    { $group: { _id: `$tripleData.${field}` } },
     { $count: 'coverage' }
   ]);
 
-  log.info(`getSeedCoverage result: ${JSON.stringify(result)}`);
+  log.info(`getSeedCoverage result for predicate ${predicate}: ${JSON.stringify(result)}`);
   return result[0]?.coverage || 0;
 }
 

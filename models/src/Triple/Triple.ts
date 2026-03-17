@@ -39,6 +39,8 @@ export class LiteralObject {
 @index({ updatedAt: -1 })
 @index({ nodes: 1, predicate: 1 })
 @index({ object: 1, predicate: 1 }) // for object-origin queries
+@index({ predicate: 1 }) // for metrics queries
+@index({ predicate: 1, subject: 1 }) // for metrics queries with subject filter
 export class TripleClass extends TimeStamps {
   @prop({ required: true, validate: urlValidator, type: String, index: true })
   public subject!: string;
@@ -188,6 +190,7 @@ async function executeBulkOps(model: BulkWriteModel, ops: any): Promise<BulkWrit
   }
 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
+@index({ predicate: 1, object: 1 }) // for metrics queries with object filter
 export class NamedNodeTripleClass extends TripleClass {
   @prop({ required: true, validate: urlValidator, type: String })
   public object!: string;
