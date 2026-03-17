@@ -916,13 +916,19 @@ async function createNewPaths(
  * @param pathsToDelete Set of path IDs to mark as deleted
  * @param pathType Type of paths to delete ('traversal' or 'endpoint')
  */
-async function deleteOldPaths(pathsToDelete: Set<Types.ObjectId>, pathType: PathType) {
+async function deleteOldPaths(
+  pathsToDelete: Set<Types.ObjectId>,
+  pathType: PathType,
+  headStatus?: 'done' | 'unvisited'
+) {
   if (pathsToDelete.size) {
-    const pathQuery = {
+    const pathQuery: QueryFilter<any> = {
       _id: { $in: Array.from(pathsToDelete) },
-      'head.type': HEAD_TYPE.URL,
-      'head.status': 'done'
+      'head.type': HEAD_TYPE.URL
     };
+    if (headStatus) {
+      pathQuery['head.status'] = headStatus;
+    }
     const pathUpdate = { $set: { status: 'deleted' } };
 
     // mark old paths as deleted if their head status is 'done'
@@ -1399,13 +1405,13 @@ async function extendPathsBatch(
       }
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
       await createNewPaths(pathsToCreate, pathType);
-      await deleteOldPaths(new Set([path._id]), convertToEndpoint ? PathType.TRAVERSAL : pathType);
+      await deleteOldPaths(new Set([path._id]), convertToEndpoint ? PathType.TRAVERSAL : pathType, headStatus);
       continue;
     }
     // convert paths even if they were not extended
     if (convertToEndpoint) {
       let pathsToCreate = convertToEndpointSkeletons([path]);
-      await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL);
+      await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL, headStatus);
       await createNewPaths(pathsToCreate, PathType.ENDPOINT);
     }
   }
