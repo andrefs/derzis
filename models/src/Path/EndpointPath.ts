@@ -15,7 +15,7 @@ import {
   isNamedNode,
   isLiteral
 } from '../Triple';
-import { matchesOne, ProcessClass, StepClass } from '../Process';
+import { buildLimsByType, matchesOne, ProcessClass, StepClass } from '../Process';
 import {
   PathClass,
   Path,
@@ -100,7 +100,6 @@ export type EndpointPathSkeleton = Pick<
     partialFilterExpression: { type: PathType.ENDPOINT }
   }
 )
-
 @pre<EndpointPathClass>('save', async function () {
   if (this.head.type === HEAD_TYPE.URL) {
     const urlHead = this.head as UrlHead;
@@ -114,7 +113,6 @@ export type EndpointPathSkeleton = Pick<
     }
   }
 })
-
 export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Number, default: 0 })
   public shortestPathLength!: number;
@@ -146,25 +144,19 @@ export class EndpointPathClass extends PathClass {
     return true;
   }
 
-
   public isExtensionAllowed(
     this: EndpointPathClass,
     t: NamedNodeTripleClass,
     currentStep: StepClass
   ): boolean {
-    if (!currentStep?.predLimitations?.length) { return true; }
-    if (this.shortestPathLength >= currentStep?.maxPathLength) { return false; }
+    if (!currentStep?.predLimitations?.length) {
+      return true;
+    }
+    if (this.shortestPathLength >= currentStep?.maxPathLength) {
+      return false;
+    }
 
-    const limsByType = currentStep.predLimitations.reduce(
-      (acc, pl) => {
-        for (const lim of pl.lims) {
-          acc[lim] = acc[lim] || [];
-          acc[lim].push(pl.predicate);
-        }
-        return acc;
-      },
-      {} as Record<string, string[]>
-    );
+    const limsByType = buildLimsByType(currentStep.predLimitations);
 
     if (limsByType['require-future'] && !matchesOne(t.predicate, limsByType['require-future'])) {
       return false;
@@ -337,7 +329,6 @@ function collectNamedNodeCandidates(
 
   return candidates;
 }
-
 
 function collectLiteralCandidates(
   this: EndpointPathClass,

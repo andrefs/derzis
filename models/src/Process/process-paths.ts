@@ -12,6 +12,7 @@ import {
   PathClass
 } from '../Path';
 import { Process, ProcessClass } from './Process';
+import { buildLimsByType } from './process-utils';
 import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
@@ -289,7 +290,10 @@ async function processHeadGroup(
         success = true;
       } catch (err: any) {
         if (err.code === 11000 || err.message?.includes('duplicate key')) {
-          log.warn('Duplicate key detected in processHeadGroup, fetching and merging', { pid, identifier });
+          log.warn('Duplicate key detected in processHeadGroup, fetching and merging', {
+            pid,
+            identifier
+          });
           continue;
         }
         throw err;
@@ -883,7 +887,10 @@ async function createNewPaths(
             success = true;
           } catch (err: any) {
             if (err.code === 11000 || err.message?.includes('duplicate key')) {
-              log.warn('Duplicate key detected during insert, fetching and merging', { processId, headUrl });
+              log.warn('Duplicate key detected during insert, fetching and merging', {
+                processId,
+                headUrl
+              });
               continue;
             }
             throw err;
@@ -1405,14 +1412,23 @@ async function extendPathsBatch(
       }
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
       await createNewPaths(pathsToCreate, pathType);
-      await deleteOldPaths(new Set([path._id]), convertToEndpoint ? PathType.TRAVERSAL : pathType, headStatus);
+      await deleteOldPaths(
+        new Set([path._id]),
+        convertToEndpoint ? PathType.TRAVERSAL : pathType,
+        headStatus
+      );
       continue;
     }
-    // convert paths even if they were not extended
+    // convert paths even if they were not extended (only for done heads, or for unvisited if extension is allowed)
     if (convertToEndpoint) {
-      let pathsToCreate = convertToEndpointSkeletons([path]);
-      await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL, headStatus);
-      await createNewPaths(pathsToCreate, PathType.ENDPOINT);
+      const tp = path as TraversalPathDocument;
+      const currentStep = process.currentStep;
+      const limsByType = buildLimsByType(currentStep.predLimitations || []);
+      if (headStatus === 'done' || tp.isExtensionAllowedByPath(currentStep, limsByType)) {
+        let pathsToCreate = convertToEndpointSkeletons([path]);
+        await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL, headStatus);
+        await createNewPaths(pathsToCreate, PathType.ENDPOINT);
+      }
     }
   }
 }
@@ -1423,9 +1439,7 @@ async function extendPathsBatch(
  * @param parentPath - The parent path from which these were extended
  * @returns Array of EndpointPathSkeleton
  */
-function convertToEndpointSkeletons(
-  skeletons: PathSkeleton[],
-): EndpointPathSkeleton[] {
+function convertToEndpointSkeletons(skeletons: PathSkeleton[]): EndpointPathSkeleton[] {
   return skeletons.map((s) => {
     if ('seedPaths' in s) {
       return s as EndpointPathSkeleton;

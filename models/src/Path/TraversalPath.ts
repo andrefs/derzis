@@ -19,6 +19,8 @@ import {
 } from '../Triple';
 import {
   BranchFactorClass,
+  buildLimsByType,
+  LimsByType,
   matchesAny,
   matchesOne,
   ProcessClass,
@@ -326,7 +328,9 @@ export class TraversalPathClass extends PathClass {
     t: NamedNodeTripleClass | LiteralTripleDocument
   ): boolean {
     // If the head is not a URL, we cannot extend
-    if (this.head.type !== HEAD_TYPE.URL) { return false; }
+    if (this.head.type !== HEAD_TYPE.URL) {
+      return false;
+    }
 
     const urlHead = this.head as UrlHead;
     if (t.type === TripleType.LITERAL) {
@@ -337,13 +341,19 @@ export class TraversalPathClass extends PathClass {
     }
 
     const namedNodeTriple = t as NamedNodeTripleClass;
-    if (namedNodeTriple.subject === namedNodeTriple.object) { return false; }
-    if (namedNodeTriple.predicate === urlHead.url) { return false; }
+    if (namedNodeTriple.subject === namedNodeTriple.object) {
+      return false;
+    }
+    if (namedNodeTriple.predicate === urlHead.url) {
+      return false;
+    }
 
     const newHeadUrl: string =
       namedNodeTriple.subject === urlHead.url ? namedNodeTriple.object : namedNodeTriple.subject;
 
-    if (this.nodes.elems.includes(newHeadUrl)) { return false; }
+    if (this.nodes.elems.includes(newHeadUrl)) {
+      return false;
+    }
     return true;
   }
 
@@ -352,39 +362,61 @@ export class TraversalPathClass extends PathClass {
     t: NamedNodeTripleClass,
     currentStep: StepClass
   ): boolean {
-    if (!currentStep?.predLimitations?.length) { return true; }
-    if (this.nodes.count >= currentStep?.maxPathLength) { return false; }
+    const limsByType = buildLimsByType(currentStep.predLimitations || []);
 
-    // if path predicates are maxed out, predicate must be in predicates.elems
-    if (this.predicates.count >= currentStep.maxPathProps && !(t.predicate in this.predicates.elems)) {
-      return false
+    if (!this.isExtensionAllowedByTriple(t, currentStep, limsByType)) {
+      return false;
     }
 
-    const limsByType = currentStep.predLimitations.reduce(
-      (acc, pl) => {
-        for (const lim of pl.lims) {
-          acc[lim] = acc[lim] || [];
-          acc[lim].push(pl.predicate);
-        }
-        return acc;
-      },
-      {} as Record<string, string[]>
-    );
+    return this.isExtensionAllowedByPath(currentStep, limsByType);
+  }
 
+  public isExtensionAllowedByPath(
+    this: TraversalPathClass,
+    currentStep: StepClass,
+    limsByType: LimsByType
+  ): boolean {
+    if (!currentStep?.predLimitations?.length) {
+      return true;
+    }
+    if (this.nodes.count >= currentStep?.maxPathLength) {
+      return false;
+    }
+
+    if (
+      limsByType['require-past'] &&
+      !matchesAny(this.predicates.elems, limsByType['require-past'])
+    ) {
+      return false;
+    }
+    if (
+      limsByType['disallow-past'] &&
+      matchesAny(this.predicates.elems, limsByType['disallow-past'])
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  public isExtensionAllowedByTriple(
+    this: TraversalPathClass,
+    t: NamedNodeTripleClass,
+    currentStep: StepClass,
+    limsByType: LimsByType
+  ): boolean {
+    // if path predicates are maxed out, predicate must be in predicates.elems
+    if (
+      this.predicates.count >= currentStep.maxPathProps &&
+      !(t.predicate in this.predicates.elems)
+    ) {
+      return false;
+    }
     if (limsByType['require-future'] && !matchesOne(t.predicate, limsByType['require-future'])) {
       return false;
     }
     if (limsByType['disallow-future'] && matchesOne(t.predicate, limsByType['disallow-future'])) {
       return false;
     }
-
-    if (limsByType['require-past'] && !matchesAny(this.predicates.elems, limsByType['require-past'])) {
-      return false;
-    }
-    if (limsByType['disallow-past'] && matchesAny(this.predicates.elems, limsByType['disallow-past'])) {
-      return false;
-    }
-
     return true;
   }
 
