@@ -1425,7 +1425,7 @@ function convertToEndpointSkeletons(
       return s as EndpointPathSkeleton;
     }
     const tp = s as TraversalPathSkeleton & { seed: { url: string } };
-    const pathLength = (tp.nodes?.count ?? 0) + 1;
+    const pathLength = tp.nodes?.count ?? tp.nodes.elems.length ?? 0;
     return {
       processId: tp.processId,
       head: tp.head,
