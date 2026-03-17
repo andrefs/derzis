@@ -1388,11 +1388,18 @@ async function extendPathsBatch(
     if (result.extendedPaths.length > 0) {
       let pathsToCreate = result.extendedPaths;
       if (convertToEndpoint) {
-        pathsToCreate = convertToEndpointSkeletons(pathsToCreate, path);
+        pathsToCreate = convertToEndpointSkeletons(pathsToCreate);
       }
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
       await createNewPaths(pathsToCreate, pathType);
       await deleteOldPaths(new Set([path._id]), convertToEndpoint ? PathType.TRAVERSAL : pathType);
+      continue;
+    }
+    // convert paths even if they were not extended
+    if (convertToEndpoint) {
+      await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL);
+      let pathsToCreate = convertToEndpointSkeletons([path]);
+      await createNewPaths(pathsToCreate, PathType.ENDPOINT);
     }
   }
 }
@@ -1405,7 +1412,6 @@ async function extendPathsBatch(
  */
 function convertToEndpointSkeletons(
   skeletons: PathSkeleton[],
-  parentPath: TraversalPathDocument | EndpointPathDocument
 ): EndpointPathSkeleton[] {
   return skeletons.map((s) => {
     if ('seedPaths' in s) {

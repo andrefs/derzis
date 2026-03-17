@@ -350,9 +350,9 @@ class ProcessClass extends Document {
     const convertToEndpoint = process.currentStep.convertToEndpointPaths;
     await extendPaths({ pid: process.pid, convertToEndpoint }); // this potentially takes a lot of time
 
-    // Convert remaining traversal paths to endpoint paths if flag is set
+    // Delete remaining traversal paths if flag is set
     if (convertToEndpoint) {
-      await convertTraversalToEndpointPaths(pid);
+      //await convertTraversalToEndpointPaths(pid);
       const remainingDeleted = await deleteRemainingTraversalPaths(pid);
       if (remainingDeleted > 0) {
         log.info(
