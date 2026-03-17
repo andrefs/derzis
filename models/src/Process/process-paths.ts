@@ -1381,11 +1381,16 @@ async function extendPathsBatch(
   process: ProcessClass,
   pathsBatch: (TraversalPathDocument | EndpointPathDocument)[],
   triples?: TripleDocument[],
-  convertToEndpoint?: boolean
+  convertToEndpoint?: boolean,
+  headStatus: 'done' | 'unvisited' = 'done'
 ) {
   const pathType = convertToEndpoint ? PathType.ENDPOINT : getPathType(process);
+  const skipGenExpPaths = convertToEndpoint && headStatus === 'unvisited';
+
   for (const path of pathsBatch) {
-    const result = await path.genExtendedPaths(process, triples);
+    const result = skipGenExpPaths
+      ? { extendedPaths: [], procTriples: [] }
+      : await path.genExtendedPaths(process, triples);
 
     if (result.extendedPaths.length > 0) {
       let pathsToCreate = result.extendedPaths;
@@ -1519,7 +1524,7 @@ export async function extendPaths({
       break;
     }
 
-    await extendPathsBatch(process, pathsToProcess, triples, convertToEndpoint);
+    await extendPathsBatch(process, pathsToProcess, triples, convertToEndpoint, headStatus);
     totalProcessed += pathsToProcess.length;
 
     if (isFullExtend) {
