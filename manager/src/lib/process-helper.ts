@@ -4,11 +4,13 @@ import {
   ProcessClass,
   Resource,
   NamedNodeTriple,
-  TraversalPath,
   LiteralTriple,
-  LiteralTripleClass,
   NamedNodeTripleClass,
-  type ProcessDocument
+  LiteralTripleClass,
+  TraversalPath,
+  type ProcessDocument,
+  type PredicateLimitationType,
+  buildStepPathQuery
 } from '@derzis/models';
 import { PathType, type RecursivePartial } from '@derzis/common';
 import { secondsToString, type MakeOptional } from './utils';
@@ -55,7 +57,12 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
  * @param pid Process ID
  * @param params Step parameters
  */
-export async function addStep(pid: string, params: MakeOptional<StepClass, 'seeds'>) {
+export async function addStep(
+  pid: string,
+  params: MakeOptional<StepClass, 'seeds'> & {
+    predLimitations?: { predicate: string; lims: PredicateLimitationType[] }[];
+  }
+) {
   const p = await Process.findOne({ pid, status: 'done' });
 
   if (!p) {
@@ -72,6 +79,7 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
     maxPathLength: newMPL,
     maxPathProps: newMPP,
     predLimit: params.predLimit,
+    predLimitations: params.predLimitations,
     followDirection: params.followDirection as boolean,
     predsDirMetrics: params.predsDirMetrics,
     convertToEndpointPaths: params.convertToEndpointPaths ?? false
@@ -107,8 +115,8 @@ export async function addStep(pid: string, params: MakeOptional<StepClass, 'seed
  * Get detailed info about a process.
  * @param pid Process ID
  */
-export async function info(pid: string) {
-  const _p: ProcessClass | null = await Process.findOne({ pid }).lean();
+export async function info(pid: string): Promise<any> {
+  const _p: any = await Process.findOne({ pid }).lean();
   if (!_p) {
     return;
   }
@@ -116,7 +124,9 @@ export async function info(pid: string) {
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO this should be process specific
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
   const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
-  const lastTriple = [lastLT, lastNNT].reduce(
+  const lastTriple = [lastLT, lastNNT].reduce<
+    LiteralTripleClass | NamedNodeTripleClass | null
+  >(
     (latest, t) => {
       if (!t || !t.updatedAt) return latest;
       return !latest || !latest.updatedAt || t.updatedAt > latest.updatedAt ? t : latest;
@@ -135,19 +145,20 @@ export async function info(pid: string) {
     ? (lastResource!.updatedAt.getTime() - _p.createdAt!.getTime()) / 1000
     : null;
   const timeRunning = last ? (last - _p.createdAt!.getTime()) / 1000 : null;
-  const p = {
+  const processInfo = {
     ..._p,
     createdAt: _p.createdAt?.toISOString(),
     updatedAt: _p.updatedAt?.toISOString() || _p.createdAt,
     timeToLastResource: timeToLastResource ? secondsToString(timeToLastResource) : '',
     timeRunning: timeRunning ? secondsToString(timeRunning) : '',
     notification: {
-      ..._p.notification,
-      email: _p?.notification?.email
-        ?.replace(/(?<=.).*?(?=.@)/, (x) => '*'.repeat(x.length))
-        ?.replace(/^..(?=@)/, '**')
-    }
+       ..._p.notification,
+       email: _p?.notification?.email
+         ?.replace(/(?<=.).*?(?=.@)/, (x: string) => '*'.repeat(x.length))
+         ?.replace(/^..(?=@)/, '**')
+    },
+    currentStepQuery: _p.currentStep ? buildStepPathQuery(_p, _p.curPathType ?? PathType.ENDPOINT) : undefined
   };
 
-  return structuredClone(p);
+  return processInfo;
 }

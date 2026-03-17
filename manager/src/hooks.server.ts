@@ -1,5 +1,5 @@
 import { building } from '$app/environment';
-import { db, Process, Triple } from '@derzis/models';
+import { db, Process, Triple, Path } from '@derzis/models';
 import ManagerPubSub from './lib/ManagerPubSub';
 import type { Handle } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
@@ -26,6 +26,10 @@ const connStr = muri.format({
 const log = createLogger('Manager');
 log.info('Connecting to MongoDB', connStr);
 await db.connect(connStr);
+
+log.info('Syncing indexes for Path');
+await Path.syncIndexes();
+log.info('Index sync complete');
 
 const logDir = './logs';
 if (!existsSync(logDir)) {

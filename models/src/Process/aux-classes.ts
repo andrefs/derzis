@@ -56,6 +56,28 @@ export class PredicateLimitationClass {
   public limPredicates!: string[];
 }
 
+export type PredicateLimitationType =
+  | 'disallow-past'
+  | 'require-past'
+  | 'disallow-future'
+  | 'require-future';
+
+export class PredLimitation {
+  @prop({ required: true, type: String })
+  public predicate!: string;
+
+  @prop(
+    {
+      required: true,
+      type: String,
+      enum: ['disallow-past', 'require-past', 'disallow-future', 'require-future'],
+      default: []
+    },
+    PropType.ARRAY
+  )
+  public lims!: PredicateLimitationType[];
+}
+
 /**
  * Class representing a crawling step in a process
  */
@@ -81,10 +103,16 @@ export class StepClass {
   public maxPathProps!: number;
 
   /**
-   * Predicate limitation (whitelist/blacklist) for this step
+   * Predicate limitation (whitelist/blacklist) for this step (deprecated, use predLimitations)
    */
-  @prop({ required: true, type: PredicateLimitationClass })
-  public predLimit!: PredicateLimitationClass;
+  @prop({ type: PredicateLimitationClass })
+  public predLimit?: PredicateLimitationClass;
+
+  /**
+   * Per-predicate limitations with past/future constraints
+   */
+  @prop({ type: PredLimitation, default: [] }, PropType.ARRAY)
+  public predLimitations!: PredLimitation[];
 
   /**
    * Direction metrics of last step's predicates

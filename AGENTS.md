@@ -76,6 +76,17 @@ Database models and MongoDB connection logic.
 - Use TypeGoose decorators for schema definitions
 - Test database interactions thoroughly
 
+**Important - Index Sync**: When syncing indexes, use the base `Path` model, not discriminators (TraversalPath/EndpointPath). Discriminator schemas inherit indexes from the base and adding `partialFilterExpression` causes conflicts:
+
+```typescript
+// WRONG - causes IndexKeySpecsConflict errors
+await TraversalPath.syncIndexes();
+await EndpointPath.syncIndexes();
+
+// CORRECT - sync base model only
+await Path.syncIndexes();
+```
+
 ### derzis-manager
 
 SvelteKit web application with UI and API.

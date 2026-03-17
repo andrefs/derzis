@@ -1,6 +1,6 @@
 import { newProcess } from '$lib/process-helper';
 import type { RecursivePartial } from '@derzis/common';
-import { Process, StepClass, type ProcessClass } from '@derzis/models';
+import { Process, StepClass, type ProcessClass, type PredicateLimitationType } from '@derzis/models';
 import { redirect, type Action } from '@sveltejs/kit';
 
 export async function load() {
@@ -12,6 +12,33 @@ export async function load() {
   };
 }
 
+function parsePredLimitations(formData: FormData): { predicate: string; lims: PredicateLimitationType[] }[] {
+  const predLimitations: { predicate: string; lims: PredicateLimitationType[] }[] = [];
+  let index = 0;
+
+  while (true) {
+    const predicate = formData.get(`predLimitations[${index}].predicate`) as string | null;
+    const past = formData.get(`predLimitations[${index}].past`) as string | null;
+    const future = formData.get(`predLimitations[${index}].future`) as string | null;
+
+    if (!predicate) break;
+
+    const lims: PredicateLimitationType[] = [];
+    if (past === 'require') lims.push('require-past');
+    if (past === 'disallow') lims.push('disallow-past');
+    if (future === 'require') lims.push('require-future');
+    if (future === 'disallow') lims.push('disallow-future');
+
+    if (lims.length > 0) {
+      predLimitations.push({ predicate, lims });
+    }
+
+    index++;
+  }
+
+  return predLimitations;
+}
+
 /** @type {import('./$types').Actions} */
 export const actions: { [name: string]: Action } = {
   newProc: async ({ request }) => {
@@ -21,16 +48,12 @@ export const actions: { [name: string]: Action } = {
       .filter((s: string) => !s.match(/^\s*$/));
     const uniqueSeeds = [...new Set(seeds)];
 
+    const predLimitations = parsePredLimitations(data);
+
     const firstStep: RecursivePartial<StepClass> = {
       maxPathLength: Number(data.get('maxPathLength')),
       maxPathProps: Number(data.get('maxPathProps')),
-      predLimit: {
-        limType: data.get('limitation-type') as 'blacklist' | 'whitelist',
-
-        limPredicates: (data.get('pred-list') as string)
-          ?.split(/\s*[\n]\s*/)
-          .filter((s: string) => !s.match(/^\s*$/))
-      },
+      predLimitations,
       seeds: uniqueSeeds
     };
 

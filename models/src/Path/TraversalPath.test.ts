@@ -4,7 +4,8 @@ import {
   StepClass,
   PredicateLimitationClass,
   BranchFactorClass,
-  SeedPosRatioClass
+  SeedPosRatioClass,
+  PredLimitation
 } from '../Process/aux-classes';
 import { Head } from './Path';
 
@@ -535,7 +536,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
   });
 });
 
-describe('TraversalPathClass.shouldCreateNewPath', () => {
+describe('TraversalPathClass.isExtensionValid', () => {
   const createMockPath = (overrides: {
     headUrl?: string;
     nodesElems?: string[];
@@ -568,7 +569,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
       const path = createMockPath({ headUrl: 'http://example.com/head' });
       const triple = createMockTriple('http://same.org', 'http://same.org', 'http://pred.org');
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(false);
     });
@@ -581,7 +582,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://example.com/head'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(false);
     });
@@ -598,7 +599,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(false);
     });
@@ -615,7 +616,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(false);
     });
@@ -633,7 +634,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(true);
     });
@@ -649,7 +650,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(true);
     });
@@ -665,7 +666,7 @@ describe('TraversalPathClass.shouldCreateNewPath', () => {
         'http://pred.org'
       );
 
-      const result = path.shouldCreateNewPath(triple);
+      const result = path.isExtensionValid(triple);
 
       expect(result).toBe(true);
     });
@@ -843,6 +844,195 @@ describe('TraversalPathClass.tripleIsOutOfBounds', () => {
       const result = path.tripleIsOutOfBounds(triple, { currentStep: process } as any);
 
       expect(result).toBe(false);
+    });
+  });
+});
+
+describe('TraversalPathClass.genPredicatesFilter', () => {
+  const LITERAL_PREDS = [
+    'http://www.w3.org/2000/01/rdf-schema#label',
+    'http://www.w3.org/2000/01/rdf-schema#comment'
+  ];
+
+  const createMockPath = (predicatesElems: string[] = []) => {
+    const path = new TraversalPathClass();
+    path.processId = 'test-pid';
+    path.seed = { url: 'http://example.com/seed' };
+    path.head = {
+      url: 'http://example.com/head',
+      status: 'unvisited',
+      domain: { origin: 'http://example.com', isUnvisited: true },
+      type: 'url'
+    } as Head;
+    path.predicates = { count: predicatesElems.length, elems: predicatesElems };
+    path.nodes = { count: 1, elems: ['http://example.com/node1'] };
+    path.triples = [];
+    return path;
+  };
+
+  const createPredLimitation = (predicate: string, lims: string[]): PredLimitation => {
+    const pl = new PredLimitation();
+    pl.predicate = predicate;
+    pl.lims = lims as any;
+    return pl;
+  };
+
+  describe('when path is NOT full', () => {
+    it('with require-future, adds required predicates to allowed', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://pred1.org', ['require-future'])],
+        false
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.allowed).toContain('http://pred1.org');
+    });
+
+    it('with disallow-future, adds disallowed predicates to notAllowed', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://bad.org', ['disallow-future'])],
+        false
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.notAllowed).toContain('http://bad.org');
+    });
+
+    it('always adds literal predicates to allowed with require-future', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter(
+        [createPredLimitation(LITERAL_PREDS[0], ['require-future'])],
+        false
+      );
+
+      expect(result!.allowed).toContain(LITERAL_PREDS[0]);
+      expect(result!.allowed).toContain(LITERAL_PREDS[1]);
+    });
+  });
+
+  describe('when path IS full', () => {
+    it('with require-future, only allows predicates already in path that are required', () => {
+      const path = createMockPath(['http://existing.org', 'http://required.org']);
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://required.org', ['require-future'])],
+        true
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.allowed).toContain('http://required.org');
+    });
+
+    it('with disallow-future, allows predicates in path that are not disallowed', () => {
+      const path = createMockPath(['http://good.org', 'http://bad.org']);
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://bad.org', ['disallow-future'])],
+        true
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.allowed).toContain('http://good.org');
+      expect(result!.allowed).not.toContain('http://bad.org');
+    });
+  });
+
+  describe('returns null', () => {
+    it('when path is full and allowed is empty with disallow-future', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://bad.org', ['disallow-future'])],
+        true
+      );
+
+      // When path is full and path has no predicates, returns null
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('with empty predLimitations', () => {
+    it('returns filter allowing all predicates', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter([], false);
+
+      expect(result).not.toBeNull();
+      expect(result!.predFilter).toEqual({});
+    });
+  });
+
+  describe('with multiple predLimitations', () => {
+    it('handles multiple predicates with different lims', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter(
+        [
+          createPredLimitation('http://required.org', ['require-future']),
+          createPredLimitation('http://blocked.org', ['disallow-future'])
+        ],
+        false
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.allowed).toContain('http://required.org');
+      expect(result!.notAllowed).toContain('http://blocked.org');
+    });
+
+    it('handles same predicate with multiple lims', () => {
+      const path = createMockPath(['http://both.org']);
+      // Predicate has both require-future and disallow-past
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://both.org', ['require-future', 'disallow-past'])],
+        true
+      );
+
+      // Full path with require-future - predicate is in path, so allowed
+      expect(result).not.toBeNull();
+      expect(result!.allowed).toContain('http://both.org');
+    });
+
+    it('handles require-past constraint', () => {
+      const path = createMockPath(['http://exists.org']);
+      // require-past is handled in query, not here - but predLimitations with only require-past should return empty filter
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://exists.org', ['require-past'])],
+        false
+      );
+
+      // No future constraints, so returns empty filter (all predicates allowed)
+      expect(result!.predFilter).toEqual({});
+    });
+
+    it('handles disallow-past constraint', () => {
+      const path = createMockPath(['http://exists.org']);
+      // disallow-past is handled in query, not here - but predLimitations with only disallow-past should return empty filter
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://exists.org', ['disallow-past'])],
+        false
+      );
+
+      // No future constraints, so returns empty filter (all predicates allowed)
+      expect(result!.predFilter).toEqual({});
+    });
+
+    it('handles combination of require-past and require-future on same predicate', () => {
+      const path = createMockPath(['http://both.org']);
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://both.org', ['require-past', 'require-future'])],
+        false
+      );
+
+      // Non-full path with require-future - predicate is allowed
+      expect(result!.allowed).toContain('http://both.org');
+    });
+
+    it('handles combination of disallow-past and disallow-future on same predicate', () => {
+      const path = createMockPath([]);
+      const result = path.genPredicatesFilter(
+        [createPredLimitation('http://blocked.org', ['disallow-past', 'disallow-future'])],
+        false
+      );
+
+      // Non-full path with disallow-future - predicate is not allowed
+      expect(result!.notAllowed).toContain('http://blocked.org');
     });
   });
 });

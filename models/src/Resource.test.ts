@@ -3,6 +3,7 @@ import { Resource } from './Resource';
 import { EndpointPath } from './Path/EndpointPath';
 import { TraversalPath } from './Path/TraversalPath';
 import { Domain } from './Domain';
+import { Process } from './Process';
 import { PathType } from '@derzis/common';
 import config from '@derzis/config';
 
@@ -11,11 +12,34 @@ describe('Resource.insertSeedPaths', () => {
     vi.clearAllMocks();
     // Reset config pathType to default (endpoint)
     config.manager.pathType = PathType.ENDPOINT;
+    vi.spyOn(Process, 'findOne').mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
+      })
+    } as any);
+    vi.spyOn(Domain, 'find').mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([])
+      })
+    } as any);
   });
 
   describe('EndpointPath', () => {
     beforeEach(() => {
       config.manager.pathType = PathType.ENDPOINT;
+      vi.spyOn(Process, 'findOne').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
+        })
+      } as any);
+      vi.spyOn(Domain, 'find').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([
+            { origin: 'http://example.com', status: 'unvisited' },
+            { origin: 'http://dbpedia.org', status: 'unvisited' }
+          ])
+        })
+      } as any);
       vi.spyOn(EndpointPath, 'bulkWrite').mockResolvedValue({
         result: {},
         insertedCount: 0,
@@ -32,7 +56,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed1',
-          domain: { origin: 'http://example.com', isUnvisited: true },
+          domain: 'http://example.com',
           status: 'unvisited' as const
         }
       ];
@@ -56,14 +80,10 @@ describe('Resource.insertSeedPaths', () => {
                     type: 'url',
                     url: seeds[0].url,
                     status: seeds[0].status,
-                    domain: seeds[0].domain
+                    domain: { origin: 'http://example.com', isUnvisited: true }
                   }),
                   status: 'active',
                   shortestPathLength: 1,
-                  shortestPath: expect.objectContaining({
-                    length: 1,
-                    seed: seeds[0].url
-                  }),
                   seedPaths: expect.arrayContaining([
                     expect.objectContaining({
                       seed: seeds[0].url,
@@ -80,11 +100,11 @@ describe('Resource.insertSeedPaths', () => {
       );
     });
 
-    it('should set head.domain as a string, not an object', async () => {
+    it('should set head.domain as an object with origin property', async () => {
       const seeds = [
         {
           url: 'http://dbpedia.org/resource/Cheese',
-          domain: { origin: 'http://dbpedia.org', isUnvisited: true },
+          domain: 'http://dbpedia.org',
           status: 'unvisited' as const
         }
       ];
@@ -92,11 +112,10 @@ describe('Resource.insertSeedPaths', () => {
 
       const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
-      expect(typeof update.head.domain).toBe('string');
-      expect(update.head.domain).toBe('http://dbpedia.org');
+      expect(update.head.domain).toEqual({ origin: 'http://dbpedia.org', isUnvisited: true });
     });
 
-    it('should set shortestPath with seed (string) not seeds (array)', async () => {
+    it('should set seedPaths with seed property', async () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
@@ -108,9 +127,9 @@ describe('Resource.insertSeedPaths', () => {
 
       const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
-      expect(update.shortestPath).toHaveProperty('seed');
-      expect(update.shortestPath.seed).toBe(seeds[0].url);
-      expect(update.shortestPath).not.toHaveProperty('seeds');
+      expect(update.seedPaths).toHaveLength(1);
+      expect(update.seedPaths[0].seed).toBe(seeds[0].url);
+      expect(update.seedPaths[0].minLength).toBe(1);
     });
 
     it('should not have minPath property', async () => {
@@ -147,6 +166,16 @@ describe('Resource.insertSeedPaths', () => {
   describe('TraversalPath', () => {
     beforeEach(() => {
       config.manager.pathType = PathType.TRAVERSAL;
+      vi.spyOn(Process, 'findOne').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue({ curPathType: PathType.TRAVERSAL })
+        })
+      } as any);
+      vi.spyOn(Domain, 'find').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([{ origin: 'http://example.com', status: 'unvisited' }])
+        })
+      } as any);
       vi.spyOn(TraversalPath, 'create').mockResolvedValue([]);
       vi.spyOn(Resource, 'addTvPaths').mockResolvedValue({ res: null, dom: null });
     });
@@ -155,7 +184,7 @@ describe('Resource.insertSeedPaths', () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: { origin: 'http://example.com', isUnvisited: true },
+          domain: 'http://example.com',
           status: 'unvisited' as const
         }
       ];
@@ -172,7 +201,7 @@ describe('Resource.insertSeedPaths', () => {
               url: seeds[0].url,
               status: seeds[0].status,
               type: 'url',
-              domain: seeds[0].domain
+              domain: { origin: 'http://example.com', isUnvisited: true }
             }),
             status: 'active',
             nodes: expect.objectContaining({
@@ -189,11 +218,11 @@ describe('Resource.insertSeedPaths', () => {
       );
     });
 
-    it('should include head.domain as string for TraversalPath', async () => {
+    it('should include head.domain as object for TraversalPath', async () => {
       const seeds = [
         {
           url: 'http://example.com/seed',
-          domain: { origin: 'http://example.com', isUnvisited: true },
+          domain: 'http://example.com',
           status: 'unvisited' as const
         }
       ];
@@ -201,8 +230,7 @@ describe('Resource.insertSeedPaths', () => {
 
       const passedDoc = (TraversalPath.create as any).mock.calls[0][0][0];
       expect(passedDoc.head).toHaveProperty('domain');
-      expect(typeof passedDoc.head.domain).toBe('string');
-      expect(passedDoc.head.domain).toBe('http://example.com');
+      expect(passedDoc.head.domain).toEqual({ origin: 'http://example.com', isUnvisited: true });
     });
 
     it('should include full nodes structure with elems and count', async () => {

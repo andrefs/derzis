@@ -2,6 +2,7 @@ import { Types, type QueryFilter } from 'mongoose';
 import {
   prop,
   index,
+  pre,
   getDiscriminatorModelForClass,
   type DocumentType
 } from '@typegoose/typegoose';
@@ -14,7 +15,7 @@ import {
   isNamedNode,
   isLiteral
 } from '../Triple';
-import { ProcessClass } from '../Process';
+import { buildLimsByType, matchesOne, ProcessClass, StepClass } from '../Process';
 import {
   PathClass,
   Path,
@@ -55,8 +56,9 @@ export type EndpointPathSkeleton = Pick<
     seedPaths: Array<{ seed: string; minLength: number }>;
   };
 
-@index({ processId: 1 })
+@index({ processId: 1 }, { name: 'idx_endpoint_process' })
 @index({ createdAt: 1, _id: 1 })
+@index({ type: 1 }, { name: 'idx_endpoint_type' })
 @index(
   { processId: 1, 'head.url': 1 },
   {
@@ -64,9 +66,9 @@ export type EndpointPathSkeleton = Pick<
     partialFilterExpression: { 'head.type': HEAD_TYPE.URL }
   }
 )
-@index({ 'head.url': 1, status: 1 })
-@index({ 'head.status': 1, status: 1 })
-@index({ type: 1, 'head.domain.origin': 1, status: 1 })
+@index({ 'head.url': 1, status: 1 }, { name: 'idx_endpoint_head_url_status' })
+@index({ 'head.status': 1, status: 1 }, { name: 'idx_endpoint_head_status' })
+@index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_endpoint_domain_status' })
 // Optimized index for endpoint path queries with shortestPathLength sort
 @index(
   {
@@ -98,6 +100,19 @@ export type EndpointPathSkeleton = Pick<
     partialFilterExpression: { type: PathType.ENDPOINT }
   }
 )
+@pre<EndpointPathClass>('save', async function () {
+  if (this.head.type === HEAD_TYPE.URL) {
+    const urlHead = this.head as UrlHead;
+    if (!urlHead.url || typeof urlHead.url !== 'string' || urlHead.url.trim() === '') {
+      throw new Error(`Invalid EndpointPath: head.type is 'url' but head.url is missing or empty`);
+    }
+    try {
+      new URL(urlHead.url);
+    } catch {
+      throw new Error(`Invalid EndpointPath: head.url '${urlHead.url}' is not a valid URL`);
+    }
+  }
+})
 export class EndpointPathClass extends PathClass {
   @prop({ required: true, type: Number, default: 0 })
   public shortestPathLength!: number;
@@ -106,7 +121,7 @@ export class EndpointPathClass extends PathClass {
   @prop({ required: true, default: [], type: [SeedPathEntryClass] })
   public seedPaths!: SeedPathEntryClass[];
 
-  public shouldCreateNewPath(
+  public isExtensionValid(
     this: EndpointPathClass,
     t: NamedNodeTripleClass | LiteralTripleDocument,
     urlHead: UrlHead
@@ -123,6 +138,30 @@ export class EndpointPathClass extends PathClass {
     }
 
     if (t.predicate === urlHead.url) {
+      return false;
+    }
+
+    return true;
+  }
+
+  public isExtensionAllowed(
+    this: EndpointPathClass,
+    t: NamedNodeTripleClass,
+    currentStep: StepClass
+  ): boolean {
+    if (!currentStep?.predLimitations?.length) {
+      return true;
+    }
+    if (this.shortestPathLength >= currentStep?.maxPathLength) {
+      return false;
+    }
+
+    const limsByType = buildLimsByType(currentStep.predLimitations);
+
+    if (limsByType['require-future'] && !matchesOne(t.predicate, limsByType['require-future'])) {
+      return false;
+    }
+    if (limsByType['disallow-future'] && matchesOne(t.predicate, limsByType['disallow-future'])) {
       return false;
     }
 
@@ -253,8 +292,8 @@ function collectNamedNodeCandidates(
     .filter((t): t is NamedNodeTripleDocument => typeof t.object === 'string')
     .filter(
       (t) =>
-        this.shouldCreateNewPath(t, urlHead) &&
-        process?.whiteBlackListsAllow(t) &&
+        this.isExtensionValid(t, urlHead) &&
+        this.isExtensionAllowed(t, process.currentStep) &&
         t.directionOk(urlHead.url, followDirection, predsDirMetrics)
     );
 
@@ -302,7 +341,7 @@ function collectLiteralCandidates(
 
   const literalTriples = triples
     .filter((t): t is LiteralTripleDocument => isLiteral(t))
-    .filter((t) => this.shouldCreateNewPath(t, urlHead));
+    .filter((t) => this.isExtensionValid(t, urlHead));
 
   for (const t of literalTriples) {
     const literalKey = JSON.stringify({

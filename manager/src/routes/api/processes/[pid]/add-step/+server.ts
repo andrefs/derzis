@@ -1,5 +1,5 @@
 import { addStep } from '$lib/process-helper';
-import { PredDirMetrics, Process, StepClass } from '@derzis/models';
+import { PredDirMetrics, Process, StepClass, type PredicateLimitationType } from '@derzis/models';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
 import type { MakeOptional } from '$lib/utils';
@@ -11,15 +11,38 @@ interface NewStepReqBody {
     newSeeds: string[];
     maxPathLength: number;
     maxPathProps: number;
-    predLimit: {
-      limType: 'blacklist' | 'whitelist';
-      limPredicates: string[];
-    };
+    predLimitations: {
+      predicate: string;
+      lims: PredicateLimitationType[];
+    }[];
     followDirection: boolean;
     predsDirMetrics?: PredDirMetrics[];
     resetErrors: boolean;
     convertToEndpointPaths: boolean;
   };
+}
+
+function validatePredLimitations(
+  predLimitations: NewStepReqBody['data']['predLimitations']
+): string[] {
+  const errors: string[] = [];
+  const predMap = new Map<string, PredicateLimitationType[]>();
+
+  for (const pl of predLimitations) {
+    const existing = predMap.get(pl.predicate) || [];
+    predMap.set(pl.predicate, [...existing, ...pl.lims]);
+  }
+
+  for (const [predicate, lims] of predMap) {
+    if (lims.includes('require-past') && lims.includes('disallow-past')) {
+      errors.push(`Contradiction for predicate '${predicate}': cannot have both require-past and disallow-past`);
+    }
+    if (lims.includes('require-future') && lims.includes('disallow-future')) {
+      errors.push(`Contradiction for predicate '${predicate}': cannot have both require-future and disallow-future`);
+    }
+  }
+
+  return errors;
 }
 
 export const POST: RequestHandler = async ({ request, params }) => {
@@ -31,11 +54,21 @@ export const POST: RequestHandler = async ({ request, params }) => {
 
   console.log('XXXXXXXXXXXXXXX add-step server 3', JSON.stringify(resp.data, null, 2));
 
+  const predLimitations = resp.data.predLimitations || [];
+
+  // Validate for contradictions
+  if (predLimitations.length > 0) {
+    const validationErrors = validatePredLimitations(predLimitations);
+    if (validationErrors.length > 0) {
+      return json({ ok: false, err: { message: validationErrors.join('; ') } }, { status: 400 });
+    }
+  }
+
   const procParams: MakeOptional<StepClass, 'seeds'> = {
     seeds: resp.data.newSeeds,
     maxPathLength: resp.data.maxPathLength,
     maxPathProps: resp.data.maxPathProps,
-    predLimit: resp.data.predLimit,
+    predLimitations: predLimitations,
     followDirection: resp.data.followDirection,
     predsDirMetrics: resp.data.predsDirMetrics,
     resetErrors: resp.data.resetErrors,

@@ -16,8 +16,8 @@
 			"ESNext",
 			"ESNext.AsyncIterable"
 		],
-		"module": "nodenext",
-		"moduleResolution": "nodenext",
+ 		"module": "nodenext",
+ 		"moduleResolution": "nodenext",
 		"noEmit": true,
 		"resolveJsonModule": true,
 		"skipLibCheck": true,

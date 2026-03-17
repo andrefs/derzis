@@ -36,7 +36,8 @@ import {
   hasPathsDomainRobotsChecking,
   hasPathsHeadBeingCrawled,
   extendPaths,
-  convertTraversalToEndpointPaths
+  convertTraversalToEndpointPaths,
+  deleteRemainingTraversalPaths
 } from './process-paths';
 import {
   notifyStepStarted,
@@ -150,23 +151,6 @@ class ProcessClass extends Document {
   public pathExtensionCounter!: number;
 
   /**
-   * Check if a triple is allowed by the current step's white/blacklist
-   * @param t - Triple to check
-   * @returns {boolean} - Whether the triple is allowed
-   */
-  public whiteBlackListsAllow(this: ProcessClass, t: { predicate: string }): boolean {
-    // triple predicate allowed by white/blacklist
-    if (!this.currentStep.predLimit) {
-      return true;
-    }
-    if (this.currentStep.predLimit.limType === 'whitelist') {
-      return matchesOne(t.predicate, this.currentStep.predLimit.limPredicates);
-    }
-    // blacklist
-    return !matchesOne(t.predicate, this.currentStep.predLimit.limPredicates);
-  }
-
-  /**
    * Check if the process is done
    * @returns {Promise<boolean>} - Whether the process is done
    */
@@ -211,16 +195,16 @@ class ProcessClass extends Document {
     // process is not done
     log.info(
       `Process ${this.pid} is not done yet: ` +
-      JSON.stringify(
-        {
-          pathsToCrawl,
-          pathsToCheck,
-          hasPathsChecking,
-          hasPathsCrawling
-        },
-        null,
-        2
-      )
+        JSON.stringify(
+          {
+            pathsToCrawl,
+            pathsToCheck,
+            hasPathsChecking,
+            hasPathsCrawling
+          },
+          null,
+          2
+        )
     );
     return false;
   }
@@ -362,11 +346,35 @@ class ProcessClass extends Document {
 
     // Before queuing, extend existing paths according to new step limits
     const convertToEndpoint = process.currentStep.convertToEndpointPaths;
-    await extendPaths({ pid: process.pid, convertToEndpoint }); // this potentially takes a lot of time
+    log.debug(
+      `XXXXX Before extendPaths(done): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+    );
+    await extendPaths({ pid: process.pid, convertToEndpoint, headStatus: 'done' });
+    log.debug(
+      `XXXXX After extendPaths(done): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+    );
 
-    // Convert remaining traversal paths to endpoint paths if flag is set
+    // Convert remaining traversal paths with unvisited heads if flag is set
     if (convertToEndpoint) {
-      await convertTraversalToEndpointPaths(pid);
+      log.debug(
+        `XXXXX Before extendPaths(unvisited): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      );
+      await extendPaths({ pid: process.pid, convertToEndpoint, headStatus: 'unvisited' });
+      log.debug(
+        `XXXXX After extendPaths(unvisited): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      );
+      log.debug(
+        `XXXXX Before deleteRemainingTraversalPaths: active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      );
+      const remainingDeleted = await deleteRemainingTraversalPaths(pid);
+      log.debug(
+        `XXXXX After deleteRemainingTraversalPaths: active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      );
+      if (remainingDeleted > 0) {
+        log.info(
+          `Marked ${remainingDeleted} remaining active traversal paths as deleted for process ${pid}`
+        );
+      }
       await Process.updateOne({ pid }, { $set: { curPathType: PathType.ENDPOINT } });
     }
 
@@ -465,30 +473,30 @@ class ProcessClass extends Document {
       const cursorCondition: QueryFilter<PathClass> =
         lastSeenCreatedAt && lastSeenId
           ? {
-            createdAt: { $gte: lastSeenCreatedAt },
-            _id: { $gt: lastSeenId }
-          }
+              createdAt: { $gte: lastSeenCreatedAt },
+              _id: { $gt: lastSeenId }
+            }
           : {};
 
       // Fetch a batch of paths for this process
       const paths =
         this.curPathType === PathType.TRAVERSAL
           ? await TraversalPath.find({
-            processId: this.pid,
-            'head.type': HEAD_TYPE.URL,
-            ...cursorCondition
-          } as QueryFilter<TraversalPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
-            .select('head.url head.domain createdAt _id')
+              processId: this.pid,
+              'head.type': HEAD_TYPE.URL,
+              ...cursorCondition
+            } as QueryFilter<TraversalPathClass>)
+              .sort({ createdAt: 1, _id: 1 })
+              .limit(batchSize)
+              .select('head.url head.domain createdAt _id')
           : await EndpointPath.find({
-            processId: this.pid,
-            'head.type': HEAD_TYPE.URL,
-            ...cursorCondition
-          } as QueryFilter<EndpointPathClass>)
-            .sort({ createdAt: 1, _id: 1 })
-            .limit(batchSize)
-            .select('head.url head.domain createdAt _id');
+              processId: this.pid,
+              'head.type': HEAD_TYPE.URL,
+              ...cursorCondition
+            } as QueryFilter<EndpointPathClass>)
+              .sort({ createdAt: 1, _id: 1 })
+              .limit(batchSize)
+              .select('head.url head.domain createdAt _id');
 
       if (paths.length === 0) {
         hasMore = false;

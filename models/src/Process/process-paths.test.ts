@@ -3,10 +3,11 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   genTraversalPathQuery,
+  buildStepPathQuery,
   hasPathsDomainRobotsChecking,
   hasPathsHeadBeingCrawled
 } from './process-paths';
-import { StepClass, PredicateLimitationClass } from './aux-classes';
+import { StepClass, PredicateLimitationClass, PredLimitation } from './aux-classes';
 import { QueryFilter } from 'mongoose';
 import type { TraversalPathDocument } from '../Path/TraversalPath';
 import type { ProcessClass } from './Process';
@@ -148,13 +149,13 @@ describe('genTraversalPathQuery', () => {
     pid?: string;
     maxPathLength?: number;
     maxPathProps?: number;
-    predLimit?: PredicateLimitationClass;
+    predLimitations?: { predicate: string; lims: readonly string[] }[];
   }) => {
     const step = new StepClass();
     step.maxPathLength = overrides.maxPathLength ?? 4;
     step.maxPathProps = overrides.maxPathProps ?? 1;
-    if (overrides.predLimit !== undefined) {
-      step.predLimit = overrides.predLimit;
+    if (overrides.predLimitations !== undefined) {
+      step.predLimitations = overrides.predLimitations as any;
     }
     step.seeds = [];
     step.followDirection = false;
@@ -172,7 +173,7 @@ describe('genTraversalPathQuery', () => {
         pid: 'test-pid',
         maxPathLength: 4,
         maxPathProps: 1,
-        predLimit: undefined
+        predLimitations: []
       });
 
       const query = genTraversalPathQuery(process);
@@ -199,67 +200,60 @@ describe('genTraversalPathQuery', () => {
     });
   });
 
-  describe('when there is a whitelist predicate limit', () => {
-    it('returns query with predicates.elems $in and predicates.count $lte', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = ['http://pred1.org', 'http://pred2.org'];
+  describe('when there is a require-future predicate limit', () => {
+    it('returns query with $or for full vs non-full paths', () => {
+      const predLimitations = [
+        { predicate: 'http://pred1.org', lims: ['require-future'] as const },
+        { predicate: 'http://pred2.org', lims: ['require-future'] as const }
+      ];
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit
+        predLimitations
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
-      expect(query['predicates.elems']).toEqual({ $in: ['http://pred1.org', 'http://pred2.org'] });
+      // With future constraints, we have $or
+      expect(query.$or).toBeDefined();
+      expect(query.$or).toHaveLength(2);
+      // First part: non-full paths
+      expect(query.$or?.[0]).toEqual({ 'predicates.count': { $lt: 2 } });
+      // Second part: full paths with constraint
+      expect(query.$or?.[1]).toBeDefined();
+      expect(query.$or?.[1]?.['predicates.count']).toBe(2);
       expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
 
-    it('uses direct equality for single whitelist predicate', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = ['http://only-one.org'];
+    it('creates $or with require-future constraint for full paths', () => {
+      const predLimitations = [
+        { predicate: 'http://only-one.org', lims: ['require-future'] as const }
+      ];
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit
+        predLimitations
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
-      expect(query['predicates.elems']).toBe('http://only-one.org');
-      expect(query['predicates.count']).toEqual({ $lte: 2 });
-    });
-
-    it('applies predicate filter and count limit at top level (no $or)', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = ['http://pred1.org'];
-
-      const process = createMockProcess({
-        maxPathProps: 2,
-        predLimit
-      });
-
-      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
-
-      expect(query.$or).toBeUndefined();
-      expect(query['predicates.elems']).toEqual('http://pred1.org');
+      expect(query.$or).toBeDefined();
+      expect(query.$or).toHaveLength(2);
       expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
   });
 
-  describe('when there is a blacklist predicate limit', () => {
-    it('returns query with $expr $not $setIsSubset and predicates.count $lte', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = ['http://blocked1.org', 'http://blocked2.org'];
+  describe('when there is a disallow-future predicate limit', () => {
+    it('returns query with $or for full vs non-full paths', () => {
+      const predLimitations = [
+        { predicate: 'http://blocked1.org', lims: ['disallow-future'] as const },
+        { predicate: 'http://blocked2.org', lims: ['disallow-future'] as const }
+      ];
 
       const process = createMockProcess({
         maxPathLength: 4,
         maxPathProps: 2,
-        predLimit
+        predLimitations
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
@@ -268,80 +262,41 @@ describe('genTraversalPathQuery', () => {
       expect(query.status).toBe('active');
       expect(query['nodes.count']).toEqual({ $lt: 4 });
       expect(query['predicates.count']).toEqual({ $lte: 2 });
-      expect(query.$expr).toBeDefined();
-      expect(query.$expr.$not).toBeDefined();
-      expect(query.$expr.$not.$setIsSubset).toEqual([
-        '$predicates.elems',
-        ['http://blocked1.org', 'http://blocked2.org']
-      ]);
+      // With future constraints, we have $or
+      expect(query.$or).toBeDefined();
+      expect(query.$or).toHaveLength(2);
     });
 
-    it('uses $ne for single blacklist predicate', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = ['http://blocked.org'];
+    it('creates $or with disallow-future constraint for full paths', () => {
+      const predLimitations = [
+        { predicate: 'http://blocked.org', lims: ['disallow-future'] as const }
+      ];
 
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit
+        predLimitations
       });
 
       const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
 
-      expect(query['predicates.elems']).toEqual({ $ne: 'http://blocked.org' });
-      expect(query['predicates.count']).toEqual({ $lte: 2 });
-    });
-
-    it('applies predicate filter and count limit at top level (no $or)', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = ['http://blocked1.org', 'http://blocked2.org'];
-
-      const process = createMockProcess({
-        maxPathProps: 2,
-        predLimit
-      });
-
-      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
-
-      expect(query.$or).toBeUndefined();
-      expect(query.$expr).toBeDefined();
+      expect(query.$or).toBeDefined();
+      expect(query.$or).toHaveLength(2);
       expect(query['predicates.count']).toEqual({ $lte: 2 });
     });
   });
 
   describe('edge cases', () => {
-    it('handles empty limPredicates array for blacklist - no filter added', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'blacklist';
-      predLimit.limPredicates = [];
-
+    it('handles empty predLimitations array - no filter added', () => {
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimit
+        predLimitations: []
       });
 
       const query = genTraversalPathQuery(process);
 
-      // With empty blacklist, no predicates are blocked - no filter should be added
+      // With empty predLimitations, no filters should be added
       expect(query['predicates.elems']).toBeUndefined();
       expect(query.$expr).toBeUndefined();
-    });
-
-    it('handles empty limPredicates array for whitelist - matches nothing', () => {
-      const predLimit = new PredicateLimitationClass();
-      predLimit.limType = 'whitelist';
-      predLimit.limPredicates = [];
-
-      const process = createMockProcess({
-        maxPathProps: 2,
-        predLimit
-      });
-
-      const query = genTraversalPathQuery(process);
-
-      // With empty whitelist, $in: [] matches nothing
-      expect(query['predicates.elems']).toEqual({ $in: [] });
     });
 
     it('includes processId in all queries', () => {
@@ -496,5 +451,83 @@ describe('genTraversalPathQuery', () => {
       expect(result).toBe(false);
       expect(Path.countDocuments).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('buildStepPathQuery', () => {
+  const createMockProcess = (overrides: Partial<ProcessClass> = {}): ProcessClass =>
+    ({
+      pid: 'test-pid',
+      currentStep: {
+        maxPathLength: 6,
+        maxPathProps: 2,
+        predLimitations: [
+          { predicate: 'http://purl.org/dc/terms/subject', lims: ['require-past'] },
+          { predicate: 'http://dbpedia.org/ontology/wikiPageWikiLink', lims: ['disallow-past'] }
+        ]
+      },
+      pathExtensionCounter: 5,
+      ...overrides
+    }) as ProcessClass;
+
+  it('returns traversal query with predicate filters for traversal path type', () => {
+    const process = createMockProcess();
+    const query = buildStepPathQuery(process, PathType.TRAVERSAL);
+
+    expect(query.processId).toBe('test-pid');
+    expect(query.status).toBe('active');
+    expect(query['head.type']).toBe('url');
+    expect(query['head.domain.isUnvisited']).toBe(false);
+    expect(query['head.status']).toBe('unvisited');
+    expect(query['nodes.count']).toEqual({ $lt: 6 });
+    expect(query['predicates.count']).toEqual({ $lte: 2 });
+    // With both require-past and disallow-past, we use $and to combine the filters
+    expect(query.$and).toBeDefined();
+    expect(query.$and).toHaveLength(2);
+    // First condition: require-past (single element, so direct value)
+    expect(query.$and[0]).toEqual({ 'predicates.elems': 'http://purl.org/dc/terms/subject' });
+    // Second condition: disallow-past (single element, so $ne)
+    expect(query.$and[1]).toEqual({
+      'predicates.elems': { $ne: 'http://dbpedia.org/ontology/wikiPageWikiLink' }
+    });
+  });
+
+  it('returns endpoint query with shortestPathLength for endpoint path type', () => {
+    const process = createMockProcess();
+    const query = buildStepPathQuery(process, PathType.ENDPOINT);
+
+    expect(query.processId).toBe('test-pid');
+    expect(query.status).toBe('active');
+    expect(query['head.type']).toBe('url');
+    expect(query['head.domain.isUnvisited']).toBe(false);
+    expect(query['head.status']).toBe('unvisited');
+    expect(query.shortestPathLength).toEqual({ $lt: 6 });
+    expect(query['predicates.elems']).toBeUndefined();
+  });
+
+  it('does not include head.domain.origin filter', () => {
+    const process = createMockProcess();
+    const traversalQuery = buildStepPathQuery(process, PathType.TRAVERSAL);
+    const endpointQuery = buildStepPathQuery(process, PathType.ENDPOINT);
+
+    expect(traversalQuery['head.domain.origin']).toBeUndefined();
+    expect(endpointQuery['head.domain.origin']).toBeUndefined();
+  });
+
+  it('does not include cursor fields', () => {
+    const process = createMockProcess();
+    const traversalQuery = buildStepPathQuery(process, PathType.TRAVERSAL);
+    const endpointQuery = buildStepPathQuery(process, PathType.ENDPOINT);
+
+    // Should not have cursor pagination fields
+    expect(traversalQuery['nodes.count'] && traversalQuery['nodes.count'].$gt).toBeUndefined();
+    expect(traversalQuery.createdAt && traversalQuery.createdAt.$gt).toBeUndefined();
+    expect(traversalQuery._id && traversalQuery._id.$gt).toBeUndefined();
+
+    expect(
+      endpointQuery.shortestPathLength && endpointQuery.shortestPathLength.$gt
+    ).toBeUndefined();
+    expect(endpointQuery.createdAt && endpointQuery.createdAt.$gt).toBeUndefined();
+    expect(endpointQuery._id && endpointQuery._id.$gt).toBeUndefined();
   });
 });

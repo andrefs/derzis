@@ -46,7 +46,7 @@ function createMockProcess(overlays: any = {}): any {
 }
 
 describe('EndpointPathClass', () => {
-  describe('shouldCreateNewPath', () => {
+  describe('isExtensionValid', () => {
     it('returns false for cycles (subject equals object)', () => {
       const path = createMockPath({
         head: {
@@ -64,7 +64,7 @@ describe('EndpointPathClass', () => {
         object: 'http://subject.example.com' // cycle
       };
 
-      const result = path.shouldCreateNewPath(triple, path.head as any);
+      const result = path.isExtensionValid(triple, path.head as any);
       expect(result).toBe(false);
     });
 
@@ -80,7 +80,7 @@ describe('EndpointPathClass', () => {
         object: 'http://new.example.com'
       };
 
-      const result = path.shouldCreateNewPath(triple, path.head as any);
+      const result = path.isExtensionValid(triple, path.head as any);
       expect(result).toBe(true);
     });
   });

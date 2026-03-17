@@ -12,6 +12,7 @@ import {
   PathClass
 } from '../Path';
 import { Process, ProcessClass } from './Process';
+import { buildLimsByType } from './process-utils';
 import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
@@ -154,7 +155,11 @@ async function processHeadGroup(
     if (!cachedDomain) {
       try {
         const origin = new URL(identifier).origin;
-        cachedDomain = { origin, isUnvisited: true };
+        const domainDoc = await Domain.findOne({ origin }).lean();
+        cachedDomain = {
+          origin,
+          isUnvisited: domainDoc ? domainDoc.status === 'unvisited' : true
+        };
         domainCache.set(identifier, cachedDomain);
       } catch (err) {
         log.warn(`Invalid head URL during conversion, skipping: ${identifier}`);
@@ -259,7 +264,6 @@ async function processHeadGroup(
       if (res.matchedCount === 0) continue;
       success = true;
     } else {
-      // Create new EndpointPath
       const head: Record<string, unknown> = {};
       if (headType === HEAD_TYPE.URL && domain) {
         head.type = HEAD_TYPE.URL;
@@ -271,19 +275,29 @@ async function processHeadGroup(
         if (literalHead.datatype) head.datatype = literalHead.datatype;
         if (literalHead.language) head.language = literalHead.language;
       }
-
-      await new EndpointPath({
-        processId: pid,
-        head,
-        status: 'active',
-        type: 'endpoint',
-        shortestPathLength,
-        seedPaths,
-        extensionCounter: 0,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).save();
-      success = true;
+      try {
+        await new EndpointPath({
+          processId: pid,
+          head,
+          status: 'active',
+          type: 'endpoint',
+          shortestPathLength,
+          seedPaths,
+          extensionCounter: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).save();
+        success = true;
+      } catch (err: any) {
+        if (err.code === 11000 || err.message?.includes('duplicate key')) {
+          log.warn('Duplicate key detected in processHeadGroup, fetching and merging', {
+            pid,
+            identifier
+          });
+          continue;
+        }
+        throw err;
+      }
     }
   }
 
@@ -454,6 +468,44 @@ export async function getPathsForRobotsChecking(
  * @param limit Maximum number of paths to return
  * @returns Array of TraversalPathClass or EndpointPathClass documents with only head domain origin and head url selected
  */
+
+function buildBaseQuery(process: ProcessClass): Record<string, unknown> {
+  return {
+    'head.type': HEAD_TYPE.URL,
+    'head.domain.isUnvisited': false,
+    'head.status': 'unvisited',
+    processId: process.pid,
+    status: 'active'
+  };
+}
+
+function buildPathTypeFilter(process: ProcessClass, pathType: PathType): Record<string, unknown> {
+  if (pathType === PathType.TRAVERSAL) {
+    return genTraversalPathQuery(process);
+  } else {
+    return {
+      shortestPathLength: { $lt: process.currentStep.maxPathLength }
+    };
+  }
+}
+
+function mergePathQueryWithCursor(
+  pathFilter: Record<string, unknown>,
+  cursorCondition: Record<string, unknown>
+): Record<string, unknown> {
+  const merged = {
+    ...pathFilter,
+    ...cursorCondition
+  };
+
+  if (pathFilter.$or && cursorCondition.$or) {
+    merged.$and = [{ $or: pathFilter.$or as any[] }, { $or: cursorCondition.$or as any[] }];
+    delete merged.$or;
+  }
+
+  return merged;
+}
+
 export async function getPathsForDomainCrawl(
   process: ProcessClass,
   pathType: PathType,
@@ -480,12 +532,8 @@ export async function getPathsForDomainCrawl(
       : { $in: eligibleOrigins };
 
   const baseQuery = {
-    'head.type': HEAD_TYPE.URL,
-    'head.domain.isUnvisited': false,
-    'head.status': 'unvisited',
-    'head.domain.origin': originFilter,
-    processId: process.pid,
-    status: 'active'
+    ...buildBaseQuery(process),
+    'head.domain.origin': originFilter
   };
   const select =
     'head.status head.type head.domain head.url createdAt _id nodes.count shortestPathLength';
@@ -534,20 +582,10 @@ export async function getPathsForDomainCrawl(
 
     // Merge $or from traversalQuery (predicate filters) with cursorCondition (pagination)
     // Both may have $or keys - need to combine them, not overwrite
-    const mergedQuery: Record<string, unknown> = {
-      ...baseQuery,
-      ...traversalQuery,
-      ...cursorCondition
-    };
-
-    if (traversalQuery.$or && cursorCondition.$or) {
-      // Combine: path must match BOTH the traversal predicate filter AND the cursor condition
-      mergedQuery.$and = [
-        { $or: traversalQuery.$or },
-        { $or: cursorCondition.$or }
-      ];
-      delete mergedQuery.$or;
-    }
+    const mergedQuery: Record<string, unknown> = mergePathQueryWithCursor(
+      { ...baseQuery, ...traversalQuery },
+      cursorCondition
+    );
 
     const paths = await TraversalPath.find(mergedQuery)
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
@@ -565,6 +603,29 @@ export async function getPathsForDomainCrawl(
       .select(select);
     return paths;
   }
+}
+
+export function buildStepPathQuery(
+  process: ProcessClass,
+  pathType: PathType
+): QueryFilter<TraversalPathDocument> | QueryFilter<EndpointPathDocument> {
+  const baseQuery = buildBaseQuery(process);
+  const pathTypeFilter = buildPathTypeFilter(process, pathType);
+
+  // Merge base query with path type filter (no cursor)
+  const merged = {
+    ...baseQuery,
+    ...pathTypeFilter
+  };
+
+  // Handle potential $or conflicts between baseQuery and pathTypeFilter
+  // (though unlikely since baseQuery doesn't typically have $or)
+  if (baseQuery.$or && pathTypeFilter.$or) {
+    merged.$and = [{ $or: baseQuery.$or as any[] }, { $or: pathTypeFilter.$or as any[] }];
+    delete merged.$or;
+  }
+
+  return merged;
 }
 
 export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promise<boolean> {
@@ -603,8 +664,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
  * @returns MongoDB query object
  */
 export function genTraversalPathQuery(process: ProcessClass): QueryFilter<TraversalPathDocument> {
-  const limType = process.currentStep.predLimit?.limType;
-  const limPredicates = process.currentStep.predLimit?.limPredicates || [];
+  const predLimitations = process.currentStep.predLimitations || [];
   const maxPathProps = process.currentStep.maxPathProps;
 
   const query: QueryFilter<TraversalPathDocument> = {
@@ -615,38 +675,58 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
     'predicates.count': { $lte: maxPathProps }
   };
 
-  // Filter paths that haven't been considered for extension with the current step
-  if (process.pathExtensionCounter !== undefined) {
-    query.extensionCounter = { $lt: process.pathExtensionCounter };
+  // Extract constraints by type
+  const requirePast: string[] = [];
+  const disallowPast: string[] = [];
+  const requireFuture: string[] = [];
+  const disallowFuture: string[] = [];
+
+  for (const pl of predLimitations) {
+    if (pl.lims.includes('require-past')) requirePast.push(pl.predicate);
+    if (pl.lims.includes('disallow-past')) disallowPast.push(pl.predicate);
+    if (pl.lims.includes('require-future')) requireFuture.push(pl.predicate);
+    if (pl.lims.includes('disallow-future')) disallowFuture.push(pl.predicate);
   }
 
-  // if there is a whitelist, path must either have room to add a whitelisted predicate,
-  // or already have at least one whitelisted predicate (if already at max)
-  if (limType === 'whitelist') {
+  // For full paths, apply require-future and disallow-future constraints
+  const hasFutureConstraints = requireFuture.length > 0 || disallowFuture.length > 0;
+
+  if (hasFutureConstraints) {
+    // If require-future exists, it takes precedence (already restricts to those predicates)
+    // Otherwise use disallow-future if it exists
+    let fullPathFilter: object;
+    if (requireFuture.length > 0) {
+      fullPathFilter = {
+        'predicates.elems': requireFuture.length === 1 ? requireFuture[0] : { $in: requireFuture }
+      };
+    } else {
+      fullPathFilter = {
+        $expr: { $not: { $setIsSubset: ['$predicates.elems', disallowFuture] } }
+      };
+    }
+
     query.$or = [
-      { 'predicates.count': { $lt: maxPathProps } },  // room to add
+      { 'predicates.count': { $lt: maxPathProps } },
       {
         'predicates.count': maxPathProps,
-        'predicates.elems': limPredicates.length === 1
-          ? limPredicates[0]
-          : { $in: limPredicates }
-      }  // already has one
+        ...fullPathFilter
+      }
     ];
   }
-  // if there is a blacklist, path must either have room to add a non-blacklisted predicate,
-  // or already have at least one non-blacklisted predicate (if already at max)
-  else if (limType === 'blacklist' && limPredicates.length > 0) {
-    query.$or = [
-      { 'predicates.count': { $lt: maxPathProps } },  // room to add
-      {
-        'predicates.count': maxPathProps,
-        $expr: {
-          $not: {
-            $setIsSubset: ['$predicates.elems', limPredicates]
-          }
-        }
-      }  // already has at least one non-blacklisted
-    ];
+
+  // Past constraints apply regardless of fullness
+  if (requirePast.length > 0 && disallowPast.length > 0) {
+    // Both require-past and disallow-past: need $and to combine
+    const requireFilter = requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
+    const disallowFilter =
+      disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
+
+    query.$and = [{ 'predicates.elems': requireFilter }, { 'predicates.elems': disallowFilter }];
+  } else if (requirePast.length > 0) {
+    query['predicates.elems'] = requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
+  } else if (disallowPast.length > 0) {
+    query['predicates.elems'] =
+      disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
   }
 
   return query;
@@ -782,28 +862,39 @@ async function createNewPaths(
           if (res.matchedCount === 0) continue; // retry
           success = true;
         } else {
-          await new EndpointPath({
-            processId,
-            head: {
-              type: 'url',
-              url: headUrl,
-              domain: {
-                origin: domain.origin,
-                isUnvisited: domain.isUnvisited ?? false
-              }
-            },
-            status: 'active',
-            type: 'endpoint',
-            shortestPathLength: incomingShortest,
-            seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({
-              seed,
-              minLength
-            })),
-            extensionCounter: 0,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          }).save();
-          success = true;
+          try {
+            await new EndpointPath({
+              processId,
+              head: {
+                type: 'url',
+                url: headUrl,
+                domain: {
+                  origin: domain.origin,
+                  isUnvisited: domain.isUnvisited ?? false
+                }
+              },
+              status: 'active',
+              type: 'endpoint',
+              shortestPathLength: incomingShortest,
+              seedPaths: Array.from(incomingSeedMap).map(([seed, minLength]) => ({
+                seed,
+                minLength
+              })),
+              extensionCounter: 0,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }).save();
+            success = true;
+          } catch (err: any) {
+            if (err.code === 11000 || err.message?.includes('duplicate key')) {
+              log.warn('Duplicate key detected during insert, fetching and merging', {
+                processId,
+                headUrl
+              });
+              continue;
+            }
+            throw err;
+          }
         }
       }
 
@@ -832,13 +923,19 @@ async function createNewPaths(
  * @param pathsToDelete Set of path IDs to mark as deleted
  * @param pathType Type of paths to delete ('traversal' or 'endpoint')
  */
-async function deleteOldPaths(pathsToDelete: Set<Types.ObjectId>, pathType: PathType) {
+async function deleteOldPaths(
+  pathsToDelete: Set<Types.ObjectId>,
+  pathType: PathType,
+  headStatus?: 'done' | 'unvisited'
+) {
   if (pathsToDelete.size) {
-    const pathQuery = {
+    const pathQuery: QueryFilter<any> = {
       _id: { $in: Array.from(pathsToDelete) },
-      'head.type': HEAD_TYPE.URL,
-      'head.status': 'done'
+      'head.type': HEAD_TYPE.URL
     };
+    if (headStatus) {
+      pathQuery['head.status'] = headStatus;
+    }
     const pathUpdate = { $set: { status: 'deleted' } };
 
     // mark old paths as deleted if their head status is 'done'
@@ -899,6 +996,7 @@ interface ExtendPathsArgs {
   triples?: TripleDocument[];
   paths?: (TraversalPathDocument | EndpointPathDocument)[];
   convertToEndpoint?: boolean;
+  headStatus?: 'done' | 'unvisited';
 }
 
 /**
@@ -1066,9 +1164,11 @@ async function* queryAllExtendablePaths(
 ): AsyncGenerator<TraversalPathDocument | EndpointPathDocument> {
   const pathType = getPathType(process);
   if (pathType === PathType.TRAVERSAL) {
-    yield* queryAllExtendableTraversalPaths(process, batchSize);
+    const innerGen = queryAllExtendableTraversalPaths(process, batchSize);
+    yield* innerGen;
   } else {
-    yield* queryAllExtendableEndpointPaths(process, batchSize);
+    const innerGen = queryAllExtendableEndpointPaths(process, batchSize);
+    yield* innerGen;
   }
 }
 
@@ -1081,11 +1181,14 @@ async function* queryAllExtendablePaths(
  */
 async function* queryAllExtendableTraversalPaths(
   process: ProcessClass,
-  batchSize = 100
+  batchSize = 100,
+  headStatus: 'done' | 'unvisited' = 'done'
 ): AsyncGenerator<TraversalPathDocument> {
+  const pathExtCounter = process.pathExtensionCounter ?? 1;
   const baseQuery = {
     status: 'active',
-    'head.status': 'done',
+    'head.status': headStatus,
+    extensionCounter: { $lt: pathExtCounter },
     ...genTraversalPathQuery(process)
   };
   let lastLength: number | null = null;
@@ -1150,17 +1253,15 @@ async function* queryAllExtendableEndpointPaths(
   let hasMore = true;
 
   while (hasMore) {
+    const pathExtCounter = process.pathExtensionCounter ?? 1;
     const baseQuery: QueryFilter<EndpointPathDocument> = {
       processId: process.pid,
       status: 'active',
       'head.status': 'done',
       'head.type': HEAD_TYPE.URL,
+      extensionCounter: { $lt: pathExtCounter },
       shortestPathLength: { $lt: process.currentStep.maxPathLength }
     };
-
-    if (process.pathExtensionCounter !== undefined) {
-      baseQuery.extensionCounter = { $lt: process.pathExtensionCounter };
-    }
 
     let cursor: Record<string, unknown> = {};
     if (lastLength !== null && lastCreatedAt && lastId) {
@@ -1266,14 +1367,15 @@ async function* queryPathsForTriples(
   }
 }
 
-// Helper: collect up to batchSize items from a generator
+// Helper: collect up to batchSize items from a generator without closing it
 async function collectBatch<T>(generator: AsyncGenerator<T>, batchSize: number): Promise<T[]> {
   const result: T[] = [];
-  for await (const item of generator) {
-    result.push(item);
-    if (result.length >= batchSize) {
+  while (result.length < batchSize) {
+    const { value, done } = await generator.next();
+    if (done) {
       break;
     }
+    result.push(value);
   }
   return result;
 }
@@ -1292,20 +1394,41 @@ async function extendPathsBatch(
   process: ProcessClass,
   pathsBatch: (TraversalPathDocument | EndpointPathDocument)[],
   triples?: TripleDocument[],
-  convertToEndpoint?: boolean
+  convertToEndpoint?: boolean,
+  headStatus: 'done' | 'unvisited' = 'done'
 ) {
   const pathType = convertToEndpoint ? PathType.ENDPOINT : getPathType(process);
+  const skipGenExpPaths = convertToEndpoint && headStatus === 'unvisited';
+
   for (const path of pathsBatch) {
-    const result = await path.genExtendedPaths(process, triples);
+    const result = skipGenExpPaths
+      ? { extendedPaths: [], procTriples: [] }
+      : await path.genExtendedPaths(process, triples);
 
     if (result.extendedPaths.length > 0) {
       let pathsToCreate = result.extendedPaths;
       if (convertToEndpoint) {
-        pathsToCreate = convertToEndpointSkeletons(pathsToCreate, path);
+        pathsToCreate = convertToEndpointSkeletons(pathsToCreate);
       }
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
       await createNewPaths(pathsToCreate, pathType);
-      await deleteOldPaths(new Set([path._id]), pathType);
+      await deleteOldPaths(
+        new Set([path._id]),
+        convertToEndpoint ? PathType.TRAVERSAL : pathType,
+        headStatus
+      );
+      continue;
+    }
+    // convert paths even if they were not extended (only for done heads, or for unvisited if extension is allowed)
+    if (convertToEndpoint) {
+      const tp = path as TraversalPathDocument;
+      const currentStep = process.currentStep;
+      const limsByType = buildLimsByType(currentStep.predLimitations || []);
+      if (headStatus === 'done' || tp.isExtensionAllowedByPath(currentStep, limsByType)) {
+        let pathsToCreate = convertToEndpointSkeletons([path]);
+        await createNewPaths(pathsToCreate, PathType.ENDPOINT);
+        await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL, headStatus);
+      }
     }
   }
 }
@@ -1316,16 +1439,13 @@ async function extendPathsBatch(
  * @param parentPath - The parent path from which these were extended
  * @returns Array of EndpointPathSkeleton
  */
-function convertToEndpointSkeletons(
-  skeletons: PathSkeleton[],
-  parentPath: TraversalPathDocument | EndpointPathDocument
-): EndpointPathSkeleton[] {
+function convertToEndpointSkeletons(skeletons: PathSkeleton[]): EndpointPathSkeleton[] {
   return skeletons.map((s) => {
     if ('seedPaths' in s) {
       return s as EndpointPathSkeleton;
     }
     const tp = s as TraversalPathSkeleton & { seed: { url: string } };
-    const pathLength = (tp.nodes?.count ?? 0) + 1;
+    const pathLength = tp.nodes?.count ?? tp.nodes.elems.length ?? 0;
     return {
       processId: tp.processId,
       head: tp.head,
@@ -1352,7 +1472,8 @@ export async function extendPaths({
   triples,
   headUrl,
   paths,
-  convertToEndpoint
+  convertToEndpoint,
+  headStatus = 'done'
 }: ExtendPathsArgs) {
   // If no pid, get all process IDs and recurse for each
   if (!pid) {
@@ -1388,11 +1509,17 @@ export async function extendPaths({
       ? queryPathsForHeadUrl(process, headUrl, batchSize)
       : null;
 
-  // For full extend, we need a separate generator since it's a different code path
-  const fullPathGen = !triples && !headUrl ? queryAllExtendablePaths(process, batchSize) : null;
+  // For full extend, we need to call the inner generator directly (not through queryAllExtendablePaths wrapper
+  // which completes after yielding all items, losing pagination state across iterations)
+  const pathType = getPathType(process);
+  const fullPathGen: AsyncGenerator<TraversalPathDocument | EndpointPathDocument> | null =
+    !triples && !headUrl
+      ? pathType === PathType.TRAVERSAL
+        ? queryAllExtendableTraversalPaths(process, batchSize, headStatus)
+        : queryAllExtendableEndpointPaths(process, batchSize)
+      : null;
 
-  while (needsMoreWork && iteration < 100) {
-    iteration++;
+  while (needsMoreWork) {
     let pathsToProcess: (TraversalPathDocument | EndpointPathDocument)[] = [];
 
     if (paths) {
@@ -1417,7 +1544,7 @@ export async function extendPaths({
       break;
     }
 
-    await extendPathsBatch(process, pathsToProcess, triples, convertToEndpoint);
+    await extendPathsBatch(process, pathsToProcess, triples, convertToEndpoint, headStatus);
     totalProcessed += pathsToProcess.length;
 
     if (isFullExtend) {
@@ -1515,4 +1642,12 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
   log.info(
     `Converted ${traversalIdsToDelete.length} TraversalPaths into ${totalHeadGroups} EndpointPaths (1:${ratio} ratio) for process ${pid}`
   );
+}
+
+export async function deleteRemainingTraversalPaths(pid: string): Promise<number> {
+  const result = await TraversalPath.updateMany(
+    { processId: pid, status: 'active' },
+    { $set: { status: 'deleted' } }
+  );
+  return result.modifiedCount;
 }

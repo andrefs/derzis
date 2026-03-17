@@ -20,15 +20,25 @@
   //const log = createLogger();
   const showNewStep = data.status === 'done';
   let newSeeds: string;
-  let predList: string;
-  let predLimType: 'blacklist' | 'whitelist' = 'blacklist';
+  let predLimitations: { predicate: string; past: string; future: string }[] = [
+    { predicate: '', past: '', future: '' }
+  ];
   let maxPathLength: number = data.currentStep.maxPathLength;
   let maxPathProps: number = data.currentStep.maxPathProps;
   let followDirection: boolean = data.currentStep.followDirection;
 
+  function addPredLimitation() {
+    predLimitations = [...predLimitations, { predicate: '', past: '', future: '' }];
+  }
+
+  function removePredLimitation(index: number) {
+    predLimitations = predLimitations.filter((_, i) => i !== index);
+  }
+
   async function addStep() {
     const ns = newSeeds?.split(/\s*[\n,]\s*/).filter((s: string) => !s.match(/^\s*$/));
-    const pl = predList?.split(/\s*[\n,]\s*/).filter((s: string) => !s.match(/^\s*$/));
+
+    const filteredLimitations = predLimitations.filter((pl) => pl.predicate.trim());
 
     try {
       await fetch(`/api/processes/${data.pid}/add-step`, {
@@ -40,7 +50,7 @@
           maxPathLength,
           maxPathProps,
           newSeeds: ns,
-          predList: pl
+          predLimitations: filteredLimitations
         })
       });
 
@@ -136,49 +146,54 @@
 
               <FormGroup>
                 <Row>
-                  <Col sm={2}>
-                    <Label>Limitation type:</Label>
-                  </Col>
-                  <Col sm={10}>
-                    <InputGroup>
-                      <Input
-                        type="radio"
-                        id="black-list"
-                        name="limitation-type"
-                        value="blacklist"
-                        bind:group={predLimType}
-                      />
-                      <Label for="black-list" class="ms-2 me-3">Blacklist</Label>
-                      <Input
-                        type="radio"
-                        id="white-list"
-                        name="limitation-type"
-                        value="whitelist"
-                        bind:group={predLimType}
-                      />
-                      <Label for="white-list" class="ms-2">Whitelist</Label>
-                    </InputGroup>
+                  <Col sm={12}>
+                    <Label>Predicate Limitations:</Label>
+                    <Tooltip target="pred-limit-tt"
+                      >Configure which predicates are required or disallowed in paths</Tooltip
+                    >
                   </Col>
                 </Row>
               </FormGroup>
+
+              {#each predLimitations as pl, index}
+                <FormGroup>
+                  <Row class="mb-2">
+                    <Col sm={5}>
+                      <Input
+                        type="text"
+                        placeholder="Predicate URL (e.g., http://xmlns.com/foaf/0.1/name)"
+                        bind:value={pl.predicate}
+                      />
+                    </Col>
+                    <Col sm={3}>
+                      <Input type="select" bind:value={pl.past}>
+                        <option value="">Past: (none)</option>
+                        <option value="require">Past: Require</option>
+                        <option value="disallow">Past: Disallow</option>
+                      </Input>
+                    </Col>
+                    <Col sm={3}>
+                      <Input type="select" bind:value={pl.future}>
+                        <option value="">Future: (none)</option>
+                        <option value="require">Future: Require</option>
+                        <option value="disallow">Future: Disallow</option>
+                      </Input>
+                    </Col>
+                    <Col sm={1}>
+                      <Button color="danger" size="sm" on:click={() => removePredLimitation(index)}>
+                        &times;
+                      </Button>
+                    </Col>
+                  </Row>
+                </FormGroup>
+              {/each}
+
               <FormGroup>
                 <Row>
-                  <Col sm={2}>
-                    <Label>Predicate list:</Label>
-                  </Col>
-                  <Col sm={10}>
-                    <InputGroup>
-                      <Input
-                        id="pred-list"
-                        name="pred-list"
-                        type="textarea"
-                        bind:value={predList}
-                        rows={3}
-                        form="new-crawl-step"
-                      />
-                      <Tooltip target="pred-list-tt">One resource URL per line</Tooltip>
-                      <InputGroupText id="white-list-tt">?</InputGroupText>
-                    </InputGroup>
+                  <Col sm={12}>
+                    <Button color="secondary" size="sm" on:click={addPredLimitation}>
+                      + Add Predicate Limitation
+                    </Button>
                   </Col>
                 </Row>
               </FormGroup>

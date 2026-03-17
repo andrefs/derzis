@@ -38,7 +38,7 @@ export class LiteralObject {
 @index({ nodes: 1, createdAt: 1 })
 @index({ updatedAt: -1 })
 @index({ nodes: 1, predicate: 1 })
-@index({ object: 1, predicate: 1 })  // for object-origin queries
+@index({ object: 1, predicate: 1 }) // for object-origin queries
 export class TripleClass extends TimeStamps {
   @prop({ required: true, validate: urlValidator, type: String, index: true })
   public subject!: string;
@@ -220,7 +220,7 @@ export class NamedNodeTripleClass extends TripleClass {
     );
 
     log.silly(
-      `Direction ${dOk ? '' : 'not '}ok for triple ${this.subject} ${this.predicate} ${this.object}`
+      `Direction ${dOk ? '' : 'not '}ok for head url ${headUrl} and triple ${this.subject} ${this.predicate} ${this.object}`
     );
     return dOk;
   }

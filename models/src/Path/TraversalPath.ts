@@ -17,7 +17,17 @@ import {
   isNamedNode,
   isLiteral
 } from '../Triple';
-import { BranchFactorClass, ProcessClass, SeedPosRatioClass } from '../Process';
+import {
+  BranchFactorClass,
+  buildLimsByType,
+  type LimsByType,
+  matchesAny,
+  matchesOne,
+  ProcessClass,
+  SeedPosRatioClass,
+  StepClass,
+  type PredLimitation
+} from '../Process';
 import { Domain } from '../Domain';
 import {
   PathClass,
@@ -63,6 +73,14 @@ type RecursivePartial<T> = {
 
   if (this.head.type === HEAD_TYPE.URL) {
     const urlHead = this.head as UrlHead;
+    if (!urlHead.url || typeof urlHead.url !== 'string' || urlHead.url.trim() === '') {
+      throw new Error(`Invalid TraversalPath: head.type is 'url' but head.url is missing or empty`);
+    }
+    try {
+      new URL(urlHead.url);
+    } catch {
+      throw new Error(`Invalid TraversalPath: head.url '${urlHead.url}' is not a valid URL`);
+    }
     const origin = new URL(urlHead.url).origin;
     const d = await Domain.findOne({ origin });
     if (d) {
@@ -75,6 +93,8 @@ type RecursivePartial<T> = {
 })
 // For keyset pagination (cursor-based pagination)
 @index({ createdAt: 1, _id: 1 })
+// Base indexes
+@index({ type: 1 }, { name: 'idx_traversal_type' })
 // For the predicates count/elems filtering
 @index({ 'predicates.count': 1, processId: 1, status: 1 })
 @index({ 'nodes.count': 1, processId: 1, status: 1 })
@@ -98,10 +118,10 @@ type RecursivePartial<T> = {
   'nodes.count': 1,
   'predicates.count': 1
 })
-@index({ 'head.status': 1, status: 1 })
-@index({ type: 1, 'head.domain.origin': 1, status: 1 })
-@index({ processId: 1, 'head.url': 1 })
-@index({ processId: 1, status: 1, extensionCounter: 1 })
+@index({ 'head.status': 1, status: 1 }, { name: 'idx_traversal_head_status' })
+@index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_traversal_domain_status' })
+@index({ processId: 1, 'head.url': 1 }, { name: 'idx_traversal_process_url' })
+@index({ processId: 1, status: 1, extensionCounter: 1 }, { name: 'idx_traversal_extend' })
 // Indexes for path extension API (headUrl and full extend)
 @index({
   processId: 1,
@@ -228,8 +248,8 @@ export class TraversalPathClass extends PathClass {
       .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
       .filter(
         (t) =>
-          this.shouldCreateNewPath(t) &&
-          process?.whiteBlackListsAllow(t) &&
+          this.isExtensionValid(t) &&
+          this.isExtensionAllowed(t, process.currentStep) &&
           t.directionOk(urlHead.url, followDirection, predsDirMetrics)
       );
 
@@ -265,7 +285,7 @@ export class TraversalPathClass extends PathClass {
     // Literal triples
     const literalTriples = triplesToExtend
       .filter((t): t is LiteralTripleDocument => isLiteral(t))
-      .filter((t) => this.shouldCreateNewPath(t));
+      .filter((t) => this.isExtensionValid(t));
 
     for (const t of literalTriples) {
       log.silly('Extending path with LiteralTriple', t);
@@ -296,7 +316,14 @@ export class TraversalPathClass extends PathClass {
     return { extendedPaths: eps, procTriples };
   }
 
-  public shouldCreateNewPath(
+  /**
+   * Determines whether a new path should be created based on the given triple and the current path's head and nodes.
+   * For URL heads, checks if the triple can extend the path without creating cycles.
+   * For literal heads, no new paths can be created.
+   * @param t The triple to evaluate for path extension.
+   * @returns A boolean indicating whether a new path should be created based on the triple.
+   */
+  public isExtensionValid(
     this: TraversalPathClass,
     t: NamedNodeTripleClass | LiteralTripleDocument
   ): boolean {
@@ -314,11 +341,9 @@ export class TraversalPathClass extends PathClass {
     }
 
     const namedNodeTriple = t as NamedNodeTripleClass;
-
     if (namedNodeTriple.subject === namedNodeTriple.object) {
       return false;
     }
-
     if (namedNodeTriple.predicate === urlHead.url) {
       return false;
     }
@@ -329,7 +354,69 @@ export class TraversalPathClass extends PathClass {
     if (this.nodes.elems.includes(newHeadUrl)) {
       return false;
     }
+    return true;
+  }
 
+  public isExtensionAllowed(
+    this: TraversalPathClass,
+    t: NamedNodeTripleClass,
+    currentStep: StepClass
+  ): boolean {
+    const limsByType = buildLimsByType(currentStep.predLimitations || []);
+
+    if (!this.isExtensionAllowedByTriple(t, currentStep, limsByType)) {
+      return false;
+    }
+
+    return this.isExtensionAllowedByPath(currentStep, limsByType);
+  }
+
+  public isExtensionAllowedByPath(
+    this: TraversalPathClass,
+    currentStep: StepClass,
+    limsByType: LimsByType
+  ): boolean {
+    if (!currentStep?.predLimitations?.length) {
+      return true;
+    }
+    if (this.nodes.count >= currentStep?.maxPathLength) {
+      return false;
+    }
+
+    if (
+      limsByType['require-past'] &&
+      !matchesAny(this.predicates.elems, limsByType['require-past'])
+    ) {
+      return false;
+    }
+    if (
+      limsByType['disallow-past'] &&
+      matchesAny(this.predicates.elems, limsByType['disallow-past'])
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  public isExtensionAllowedByTriple(
+    this: TraversalPathClass,
+    t: NamedNodeTripleClass,
+    currentStep: StepClass,
+    limsByType: LimsByType
+  ): boolean {
+    // if path predicates are maxed out, predicate must be in predicates.elems
+    if (
+      this.predicates.count >= currentStep.maxPathProps &&
+      !(t.predicate in this.predicates.elems)
+    ) {
+      return false;
+    }
+    if (limsByType['require-future'] && !matchesOne(t.predicate, limsByType['require-future'])) {
+      return false;
+    }
+    if (limsByType['disallow-future'] && matchesOne(t.predicate, limsByType['disallow-future'])) {
+      return false;
+    }
     return true;
   }
 
@@ -343,51 +430,74 @@ export class TraversalPathClass extends PathClass {
 
   /**
    * Generates a filter for existing triples based on predicate limits and path fullness.
-   * @param limType The type of predicate limit ('whitelist' or 'blacklist').
-   * @param limPredicates The list of predicates in the limit.
+   * Uses predLimitations to determine allowed/disallowed predicates for future extensions.
+   * @param predLimitations Array of predicate limitations with past/future constraints.
    * @param pathFull Boolean indicating whether the path is considered full based on predicate count.
    * @returns An object containing allowed and not allowed predicates, and the corresponding filter for existing triples, or null if no triples should be returned.
    */
   public genPredicatesFilter(
-    limType: string,
-    limPredicates: string[],
+    predLimitations: PredLimitation[],
     pathFull: boolean
   ): {
     allowed: Set<string>;
     notAllowed: Set<string>;
     predFilter: QueryFilter<NamedNodeTripleClass>;
   } | null {
+    // Extract future constraints from predLimitations
+    const requireFuture: string[] = [];
+    const disallowFuture: string[] = [];
+
+    for (const pl of predLimitations) {
+      if (pl.lims.includes('require-future')) {
+        requireFuture.push(pl.predicate);
+      }
+      if (pl.lims.includes('disallow-future')) {
+        disallowFuture.push(pl.predicate);
+      }
+    }
+
+    // If no future constraints, allow all predicates
+    if (requireFuture.length === 0 && disallowFuture.length === 0) {
+      return { allowed: new Set(), notAllowed: new Set(), predFilter: {} };
+    }
+
     const allowed = new Set<string>();
     const notAllowed = new Set<string>();
 
+    // Map limType to legacy values for literal predicate handling
+    const hasRequireFuture = requireFuture.length > 0;
+    const hasDisallowFuture = disallowFuture.length > 0;
+    const limType = hasRequireFuture ? 'whitelist' : 'blacklist';
+
     if (!pathFull) {
-      if (limType === 'whitelist') {
-        allowed.clear();
-        for (const p of limPredicates) {
+      if (hasRequireFuture) {
+        for (const p of requireFuture) {
           allowed.add(p);
         }
-      } else {
-        for (const p of limPredicates) {
+      }
+      if (hasDisallowFuture) {
+        for (const p of disallowFuture) {
           notAllowed.add(p);
         }
       }
     } else {
-      if (limType === 'whitelist') {
+      // Path is full - can only extend with predicates already in path
+      if (hasRequireFuture) {
         for (const p of this.predicates.elems) {
-          if (limPredicates.includes(p)) {
+          if (requireFuture.includes(p)) {
             allowed.add(p);
           }
         }
-      } else {
+      }
+      if (hasDisallowFuture) {
         for (const p of this.predicates.elems) {
-          if (!limPredicates.includes(p)) {
+          if (!disallowFuture.includes(p)) {
             allowed.add(p);
           }
         }
       }
     }
 
-    // TODO FIXME hardcoded for now
     // Allow predicates with literal objects (e.g. rdfs:label, rdfs:comment)
     const litPred = [
       'http://www.w3.org/2000/01/rdf-schema#label',
@@ -541,17 +651,21 @@ export class TraversalPathClass extends PathClass {
     }
 
     const urlHead = this.head as UrlHead;
-    const limType = process.currentStep.predLimit.limType;
-    const limPredicates = process.currentStep.predLimit.limPredicates || [];
+    const predLimitations = process.currentStep.predLimitations || [];
     const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
 
     // filter based on predicate limits and path fullness
-    const predResult = this.genPredicatesFilter(limType, limPredicates, pathFull);
+    // Always call genPredicatesFilter - it handles empty predLimitations correctly
+    const predResult = this.genPredicatesFilter(predLimitations, pathFull);
     if (!predResult) {
       log.silly(`Path ${this._id} cannot be extended based on current limits`);
       return null;
     }
     const { allowed, notAllowed, predFilter } = predResult;
+
+    // Determine limType for direction filter
+    const hasRequireFuture = predLimitations.some((pl) => pl.lims.includes('require-future'));
+    const limType = hasRequireFuture ? 'whitelist' : 'blacklist';
 
     const followDirection = process.currentStep.followDirection;
     const predsDirMetrics = process.curPredsDirMetrics();
