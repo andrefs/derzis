@@ -129,7 +129,9 @@ export default class Manager {
             if (res.acknowledged && res.modifiedCount) {
               log.debug(`Domain status updated for ${jobResult.origin}`);
             } else {
-              log.debug(`Domain update skipped for ${jobResult.origin}: crawl.ongoing > 0 or jobId mismatch`);
+              log.debug(
+                `Domain update skipped for ${jobResult.origin}: crawl.ongoing > 0 or jobId mismatch`
+              );
             }
           } catch (err) {
             log.error(`Failed to update domain status for ${jobResult.origin}`, err);
@@ -176,7 +178,9 @@ export default class Manager {
             if (res.acknowledged && res.modifiedCount) {
               log.debug(`Domain status updated for ${jobResult.origin} after label fetch`);
             } else {
-              log.debug(`Domain update skipped for ${jobResult.origin}: crawl.ongoing > 0 or jobId mismatch`);
+              log.debug(
+                `Domain update skipped for ${jobResult.origin}: crawl.ongoing > 0 or jobId mismatch`
+              );
             }
           } catch (err) {
             log.error(

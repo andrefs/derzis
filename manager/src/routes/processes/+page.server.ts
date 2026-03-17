@@ -1,6 +1,11 @@
 import { newProcess } from '$lib/process-helper';
 import type { RecursivePartial } from '@derzis/common';
-import { Process, StepClass, type ProcessClass, type PredicateLimitationType } from '@derzis/models';
+import {
+  Process,
+  StepClass,
+  type ProcessClass,
+  type PredicateLimitationType
+} from '@derzis/models';
 import { redirect, type Action } from '@sveltejs/kit';
 
 export async function load() {
@@ -12,7 +17,9 @@ export async function load() {
   };
 }
 
-function parsePredLimitations(formData: FormData): { predicate: string; lims: PredicateLimitationType[] }[] {
+function parsePredLimitations(
+  formData: FormData
+): { predicate: string; lims: PredicateLimitationType[] }[] {
   const predLimitations: { predicate: string; lims: PredicateLimitationType[] }[] = [];
   let index = 0;
 

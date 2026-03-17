@@ -35,10 +35,14 @@ function validatePredLimitations(
 
   for (const [predicate, lims] of predMap) {
     if (lims.includes('require-past') && lims.includes('disallow-past')) {
-      errors.push(`Contradiction for predicate '${predicate}': cannot have both require-past and disallow-past`);
+      errors.push(
+        `Contradiction for predicate '${predicate}': cannot have both require-past and disallow-past`
+      );
     }
     if (lims.includes('require-future') && lims.includes('disallow-future')) {
-      errors.push(`Contradiction for predicate '${predicate}': cannot have both require-future and disallow-future`);
+      errors.push(
+        `Contradiction for predicate '${predicate}': cannot have both require-future and disallow-future`
+      );
     }
   }
 

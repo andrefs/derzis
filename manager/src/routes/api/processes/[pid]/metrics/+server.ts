@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
 import { Process } from '@derzis/models';
-import { calculateProcessMetrics } from '@derzis/models';
+import { calcProcMetrics } from '@derzis/models';
 import type { RequestEvent } from './$types';
 
 const log = createLogger('api:processes:[pid]:metrics');
@@ -25,7 +25,7 @@ export const GET = async ({ params, url }: RequestEvent) => {
   }
 
   try {
-    const metrics = await calculateProcessMetrics(pid, seeds);
+    const metrics = await calcProcMetrics(pid, seeds);
 
     return json({ ok: true, data: metrics });
   } catch (err) {

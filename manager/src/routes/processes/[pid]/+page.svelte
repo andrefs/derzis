@@ -81,25 +81,25 @@
 <main>
   <Row>
     <Col>
-       <h3>Details</h3>
-       <Table>
-         <tbody>
-           <tr
-             ><th scope="row">Status</th><td><Badge color="primary">{data.proc.status}</Badge></td
-             ></tr
-           >
-           <tr><th scope="row">Submitted</th><td>{data.proc.createdAt}</td></tr>
-           <tr><th scope="row">Last updated</th><td>{data.proc.updatedAt}</td></tr>
-           <tr><th scope="row">Time to last resource</th><td>{data.proc.timeToLastResource}</td></tr>
-           <tr><th scope="row">Time running</th><td>{data.proc.timeRunning}</td></tr>
-           {#if data.proc.currentStepQuery}
-           <tr>
-             <th scope="row">Current path query</th>
-             <td>
-               <pre>{JSON.stringify(data.proc.currentStepQuery, null, 2)}</pre>
-             </td>
-           </tr>
-           {/if}
+      <h3>Details</h3>
+      <Table>
+        <tbody>
+          <tr
+            ><th scope="row">Status</th><td><Badge color="primary">{data.proc.status}</Badge></td
+            ></tr
+          >
+          <tr><th scope="row">Submitted</th><td>{data.proc.createdAt}</td></tr>
+          <tr><th scope="row">Last updated</th><td>{data.proc.updatedAt}</td></tr>
+          <tr><th scope="row">Time to last resource</th><td>{data.proc.timeToLastResource}</td></tr>
+          <tr><th scope="row">Time running</th><td>{data.proc.timeRunning}</td></tr>
+          {#if data.proc.currentStepQuery}
+            <tr>
+              <th scope="row">Current path query</th>
+              <td>
+                <pre>{JSON.stringify(data.proc.currentStepQuery, null, 2)}</pre>
+              </td>
+            </tr>
+          {/if}
           <tr>
             <th scope="row">Triples</th><td>
               <Row>

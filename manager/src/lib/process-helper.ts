@@ -124,9 +124,7 @@ export async function info(pid: string): Promise<any> {
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO this should be process specific
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
   const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
-  const lastTriple = [lastLT, lastNNT].reduce<
-    LiteralTripleClass | NamedNodeTripleClass | null
-  >(
+  const lastTriple = [lastLT, lastNNT].reduce<LiteralTripleClass | NamedNodeTripleClass | null>(
     (latest, t) => {
       if (!t || !t.updatedAt) return latest;
       return !latest || !latest.updatedAt || t.updatedAt > latest.updatedAt ? t : latest;
@@ -152,12 +150,14 @@ export async function info(pid: string): Promise<any> {
     timeToLastResource: timeToLastResource ? secondsToString(timeToLastResource) : '',
     timeRunning: timeRunning ? secondsToString(timeRunning) : '',
     notification: {
-       ..._p.notification,
-       email: _p?.notification?.email
-         ?.replace(/(?<=.).*?(?=.@)/, (x: string) => '*'.repeat(x.length))
-         ?.replace(/^..(?=@)/, '**')
+      ..._p.notification,
+      email: _p?.notification?.email
+        ?.replace(/(?<=.).*?(?=.@)/, (x: string) => '*'.repeat(x.length))
+        ?.replace(/^..(?=@)/, '**')
     },
-    currentStepQuery: _p.currentStep ? buildStepPathQuery(_p, _p.curPathType ?? PathType.ENDPOINT) : undefined
+    currentStepQuery: _p.currentStep
+      ? buildStepPathQuery(_p, _p.curPathType ?? PathType.ENDPOINT)
+      : undefined
   };
 
   return processInfo;

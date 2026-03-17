@@ -17,6 +17,7 @@ export interface GlobalMetrics {
   totalSubjects: number;
   totalObjects: number;
   totalTriples: number;
+  totalResources: number;
 }
 
 export interface ProcessMetrics {
@@ -24,10 +25,7 @@ export interface ProcessMetrics {
   globalMetrics: GlobalMetrics;
 }
 
-export async function calcProcMetrics(
-  pid: string,
-  seeds: string[]
-): Promise<ProcessMetrics> {
+export async function calcProcMetrics(pid: string, seeds: string[]): Promise<ProcessMetrics> {
   const predicateCounts = await getPredicateCounts(pid);
 
   const predicates: PredicateMetrics[] = [];
@@ -41,7 +39,9 @@ export async function calcProcMetrics(
     const subjCount = await getDistinctCount({ predicate: url }, 'subject');
     const objCount = await getDistinctCount({ predicate: url }, 'object');
 
-    log.info(`Metrics for predicate ${url}: count=${count}, subjCov=${subjCov}, objCov=${objCov}, subjCount=${subjCount}, objCount=${objCount}`);
+    log.info(
+      `Metrics for predicate ${url}: count=${count}, subjCov=${subjCov}, objCov=${objCov}, subjCount=${subjCount}, objCount=${objCount}`
+    );
 
     predicates.push({
       url,
@@ -108,7 +108,7 @@ async function getDistinctCount(
 }
 
 async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
-  const [subjectsResult, objectsResult, triplesResult] = await Promise.all([
+  const [subjectsResult, objectsResult, triplesResult, resourcesResult] = await Promise.all([
     NamedNodeTriple.aggregate([
       { $match: { processId: pid } },
       { $group: { _id: '$subject' } },
@@ -119,12 +119,20 @@ async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
       { $group: { _id: '$object' } },
       { $count: 'totalObjects' }
     ]),
-    NamedNodeTriple.countDocuments({ processId: pid })
+    NamedNodeTriple.countDocuments({ processId: pid }),
+    NamedNodeTriple.aggregate([
+      { $match: { processId: pid } },
+      { $project: { node: ['$subject', '$object'] } },
+      { $unwind: '$node' },
+      { $group: { _id: '$node' } },
+      { $count: 'totalResources' }
+    ])
   ]);
 
   return {
     totalSubjects: subjectsResult[0]?.totalSubjects || 0,
     totalObjects: objectsResult[0]?.totalObjects || 0,
-    totalTriples: triplesResult
+    totalTriples: triplesResult,
+    totalResources: resourcesResult[0]?.totalResources || 0
   };
 }
