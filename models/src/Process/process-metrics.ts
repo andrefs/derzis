@@ -1,4 +1,5 @@
-import { NamedNodeTriple, LiteralTriple } from '../Triple';
+import { Triple } from '../Triple';
+import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common';
 const log = createLogger('models:process-metrics');
 
@@ -34,13 +35,12 @@ export async function calcProcMetrics(pid: string, seeds: string[]): Promise<Pro
     const url = pred._id;
     const count = pred.count;
 
-    const subjCov = await getDistinctCount({ processId: pid, predicate: url }, 'subject', seeds);
-    const objCov = await getDistinctCount({ processId: pid, predicate: url }, 'object', seeds);
-    const subjCount = await getDistinctCount({ predicate: url }, 'subject');
-    const objCount = await getDistinctCount({ predicate: url }, 'object');
+    const subjCov = await getSeedCoverage(pid, url, 'subject', seeds);
+    const objCov = await getSeedCoverage(pid, url, 'object', seeds);
+    const bf = await getBranchingFactor(pid, url);
 
     log.info(
-      `Metrics for predicate ${url}: count=${count}, subjCov=${subjCov}, objCov=${objCov}, subjCount=${subjCount}, objCount=${objCount}`
+      `Metrics for predicate ${url}: count=${count}, subjCov=${subjCov}, objCov=${objCov}, subj=${bf.subj}, obj=${bf.obj}`
     );
 
     predicates.push({
@@ -48,10 +48,7 @@ export async function calcProcMetrics(pid: string, seeds: string[]): Promise<Pro
       count,
       subjCov,
       objCov,
-      branchFactor: {
-        subj: subjCount,
-        obj: objCount
-      }
+      branchFactor: bf
     });
   }
 
@@ -61,68 +58,130 @@ export async function calcProcMetrics(pid: string, seeds: string[]): Promise<Pro
 }
 
 async function getPredicateCounts(pid: string) {
-  const namedNodeCounts = await NamedNodeTriple.aggregate([
+  const result = await ProcessTriple.aggregate([
     { $match: { processId: pid } },
-    { $group: { _id: '$predicate', count: { $sum: 1 } } }
+    {
+      $lookup: {
+        from: 'triples',
+        localField: 'triple',
+        foreignField: '_id',
+        as: 'tripleData'
+      }
+    },
+    { $unwind: '$tripleData' },
+    { $group: { _id: '$tripleData.predicate', count: { $sum: 1 } } }
   ]);
 
-  const literalCounts = await LiteralTriple.aggregate([
-    { $match: { processId: pid } },
-    { $group: { _id: '$predicate', count: { $sum: 1 } } }
-  ]);
-
-  const countMap = new Map<string, number>();
-
-  for (const nc of namedNodeCounts) {
-    countMap.set(nc._id, (countMap.get(nc._id) || 0) + nc.count);
-  }
-  for (const lc of literalCounts) {
-    countMap.set(lc._id, (countMap.get(lc._id) || 0) + lc.count);
-  }
-
-  return Array.from(countMap.entries()).map(([url, count]) => ({ _id: url, count }));
+  return result;
 }
 
-async function getDistinctCount(
-  match: Record<string, unknown>,
+async function getSeedCoverage(
+  pid: string,
+  predicate: string,
   field: 'subject' | 'object',
-  seeds?: string[]
+  seeds: string[]
 ): Promise<number> {
-  const query: Record<string, unknown> = { ...match };
-
-  if (seeds && seeds.length > 0) {
-    if (field === 'subject') {
-      query.subject = { $in: seeds };
-    } else {
-      query['object'] = { $in: seeds };
-    }
+  if (!seeds || seeds.length === 0) {
+    return 0;
   }
 
-  const result = await NamedNodeTriple.aggregate([
-    { $match: query },
+  const result = await ProcessTriple.aggregate([
+    { $match: { processId: pid } },
+    {
+      $lookup: {
+        from: 'triples',
+        localField: 'triple',
+        foreignField: '_id',
+        as: 'tripleData'
+      }
+    },
+    { $unwind: '$tripleData' },
+    { $match: { 'tripleData.predicate': predicate, [`tripleData.${field}`]: { $in: seeds } } },
     { $group: { _id: `$${field}` } },
-    { $count: 'count' }
+    { $count: 'coverage' }
   ]);
 
-  return result[0]?.count || 0;
+  return result[0]?.coverage || 0;
+}
+
+async function getBranchingFactor(
+  pid: string,
+  predicate: string
+): Promise<{ subj: number; obj: number }> {
+  const result = await ProcessTriple.aggregate([
+    { $match: { processId: pid } },
+    {
+      $lookup: {
+        from: 'triples',
+        localField: 'triple',
+        foreignField: '_id',
+        as: 'tripleData'
+      }
+    },
+    { $unwind: '$tripleData' },
+    { $match: { 'tripleData.predicate': predicate } },
+    {
+      $group: {
+        _id: null,
+        distinctSubjects: { $addToSet: '$tripleData.subject' },
+        distinctObjects: { $addToSet: '$tripleData.object' }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        subj: { $size: '$distinctSubjects' },
+        obj: { $size: '$distinctObjects' }
+      }
+    }
+  ]);
+
+  return result[0] || { subj: 0, obj: 0 };
 }
 
 async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
-  const [subjectsResult, objectsResult, triplesResult, resourcesResult] = await Promise.all([
-    NamedNodeTriple.aggregate([
+  const [triplesResult, subjectsResult, objectsResult, resourcesResult] = await Promise.all([
+    ProcessTriple.countDocuments({ processId: pid }),
+    ProcessTriple.aggregate([
       { $match: { processId: pid } },
-      { $group: { _id: '$subject' } },
+      {
+        $lookup: {
+          from: 'triples',
+          localField: 'triple',
+          foreignField: '_id',
+          as: 'tripleData'
+        }
+      },
+      { $unwind: '$tripleData' },
+      { $group: { _id: '$tripleData.subject' } },
       { $count: 'totalSubjects' }
     ]),
-    NamedNodeTriple.aggregate([
+    ProcessTriple.aggregate([
       { $match: { processId: pid } },
-      { $group: { _id: '$object' } },
+      {
+        $lookup: {
+          from: 'triples',
+          localField: 'triple',
+          foreignField: '_id',
+          as: 'tripleData'
+        }
+      },
+      { $unwind: '$tripleData' },
+      { $group: { _id: '$tripleData.object' } },
       { $count: 'totalObjects' }
     ]),
-    NamedNodeTriple.countDocuments({ processId: pid }),
-    NamedNodeTriple.aggregate([
+    ProcessTriple.aggregate([
       { $match: { processId: pid } },
-      { $project: { node: ['$subject', '$object'] } },
+      {
+        $lookup: {
+          from: 'triples',
+          localField: 'triple',
+          foreignField: '_id',
+          as: 'tripleData'
+        }
+      },
+      { $unwind: '$tripleData' },
+      { $project: { node: ['$tripleData.subject', '$tripleData.object'] } },
       { $unwind: '$node' },
       { $group: { _id: '$node' } },
       { $count: 'totalResources' }
@@ -130,9 +189,9 @@ async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
   ]);
 
   return {
+    totalTriples: triplesResult,
     totalSubjects: subjectsResult[0]?.totalSubjects || 0,
     totalObjects: objectsResult[0]?.totalObjects || 0,
-    totalTriples: triplesResult,
     totalResources: resourcesResult[0]?.totalResources || 0
   };
 }
