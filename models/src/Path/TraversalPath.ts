@@ -32,7 +32,6 @@ import {
   PathClass,
   Path,
   ResourceCount,
-  hasLiteralHead,
   HEAD_TYPE,
   UrlHead,
   type Head,
@@ -252,7 +251,6 @@ export class TraversalPathClass extends PathClass {
     let procTriples: TypedTripleId[] = [];
     const predsBF = process.curPredsBranchFactor();
     const followDirection = process!.currentStep.followDirection;
-
 
     // Named node triples
     const namedNodeTriples = triplesToExtend
