@@ -20,7 +20,7 @@ import {
 import {
   BranchFactorClass,
   buildLimsByType,
-  LimsByType,
+  type LimsByType,
   matchesAny,
   matchesOne,
   ProcessClass,
