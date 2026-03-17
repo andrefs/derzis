@@ -113,35 +113,25 @@ export async function getBranchingFactor(
   pid: string,
   predicate: string
 ): Promise<{ subj: number; obj: number }> {
-  const result = await ProcessTriple.aggregate([
-    { $match: { processId: pid } },
-    {
-      $lookup: {
-        from: 'triples',
-        localField: 'triple',
-        foreignField: '_id',
-        as: 'tripleData'
-      }
-    },
-    { $unwind: '$tripleData' },
-    { $match: { 'tripleData.predicate': predicate } },
-    {
-      $group: {
-        _id: null,
-        distinctSubjects: { $addToSet: '$tripleData.subject' },
-        distinctObjects: { $addToSet: '$tripleData.object' }
-      }
-    },
-    {
-      $project: {
-        _id: 0,
-        subj: { $size: '$distinctSubjects' },
-        obj: { $size: '$distinctObjects' }
-      }
-    }
+  // Use global triples data with server-side aggregation
+  // Branching factor is independent of process - uses all triples in database
+  const [subjectsResult, objectsResult] = await Promise.all([
+    Triple.aggregate([
+      { $match: { predicate } },
+      { $group: { _id: '$subject' } },
+      { $count: 'count' }
+    ]),
+    Triple.aggregate([
+      { $match: { predicate } },
+      { $group: { _id: '$object' } },
+      { $count: 'count' }
+    ])
   ]);
 
-  return result[0] || { subj: 0, obj: 0 };
+  return {
+    subj: subjectsResult[0]?.count || 0,
+    obj: objectsResult[0]?.count || 0
+  };
 }
 
 export async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
