@@ -16,7 +16,12 @@ export const GET = async ({ params, url }: RequestEvent) => {
   const seedsParam = url.searchParams.get('seeds');
   const seeds = seedsParam ? seedsParam.split(',') : [];
 
-  log.info(`Calculating metrics for process ${pid}, seeds: ${JSON.stringify(seeds)}`);
+  const noSeedCovCalcParam = url.searchParams.get('noSeedCovCalc');
+  const noSeedCovCalc = noSeedCovCalcParam ? noSeedCovCalcParam === 'true' : false;
+
+  log.info(
+    `Calculating metrics for process ${pid}, seeds: ${JSON.stringify(seeds)}, noSeedCovCalc: ${noSeedCovCalc}`
+  );
 
   const process = await Process.findOne({ pid });
 
@@ -25,7 +30,7 @@ export const GET = async ({ params, url }: RequestEvent) => {
   }
 
   try {
-    const metrics = await calcProcMetrics(pid, seeds);
+    const metrics = await calcProcMetrics(pid, seeds, noSeedCovCalc);
 
     return json({ ok: true, data: metrics });
   } catch (err) {

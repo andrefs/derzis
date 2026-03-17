@@ -6,8 +6,8 @@ const log = createLogger('models:process-metrics');
 export interface PredicateMetrics {
   url: string;
   count: number;
-  subjCov: number;
-  objCov: number;
+  subjCov: number | null;
+  objCov: number | null;
   branchFactor: {
     subj: number;
     obj: number;
@@ -26,7 +26,11 @@ export interface ProcessMetrics {
   globalMetrics: GlobalMetrics;
 }
 
-export async function calcProcMetrics(pid: string, seeds: string[]): Promise<ProcessMetrics> {
+export async function calcProcMetrics(
+  pid: string,
+  seeds: string[],
+  noSeedCovCalc: boolean = false
+): Promise<ProcessMetrics> {
   const predicateCounts = await getPredicateCounts(pid);
 
   const predicates: PredicateMetrics[] = [];
@@ -35,8 +39,14 @@ export async function calcProcMetrics(pid: string, seeds: string[]): Promise<Pro
     const url = pred._id;
     const count = pred.count;
 
-    const subjCov = await getSeedCoverage(pid, url, 'subject', seeds);
-    const objCov = await getSeedCoverage(pid, url, 'object', seeds);
+    let subjCov: number | null = null;
+    let objCov: number | null = null;
+
+    if (!noSeedCovCalc) {
+      subjCov = await getSeedCoverage(pid, url, 'subject', seeds);
+      objCov = await getSeedCoverage(pid, url, 'object', seeds);
+    }
+
     const bf = await getBranchingFactor(pid, url);
 
     log.info(
