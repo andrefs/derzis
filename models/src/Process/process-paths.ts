@@ -1426,8 +1426,8 @@ async function extendPathsBatch(
       const limsByType = buildLimsByType(currentStep.predLimitations || []);
       if (headStatus === 'done' || tp.isExtensionAllowedByPath(currentStep, limsByType)) {
         let pathsToCreate = convertToEndpointSkeletons([path]);
-        await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL, headStatus);
         await createNewPaths(pathsToCreate, PathType.ENDPOINT);
+        await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL, headStatus);
       }
     }
   }
