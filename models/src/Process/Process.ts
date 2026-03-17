@@ -348,12 +348,30 @@ class ProcessClass extends Document {
 
     // Before queuing, extend existing paths according to new step limits
     const convertToEndpoint = process.currentStep.convertToEndpointPaths;
+    log.debug(
+      `XXXXX Before extendPaths(done): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+    );
     await extendPaths({ pid: process.pid, convertToEndpoint, headStatus: 'done' });
+    log.debug(
+      `XXXXX After extendPaths(done): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+    );
 
     // Convert remaining traversal paths with unvisited heads if flag is set
     if (convertToEndpoint) {
+      log.debug(
+        `XXXXX Before extendPaths(unvisited): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      );
       await extendPaths({ pid: process.pid, convertToEndpoint, headStatus: 'unvisited' });
+      log.debug(
+        `XXXXX After extendPaths(unvisited): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      );
+      log.debug(
+        `XXXXX Before deleteRemainingTraversalPaths: active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      );
       const remainingDeleted = await deleteRemainingTraversalPaths(pid);
+      log.debug(
+        `XXXXX After deleteRemainingTraversalPaths: active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      );
       if (remainingDeleted > 0) {
         log.info(
           `Marked ${remainingDeleted} remaining active traversal paths as deleted for process ${pid}`
