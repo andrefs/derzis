@@ -1531,14 +1531,18 @@ export async function extendPaths({
     } else if (pathGen) {
       // Reuse same generator - pagination cursor is preserved internally
       pathsToProcess = await collectBatch(pathGen, batchSize);
-      log.info(`Queried ${pathsToProcess.length} paths for process ${pid} using headUrl/triples filter`);
+      log.info(
+        `Queried ${pathsToProcess.length} paths for process ${pid} using headUrl/triples filter`
+      );
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }
     } else if (fullPathGen) {
       // Full extend - reuse same generator for pagination
       pathsToProcess = await collectBatch(fullPathGen, batchSize);
-      log.info(`Queried ${pathsToProcess.length} extendable paths for process ${pid} in iteration ${iteration}`);
+      log.info(
+        `Queried ${pathsToProcess.length} extendable paths for process ${pid} in iteration ${iteration}`
+      );
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }

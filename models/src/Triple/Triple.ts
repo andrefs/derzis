@@ -140,10 +140,10 @@ function buildBulkOps(
       predicate: t.predicate,
       ...(isLiteral
         ? {
-          'object.value': (t.object as LiteralObject).value,
-          'object.language': (t.object as LiteralObject).language,
-          'object.datatype': (t.object as LiteralObject).datatype
-        }
+            'object.value': (t.object as LiteralObject).value,
+            'object.language': (t.object as LiteralObject).language,
+            'object.datatype': (t.object as LiteralObject).datatype
+          }
         : { object: t.object })
     };
     return {

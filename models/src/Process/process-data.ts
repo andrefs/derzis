@@ -404,28 +404,28 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   }).lean();
   const avgPathLength = totalPaths
     ? await TraversalPath.aggregate([
-      {
-        $match: {
-          processId: process.pid,
-          type: PathType.TRAVERSAL,
-          'seed.url': { $in: process.currentStep.seeds }
-        }
-      },
-      { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-    ]).then((res) => res[0]?.avgLength || 0)
+        {
+          $match: {
+            processId: process.pid,
+            type: PathType.TRAVERSAL,
+            'seed.url': { $in: process.currentStep.seeds }
+          }
+        },
+        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+      ]).then((res) => res[0]?.avgLength || 0)
     : 0;
 
   const avgPathProps = totalPaths
     ? await TraversalPath.aggregate([
-      {
-        $match: {
-          processId: process.pid,
-          type: PathType.TRAVERSAL,
-          'seed.url': { $in: process.currentStep.seeds }
-        }
-      },
-      { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-    ]).then((res) => res[0]?.avgProps || 0)
+        {
+          $match: {
+            processId: process.pid,
+            type: PathType.TRAVERSAL,
+            'seed.url': { $in: process.currentStep.seeds }
+          }
+        },
+        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+      ]).then((res) => res[0]?.avgProps || 0)
     : 0;
 
   const timeToLastResource = lastResource
@@ -505,7 +505,9 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
  * Get predicates branching factor and seed position ratio for the current step as a map
  * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor and seeds position ratio
  */
-export function curPredsBranchFactor(process: ProcessClass): Map<string, BranchFactorClass> | undefined {
+export function curPredsBranchFactor(
+  process: ProcessClass
+): Map<string, BranchFactorClass> | undefined {
   return process.currentStep.predsBranchFactor?.reduce((map, obj) => {
     if (!obj.branchFactor) {
       return map;

@@ -28,15 +28,7 @@ import {
   type PredLimitation
 } from '../Process';
 import { Domain } from '../Domain';
-import {
-  PathClass,
-  Path,
-  ResourceCount,
-  HEAD_TYPE,
-  UrlHead,
-  type Head,
-  SeedClass
-} from './Path';
+import { PathClass, Path, ResourceCount, HEAD_TYPE, UrlHead, type Head, SeedClass } from './Path';
 import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 import type { ExtendedPathsResult } from '../types';
@@ -255,10 +247,12 @@ export class TraversalPathClass extends PathClass {
     // Named node triples
     const namedNodeTriples = triplesToExtend
       .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
-      .filter((t) => this.isExtensionValid(t)
-        && this.isExtensionAllowed(t, process.currentStep)
-        && t.directionOk(urlHead.url, followDirection, predsBF));
-
+      .filter(
+        (t) =>
+          this.isExtensionValid(t) &&
+          this.isExtensionAllowed(t, process.currentStep) &&
+          t.directionOk(urlHead.url, followDirection, predsBF)
+      );
 
     for (const t of namedNodeTriples) {
       log.silly('Extending path with NamedNodeTriple', t);

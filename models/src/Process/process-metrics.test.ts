@@ -22,6 +22,7 @@ vi.mock('../Triple', () => ({
 }));
 
 import { ProcessTriple } from '../ProcessTriple';
+import { Triple } from '../Triple';
 
 describe('process-metrics', () => {
   beforeEach(() => {
@@ -96,7 +97,9 @@ describe('process-metrics', () => {
 
   describe('getBranchingFactor', () => {
     it('should return subj and obj counts', async () => {
-      vi.mocked(ProcessTriple.aggregate).mockResolvedValue([{ subj: 10, obj: 5 }]);
+      vi.mocked(Triple.aggregate)
+        .mockResolvedValueOnce([{ count: 10 }])
+        .mockResolvedValueOnce([{ count: 5 }]);
 
       const result = await getBranchingFactor('test-pid', 'http://example.org/predicate');
 
@@ -150,13 +153,15 @@ describe('process-metrics', () => {
     it('should calculate all metrics for predicates', async () => {
       vi.mocked(ProcessTriple.countDocuments).mockResolvedValue(100);
       vi.mocked(ProcessTriple.aggregate)
-        .mockResolvedValueOnce([{ _id: 'http://example.org/predicate1', count: 100 }])
-        .mockResolvedValueOnce([{ coverage: 3 }])
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([{ subj: 10, obj: 5 }])
-        .mockResolvedValueOnce([{ totalSubjects: 50 }])
-        .mockResolvedValueOnce([{ totalObjects: 40 }])
-        .mockResolvedValueOnce([{ totalResources: 80 }]);
+        .mockResolvedValueOnce([{ _id: 'http://example.org/predicate1', count: 100 }]) // getPredicateCounts
+        .mockResolvedValueOnce([{ coverage: 3 }]) // getSeedCoverage 1
+        .mockResolvedValueOnce([]) // getSeedCoverage 2
+        .mockResolvedValueOnce([{ totalSubjects: 50 }]) // getGlobalMetrics totalSubjects
+        .mockResolvedValueOnce([{ totalObjects: 40 }]) // getGlobalMetrics totalObjects
+        .mockResolvedValueOnce([{ totalResources: 80 }]); // getGlobalMetrics totalResources
+      vi.mocked(Triple.aggregate)
+        .mockResolvedValueOnce([{ count: 10 }]) // getBranchingFactor subjects
+        .mockResolvedValueOnce([{ count: 5 }]); // getBranchingFactor objects
 
       const result = await calcProcMetrics('test-pid', [
         'http://example.org/seed1',
