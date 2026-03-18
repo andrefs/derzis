@@ -106,7 +106,7 @@ export class WorkerPubSub {
       log.warn('No message handler to resubscribe');
       return;
     }
-    
+
     const managerChannel = config.pubsub.manager.from;
     const selfChannel = config.pubsub.workers.to + this.w.wId;
     log.info(`Resubscribing to ${managerChannel} and ${selfChannel}`);
@@ -133,7 +133,7 @@ export class WorkerPubSub {
       } catch (err) {
         log.warn(`Resubscribe attempt ${attempt} failed:`, err as Error);
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
         } else {
           log.error('Resubscribe failed after all retries');
           throw err;

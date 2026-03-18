@@ -5,3 +5,4 @@ export * from './process-paths';
 export * from './process-notifications';
 export * from './process-utils';
 export * from './aux-classes';
+export * from './process-metrics';

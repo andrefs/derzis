@@ -1,6 +1,5 @@
 import { type JobResult, type JobType } from '.';
 
-
 export interface DomainCrawlJobInfo {
   domain: Record<string, any>;
   resources: { url: string }[];
@@ -36,12 +35,12 @@ export interface BaseJobRequest {
 export type RobotsCheckJobRequest = BaseJobRequest & {
   type: 'robotsCheck';
   origin: string;
-}
+};
 export type ResourceCrawlJobRequest = BaseJobRequest & {
   type: 'resourceCrawl';
   origin: string;
   url: string;
-}
+};
 export type DomainCrawlJobRequest = BaseJobRequest &
   DomainCrawlJobInfo & {
     type: 'domainCrawl';
@@ -55,7 +54,12 @@ export type ResourceLabelFetchJobRequest = BaseJobRequest & {
   url: string;
   domain: string;
 };
-export type JobRequest = RobotsCheckJobRequest | ResourceCrawlJobRequest | DomainCrawlJobRequest | DomainLabelFetchJobRequest | ResourceLabelFetchJobRequest;
+export type JobRequest =
+  | RobotsCheckJobRequest
+  | ResourceCrawlJobRequest
+  | DomainCrawlJobRequest
+  | DomainLabelFetchJobRequest
+  | ResourceLabelFetchJobRequest;
 
 export type MessageType =
   | 'askCurCap'

@@ -4,7 +4,6 @@ import {
   StepClass,
   PredicateLimitationClass,
   BranchFactorClass,
-  SeedPosRatioClass,
   PredLimitation
 } from '../Process/aux-classes';
 import { Head } from './Path';
@@ -109,7 +108,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+          new Map([['p1', bf]])
         );
 
         expect(result).toHaveProperty('$or');
@@ -130,7 +129,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+          new Map([['p1', bf]])
         );
 
         expect(result).toHaveProperty('$or');
@@ -151,7 +150,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+          new Map([['p1', bf]])
         );
 
         expect(result).toEqual({ predicate: { $nin: ['p1', ...LITERAL_PREDS] } });
@@ -172,8 +171,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           'blacklist',
           true,
           new Map([
-            ['allowed-p1', { bf, spr: new SeedPosRatioClass() }],
-            ['not-allowed-p2', { bf, spr: new SeedPosRatioClass() }]
+            ['allowed-p1', bf],
+            ['not-allowed-p2', bf]
           ])
         );
 
@@ -199,8 +198,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           'blacklist',
           true,
           new Map([
-            ['blocked-p1', { bf, spr: new SeedPosRatioClass() }],
-            ['allowed-p2', { bf, spr: new SeedPosRatioClass() }]
+            ['blocked-p1', bf],
+            ['allowed-p2', bf]
           ])
         );
 
@@ -225,7 +224,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+          new Map([['p1', bf]])
         );
 
         expect(result).toHaveProperty('$or');
@@ -245,7 +244,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           new Set(),
           'whitelist',
           true,
-          new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+          new Map([['p1', bf]])
         );
 
         expect(result).toHaveProperty('predicate');
@@ -264,7 +263,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+          new Map([['p1', bf]])
         );
 
         expect(result).toHaveProperty('predicate', { $nin: ['p1', ...LITERAL_PREDS] });
@@ -284,7 +283,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+          new Map([['p1', bf]])
         );
 
         expect(result).toHaveProperty('$or');
@@ -306,8 +305,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           'blacklist',
           true,
           new Map([
-            ['p1', { bf, spr: new SeedPosRatioClass() }],
-            ['p2', { bf, spr: new SeedPosRatioClass() }]
+            ['p1', bf],
+            ['p2', bf]
           ])
         );
 
@@ -334,7 +333,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
           new Set(),
           'blacklist',
           true,
-          new Map([['other-p2', { bf, spr: new SeedPosRatioClass() }]])
+          new Map([['other-p2', bf]])
         );
 
         expect(result).toEqual({ predicate: { $nin: ['allowed-p1', ...LITERAL_PREDS] } });
@@ -353,7 +352,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Set(),
         'blacklist',
         true,
-        new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+        new Map([['p1', bf]])
       );
 
       expect(result).toHaveProperty('$or');
@@ -382,7 +381,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Set(),
         'blacklist',
         true,
-        new Map([['p1', { bf, spr: new SeedPosRatioClass() }]])
+        new Map([['p1', bf]])
       );
 
       expect(result).toHaveProperty('$or');
@@ -406,8 +405,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         'blacklist',
         true,
         new Map([
-          ['subj-pred', { bf: bfSubj, spr: new SeedPosRatioClass() }],
-          ['obj-pred', { bf: bfObj, spr: new SeedPosRatioClass() }]
+          ['subj-pred', bfSubj],
+          ['obj-pred', bfObj]
         ])
       );
 
@@ -432,8 +431,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         'blacklist',
         true,
         new Map([
-          ['subj-pred', { bf: bfSubj, spr: new SeedPosRatioClass() }],
-          ['nodir-pred', { bf: bfNoDir, spr: new SeedPosRatioClass() }]
+          ['subj-pred', bfSubj],
+          ['nodir-pred', bfNoDir]
         ])
       );
 
@@ -458,8 +457,8 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         'blacklist',
         true,
         new Map([
-          ['obj-pred', { bf: bfObj, spr: new SeedPosRatioClass() }],
-          ['nodir-pred', { bf: bfNoDir, spr: new SeedPosRatioClass() }]
+          ['obj-pred', bfObj],
+          ['nodir-pred', bfNoDir]
         ])
       );
 
@@ -488,9 +487,9 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         'blacklist',
         true,
         new Map([
-          ['subj-pred', { bf: bfSubj, spr: new SeedPosRatioClass() }],
-          ['obj-pred', { bf: bfObj, spr: new SeedPosRatioClass() }],
-          ['nodir-pred', { bf: bfNoDir, spr: new SeedPosRatioClass() }]
+          ['subj-pred', bfSubj],
+          ['obj-pred', bfObj],
+          ['nodir-pred', bfNoDir]
         ])
       );
 
@@ -510,7 +509,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Set(),
         'blacklist',
         true,
-        new Map([['other-pred', { bf, spr: new SeedPosRatioClass() }]])
+        new Map([['other-pred', bf]])
       );
 
       expect(result).toEqual({ predicate: { $nin: ['only-allowed', ...LITERAL_PREDS] } });
@@ -528,7 +527,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         new Set(['blocked-pred']),
         'blacklist',
         true,
-        new Map([['blocked-pred', { bf, spr: new SeedPosRatioClass() }]])
+        new Map([['blocked-pred', bf]])
       );
 
       expect(result).toEqual({ predicate: { $nin: LITERAL_PREDS } });

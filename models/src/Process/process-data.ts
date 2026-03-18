@@ -1,5 +1,5 @@
 import { ProcessClass } from './Process';
-import { BranchFactorClass, SeedPosRatioClass } from './aux-classes';
+import { BranchFactorClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath, EndpointPath } from '../Path';
@@ -13,7 +13,6 @@ import {
 } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
 import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
-import config from '@derzis/config';
 import { ResourceLabel } from '../ResourceLabel';
 
 const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
@@ -504,22 +503,18 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
 
 /**
  * Get predicates branching factor and seed position ratio for the current step as a map
- * @returns {Map<string, {bf: number, spr: number}> | undefined} - map of predicate URL to branching factor and seeds position ratio
+ * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor and seeds position ratio
  */
-export function curPredsDirMetrics(
+export function curPredsBranchFactor(
   process: ProcessClass
-): Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined {
-  return process.currentStep.predsDirMetrics?.reduce((map, obj) => {
-    if (!obj.branchFactor || !obj.seedPosRatio) {
+): Map<string, BranchFactorClass> | undefined {
+  return process.currentStep.predsBranchFactor?.reduce((map, obj) => {
+    if (!obj.branchFactor) {
       return map;
     }
-    map.set(obj.url, {
-      // TODO should this return decomposed metrics instead of ratio?
-      bf: obj.branchFactor,
-      spr: obj.seedPosRatio
-    });
+    map.set(obj.url, obj.branchFactor);
     return map;
-  }, new Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }>());
+  }, new Map<string, BranchFactorClass>());
 }
 
 export interface PathProgress {

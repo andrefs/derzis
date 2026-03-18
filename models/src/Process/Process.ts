@@ -36,7 +36,6 @@ import {
   hasPathsDomainRobotsChecking,
   hasPathsHeadBeingCrawled,
   extendPaths,
-  convertTraversalToEndpointPaths,
   deleteRemainingTraversalPaths
 } from './process-paths';
 import {
@@ -45,7 +44,6 @@ import {
   notifyStepFinished,
   notifyStart
 } from './process-notifications';
-import { matchesOne } from './process-utils';
 import {
   getTriples,
   getTriplesJson,
@@ -55,12 +53,11 @@ import {
   getAllResources,
   getAllDomains,
   getInfo,
-  curPredsDirMetrics,
+  curPredsBranchFactor,
   getDoneResourceCount
 } from './process-data';
-import { BranchFactorClass, SeedPosRatioClass, NotificationClass, StepClass } from './aux-classes';
+import { BranchFactorClass, NotificationClass, StepClass } from './aux-classes';
 import { type SimpleTriple, PathType } from '@derzis/common';
-import config from '@derzis/config';
 
 @index({ status: 1 })
 @index({ createdAt: 1 })
@@ -288,13 +285,11 @@ class ProcessClass extends Document {
   }
 
   /**
-   * Get predicates branching factor and seed position ratio for the current step as a map
-   * @returns {Map<string, {bf: number, spr: number}> | undefined} - map of predicate URL to branching factor and seeds position ratio
+   * Get predicates branching factor for the current step as a map
+   * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor
    */
-  public curPredsDirMetrics(
-    this: ProcessClass
-  ): Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined {
-    return curPredsDirMetrics(this);
+  public curPredsBranchFactor(this: ProcessClass): Map<string, BranchFactorClass> | undefined {
+    return curPredsBranchFactor(this);
   }
 
   public async getResourceCount(this: ProcessClass) {

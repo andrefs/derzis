@@ -100,7 +100,10 @@ export class RedisReconnector {
     }
   }
 
-  private emit<T extends keyof RedisReconnectorEvents>(event: T, ...args: Parameters<RedisReconnectorEvents[T]>): void {
+  private emit<T extends keyof RedisReconnectorEvents>(
+    event: T,
+    ...args: Parameters<RedisReconnectorEvents[T]>
+  ): void {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach((listener) => {
@@ -122,7 +125,7 @@ export class RedisReconnector {
 
     while (true) {
       attempt++;
-      
+
       // Check if we should give up
       if (Date.now() - startTime > this.maxRetryTime) {
         const error = new Error(`Max retry time (${this.maxRetryTime}ms) exceeded`);
@@ -152,7 +155,7 @@ export class RedisReconnector {
       }
 
       // Wait before retry with exponential backoff capped at 30 seconds
-      await new Promise(resolve => setTimeout(resolve, backoff));
+      await new Promise((resolve) => setTimeout(resolve, backoff));
       backoff = Math.min(backoff * 2, 30000);
     }
   }

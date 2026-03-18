@@ -21,7 +21,6 @@ export type LiteralObject = {
   language?: string;
 };
 
-
 export interface BaseSimpleTriple {
   subject: string;
   predicate: string;
@@ -39,12 +38,11 @@ export type SimpleTriple = SimpleLiteralTriple | SimpleNamedNodeTriple;
 
 export type RecursivePartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]
-  ? RecursivePartial<U>[]
-  : T[P] extends object | undefined
-  ? RecursivePartial<T[P]>
-  : T[P];
+    ? RecursivePartial<U>[]
+    : T[P] extends object | undefined
+      ? RecursivePartial<T[P]>
+      : T[P];
 };
-
 
 export type RobotsCheckResultError = {
   err: WorkerError;
@@ -60,7 +58,12 @@ export type RobotsCheckResultError = {
 
 export type RobotsCheckResult = RobotsCheckResultOk | RobotsCheckResultError;
 
-export type JobResult = CrawlResourceResult | RobotsCheckResult | CrawlDomainResult | FetchLabelsDomainResult | FetchLabelsResourceResult;
+export type JobResult =
+  | CrawlResourceResult
+  | RobotsCheckResult
+  | CrawlDomainResult
+  | FetchLabelsDomainResult
+  | FetchLabelsResourceResult;
 
 export type BaseRobotsCheckResult = {
   jobType: 'robotsCheck';
@@ -83,7 +86,12 @@ export interface BaseJobResult {
   jobId: number;
 }
 
-export type JobType = 'domainCrawl' | 'robotsCheck' | 'resourceCrawl' | 'domainLabelFetch' | 'resourceLabelFetch';
+export type JobType =
+  | 'domainCrawl'
+  | 'robotsCheck'
+  | 'resourceCrawl'
+  | 'domainLabelFetch'
+  | 'resourceLabelFetch';
 export interface JobResultError extends BaseJobResult {
   status: 'not_ok';
   err: object;
@@ -123,7 +131,9 @@ export type BaseFetchLabelsDomainResult = {
 } & BaseJobResult;
 export type BaseFetchLabelsDomainResultOk = BaseFetchLabelsDomainResult & JobResultOk;
 export type BaseFetchLabelsDomainResultError = BaseFetchLabelsDomainResult & JobResultError;
-export type FetchLabelsDomainResult = BaseFetchLabelsDomainResultOk | BaseFetchLabelsDomainResultError;
+export type FetchLabelsDomainResult =
+  | BaseFetchLabelsDomainResultOk
+  | BaseFetchLabelsDomainResultError;
 
 /**
  * Crawl resource
@@ -140,14 +150,15 @@ export type BaseCrawlResourceResult = {
 
 export type CrawlResourceResultOk = {
   details: { triples: SimpleTriple[] };
-} & BaseCrawlResourceResult & JobResultOk;
+} & BaseCrawlResourceResult &
+  JobResultOk;
 
 export type CrawlResourceResultError = {
   err: WorkerError;
-} & BaseCrawlResourceResult & JobResultError;
+} & BaseCrawlResourceResult &
+  JobResultError;
 
 export type CrawlResourceResult = CrawlResourceResultOk | CrawlResourceResultError;
-
 
 /**
  * Fetch resource labels
@@ -164,10 +175,14 @@ export type BaseFetchLabelsResourceResult = {
 
 export type FetchLabelsResourceResultOk = {
   details: { triples: SimpleTriple[] };
-} & BaseFetchLabelsResourceResult & JobResultOk;
+} & BaseFetchLabelsResourceResult &
+  JobResultOk;
 
 export type FetchLabelsResourceResultError = {
   err: WorkerError;
-} & BaseFetchLabelsResourceResult & JobResultError;
+} & BaseFetchLabelsResourceResult &
+  JobResultError;
 
-export type FetchLabelsResourceResult = FetchLabelsResourceResultOk | FetchLabelsResourceResultError;
+export type FetchLabelsResourceResult =
+  | FetchLabelsResourceResultOk
+  | FetchLabelsResourceResultError;

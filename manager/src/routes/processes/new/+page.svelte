@@ -194,7 +194,9 @@
                         >Configure which predicates are required or disallowed in paths</Tooltip
                       >
                       <InputGroup>
-                        <InputGroupText id="pred-limit-tt" style="width: 30px; text-align: center">?</InputGroupText>
+                        <InputGroupText id="pred-limit-tt" style="width: 30px; text-align: center"
+                          >?</InputGroupText
+                        >
                       </InputGroup>
                     </Col>
                   </Row>
@@ -225,7 +227,11 @@
                         </Input>
                       </Col>
                       <Col sm={1}>
-                        <Button color="danger" size="sm" on:click={() => removePredLimitation(index)}>
+                        <Button
+                          color="danger"
+                          size="sm"
+                          on:click={() => removePredLimitation(index)}
+                        >
                           &times;
                         </Button>
                       </Col>

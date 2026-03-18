@@ -16,7 +16,9 @@ export const load: PageServerLoad = async ({ params }) => {
   return { proc: structuredClone(p) };
 };
 
-function parsePredLimitations(formData: FormData): { predicate: string; lims: PredicateLimitationType[] }[] {
+function parsePredLimitations(
+  formData: FormData
+): { predicate: string; lims: PredicateLimitationType[] }[] {
   const predLimitations: { predicate: string; lims: PredicateLimitationType[] }[] = [];
   let index = 0;
 
@@ -70,7 +72,7 @@ export const actions: { [name: string]: Action } = {
       maxPathProps,
       predLimitations,
       followDirection,
-      predsDirMetrics: undefined,
+      predsBranchFactor: undefined,
       resetErrors,
       convertToEndpointPaths
     };

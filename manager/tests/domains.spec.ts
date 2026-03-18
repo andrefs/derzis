@@ -89,27 +89,28 @@ test.describe('Domains Page', () => {
     }
   });
 
-  test('should display warning badges when warnings exist', async ({ page }) => {
-    await page.goto('/domains');
+   test('should display warning badges when warnings exist', async ({ page }) => {
+     await page.goto('/domains');
 
-    const domainCards = page.locator('.card, [class*="card"]');
-    if ((await domainCards.count()) > 0) {
-      const firstCard = domainCards.first();
+     const domainCards = page.locator('.card, [class*="card"]');
+     if ((await domainCards.count()) > 0) {
+       const firstCard = domainCards.first();
 
-      // Check warnings section exists (be more specific to avoid conflicts)
-      const warningsSection = firstCard
-        .locator('div')
-        .filter({ has: page.locator('strong', { hasText: 'Warnings:' }) });
-      await expect(warningsSection).toBeVisible();
+       // Check warnings section exists - target exact "Warnings:" label (not "Recent Warnings:")
+       const warningsLabel = firstCard.getByText('Warnings:', { exact: true });
+       await expect(warningsLabel).toBeVisible();
+       // Get the parent div.mb-3 that contains the warnings
+       const warningsSection = warningsLabel.locator('xpath=..').filter({ hasClass: 'mb-3' });
+       await expect(warningsSection).toBeVisible();
 
-      // Look for warning badges (may or may not exist)
-      const warningBadges = firstCard.locator('.badge');
-      // If there are badges, they should be visible
-      if ((await warningBadges.count()) > 0) {
-        await expect(warningBadges.first()).toBeVisible();
-      }
-    }
-  });
+       // Look for warning badges (may or may not exist)
+       const warningBadges = warningsSection.locator('.badge');
+       // If there are badges, they should be visible
+       if ((await warningBadges.count()) > 0) {
+         await expect(warningBadges.first()).toBeVisible();
+       }
+     }
+   });
 
   test('should display robots status when available', async ({ page }) => {
     await page.goto('/domains');

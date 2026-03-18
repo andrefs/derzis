@@ -9,23 +9,12 @@ export class BranchFactorClass {
   public obj!: number;
 }
 
-export class SeedPosRatioClass {
-  @prop({ type: Number })
-  public subj!: number;
-
-  @prop({ type: Number })
-  public obj!: number;
-}
-
-export class PredDirMetrics {
+export class PredBranchFactor {
   @prop({ type: String })
   public url!: string;
 
   @prop({ type: BranchFactorClass })
   public branchFactor?: BranchFactorClass;
-
-  @prop({ type: SeedPosRatioClass })
-  public seedPosRatio?: SeedPosRatioClass;
 }
 
 export class NotificationClass {
@@ -115,13 +104,13 @@ export class StepClass {
   public predLimitations!: PredLimitation[];
 
   /**
-   * Direction metrics of last step's predicates
+   * Branch factors of last step's predicates
    */
-  @prop({ type: [PredDirMetrics] }, PropType.ARRAY)
-  public predsDirMetrics?: PredDirMetrics[];
+  @prop({ type: [PredBranchFactor] }, PropType.ARRAY)
+  public predsBranchFactor?: PredBranchFactor[];
 
   /**
-   * Whether to crawl taking into account predicates direction metrics
+   * Whether to crawl taking into account predicates branch factor
    */
   @prop({ type: Boolean, default: false, required: true })
   public followDirection: boolean = false;

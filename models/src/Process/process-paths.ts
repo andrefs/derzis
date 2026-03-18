@@ -1405,6 +1405,7 @@ async function extendPathsBatch(
       ? { extendedPaths: [], procTriples: [] }
       : await path.genExtendedPaths(process, triples);
 
+    log.info(`Path ${path._id} generated ${result.extendedPaths.length} extended paths.`);
     if (result.extendedPaths.length > 0) {
       let pathsToCreate = result.extendedPaths;
       if (convertToEndpoint) {
@@ -1523,18 +1524,25 @@ export async function extendPaths({
     let pathsToProcess: (TraversalPathDocument | EndpointPathDocument)[] = [];
 
     if (paths) {
+      log.info(`Got ${paths.length} paths provided directly for extension of process ${pid}`);
       // Direct list provided
       pathsToProcess = paths;
       needsMoreWork = false;
     } else if (pathGen) {
       // Reuse same generator - pagination cursor is preserved internally
       pathsToProcess = await collectBatch(pathGen, batchSize);
+      log.info(
+        `Queried ${pathsToProcess.length} paths for process ${pid} using headUrl/triples filter`
+      );
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }
     } else if (fullPathGen) {
       // Full extend - reuse same generator for pagination
       pathsToProcess = await collectBatch(fullPathGen, batchSize);
+      log.info(
+        `Queried ${pathsToProcess.length} extendable paths for process ${pid} in iteration ${iteration}`
+      );
       if (pathsToProcess.length === 0) {
         needsMoreWork = false;
       }

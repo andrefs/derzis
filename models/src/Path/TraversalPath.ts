@@ -24,21 +24,11 @@ import {
   matchesAny,
   matchesOne,
   ProcessClass,
-  SeedPosRatioClass,
   StepClass,
   type PredLimitation
 } from '../Process';
 import { Domain } from '../Domain';
-import {
-  PathClass,
-  Path,
-  ResourceCount,
-  hasLiteralHead,
-  HEAD_TYPE,
-  UrlHead,
-  type Head,
-  SeedClass
-} from './Path';
+import { PathClass, Path, ResourceCount, HEAD_TYPE, UrlHead, type Head, SeedClass } from './Path';
 import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 import type { ExtendedPathsResult } from '../types';
@@ -117,6 +107,16 @@ type RecursivePartial<T> = {
   status: 1,
   'nodes.count': 1,
   'predicates.count': 1
+})
+// Optimized index for complex path query in getPathsForDomainCrawl
+// Supports filters: processId, status, head.type, head.domain.isUnvisited, head.status, nodes.count
+@index({
+  processId: 1,
+  status: 1,
+  'head.type': 1,
+  'head.domain.isUnvisited': 1,
+  'head.status': 1,
+  'nodes.count': 1
 })
 @index({ 'head.status': 1, status: 1 }, { name: 'idx_traversal_head_status' })
 @index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_traversal_domain_status' })
@@ -225,6 +225,7 @@ export class TraversalPathClass extends PathClass {
         return { extendedPaths: [], procTriples: [] };
       }
       triplesToExtend = await Triple.find(triplesFilter);
+      log.silly(`Found ${triplesToExtend.length} triples to extend path ${this._id}`);
       if (!triplesToExtend.length) {
         return { extendedPaths: [], procTriples: [] };
       }
@@ -240,7 +241,7 @@ export class TraversalPathClass extends PathClass {
     const urlHead = this.head as UrlHead;
     let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
     let procTriples: TypedTripleId[] = [];
-    const predsDirMetrics = process.curPredsDirMetrics();
+    const predsBF = process.curPredsBranchFactor();
     const followDirection = process!.currentStep.followDirection;
 
     // Named node triples
@@ -250,7 +251,7 @@ export class TraversalPathClass extends PathClass {
         (t) =>
           this.isExtensionValid(t) &&
           this.isExtensionAllowed(t, process.currentStep) &&
-          t.directionOk(urlHead.url, followDirection, predsDirMetrics)
+          t.directionOk(urlHead.url, followDirection, predsBF)
       );
 
     for (const t of namedNodeTriples) {
@@ -407,7 +408,7 @@ export class TraversalPathClass extends PathClass {
     // if path predicates are maxed out, predicate must be in predicates.elems
     if (
       this.predicates.count >= currentStep.maxPathProps &&
-      !(t.predicate in this.predicates.elems)
+      !this.predicates.elems.includes(t.predicate)
     ) {
       return false;
     }
@@ -542,7 +543,7 @@ export class TraversalPathClass extends PathClass {
    * @param notAllowed Set of predicates that are not allowed based on predicate limits.
    * @param limType The type of predicate limit ('whitelist' or 'blacklist').
    * @param followDirection Boolean indicating whether to enforce directionality.
-   * @param predsDirMetrics Map of predicate direction metrics, where the key is the predicate and the value contains branch factor and seed position ratio.
+   * @param predsBF Map of predicate direction metrics, where the key is the predicate and the value contains branch factor and seed position ratio.
    * @returns An object representing the filter for existing triples based on directionality, or an empty object if no directionality filtering is needed.
    */
   public genDirectionFilter(
@@ -550,7 +551,7 @@ export class TraversalPathClass extends PathClass {
     notAllowed: Set<string>,
     limType: string,
     followDirection: boolean,
-    predsDirMetrics: Map<string, { bf: BranchFactorClass; spr: SeedPosRatioClass }> | undefined
+    predsBF: Map<string, BranchFactorClass> | undefined
   ): QueryFilter<NamedNodeTripleClass> {
     if (this.head.type !== HEAD_TYPE.URL) {
       return {};
@@ -558,7 +559,7 @@ export class TraversalPathClass extends PathClass {
 
     const urlHead = this.head as UrlHead;
 
-    if (!followDirection || !predsDirMetrics || predsDirMetrics.size === 0) {
+    if (!followDirection || !predsBF || predsBF.size === 0) {
       return {};
     }
 
@@ -566,7 +567,7 @@ export class TraversalPathClass extends PathClass {
     const objPreds = new Set<string>();
     const noDirPreds = new Set<string>();
 
-    for (const [pred, { bf }] of predsDirMetrics) {
+    for (const [pred, bf] of predsBF) {
       if (allowed.size && !allowed.has(pred)) {
         continue;
       }
@@ -585,7 +586,7 @@ export class TraversalPathClass extends PathClass {
     }
 
     for (const p of allowed) {
-      if (!predsDirMetrics.has(p)) {
+      if (!predsBF.has(p)) {
         noDirPreds.add(p);
       }
     }
@@ -668,7 +669,7 @@ export class TraversalPathClass extends PathClass {
     const limType = hasRequireFuture ? 'whitelist' : 'blacklist';
 
     const followDirection = process.currentStep.followDirection;
-    const predsDirMetrics = process.curPredsDirMetrics();
+    const predsBF = process.curPredsBranchFactor();
 
     // filter based on directionality metrics
     const directionFilter = this.genDirectionFilter(
@@ -676,7 +677,7 @@ export class TraversalPathClass extends PathClass {
       notAllowed,
       limType,
       followDirection,
-      predsDirMetrics
+      predsBF
     );
 
     const baseFilter = {
