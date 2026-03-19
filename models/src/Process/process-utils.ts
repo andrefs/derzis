@@ -12,12 +12,12 @@ export const matchesOne = (str: string, patterns: string[]) => {
     }
     // pattern is a URL prefix
     try {
-      const url = new URL(p);
+      new URL(p); // just validate
       if (str.startsWith(p)) {
         matched = true;
         break;
       }
-    } catch (e) {
+    } catch {
       continue;
     }
     // pattern is a string
@@ -33,7 +33,7 @@ export const matchesAny = (str: string[], patterns: string[]) => {
   return str.some((s) => matchesOne(s, patterns));
 };
 
-import { PredLimitation, type PredicateLimitationType } from './aux-classes';
+import { PredLimitation } from './aux-classes';
 
 export interface LimsByType {
   'require-past'?: string[];
@@ -43,11 +43,13 @@ export interface LimsByType {
 }
 
 export const buildLimsByType = (predLimitations: PredLimitation[]): LimsByType => {
-  return predLimitations.reduce((acc, pl) => {
-    for (const lim of pl.lims as PredicateLimitationType[]) {
-      (acc as Record<string, string[]>)[lim] = (acc as Record<string, string[]>)[lim] || [];
-      (acc as Record<string, string[]>)[lim].push(pl.predicate);
+  return predLimitations.reduce((acc: LimsByType, pl) => {
+    for (const lim of pl.lims) {
+      if (!acc[lim]) {
+        acc[lim] = [];
+      }
+      acc[lim].push(pl.predicate);
     }
     return acc;
-  }, {} as LimsByType);
+  }, {});
 };
