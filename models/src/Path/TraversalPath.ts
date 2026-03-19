@@ -470,7 +470,7 @@ export class TraversalPathClass extends PathClass {
   ): {
     allowed: Set<string>;
     notAllowed: Set<string>;
-    predFilter: QueryFilter<NamedNodeTripleClass>;
+    predFilter: QueryFilter<NamedNodeTripleDocument>;
   } | null {
     // Extract future constraints from predLimitations
     const requireFuture: string[] = [];
@@ -580,7 +580,7 @@ export class TraversalPathClass extends PathClass {
     limType: string,
     followDirection: boolean,
     predsBF: Map<string, BranchFactorClass> | undefined
-  ): QueryFilter<NamedNodeTripleClass> {
+  ): QueryFilter<NamedNodeTripleDocument> {
     if (!isUrlHead(this.head)) {
       return {};
     }
@@ -715,7 +715,7 @@ export class TraversalPathClass extends PathClass {
 
     const hasDirectionFilter = directionFilter && Object.keys(directionFilter).length > 0;
 
-    const result: QueryFilter<NamedNodeTripleDocument> = hasDirectionFilter
+    const result = hasDirectionFilter
       ? { ...baseFilter, ...directionFilter }
       : { ...baseFilter, ...predFilter };
     return result;
