@@ -7,7 +7,13 @@ const path = require('path');
 const projectRoot = __dirname;
 
 module.exports = [
-	js.configs.recommended,
+	{
+		...js.configs.recommended,
+		rules: {
+			// Turn off base ESLint no-undef: TypeScript's compiler handles this check
+			'no-undef': 'off',
+		}
+	},
 	{
 		files: ['**/*.ts'],
 		languageOptions: {
