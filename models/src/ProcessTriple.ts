@@ -10,6 +10,31 @@ import {
 import { Types } from 'mongoose';
 import { TripleType } from '@derzis/common';
 
+interface ProcessTripleInput {
+  processId: string;
+  triple: NamedNodeTripleClass | LiteralTripleClass | Types.ObjectId;
+  tripleType: TripleType;
+  processStep: number;
+}
+
+function isObjectId(value: unknown): value is Types.ObjectId {
+  return value instanceof Types.ObjectId;
+}
+
+function hasId(value: unknown): value is { _id: unknown } {
+  return typeof value === 'object' && value !== null && '_id' in value;
+}
+
+function getTripleId(triple: ProcessTripleInput['triple']): string {
+  if (isObjectId(triple)) {
+    return triple.toString();
+  }
+  if (hasId(triple)) {
+    return String(triple._id);
+  }
+  return String(triple);
+}
+
 @index({ processId: 1, triple: 1 }, { unique: true })
 class ProcessTripleClass extends TimeStamps {
   @prop({ required: true, type: String })
@@ -30,7 +55,7 @@ class ProcessTripleClass extends TimeStamps {
   ) {
     const uniqueTriples = Array.from(
       new Map(
-        triples.map((t) => [`${t.processId}_${(t.triple as any)._id || t.triple}`, t])
+        triples.map((t) => [ `${t.processId}_${getTripleId(t.triple)}`, t])
       ).values()
     );
 
@@ -49,7 +74,7 @@ class ProcessTripleClass extends TimeStamps {
     const BATCH_SIZE = 100;
     for (let i = 0; i < bulkOps.length; i += BATCH_SIZE) {
       const batchOps = bulkOps.slice(i, i + BATCH_SIZE);
-      await this.bulkWrite(batchOps as any, { ordered: false });
+      await this.bulkWrite(batchOps, { ordered: false });
     }
   }
 }
@@ -57,12 +82,5 @@ class ProcessTripleClass extends TimeStamps {
 const ProcessTriple = getModelForClass(ProcessTripleClass, {
   schemaOptions: { timestamps: true, collection: 'processTriples' }
 });
-
-interface ProcessTripleInput {
-  processId: string;
-  triple: NamedNodeTripleClass | LiteralTripleClass | Types.ObjectId;
-  tripleType: TripleType;
-  processStep: number;
-}
 
 export { ProcessTriple, ProcessTripleClass };
