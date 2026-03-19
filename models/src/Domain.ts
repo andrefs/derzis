@@ -525,13 +525,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-        domain,
-        status: 'unvisited',
-        url: { $nin: dPathHeads.map((r) => r.url) }
-      })
-        .limit(limit)
-        .select('url')
-        .lean()
+          domain,
+          status: 'unvisited',
+          url: { $nin: dPathHeads.map((r) => r.url) }
+        })
+          .limit(limit)
+          .select('url')
+          .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
@@ -610,7 +610,8 @@ class DomainClass {
         .lean();
 
       log.debug(
-        `Worker ${wId} fetched ${rls.length} resource labels for label fetching, last seen createdAt: ${lastSeenCreatedAt ? lastSeenCreatedAt.toISOString() : 'none'
+        `Worker ${wId} fetched ${rls.length} resource labels for label fetching, last seen createdAt: ${
+          lastSeenCreatedAt ? lastSeenCreatedAt.toISOString() : 'none'
         }`
       );
       if (!rls.length) {
@@ -629,9 +630,13 @@ class DomainClass {
         }
 
         // Try to lock domains which already have enough urls (>= resLimit)
-        log.debug(`Worker ${wId} found the following domains with at least ${resLimit} resource labels: ${Object.entries(labelsByDomain)
-          .filter(([, urls]) => urls.length >= resLimit)
-          .map(([d]) => d)}`);
+        log.debug(
+          `Worker ${wId} found the following domains with at least ${resLimit} resource labels: ${Object.entries(
+            labelsByDomain
+          )
+            .filter(([, urls]) => urls.length >= resLimit)
+            .map(([d]) => d)}`
+        );
         let domainsReady = Object.entries(labelsByDomain)
           .filter(([, urls]) => urls.length >= resLimit)
           .map(([d]) => d);
@@ -640,7 +645,9 @@ class DomainClass {
           domainsReady = domainsReady.filter((d) => !running.includes(d));
         }
         const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
-        log.debug(`Worker ${wId} locked the following domains for label fetching: ${dsLocked.map(d => d.origin)}`);
+        log.debug(
+          `Worker ${wId} locked the following domains for label fetching: ${dsLocked.map((d) => d.origin)}`
+        );
 
         // Ignore (drop) domains not locked
         for (const d of domainsReady) {
@@ -650,7 +657,9 @@ class DomainClass {
         }
 
         const remainingCapacity = domLimit - domainsFound;
-        log.debug(`Worker ${wId} has capacity for ${remainingCapacity} more domains to fetch labels for.`);
+        log.debug(
+          `Worker ${wId} has capacity for ${remainingCapacity} more domains to fetch labels for.`
+        );
         if (dsLocked.length > remainingCapacity) {
           const domainsToUnlock = dsLocked.slice(remainingCapacity).map((d) => d.origin);
           await this.unlockFromLabelFetch(wId, domainsToUnlock);
@@ -679,7 +688,7 @@ class DomainClass {
 
     // If there are no more ResourceLabels to query, yield whatever domains are left that can be locked
     const domainsReady = Object.entries(labelsByDomain)
-      .filter(([, urls]) => urls.length >= resLimit)
+      .filter(([, urls]) => urls.length > 0)
       .map(([d]) => d)
       .slice(0, domLimit - domainsFound);
     const dsLocked = await this.lockForLabelFetch(wId, domainsReady);
