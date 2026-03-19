@@ -6,11 +6,11 @@ import type {
   RobotsCheckResultOk
 } from '@derzis/common';
 import { Counter } from './Counter';
-import { HEAD_TYPE, Path, UrlHead, isTraversalPath, Head } from './Path';
-
-function isUrlHead(head: Head): head is UrlHead {
-  return head.type === HEAD_TYPE.URL;
-}
+ import { HEAD_TYPE, Path, UrlHead, isTraversalPath, HeadBase } from './Path';
+ 
+ function isUrlHead(head: HeadBase): head is UrlHead {
+   return head.type === HEAD_TYPE.URL;
+ }
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type QueryFilter, Types } from 'mongoose';
@@ -479,11 +479,8 @@ class DomainClass {
           lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
         }
 
-        const origins = new Set<string>(
-          paths
-            .filter((p) => isUrlHead(p.head))
-            .map((p) => p.head.domain.origin)
-        );
+        const urlPaths = paths.filter((p) => isUrlHead(p.head));
+        const origins = new Set<string>(urlPaths.map((p) => (p.head as UrlHead).domain.origin));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
         log.silly(
           `Worker ${wId} locked the following domains for robots checking for process ${proc.id}: ${domains.map(

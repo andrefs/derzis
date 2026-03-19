@@ -25,7 +25,8 @@ import {
   matchesOne,
   ProcessClass,
   StepClass,
-  type PredLimitation
+  type PredLimitation,
+  isUrlHead
 } from '../Process';
 import { Domain } from '../Domain';
 import { PathClass, Path, ResourceCount, HEAD_TYPE, UrlHead, type Head, SeedClass } from './Path';
@@ -188,17 +189,17 @@ export class TraversalPathClass extends PathClass {
   )
   public triples!: Types.ObjectId[];
 
-  public copy(_this: TraversalPathClass): TraversalPathSkeleton {
+  public copy(this: TraversalPathClass): TraversalPathSkeleton {
     const copy: TraversalPathSkeleton = {
-      processId: _this.processId,
+      processId: this.processId,
       type: PathType.TRAVERSAL,
       seed: {
-        url: _this.seed.url
+        url: this.seed.url
       },
-      head: _this.head as Head,
-      status: _this.status,
-      predicates: { elems: [..._this.predicates.elems] },
-      nodes: { elems: [..._this.nodes.elems] }
+      head: this.head,
+      status: this.status,
+      predicates: { elems: [...this.predicates.elems] },
+      nodes: { elems: [...this.nodes.elems] }
     };
     return copy;
   }
@@ -671,11 +672,11 @@ export class TraversalPathClass extends PathClass {
   public genExistingTriplesFilter(
     process: ProcessClass
   ): QueryFilter<NamedNodeTripleDocument> | null {
-    if (this.head.type !== HEAD_TYPE.URL) {
+    if (!isUrlHead(this.head)) {
       return null;
     }
 
-    const urlHead = this.head as UrlHead;
+    const urlHead = this.head;
     const predLimitations = process.currentStep.predLimitations || [];
     const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
 

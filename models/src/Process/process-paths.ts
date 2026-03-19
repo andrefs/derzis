@@ -27,7 +27,7 @@ import config from '@derzis/config';
 /**
  * Type guard to check if a head is a UrlHead
  */
-function isUrlHead(head: PathClass['head']): head is UrlHead {
+export function isUrlHead(head: PathClass['head']): head is UrlHead {
   return head.type === HEAD_TYPE.URL;
 }
 
@@ -97,7 +97,7 @@ function groupTraversalPathsByHead(
     { type: string; identifier: string; seedMap: Map<string, number> }
   >();
 
-   for (const tp of traversalPaths) {
+  for (const tp of traversalPaths) {
     const headType = tp.head.type;
     let identifier: string;
     let seedUrl: string;
@@ -191,14 +191,14 @@ async function processHeadGroup(
     'head.type': headType
   };
   if (headType === HEAD_TYPE.URL) {
-     query['head.url'] = identifier;
+    query['head.url'] = identifier;
   } else {
     // For literal heads, match by value, datatype, and language
     const literalKey = identifier.slice(8); // Remove 'literal:' prefix
     const parts = literalKey.split(':');
-     query['head.value'] = parts[0];
-     if (parts[1]) query['head.datatype'] = parts[1];
-     if (parts[2]) query['head.language'] = parts[2];
+    query['head.value'] = parts[0];
+    if (parts[1]) query['head.datatype'] = parts[1];
+    if (parts[2]) query['head.language'] = parts[2];
   }
 
   // Upsert EndpointPath with optimistic locking
@@ -238,8 +238,8 @@ async function processHeadGroup(
       if (headType === HEAD_TYPE.URL) {
         updateSet['head.type'] = 'url';
         // Only set status if existing head has it (URL heads have status, literals don't)
-         if (existing.head && (existing.head as { status?: string }).status) {
-           updateSet['head.status'] = (existing.head as { status?: string }).status;
+        if (existing.head && (existing.head as { status?: string }).status) {
+          updateSet['head.status'] = (existing.head as { status?: string }).status;
         }
         if (domain) {
           updateSet['head.domain.origin'] = domain.origin;
@@ -500,7 +500,7 @@ function mergePathQueryWithCursor(
   };
 
   if (pathFilter.$or && cursorCondition.$or) {
-     merged.$and = [{ $or: pathFilter.$or }, { $or: cursorCondition.$or }];
+    merged.$and = [{ $or: pathFilter.$or }, { $or: cursorCondition.$or }];
     delete merged.$or;
   }
 
@@ -622,7 +622,7 @@ export function buildStepPathQuery(
   // Handle potential $or conflicts between baseQuery and pathTypeFilter
   // (though unlikely since baseQuery doesn't typically have $or)
   if (baseQuery.$or && pathTypeFilter.$or) {
-     merged.$and = [{ $or: baseQuery.$or }, { $or: pathTypeFilter.$or }];
+    merged.$and = [{ $or: baseQuery.$or }, { $or: pathTypeFilter.$or }];
     delete merged.$or;
   }
 
@@ -1319,8 +1319,8 @@ async function* queryPathsForTriples(
 
   const nodeUrls = new Set<string>();
   for (const t of triples) {
-     if (typeof t.subject === 'string') nodeUrls.add(t.subject);
-     if (typeof t.object === 'string') nodeUrls.add(t.object);
+    if (typeof t.subject === 'string') nodeUrls.add(t.subject);
+    if (typeof t.object === 'string') nodeUrls.add(t.object);
   }
 
   if (nodeUrls.size === 0) {
@@ -1621,7 +1621,7 @@ export async function convertTraversalToEndpointPaths(pid: string): Promise<void
     totalHeadGroups += batchHeadGroups.size;
 
     // Collect traversal path IDs for cleanup
-     const batchTraversalIds = batch.map((tp) => tp._id);
+    const batchTraversalIds = batch.map((tp) => tp._id);
     traversalIdsToDelete.push(...batchTraversalIds);
 
     // Check if we need to fetch more batches
