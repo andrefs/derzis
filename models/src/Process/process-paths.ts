@@ -14,7 +14,6 @@ import {
   LiteralHead,
   SeedPathEntryClass,
   isEndpoint,
-  isTraversal,
   isEndpointPathSkeleton
 } from '../Path';
 import { Process, ProcessClass } from './Process';
@@ -77,7 +76,7 @@ async function fetchTraversalPathsBatch(
   batchSize: number,
   maxPathLength: number,
   maxPathProps: number
-): Promise<any[]> {
+): Promise<(TraversalPathClass & { _id: Types.ObjectId })[]> {
   const query: QueryFilter<TraversalPathDocument> = {
     processId: pid,
     status: 'active',
@@ -300,8 +299,10 @@ async function processHeadGroup(
           updatedAt: new Date()
         }).save();
         success = true;
-      } catch (err: any) {
-        if (err.code === 11000 || err.message?.includes('duplicate key')) {
+      } catch (err: unknown) {
+        const code = err && typeof err === 'object' && 'code' in err ? err.code : undefined;
+        const message = err && typeof err === 'object' && 'message' in err ? err.message : undefined;
+        if (code === 11000 || (typeof message === 'string' && message.includes('duplicate key'))) {
           log.warn('Duplicate key detected in processHeadGroup, fetching and merging', {
             pid,
             identifier
@@ -914,8 +915,10 @@ async function createNewPaths(
               updatedAt: new Date()
             }).save();
             success = true;
-          } catch (err: any) {
-            if (err.code === 11000 || err.message?.includes('duplicate key')) {
+          } catch (err: unknown) {
+            const code = err && typeof err === 'object' && 'code' in err ? err.code : undefined;
+            const message = err && typeof err === 'object' && 'message' in err ? err.message : undefined;
+            if (code === 11000 || (typeof message === 'string' && message.includes('duplicate key'))) {
               log.warn('Duplicate key detected during insert, fetching and merging', {
                 processId,
                 headUrl
@@ -958,7 +961,7 @@ async function deleteOldPaths(
   headStatus?: 'done' | 'unvisited'
 ) {
   if (pathsToDelete.size) {
-    const pathQuery = {
+    const pathQuery: Record<string, unknown> = {
       _id: { $in: Array.from(pathsToDelete) },
       'head.type': HEAD_TYPE.URL
     };
@@ -1403,11 +1406,11 @@ async function* queryPathsForTriples(
 async function collectBatch<T>(generator: AsyncGenerator<T>, batchSize: number): Promise<T[]> {
   const result: T[] = [];
   while (result.length < batchSize) {
-    const { value, done } = await generator.next();
-    if (done) {
+    const iterResult = await generator.next();
+    if (iterResult.done) {
       break;
     }
-    result.push(value);
+    result.push(iterResult.value);
   }
   return result;
 }
