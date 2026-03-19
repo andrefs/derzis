@@ -1,0 +1,11 @@
+{
+  "**/src/**/*.ts": ["prettier --write"],
+  "**/src/**/*.svelte": ["prettier --write"],
+  "**/src/**/*.js": ["prettier --write"],
+  "**/src/**/*.json": ["prettier --write"],
+  "**/*.md": ["prettier --write"],
+  "**/src/**/*.cjs": ["prettier --write"],
+  "**/src/**/*.mjs": ["prettier --write"],
+  "**/*.yml": ["prettier --write"],
+  "**/*.yaml": ["prettier --write"]
+}
