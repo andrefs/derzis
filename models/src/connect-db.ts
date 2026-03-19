@@ -1,5 +1,5 @@
 import config from '@derzis/config';
-import mongoose, { Types } from 'mongoose';
+import mongoose from 'mongoose';
 import { createLogger } from '@derzis/common/server';
 
 const log = createLogger('connect-db');
