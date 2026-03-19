@@ -208,7 +208,9 @@ class ProcessClass extends Document {
    * @returns {AsyncGenerator<SimpleTriple>} - Triples
    */
   public async *getTriples(): AsyncGenerator<SimpleTriple> {
-    return yield* getTriples(this);
+    for await (const t of getTriples(this)) {
+      yield t;
+    }
   }
 
   /**
@@ -219,15 +221,21 @@ class ProcessClass extends Document {
   public async *getTriplesJson(
     includeCreatedAt: boolean = false
   ): AsyncGenerator<string> {
-    return yield* getTriplesJson(this, includeCreatedAt);
+    for await (const t of getTriplesJson(this, includeCreatedAt)) {
+      yield t;
+    }
   }
 
   public async *getDomainsJson() {
-    return yield* getDomainsJson(this);
+    for await (const d of getDomainsJson(this)) {
+      yield d;
+    }
   }
 
   public async *getResourcesJson() {
-    return yield* getResourcesJson(this);
+    for await (const r of getResourcesJson(this)) {
+      yield r;
+    }
   }
 
   public async getPathsForRobotsChecking(
@@ -305,7 +313,6 @@ class ProcessClass extends Document {
   }
 
   // TODO configurable number of simultaneous processes
-  // eslint-disable-next-line no-unused-vars
   public static async startNext(this: ReturnModelType<typeof ProcessClass>) {
     // if there is already a running process, do not start a new one
     const runningProcs = await this.countDocuments({ status: 'running' });
@@ -408,7 +415,6 @@ class ProcessClass extends Document {
     }
     this.status = 'done';
     // Calculate doneResourceCount before saving
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.currentStep.doneResourceCount = await getDoneResourceCount(this);
     // save to DB
     await this.save();
