@@ -54,6 +54,32 @@
       alert('Failed to end step: ' + e);
     }
   }
+
+  let sendingLabels = false;
+  let sendLabelsError: string | null = null;
+  let sendLabelsSuccess = false;
+
+  async function sendLabels(pid: string) {
+    if (!data.proc.notification.webhook) return;
+
+    sendingLabels = true;
+    sendLabelsError = null;
+    sendLabelsSuccess = false;
+
+    try {
+      const resp = await fetch(`/api/processes/${pid}/send-labels`, { method: 'POST' });
+      if (resp.ok) {
+        sendLabelsSuccess = true;
+      } else {
+        const err = await resp.json();
+        sendLabelsError = err.err?.message || 'Failed to send labels';
+      }
+    } catch (e) {
+      sendLabelsError = 'Network error: ' + e;
+    } finally {
+      sendingLabels = false;
+    }
+  }
 </script>
 
 <header style="padding-bottom: 1rem">
@@ -247,6 +273,30 @@
               ><a href={data.proc.notification.ssePath}>{data.proc.notification.ssePath}</a></td
             ></tr
           >
+          <tr>
+            <th scope="row">Send Labels</th>
+            <td>
+              {#if sendLabelsSuccess}
+                <Alert color="success">Labels sent successfully!</Alert>
+              {:else if sendLabelsError}
+                <Alert color="danger">{sendLabelsError}</Alert>
+              {/if}
+              <button
+                class="btn btn-primary"
+                disabled={sendingLabels || !data.proc.notification.webhook}
+                on:click={() => sendLabels(data.proc.pid)}
+              >
+                {#if sendingLabels}
+                  Sending...
+                {:else}
+                  Send Labels to Cardea
+                {/if}
+              </button>
+              {#if !data.proc.notification.webhook}
+                <small class="text-muted"> (requires webhook)</small>
+              {/if}
+            </td>
+          </tr>
         </tbody>
       </Table>
     </Col>
