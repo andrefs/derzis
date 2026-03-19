@@ -12,7 +12,7 @@ import { TripleType } from '@derzis/common';
 
 interface ProcessTripleInput {
   processId: string;
-  triple: NamedNodeTripleClass | LiteralTripleClass | Types.ObjectId;
+  triple: TripleClass | Types.ObjectId;
   tripleType: TripleType;
   processStep: number;
 }
@@ -59,13 +59,16 @@ class ProcessTripleClass extends TimeStamps {
       ).values()
     );
 
-    const bulkOps = uniqueTriples.map((t) => ({
-      updateOne: {
-        filter: { processId: t.processId, triple: t.triple },
-        update: { $set: t },
-        upsert: true
-      }
-    }));
+    const bulkOps = uniqueTriples.map((t) => {
+      const tripleId = isObjectId(t.triple) ? t.triple : new Types.ObjectId(getTripleId(t.triple));
+      return {
+        updateOne: {
+          filter: { processId: t.processId, triple: tripleId },
+          update: { $set: { ...t, triple: tripleId } },
+          upsert: true
+        }
+      };
+    });
 
     if (bulkOps.length === 0) {
       return;
