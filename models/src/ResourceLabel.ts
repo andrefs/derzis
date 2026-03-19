@@ -2,7 +2,7 @@ import { urlValidator } from '@derzis/common';
 import { prop, index, getModelForClass, type ReturnModelType } from '@typegoose/typegoose';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { DocumentType } from '@typegoose/typegoose';
-import { BulkWriteOperation } from 'mongoose';
+import { AnyBulkWriteOperation } from 'mongoose';
 
 type LabelUpdate = {
   domain: string;
@@ -75,7 +75,7 @@ class ResourceLabelClass extends TimeStamps {
       return domain;
     };
 
-    const bulkOps: BulkWriteOperation<ResourceLabelDocument>[] = [];
+    const bulkOps: AnyBulkWriteOperation<ResourceLabelClass>[] = [];
 
     for (const label of uniqueLabels) {
       const existingLabel = existingMap.get(`${label.pid}_${label.url}`);
