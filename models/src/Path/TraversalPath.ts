@@ -62,8 +62,8 @@ type RecursivePartial<T> = {
     this.lastPredicate = this.predicates.elems[this.predicates.count - 1];
   }
 
-  if (this.head.type === HEAD_TYPE.URL) {
-    const urlHead = this.head as UrlHead;
+  if (isUrlHead(this.head)) {
+    const urlHead = this.head;
     if (!urlHead.url || typeof urlHead.url !== 'string' || urlHead.url.trim() === '') {
       throw new Error(`Invalid TraversalPath: head.type is 'url' but head.url is missing or empty`);
     }
@@ -215,7 +215,7 @@ export class TraversalPathClass extends PathClass {
     triples?: TripleDocument[]
   ): Promise<ExtendedPathsResult<TraversalPathSkeleton>> {
     // If the head is a literal, we cannot extend further, so return empty results.
-    if (this.head.type === HEAD_TYPE.LITERAL) {
+    if (!isUrlHead(this.head)) {
       return { extendedPaths: [], procTriples: [] };
     }
 
@@ -239,7 +239,7 @@ export class TraversalPathClass extends PathClass {
       return { extendedPaths: [], procTriples: [] };
     }
 
-    const urlHead = this.head as UrlHead;
+    const urlHead = this.head;
     let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
     let procTriples: TypedTripleId[] = [];
     const predsBF = process.curPredsBranchFactor();
@@ -264,7 +264,7 @@ export class TraversalPathClass extends PathClass {
       if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process)) {
         const domain = new URL(newHeadUrl).origin;
         const ep = this.copy();
-        ep.head = {
+        const head: Head = {
           type: HEAD_TYPE.URL,
           url: newHeadUrl,
           domain: {
@@ -272,7 +272,8 @@ export class TraversalPathClass extends PathClass {
             isUnvisited: true // this will be updated before saving
           },
           status: 'unvisited'
-        } as Head;
+        };
+        ep.head = head;
         ep.status = 'active';
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
@@ -297,12 +298,14 @@ export class TraversalPathClass extends PathClass {
       extendedPaths[prop] = extendedPaths[prop] || {};
       if (!extendedPaths[prop][literalKey]) {
         const ep = this.copy();
-        ep.head = {
+        const head: Head = {
           type: HEAD_TYPE.LITERAL,
           value: t.object.value,
           datatype: t.object.datatype,
           language: t.object.language
-        } as Head;
+        };
+
+        ep.head = head;
         ep.status = 'active';
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
@@ -330,19 +333,19 @@ export class TraversalPathClass extends PathClass {
     t: NamedNodeTripleClass | LiteralTripleDocument
   ): boolean {
     // If the head is not a URL, we cannot extend
-    if (this.head.type !== HEAD_TYPE.URL) {
+    if (!isUrlHead(this.head)) {
       return false;
     }
 
-    const urlHead = this.head as UrlHead;
-    if (t.type === TripleType.LITERAL) {
+    const urlHead = this.head;
+    if (isLiteral(t)) {
       if (t.predicate === urlHead.url) {
         return false;
       }
       return true;
     }
 
-    const namedNodeTriple = t as NamedNodeTripleClass;
+    const namedNodeTriple = t;
     if (namedNodeTriple.subject === namedNodeTriple.object) {
       return false;
     }
@@ -578,11 +581,11 @@ export class TraversalPathClass extends PathClass {
     followDirection: boolean,
     predsBF: Map<string, BranchFactorClass> | undefined
   ): QueryFilter<NamedNodeTripleClass> {
-    if (this.head.type !== HEAD_TYPE.URL) {
+    if (!isUrlHead(this.head)) {
       return {};
     }
 
-    const urlHead = this.head as UrlHead;
+    const urlHead = this.head;
 
     if (!followDirection || !predsBF || predsBF.size === 0) {
       return {};
@@ -705,7 +708,7 @@ export class TraversalPathClass extends PathClass {
       predsBF
     );
 
-    const baseFilter = {
+    const baseFilter: QueryFilter<NamedNodeTripleDocument> = {
       nodes: urlHead.url,
       _id: { $nin: this.triples }
     };
