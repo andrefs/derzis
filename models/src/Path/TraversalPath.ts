@@ -369,6 +369,21 @@ export class TraversalPathClass extends PathClass {
       return false;
     }
 
+    // Always enforce maxPathLength
+    if (this.nodes.count >= currentStep.maxPathLength) {
+      return false;
+    }
+
+    // Exempt rdfs:label and rdfs:comment from past constraints
+    const EXEMPT_PREDICATES = new Set([
+      'http://www.w3.org/2000/01/rdf-schema#label',
+      'http://www.w3.org/2000/01/rdf-schema#comment'
+    ]);
+    if (EXEMPT_PREDICATES.has(t.predicate)) {
+      return true;
+    }
+
+    // Non-exempt predicates must satisfy past constraints
     return this.isExtensionAllowedByPath(currentStep, limsByType);
   }
 
@@ -405,6 +420,15 @@ export class TraversalPathClass extends PathClass {
     currentStep: StepClass,
     limsByType: LimsByType
   ): boolean {
+    // Exempt rdfs:label and rdfs:comment from all limitations
+    const EXEMPT_PREDICATES = new Set([
+      'http://www.w3.org/2000/01/rdf-schema#label',
+      'http://www.w3.org/2000/01/rdf-schema#comment'
+    ]);
+    if (EXEMPT_PREDICATES.has(t.predicate)) {
+      return true;
+    }
+
     // if path predicates are maxed out, predicate must be in predicates.elems
     if (
       this.predicates.count >= currentStep.maxPathProps &&

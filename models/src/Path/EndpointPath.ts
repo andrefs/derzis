@@ -158,6 +158,15 @@ export class EndpointPathClass extends PathClass {
 
     const limsByType = buildLimsByType(currentStep.predLimitations);
 
+    // Exempt rdfs:label and rdfs:comment
+    const EXEMPT_PREDICATES = new Set([
+      'http://www.w3.org/2000/01/rdf-schema#label',
+      'http://www.w3.org/2000/01/rdf-schema#comment'
+    ]);
+    if (EXEMPT_PREDICATES.has(t.predicate)) {
+      return true;
+    }
+
     if (limsByType['require-future'] && !matchesOne(t.predicate, limsByType['require-future'])) {
       return false;
     }
