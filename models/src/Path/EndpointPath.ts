@@ -236,7 +236,7 @@ export class EndpointPathClass extends PathClass {
 
     const urlHead: UrlHead = isUrlHead(this.head)
       ? this.head
-      : { type: HEAD_TYPE.URL, url: '', domain: { origin: '', isUnvisited: true } };
+      : { type: HEAD_TYPE.URL, url: '', status: 'unvisited', domain: { origin: '', isUnvisited: true } };
     if (!isUrlHead(urlHead) || !urlHead.url) {
       return { extendedPaths: [], procTriples: [] };
     }
@@ -497,6 +497,7 @@ async function processUrlCandidate(
     const head: UrlHead = {
       type: HEAD_TYPE.URL,
       url: candidate.headUrl,
+      status: 'unvisited',
       domain: {
         origin: domain,
         isUnvisited: true // this will be updated before saving
