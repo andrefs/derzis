@@ -135,13 +135,13 @@ export interface IPath {
   type: PathType;
   extensionCounter: number;
   genExistingTriplesFilter: (
-    // eslint-disable-next-line no-unused-vars
+
     process: ProcessClass
   ) => QueryFilter<NamedNodeTripleDocument> | null;
   genExtendedPaths: (
-    // eslint-disable-next-line no-unused-vars
+
     process: ProcessClass,
-    // eslint-disable-next-line no-unused-vars
+
     triples?: TripleDocument[]
   ) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
 }
@@ -149,7 +149,7 @@ export interface IPath {
 export const Path = getModelForClass(PathClass);
 export type PathDocument = DocumentType<PathClass> & IPath;
 
-export function isEndpoint(path: PathClass): path is EndpointPathClass {
+export function isEndpoint(path: PathClass | PathSkeleton): path is EndpointPathClass {
   return path.type === PathType.ENDPOINT;
 }
 

@@ -15,15 +15,15 @@ import {
   isNamedNode,
   isLiteral
 } from '../Triple';
-import { buildLimsByType, matchesOne, ProcessClass, StepClass } from '../Process';
+import { buildLimsByType, isUrlHead, matchesOne, ProcessClass, StepClass } from '../Process';
 import {
   PathClass,
   Path,
   hasLiteralHead,
   HEAD_TYPE,
   UrlHead,
-  type Head,
-  type LiteralHead
+  type LiteralHead,
+  PathSkeleton
 } from './Path';
 import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';
@@ -39,7 +39,7 @@ interface Candidate {
 }
 
 // SeedPathEntry class for tracking seed distances
-class SeedPathEntryClass {
+export class SeedPathEntryClass {
   @prop({ type: String, required: true })
   public seed!: string;
 
@@ -55,6 +55,11 @@ export type EndpointPathSkeleton = Pick<
     shortestPathLength: number;
     seedPaths: Array<{ seed: string; minLength: number }>;
   };
+
+export function isEndpointPathSkeleton(path: PathSkeleton): path is EndpointPathSkeleton {
+  return path.type === PathType.ENDPOINT;
+}
+
 
 @index({ processId: 1 }, { name: 'idx_endpoint_process' })
 @index({ createdAt: 1, _id: 1 })
@@ -101,7 +106,7 @@ export type EndpointPathSkeleton = Pick<
   }
 )
 @pre<EndpointPathClass>('save', async function () {
-  if (this.head.type === HEAD_TYPE.URL) {
+  if (isUrlHead(this.head)) {
     const urlHead = this.head;
     if (urlHead.type !== HEAD_TYPE.URL) {
       throw new Error(`Invalid EndpointPath: head.type is 'url' but head is not UrlHead`);
@@ -188,12 +193,11 @@ export class EndpointPathClass extends PathClass {
     if (this.head.type !== HEAD_TYPE.URL) {
       return null;
     }
-    const urlHead = this.head;
-    if (urlHead.type !== HEAD_TYPE.URL || !urlHead.url) {
+    if (!isUrlHead(this.head) || !this.head.url) {
       return null;
     }
     return {
-      nodes: urlHead.url
+      nodes: this.head.url
     };
   }
 
@@ -230,8 +234,10 @@ export class EndpointPathClass extends PathClass {
       }
     }
 
-    const urlHead: UrlHead = this.head.type === HEAD_TYPE.URL ? this.head : { type: HEAD_TYPE.URL, url: '', domain: { origin: '', isUnvisited: true } };
-    if (urlHead.type !== HEAD_TYPE.URL || !urlHead.url) {
+    const urlHead: UrlHead = isUrlHead(this.head)
+      ? this.head
+      : { type: HEAD_TYPE.URL, url: '', domain: { origin: '', isUnvisited: true } };
+    if (!isUrlHead(urlHead) || !urlHead.url) {
       return { extendedPaths: [], procTriples: [] };
     }
     const procTriples: TypedTripleId[] = [];
@@ -409,7 +415,7 @@ async function queryExistingEndpointPaths(
   const map = new Map<string, EndpointPathDocument>();
   for (const ep of existing) {
     const head = ep.head;
-    if (head.type === HEAD_TYPE.URL && head.url) {
+    if (isUrlHead(head) && head.url) {
       map.set(head.url, ep);
     }
   }
@@ -488,18 +494,19 @@ async function processUrlCandidate(
       log.warn('Invalid headUrl, skipping candidate', { headUrl: candidate.headUrl, error: err });
       return Promise.resolve(null);
     }
+    const head: UrlHead = {
+      type: HEAD_TYPE.URL,
+      url: candidate.headUrl,
+      domain: {
+        origin: domain,
+        isUnvisited: true // this will be updated before saving
+      }
+    };
     const newPath: EndpointPathSkeleton = {
       _id: new Types.ObjectId(),
       processId: this.processId,
       type: PathType.ENDPOINT,
-      head: {
-        type: HEAD_TYPE.URL,
-        url: candidate.headUrl,
-        domain: {
-          origin: domain,
-          isUnvisited: true // this will be updated before saving
-        }
-      },
+      head,
       status: 'active',
       shortestPathLength: distance,
       seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),

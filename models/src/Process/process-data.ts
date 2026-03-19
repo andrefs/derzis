@@ -3,17 +3,18 @@ import { BranchFactorClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { TraversalPath, EndpointPath } from '../Path';
-import {
-  LiteralTriple,
-  LiteralTripleClass,
-  type LiteralTripleDocument,
-  NamedNodeTriple,
-  NamedNodeTripleClass,
-  Triple,
-  isNamedNode,
-  isLiteral,
-  type TripleDocument
-} from '../Triple';
+ import {
+   LiteralTriple,
+   LiteralTripleClass,
+   type LiteralTripleDocument,
+   NamedNodeTriple,
+   NamedNodeTripleClass,
+   type NamedNodeTripleDocument,
+   Triple,
+   isNamedNode,
+   isLiteral,
+   type TripleDocument
+ } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
 import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
 import { ResourceLabel } from '../ResourceLabel';

@@ -10,7 +10,12 @@ import {
   HEAD_TYPE,
   UrlHead,
   Path,
-  PathClass
+  PathClass,
+  LiteralHead,
+  SeedPathEntryClass,
+  isEndpoint,
+  isTraversal,
+  isEndpointPathSkeleton
 } from '../Path';
 import { Process, ProcessClass } from './Process';
 import { buildLimsByType } from './process-utils';
@@ -19,16 +24,22 @@ import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 const log = createLogger('ProcessPaths');
 import { type QueryFilter, Types } from 'mongoose';
-import { type TripleClass, type TripleDocument } from '../Triple';
+import { isNamedNode, type TripleClass, type TripleDocument } from '../Triple';
 import { PathType, type TypedTripleId } from '@derzis/common';
 import { Domain } from '../Domain';
-import config from '@derzis/config';
 
 /**
  * Type guard to check if a head is a UrlHead
  */
 export function isUrlHead(head: PathClass['head']): head is UrlHead {
   return head.type === HEAD_TYPE.URL;
+}
+
+/**
+ * Type guard to check if a head is a LiteralHead
+ */
+export function isLiteralHead(head: PathClass['head']): head is LiteralHead {
+  return head.type === HEAD_TYPE.LITERAL;
 }
 
 /**
@@ -103,10 +114,10 @@ function groupTraversalPathsByHead(
     let seedUrl: string;
     let nodesCount = tp.nodes.count;
 
-    if (headType === HEAD_TYPE.URL) {
+    if (isUrlHead(tp.head)) {
       identifier = tp.head.url;
       seedUrl = tp.seed.url;
-    } else if (headType === HEAD_TYPE.LITERAL) {
+    } else if (isLiteralHead(tp.head)) {
       const value = tp.head.value || '';
       const datatype = tp.head.datatype || '';
       const language = tp.head.language || '';
@@ -214,7 +225,7 @@ async function processHeadGroup(
 
     if (existing) {
       // Merge with existing seedPaths
-      const existingSeedMap = new Map(existing.seedPaths.map((sp: any) => [sp.seed, sp.minLength]));
+      const existingSeedMap = new Map(existing.seedPaths.map((sp: SeedPathEntryClass) => [sp.seed, sp.minLength]));
       for (const [seed, minLength] of seedMap.entries()) {
         const cur = existingSeedMap.get(seed);
         if (cur === undefined || minLength < cur) {
@@ -235,11 +246,11 @@ async function processHeadGroup(
         updatedAt: new Date()
       };
 
-      if (headType === HEAD_TYPE.URL) {
+      if (isUrlHead(existing.head)) {
         updateSet['head.type'] = 'url';
         // Only set status if existing head has it (URL heads have status, literals don't)
-        if (existing.head && (existing.head as { status?: string }).status) {
-          updateSet['head.status'] = (existing.head as { status?: string }).status;
+        if (existing.head && existing.head.status) {
+          updateSet['head.status'] = existing.head.status;
         }
         if (domain) {
           updateSet['head.domain.origin'] = domain.origin;
@@ -780,7 +791,7 @@ async function createNewPaths(
   const urlGroups = new Map<string, Map<string, EndpointPathSkeleton[]>>();
   const literalPaths: EndpointPathSkeleton[] = [];
 
-  for (const p of pathsToCreate as EndpointPathSkeleton[]) {
+  for (const p of pathsToCreate.filter(p => isEndpoint(p))) {
     const head = p.head;
     if (isUrlHead(head)) {
       const processId = p.processId;
@@ -801,7 +812,16 @@ async function createNewPaths(
   // Process URL heads with duplicate detection and merging
   for (const [processId, byUrl] of urlGroups.entries()) {
     for (const [headUrl, group] of byUrl.entries()) {
-      const head0 = group[0].head as UrlHead;
+      if (!isUrlHead(group[0].head)) {
+        log.warn('Expected URL head in URL group but found different type, skipping group', {
+          processId,
+          headUrl,
+          headType: group[0].head.type
+        });
+        continue;
+      }
+
+      const head0 = group[0].head;
       const domain = head0.domain;
 
       // Merge incoming seedPaths and shortest distance
@@ -830,7 +850,15 @@ async function createNewPaths(
           .exec();
 
         if (existing) {
-          const existingHead = existing.head as UrlHead;
+          if (!isUrlHead(existing.head)) {
+            log.warn('Expected URL head in existing EndpointPath but found different type, skipping', {
+              processId,
+              headUrl,
+              existingHeadType: existing.head.type
+            });
+            continue;
+          }
+          const existingHead = existing.head;
           // Merge incoming with existing
           const mergedSeedMap = new Map<string, number>(incomingSeedMap);
           for (const sp of existing.seedPaths) {
@@ -930,7 +958,7 @@ async function deleteOldPaths(
   headStatus?: 'done' | 'unvisited'
 ) {
   if (pathsToDelete.size) {
-    const pathQuery: QueryFilter<any> = {
+    const pathQuery = {
       _id: { $in: Array.from(pathsToDelete) },
       'head.type': HEAD_TYPE.URL
     };
@@ -957,10 +985,9 @@ async function deleteOldPaths(
  */
 async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
   // Only process paths with URL heads (not literal heads)
-  const urlPaths = newPaths.filter((p) => p.head.type === HEAD_TYPE.URL) as (PathSkeleton & {
-    head: UrlHead;
-  })[];
-  const headUrls = urlPaths.map((p) => p.head.url);
+  const urlPaths = newPaths.filter((p) => isUrlHead(p.head));
+  const heads = urlPaths.map(p => p.head).filter((h): h is UrlHead => isUrlHead(h));
+  const headUrls = heads.map(h => h.url);
 
   if (!headUrls.length) {
     return;
@@ -981,9 +1008,9 @@ async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
     domains.filter((d) => d.status === 'unvisited').map((d) => d.origin)
   );
 
-  for (const np of urlPaths) {
-    np.head.status = resourceMap[np.head.url] || 'unvisited';
-    np.head.domain.isUnvisited = domainsUnvisited.has(np.head.domain.origin);
+  for (const head of heads) {
+    head.status = resourceMap[head.url] || 'unvisited';
+    head.domain.isUnvisited = domainsUnvisited.has(head.domain.origin);
   }
 }
 
@@ -1076,10 +1103,11 @@ async function* queryTraversalPathsForHeadUrl(
     let cursor: Record<string, unknown> =
       lastCreatedAt && lastId ? { createdAt: { $gte: lastCreatedAt }, _id: { $gt: lastId } } : {};
 
-    const paths = await TraversalPath.find({
+    const tpQueryFilter: QueryFilter<TraversalPathDocument> = {
       ...baseQuery,
       ...cursor
-    } as QueryFilter<TraversalPathDocument>)
+    };
+    const paths = await TraversalPath.find(tpQueryFilter)
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(batchSize);
 
@@ -1090,7 +1118,7 @@ async function* queryTraversalPathsForHeadUrl(
 
     const last = paths[paths.length - 1];
     lastCreatedAt = last.createdAt ?? null;
-    lastId = last._id as Types.ObjectId;
+    lastId = last._id;
 
     yield* paths;
 
@@ -1128,10 +1156,11 @@ async function* queryEndpointPathsForHeadUrl(
     let cursor: Record<string, unknown> =
       lastCreatedAt && lastId ? { createdAt: { $gte: lastCreatedAt }, _id: { $gt: lastId } } : {};
 
-    const paths = await EndpointPath.find({
+    const epQueryFilter: QueryFilter<EndpointPathDocument> = {
       ...baseQuery,
       ...cursor
-    } as QueryFilter<EndpointPathDocument>)
+    };
+    const paths = await EndpointPath.find(epQueryFilter)
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(batchSize);
 
@@ -1142,7 +1171,7 @@ async function* queryEndpointPathsForHeadUrl(
 
     const last = paths[paths.length - 1];
     lastCreatedAt = last.createdAt ?? null;
-    lastId = last._id as Types.ObjectId;
+    lastId = last._id;
 
     yield* paths;
 
@@ -1211,10 +1240,11 @@ async function* queryAllExtendableTraversalPaths(
       cursor = { createdAt: { $gte: lastCreatedAt }, _id: { $gt: lastId } };
     }
 
-    const paths = await TraversalPath.find({
+    const tpQueryFilter: QueryFilter<TraversalPathDocument> = {
       ...baseQuery,
       ...cursor
-    } as QueryFilter<TraversalPathDocument>)
+    };
+    const paths = await TraversalPath.find(tpQueryFilter)
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(batchSize);
 
@@ -1225,7 +1255,7 @@ async function* queryAllExtendableTraversalPaths(
 
     const last = paths[paths.length - 1];
     lastCreatedAt = last.createdAt ?? null;
-    lastId = last._id as Types.ObjectId;
+    lastId = last._id;
     lastLength = last.nodes.count;
 
     yield* paths;
@@ -1277,10 +1307,11 @@ async function* queryAllExtendableEndpointPaths(
       cursor = { createdAt: { $gte: lastCreatedAt }, _id: { $gt: lastId } };
     }
 
-    const paths = await EndpointPath.find({
+    const epQueryFilter: QueryFilter<EndpointPathDocument> = {
       ...baseQuery,
       ...cursor
-    } as QueryFilter<EndpointPathDocument>)
+    };
+    const paths = await EndpointPath.find(epQueryFilter)
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(batchSize);
 
@@ -1291,7 +1322,7 @@ async function* queryAllExtendableEndpointPaths(
 
     const last = paths[paths.length - 1];
     lastCreatedAt = last.createdAt ?? null;
-    lastId = last._id as Types.ObjectId;
+    lastId = last._id;
     lastLength = last.shortestPathLength;
 
     yield* paths;
@@ -1320,7 +1351,7 @@ async function* queryPathsForTriples(
   const nodeUrls = new Set<string>();
   for (const t of triples) {
     if (typeof t.subject === 'string') nodeUrls.add(t.subject);
-    if (typeof t.object === 'string') nodeUrls.add(t.object);
+    if (isNamedNode(t)) { nodeUrls.add(t.object); }
   }
 
   if (nodeUrls.size === 0) {
@@ -1342,10 +1373,11 @@ async function* queryPathsForTriples(
       'head.url': { $in: Array.from(nodeUrls) }
     };
 
+
     const paths: (TraversalPathDocument | EndpointPathDocument)[] = await (
       pathType === PathType.TRAVERSAL
-        ? TraversalPath.find({ ...baseQuery, ...cursor } as QueryFilter<TraversalPathDocument>)
-        : EndpointPath.find({ ...baseQuery, ...cursor } as QueryFilter<EndpointPathDocument>)
+        ? TraversalPath.find({ ...baseQuery, ...cursor })
+        : EndpointPath.find({ ...baseQuery, ...cursor })
     )
       .sort({ createdAt: 1, _id: 1 })
       .limit(batchSize);
@@ -1357,7 +1389,7 @@ async function* queryPathsForTriples(
 
     const last: TraversalPathDocument | EndpointPathDocument = paths[paths.length - 1];
     lastCreatedAt = last.createdAt ?? null;
-    lastId = last._id as Types.ObjectId;
+    lastId = last._id;
 
     yield* paths;
 
@@ -1422,6 +1454,7 @@ async function extendPathsBatch(
     }
     // convert paths even if they were not extended (only for done heads, or for unvisited if extension is allowed)
     if (convertToEndpoint) {
+      // eslint-disable-next-line no-restricted-syntax
       const tp = path as TraversalPathDocument;
       const currentStep = process.currentStep;
       const limsByType = buildLimsByType(currentStep.predLimitations || []);
@@ -1442,19 +1475,21 @@ async function extendPathsBatch(
  */
 function convertToEndpointSkeletons(skeletons: PathSkeleton[]): EndpointPathSkeleton[] {
   return skeletons.map((s) => {
-    if ('seedPaths' in s) {
-      return s as EndpointPathSkeleton;
+    if (isEndpointPathSkeleton(s)) {
+      return s;
     }
+    // eslint-disable-next-line no-restricted-syntax
     const tp = s as TraversalPathSkeleton & { seed: { url: string } };
     const pathLength = tp.nodes?.count ?? tp.nodes.elems.length ?? 0;
-    return {
+    const eps: EndpointPathSkeleton = {
       processId: tp.processId,
       head: tp.head,
       type: PathType.ENDPOINT,
       status: 'active',
       shortestPathLength: pathLength,
       seedPaths: [{ seed: tp.seed.url, minLength: pathLength }]
-    } as EndpointPathSkeleton;
+    }
+    return eps;
   });
 }
 
