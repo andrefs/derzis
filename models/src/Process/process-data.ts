@@ -402,10 +402,10 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
     lastPath?.updatedAt?.getTime() || 0
   );
 
-  const totalPaths = await TraversalPath.countDocuments({
-    processId: process.pid,
-    'seed.url': { $in: process.currentStep.seeds }
-  }).lean();
+   const totalPaths = await TraversalPath.countDocuments({
+     processId: process.pid,
+     'seed.url': { $in: process.currentStep.seeds }
+   });
   const avgPathLength = totalPaths
     ? await TraversalPath.aggregate([
         {
@@ -440,25 +440,25 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   return {
     resources: {
       total: await getResourceCount(process),
-      done: await Resource.countDocuments({
-        ...baseFilter,
-        status: 'done'
-      }).lean(), // TODO add index
-      crawling: await Resource.countDocuments({
-        ...baseFilter,
-        status: 'crawling'
-      }).lean(), // TODO add index
-      error: await Resource.countDocuments({
-        ...baseFilter,
-        status: 'error'
-      }).lean() // TODO add index
+       done: await Resource.countDocuments({
+         ...baseFilter,
+         status: 'done'
+       }),
+       crawling: await Resource.countDocuments({
+         ...baseFilter,
+         status: 'crawling'
+       }),
+       error: await Resource.countDocuments({
+         ...baseFilter,
+         status: 'error'
+       })
       //seed: await Resource.countDocuments({
       //  ...baseFilter,
       //  isSeed: true,
       //}).lean(), // TODO add index
     },
     triples: {
-      total: await ProcessTriple.countDocuments(baseFilter).lean()
+       total: await ProcessTriple.countDocuments(baseFilter)
     },
     domains: {
       total: (await Array.fromAsync(getAllDomains(process))).length
@@ -481,17 +481,17 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
       //}).lean() // TODO add index
     },
     paths: {
-      total: await TraversalPath.countDocuments({
-        processId: process.pid,
-        type: PathType.TRAVERSAL,
-        'seed.url': { $in: process.currentStep.seeds }
-      }).lean(),
-      headUnvisited: await TraversalPath.countDocuments({
-        processId: process.pid,
-        type: PathType.TRAVERSAL,
-        'head.status': 'unvisited',
-        'seed.url': { $in: process.currentStep.seeds }
-      }).lean(), // TODO add index
+       total: await TraversalPath.countDocuments({
+         processId: process.pid,
+         type: PathType.TRAVERSAL,
+         'seed.url': { $in: process.currentStep.seeds }
+       }),
+       headUnvisited: await TraversalPath.countDocuments({
+         processId: process.pid,
+         type: PathType.TRAVERSAL,
+         'head.status': 'unvisited',
+         'seed.url': { $in: process.currentStep.seeds }
+       }) // TODO add index
       avgPathLength,
       avgPathProps
     },

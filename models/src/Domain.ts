@@ -284,9 +284,9 @@ class DomainClass {
       new: true,
       fields: 'origin jobId'
     };
-    await this.findOneAndUpdate(query, update, options);
-    const domains = await this.find({ jobId }).lean();
-    return domains;
+     await this.findOneAndUpdate(query, update, options);
+     const domains = await this.find({ jobId });
+     return domains;
   }
 
   /**
@@ -336,9 +336,9 @@ class DomainClass {
       new: true,
       fields: 'origin jobId'
     };
-    await this.findOneAndUpdate(query, update, options);
-    const domains = await this.find({ jobId }).lean();
-    return domains;
+     await this.findOneAndUpdate(query, update, options);
+     const domains = await this.find({ jobId });
+     return domains;
   }
 
   /**
@@ -392,9 +392,9 @@ class DomainClass {
       new: true,
       fields: 'origin jobId'
     };
-    await this.findOneAndUpdate(query, update, options);
-    const domains = await this.find({ jobId }).lean();
-    return domains;
+     await this.findOneAndUpdate(query, update, options);
+     const domains = await this.find({ jobId });
+     return domains;
   }
 
   /**
@@ -567,10 +567,10 @@ class DomainClass {
     resources: { url: string }[],
     jobId: number
   ): Promise<void> {
-    await Resource.updateMany(
-      { url: { $in: resources.map((r) => r.url) } },
-      { status: 'crawling', jobId }
-    ).lean();
+     await Resource.updateMany(
+       { url: { $in: resources.map((r) => r.url) } },
+       { status: 'crawling', jobId }
+     );
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
   }
 
