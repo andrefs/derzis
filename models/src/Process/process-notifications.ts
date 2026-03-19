@@ -6,15 +6,6 @@ import { type LiteralTripleDocument } from '../Triple';
 import { getLabelDataForProcess } from './process-data';
 const log = createLogger('ProcessNotifications');
 
-/**
- * Notify Cardea that all labels for a process have been fetched and are ready to be sent.
- * This will fetch all labels with status 'done' for the given process, and send them to Cardea via the process webhook.
- * If no labels are found, it will log that and return without sending a notification.
- * If the process is not found, it will log an error and return without sending a notification.
- * If the process has no webhook, it will log that and return without sending a notification.
- * If the notification is sent successfully, it will log that.
- * @param pid The process ID for which to notify that labels have been fetched.
- */
 export async function notifyLabelsFetched(pid: string) {
   const labelData = await getLabelDataForProcess(pid);
 
@@ -33,7 +24,7 @@ export async function notifyLabelsFetched(pid: string) {
 
   const data: LabelsFetchedNotification = {
     pid,
-    messageType: 'OK_LABELS_FETCHED' as const,
+    messageType: 'OK_LABELS_FETCHED',
     message: `Process ${pid} has ${labelData.length} labels from ${totalTriples} triples ready to send to Cardea.`,
     details: { labels: labelData }
   };
@@ -48,14 +39,14 @@ export async function notifyLabelsFetched(pid: string) {
 }
 
 export async function notifyStepStarted(process: ProcessClass) {
-  const notif = {
+  const notif: ProcessNotification = {
     ok: true,
     data: {
       pid: process.pid,
       messageType: 'OK_STEP_STARTED',
       message: `Process ${process.pid} just started step #${process.steps.length}.`,
       details: process.currentStep
-    } as StepStartedNotification
+    }
   };
 
   log.info(
@@ -73,7 +64,7 @@ export async function notifyStepStarted(process: ProcessClass) {
 }
 
 export async function notifyProcessCreated(process: ProcessClass) {
-  const notif = {
+  const notif: ProcessNotification = {
     ok: true,
     data: {
       pid: process.pid,
@@ -86,7 +77,7 @@ export async function notifyProcessCreated(process: ProcessClass) {
         currentStep: process.currentStep,
         status: process.status
       }
-    } as ProcCreatedNotification
+    }
   };
 
   log.info(
@@ -106,14 +97,14 @@ export async function notifyProcessCreated(process: ProcessClass) {
 export async function notifyStepFinished(process: ProcessClass) {
   const doneResourceCount = process.currentStep.doneResourceCount ?? 0;
 
-  const notif = {
+  const notif: ProcessNotification = {
     ok: true,
     data: {
       pid: process.pid,
       messageType: 'OK_STEP_FINISHED',
       message: `Process ${process.pid} just finished step #${process.steps.length} with ${doneResourceCount} resources completed.`,
       details: process.currentStep
-    } as StepFinishedNotification
+    }
   };
 
   log.info(
@@ -132,14 +123,14 @@ export async function notifyStepFinished(process: ProcessClass) {
 }
 
 export async function notifyStart(process: ProcessClass) {
-  const notif = {
+  const notif: ProcessNotification = {
     ok: true,
     data: {
       pid: process.pid,
       messageType: 'OK_STEP_STARTED',
       message: `Step ${process.steps.length} of ${process.pid} has started.`,
       details: process.currentStep
-    } as ProcStartNotification
+    }
   };
 
   log.info(
@@ -160,27 +151,26 @@ export async function notifyStart(process: ProcessClass) {
   }
 }
 
-const notifyEmail = async (email: string, notif: ProcessNotification) => {
+const notifyEmail = async (email: string, notif: ProcessNotification): Promise<void> => {
   try {
-    const res = await sendEmail({
+    await sendEmail({
       to: email,
       from: 'derzis@andrefs.com',
       text: notif.data.message,
       html: `<p>${notif.data.message}</p>`,
       subject: 'Derzis - Event'
     });
-    return res;
   } catch (e) {
     log.error('Error sending email notification', e);
   }
 };
 
-const notifyWebhook = async (webhook: string, notif: ProcessNotification) => {
+const notifyWebhook = async (webhook: string, notif: ProcessNotification): Promise<void> => {
   let retries = 0;
   while (retries < 3) {
     try {
-      const res = await webhookPost(webhook, notif);
-      return res;
+      await webhookPost(webhook, notif);
+      return;
     } catch (e) {
       retries++;
       if (retries === 3) {
@@ -216,6 +206,7 @@ type StepStartedNotification = BaseProcNotification & {
   details: unknown;
   messageType: 'OK_STEP_STARTED';
 };
+
 export type LabelsFetchedNotification = BaseProcNotification & {
   details: {
     labels: Array<{
