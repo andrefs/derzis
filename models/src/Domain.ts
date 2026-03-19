@@ -969,8 +969,9 @@ const robotsNotFound = (jobResult: RobotsCheckResultError, crawlDelay: number) =
 };
 
 const robotsUnknownError = (jobResult: RobotsCheckResultError) => {
-  log.error(`Unknown error in robots check (job #${jobResult.jobId}) for ${jobResult.origin}`);
-  console.log(jobResult);
+  log.error(`Unknown error in robots check (job #${jobResult.jobId}) for ${jobResult.origin}`, {
+    jobResult
+  });
   return {
     $set: {
       'robots.status': 'error' as const,

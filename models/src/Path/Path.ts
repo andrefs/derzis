@@ -12,21 +12,18 @@ import {
   Severity,
   modelOptions,
   getModelForClass,
-  type DocumentType,
-  index
+  type DocumentType
 } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
 import { EndpointPathClass, type EndpointPathSkeleton } from './EndpointPath';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 import { ProcessClass } from '../Process';
 import { type NamedNodeTripleDocument, type TripleDocument } from '../Triple';
-import { createLogger } from '@derzis/common/server';
-const log = createLogger('Path');
 
-export const HEAD_TYPE = {
+export const HEAD_TYPE: { URL: 'url'; LITERAL: 'literal' } = {
   URL: 'url',
   LITERAL: 'literal'
-} as const;
+};
 
 @modelOptions({ options: { allowMixed: Severity.ERROR } })
 class ResourceCount {
@@ -137,9 +134,14 @@ export interface IPath {
   status: 'active' | 'deleted';
   type: PathType;
   extensionCounter: number;
-  genExistingTriplesFilter: (process: ProcessClass) => QueryFilter<NamedNodeTripleDocument> | null;
+  genExistingTriplesFilter: (
+    // eslint-disable-next-line no-unused-vars
+    process: ProcessClass
+  ) => QueryFilter<NamedNodeTripleDocument> | null;
   genExtendedPaths: (
+    // eslint-disable-next-line no-unused-vars
     process: ProcessClass,
+    // eslint-disable-next-line no-unused-vars
     triples?: TripleDocument[]
   ) => Promise<{ extendedPaths: PathSkeleton[]; procTriples: TypedTripleId[] }>;
 }

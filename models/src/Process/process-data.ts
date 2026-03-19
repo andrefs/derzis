@@ -14,6 +14,9 @@ import {
 import { type DocumentType } from '@typegoose/typegoose';
 import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
 import { ResourceLabel } from '../ResourceLabel';
+import { createLogger } from '@derzis/common/server';
+
+const log = createLogger('process-data');
 
 const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
 const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
@@ -64,12 +67,10 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
   const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();
   const tripleIds = procTriples.map((pt) => pt.triple);
 
-  console.log(
-    '[DEBUG getTriples] procTriples count:',
-    procTriples.length,
-    'tripleIds count:',
-    tripleIds.length
-  );
+  log.debug('[getTriples]', {
+    procTriplesCount: procTriples.length,
+    tripleIdsCount: tripleIds.length
+  });
 
   if (tripleIds.length === 0) return;
 
@@ -121,7 +122,7 @@ export async function* getTriplesJson(
 
 export async function* getDomainsJson(process: ProcessClass) {
   for await (const d of getAllDomains(process)) {
-    console.log('XXXXXXXXXXXX', d);
+    log.debug('Domain', d);
     yield JSON.stringify(d.origin);
   }
 }

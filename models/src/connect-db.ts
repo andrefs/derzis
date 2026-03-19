@@ -1,7 +1,11 @@
 import config from '@derzis/config';
 import mongoose, { Types } from 'mongoose';
+import { createLogger } from '@derzis/common/server';
+
+const log = createLogger('connect-db');
+
 if (config.worker.db.debug) {
-  console.log('Enabling mongo debug');
+  log.debug('Enabling mongo debug');
   mongoose.set('debug', true);
 }
 

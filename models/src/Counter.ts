@@ -21,8 +21,13 @@ class CounterClass {
         projection: 'value'
       }
     );
-    log.debug(`Generated job id ${c!.value}`);
-    return c!.value;
+
+    if (!c) {
+      throw new Error(`Failed to generate id for counter ${name}: document not found after upsert`);
+    }
+
+    log.debug(`Generated job id ${c.value}`);
+    return c.value;
   }
 }
 
