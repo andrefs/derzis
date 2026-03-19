@@ -472,7 +472,7 @@ class ProcessClass extends Document {
           : {};
 
       // Fetch a batch of paths for this process
-      const paths: TraversalPathDocument[] | EndpointPathDocument[] =
+      const paths =
         this.curPathType === PathType.TRAVERSAL
           ? await TraversalPath.find({
               processId: this.pid,

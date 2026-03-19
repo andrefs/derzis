@@ -92,7 +92,7 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
     const entry = tripleMap.get(procTriple.triple.toString());
     if (!entry) continue;
 
-    if (entry.type === TripleType.NAMED_NODE) {
+    if (isNamedNode(entry.data)) {
       const t = entry.data;
       yield {
         subject: t.subject,
@@ -100,7 +100,7 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
         object: t.object,
         type: TripleType.NAMED_NODE
       };
-    } else {
+    } else if (isLiteral(entry.data)) {
       const t = entry.data;
       yield {
         subject: t.subject,
@@ -382,7 +382,7 @@ export async function* getAllDomains(process: ProcessClass) {
  * @param {DocumentType<ProcessClass>} process - the process to get info for
  * @returns {Promise<object>} - an object containing info about the process
  */
-export async function getInfo(process: DocumentType<ProcessClass>) {
+export async function getInfo(process: ProcessClass) {
   const baseFilter = { processId: process.pid };
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
   const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
