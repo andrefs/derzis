@@ -513,7 +513,8 @@ export class Worker extends EventEmitter {
         status: 'ok',
         details: {
           labelFetchId,
-          triples: cachedTriples
+          triples: cachedTriples,
+          ts: labelFetchId.domainTs.getTime()
         }
       } as FetchLabelsResourceResult;
     }

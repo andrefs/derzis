@@ -27,6 +27,7 @@ import {
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Manager');
 import RunningJobs from './RunningJobs';
+import type { Types } from 'mongoose';
 import {
   PathType,
   type DomainCrawlJobRequest,
@@ -384,9 +385,13 @@ export default class Manager {
 
     if (extendLabelsOnly) {
       log.info('Skipping extendPaths for headUrl:', source.url, 'because dontExtend flag is set');
-      const labelTripleDocs = (await Triple.find({
-        _id: { $in: labelTripleResult.map((r) => r.upsertedIds).flat() }
-      })) as TripleDocument[];
+      const upsertedIds = labelTripleResult
+        .map((r) => Object.values(r.upsertedIds || {}))
+        .flat()
+        .filter((id): id is Types.ObjectId => id != null);
+      const labelTripleDocs = upsertedIds.length
+        ? ((await Triple.find({ _id: { $in: upsertedIds } })) as TripleDocument[])
+        : [];
       await extendPaths({ triples: labelTripleDocs });
       return;
     }
