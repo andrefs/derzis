@@ -188,17 +188,17 @@ export class TraversalPathClass extends PathClass {
   )
   public triples!: Types.ObjectId[];
 
-  public copy(this: TraversalPathClass): TraversalPathSkeleton {
+  public copy(_this: TraversalPathClass): TraversalPathSkeleton {
     const copy: TraversalPathSkeleton = {
-      processId: this.processId,
+      processId: _this.processId,
       type: PathType.TRAVERSAL,
       seed: {
-        url: this.seed.url
+        url: _this.seed.url
       },
-      head: this.head as Head,
-      status: this.status,
-      predicates: { elems: [...this.predicates.elems] },
-      nodes: { elems: [...this.nodes.elems] }
+      head: _this.head as Head,
+      status: _this.status,
+      predicates: { elems: [..._this.predicates.elems] },
+      nodes: { elems: [..._this.nodes.elems] }
     };
     return copy;
   }
@@ -242,7 +242,7 @@ export class TraversalPathClass extends PathClass {
     let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
     let procTriples: TypedTripleId[] = [];
     const predsBF = process.curPredsBranchFactor();
-    const followDirection = process!.currentStep.followDirection;
+    const followDirection = process.currentStep.followDirection;
 
     // Named node triples
     const namedNodeTriples = triplesToExtend
@@ -260,7 +260,7 @@ export class TraversalPathClass extends PathClass {
       const prop = t.predicate;
 
       extendedPaths[prop] = extendedPaths[prop] || {};
-      if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
+      if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process)) {
         const domain = new URL(newHeadUrl).origin;
         const ep = this.copy();
         ep.head = {
@@ -711,11 +711,10 @@ export class TraversalPathClass extends PathClass {
 
     const hasDirectionFilter = directionFilter && Object.keys(directionFilter).length > 0;
 
-    if (hasDirectionFilter) {
-      return { ...baseFilter, ...directionFilter } as any;
-    } else {
-      return { ...baseFilter, ...predFilter } as any;
-    }
+    const result: QueryFilter<NamedNodeTripleDocument> = hasDirectionFilter
+      ? { ...baseFilter, ...directionFilter }
+      : { ...baseFilter, ...predFilter };
+    return result;
   }
 }
 

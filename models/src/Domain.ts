@@ -6,10 +6,14 @@ import type {
   RobotsCheckResultOk
 } from '@derzis/common';
 import { Counter } from './Counter';
-import { HEAD_TYPE, Path, UrlHead } from './Path';
+import { HEAD_TYPE, Path, UrlHead, isTraversalPath, Head } from './Path';
+
+function isUrlHead(head: Head): head is UrlHead {
+  return head.type === HEAD_TYPE.URL;
+}
 import { Process } from './Process';
 import { Resource } from './Resource';
-import { type UpdateOneModel, QueryFilter, Types } from 'mongoose';
+import { type QueryFilter, Types } from 'mongoose';
 import {
   prop,
   index,
@@ -232,24 +236,22 @@ class DomainClass {
   }
 
   public static async upsertMany(this: ReturnModelType<typeof DomainClass>, urls: string[]) {
-    const domains: { [url: string]: UpdateOneModel<DomainClass> } = {};
+    type DomainUpsertOp = {
+      filter: { origin: string };
+      update: { $inc: { 'crawl.queued': number } };
+      upsert: true;
+    };
+    const domains: { [url: string]: DomainUpsertOp } = {};
 
     for (const u of urls) {
       if (!domains[u]) {
-        const filter = { origin: u };
-        const update: {
-          $inc: { 'crawl.queued': number };
-        } = {
-          $inc: { 'crawl.queued': 0 }
-        };
-
         domains[u] = {
-          filter,
-          update,
+          filter: { origin: u },
+          update: { $inc: { 'crawl.queued': 0 } },
           upsert: true
         };
       }
-      (domains[u].update as any).$inc!['crawl.queued']++;
+      domains[u].update.$inc['crawl.queued']++;
     }
     return this.bulkWrite(Object.values(domains).map((d) => ({ updateOne: d })));
   }
@@ -468,11 +470,10 @@ class DomainClass {
           continue PROCESS_LOOP;
         }
 
-        const lastPath = paths[paths.length - 1] as any;
-        lastSeenCreatedAt = lastPath.createdAt;
+        const lastPath = paths[paths.length - 1];
+        lastSeenCreatedAt = lastPath.createdAt ?? null;
         lastSeenId = lastPath._id;
-        // Track length for proper cursor pagination with compound sort
-        if (proc.curPathType === 'traversal') {
+        if (isTraversalPath(lastPath)) {
           lastSeenLength = lastPath.nodes?.count ?? null;
         } else {
           lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
@@ -480,8 +481,8 @@ class DomainClass {
 
         const origins = new Set<string>(
           paths
-            .filter((p) => p.head.type === HEAD_TYPE.URL)
-            .map((p) => (p.head as UrlHead).domain.origin)
+            .filter((p) => isUrlHead(p.head))
+            .map((p) => p.head.domain.origin)
         );
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
         log.silly(

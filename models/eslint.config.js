@@ -33,7 +33,7 @@ module.exports = [
 			'no-restricted-syntax': [
 				'error',
 				{
-					selector: 'TSAsExpression:not([argument.typeAnnotation.type="TSConstTypeAssertion"])',
+					selector: 'TSAsExpression:not([typeAnnotation.type="TSConstTypeAssertion"])',
 					message: 'Use of "as" type casting is not allowed. Use proper typing instead.'
 				},
 				{

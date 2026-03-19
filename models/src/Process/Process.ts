@@ -2,22 +2,19 @@ import {
   type Types,
   Document,
   type QueryFilter,
-  type QueryWithHelpers,
-  type UpdateWriteOpResult,
   type UpdateQuery
 } from 'mongoose';
-import { Resource, type ResourceDocument } from '../Resource';
+import { Resource } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
   TraversalPath,
   EndpointPath,
-  TraversalPathClass,
-  EndpointPathClass,
   PathClass,
   HEAD_TYPE,
-  UrlHead
+  UrlHead,
+  TraversalPathDocument,
+  EndpointPathDocument
 } from '../Path';
-import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Process');
 import {
@@ -29,7 +26,7 @@ import {
   PropType,
   type DocumentType
 } from '@typegoose/typegoose';
-import { Domain, type DomainDocument } from '../Domain';
+import { Domain } from '../Domain';
 import {
   getPathsForRobotsChecking,
   getPathsForDomainCrawl,
@@ -151,7 +148,7 @@ class ProcessClass extends Document {
    * Check if the process is done
    * @returns {Promise<boolean>} - Whether the process is done
    */
-  public async isDone(this: ProcessClass): Promise<boolean> {
+  public async isDone(): Promise<boolean> {
     // process is done
     if (['done', 'error'].includes(this.status)) {
       return true;
@@ -210,7 +207,7 @@ class ProcessClass extends Document {
    * Get triples as a stream
    * @returns {AsyncGenerator<SimpleTriple>} - Triples
    */
-  public async *getTriples(this: ProcessClass): AsyncGenerator<SimpleTriple> {
+  public async *getTriples(): AsyncGenerator<SimpleTriple> {
     return yield* getTriples(this);
   }
 
@@ -220,17 +217,16 @@ class ProcessClass extends Document {
    * @returns {AsyncGenerator<string>} - JSON strings of triples
    */
   public async *getTriplesJson(
-    this: ProcessClass,
     includeCreatedAt: boolean = false
   ): AsyncGenerator<string> {
     return yield* getTriplesJson(this, includeCreatedAt);
   }
 
-  public async *getDomainsJson(this: ProcessClass) {
+  public async *getDomainsJson() {
     return yield* getDomainsJson(this);
   }
 
-  public async *getResourcesJson(this: ProcessClass) {
+  public async *getResourcesJson() {
     return yield* getResourcesJson(this);
   }
 
@@ -288,27 +284,28 @@ class ProcessClass extends Document {
    * Get predicates branching factor for the current step as a map
    * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor
    */
-  public curPredsBranchFactor(this: ProcessClass): Map<string, BranchFactorClass> | undefined {
+  public curPredsBranchFactor(): Map<string, BranchFactorClass> | undefined {
     return curPredsBranchFactor(this);
   }
 
-  public async getResourceCount(this: ProcessClass) {
+  public async getResourceCount(): Promise<number> {
     return getResourceCount(this);
   }
 
-  public async *getAllResources(this: ProcessClass) {
+  public async *getAllResources() {
     return yield* getAllResources(this);
   }
 
-  public async *getAllDomains(this: ProcessClass) {
+  public async *getAllDomains() {
     return yield* getAllDomains(this);
   }
 
-  public async getInfo(this: DocumentType<ProcessClass>) {
+  public async getInfo(): Promise<ReturnType<typeof getInfo>> {
     return getInfo(this);
   }
 
   // TODO configurable number of simultaneous processes
+  // eslint-disable-next-line no-unused-vars
   public static async startNext(this: ReturnModelType<typeof ProcessClass>) {
     // if there is already a running process, do not start a new one
     const runningProcs = await this.countDocuments({ status: 'running' });
@@ -393,7 +390,7 @@ class ProcessClass extends Document {
   }
 
   /**
-   * Get a running process, most recent first
+    * Get a running process, most recent first
    * @param skip - number of processes to skip
    * @memberof ProcessClass
    */
@@ -411,6 +408,7 @@ class ProcessClass extends Document {
     }
     this.status = 'done';
     // Calculate doneResourceCount before saving
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     this.currentStep.doneResourceCount = await getDoneResourceCount(this);
     // save to DB
     await this.save();
@@ -474,24 +472,26 @@ class ProcessClass extends Document {
           : {};
 
       // Fetch a batch of paths for this process
-      const paths =
+      const paths: TraversalPathDocument[] | EndpointPathDocument[] =
         this.curPathType === PathType.TRAVERSAL
           ? await TraversalPath.find({
               processId: this.pid,
               'head.type': HEAD_TYPE.URL,
               ...cursorCondition
-            } as QueryFilter<TraversalPathClass>)
+            })
               .sort({ createdAt: 1, _id: 1 })
               .limit(batchSize)
               .select('head.url head.domain createdAt _id')
+              .lean()
           : await EndpointPath.find({
               processId: this.pid,
               'head.type': HEAD_TYPE.URL,
               ...cursorCondition
-            } as QueryFilter<EndpointPathClass>)
+            })
               .sort({ createdAt: 1, _id: 1 })
               .limit(batchSize)
-              .select('head.url head.domain createdAt _id');
+              .select('head.url head.domain createdAt _id')
+              .lean();
 
       if (paths.length === 0) {
         hasMore = false;
@@ -500,6 +500,7 @@ class ProcessClass extends Document {
 
       const lastPath = paths[paths.length - 1];
       lastSeenCreatedAt = lastPath.createdAt || null;
+      // eslint-disable-next-line no-restricted-syntax
       lastSeenId = lastPath._id as Types.ObjectId;
 
       const pathHeads = paths
@@ -514,17 +515,20 @@ class ProcessClass extends Document {
         'head.status': 'error',
         'head.url': { $in: Array.from(headUrls) }
       };
+      // eslint-disable-next-line no-restricted-syntax
       const pathUpdate = { $set: { 'head.status': 'unvisited' } } as UpdateQuery<PathClass>;
+      const headUrlsArray: string[] = Array.from(headUrls);
+      const originsArray: string[] = Array.from(origins);
       const [resourceRes, domainRes, pathRes] = await Promise.all([
         Resource.updateMany(
-          { status: 'error', url: { $in: Array.from(headUrls) as string[] } },
+          { status: 'error', url: { $in: headUrlsArray } },
           {
             $set: { status: 'unvisited' },
             $unset: { jobId: '', crawlId: '' }
           }
-        ) as QueryWithHelpers<UpdateWriteOpResult, ResourceDocument>,
+        ),
         Domain.updateMany(
-          { status: 'error', origin: { $in: Array.from(origins) as string[] } },
+          { status: 'error', origin: { $in: originsArray } },
           {
             $set: {
               status: 'ready',
@@ -533,10 +537,10 @@ class ProcessClass extends Document {
             },
             $unset: { workerId: '', jobId: '' }
           }
-        ) as QueryWithHelpers<UpdateWriteOpResult, DomainDocument>,
+        ),
         this.curPathType === PathType.TRAVERSAL
-          ? TraversalPath.updateMany(pathQuery as QueryFilter<TraversalPathClass>, pathUpdate)
-          : EndpointPath.updateMany(pathQuery as QueryFilter<EndpointPathClass>, pathUpdate)
+          ? TraversalPath.updateMany(pathQuery, pathUpdate)
+          : EndpointPath.updateMany(pathQuery, pathUpdate)
       ]);
 
       summary.resources += resourceRes.modifiedCount ?? resourceRes.matchedCount ?? 0;

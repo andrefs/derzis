@@ -102,7 +102,10 @@ export type EndpointPathSkeleton = Pick<
 )
 @pre<EndpointPathClass>('save', async function () {
   if (this.head.type === HEAD_TYPE.URL) {
-    const urlHead = this.head as UrlHead;
+    const urlHead = this.head;
+    if (urlHead.type !== HEAD_TYPE.URL) {
+      throw new Error(`Invalid EndpointPath: head.type is 'url' but head is not UrlHead`);
+    }
     if (!urlHead.url || typeof urlHead.url !== 'string' || urlHead.url.trim() === '') {
       throw new Error(`Invalid EndpointPath: head.type is 'url' but head.url is missing or empty`);
     }
@@ -181,21 +184,24 @@ export class EndpointPathClass extends PathClass {
     return this.shortestPathLength >= process.currentStep.maxPathLength;
   }
 
-  public genExistingTriplesFilter(process: ProcessClass): QueryFilter<NamedNodeTripleClass> | null {
+  public genExistingTriplesFilter(_process: ProcessClass): QueryFilter<NamedNodeTripleClass> | null {
     if (this.head.type !== HEAD_TYPE.URL) {
       return null;
     }
-    const urlHead = this.head as UrlHead;
+    const urlHead = this.head;
+    if (urlHead.type !== HEAD_TYPE.URL || !urlHead.url) {
+      return null;
+    }
     return {
       nodes: urlHead.url
     };
   }
 
-  public copy(this: EndpointPathClass): EndpointPathSkeleton {
+  public copy(): EndpointPathSkeleton {
     const copy: EndpointPathSkeleton = {
       processId: this.processId,
       type: PathType.ENDPOINT,
-      head: this.head as Head,
+      head: this.head,
       status: this.status,
       shortestPathLength: this.shortestPathLength,
       seedPaths: this.seedPaths.map((entry) => ({ seed: entry.seed, minLength: entry.minLength }))
@@ -224,7 +230,10 @@ export class EndpointPathClass extends PathClass {
       }
     }
 
-    const urlHead = this.head as UrlHead;
+    const urlHead: UrlHead = this.head.type === HEAD_TYPE.URL ? this.head : { type: HEAD_TYPE.URL, url: '', domain: { origin: '', isUnvisited: true } };
+    if (urlHead.type !== HEAD_TYPE.URL || !urlHead.url) {
+      return { extendedPaths: [], procTriples: [] };
+    }
     const procTriples: TypedTripleId[] = [];
     const processedUrlHeads = new Set<string>();
     const processedLiterals = new Set<string>();
@@ -256,14 +265,14 @@ export class EndpointPathClass extends PathClass {
     const literalCandidatesOnly = candidates.filter((c) => c.literalHead !== undefined);
 
     // Phase 3: Query existing endpoint paths for URL heads
-    const headUrls = urlCandidates.map((c) => c.headUrl!);
+    const headUrls = urlCandidates.map((c) => c.headUrl).filter((url): url is string => typeof url === 'string');
     const existingMap = await queryExistingEndpointPaths.call(this, headUrls);
 
     // Phase 4: Process candidates
     const extendedPaths: EndpointPathSkeleton[] = [];
 
     for (const candidate of urlCandidates) {
-      const existing = existingMap.get(candidate.headUrl!);
+      const existing = candidate.headUrl ? existingMap.get(candidate.headUrl) : undefined;
       const newPath = await processUrlCandidate.call(this, candidate, existing);
       if (newPath) {
         extendedPaths.push(newPath);
@@ -307,7 +316,7 @@ function collectNamedNodeCandidates(
     );
 
   for (const t of namedNodeTriples) {
-    const newHeadUrl: string = t.subject === urlHead.url ? t.object! : t.subject;
+    const newHeadUrl: string = typeof t.object === 'string' && t.subject === urlHead.url ? t.object : t.subject;
 
     // Simple cycle check: skip if extending to any seed URL
     if (this.seedPaths.some((entry) => entry.seed === newHeadUrl)) {
@@ -390,7 +399,7 @@ async function queryExistingEndpointPaths(
   headUrls: string[]
 ): Promise<Map<string, EndpointPathDocument>> {
   if (headUrls.length === 0) {
-    return Promise.resolve(new Map());
+    return Promise.resolve(new Map<string, EndpointPathDocument>());
   }
 
   const existing = await EndpointPath.find({
@@ -399,9 +408,9 @@ async function queryExistingEndpointPaths(
   });
   const map = new Map<string, EndpointPathDocument>();
   for (const ep of existing) {
-    const head = ep.head as { url?: string };
-    if (head?.url) {
-      map.set(head.url, ep as EndpointPathDocument);
+    const head = ep.head;
+    if (head.type === HEAD_TYPE.URL && head.url) {
+      map.set(head.url, ep);
     }
   }
   return map;
@@ -421,7 +430,7 @@ async function processUrlCandidate(
   candidate: Candidate,
   existing: EndpointPathDocument | undefined
 ): Promise<EndpointPathSkeleton | null> {
-  const { headUrl, distance, seedPaths } = candidate;
+  const { distance, seedPaths } = candidate;
 
   if (existing) {
     // Read-modify-write to avoid dot-notation conflicts with seed URLs containing dots
@@ -468,11 +477,15 @@ async function processUrlCandidate(
     }
   } else {
     // Create new endpoint path
+    if (!candidate.headUrl) {
+      log.warn('Candidate missing headUrl, skipping', { candidate });
+      return Promise.resolve(null);
+    }
     let domain: string;
     try {
-      domain = new URL(headUrl!).origin;
+      domain = new URL(candidate.headUrl).origin;
     } catch (err) {
-      log.warn('Invalid headUrl, skipping candidate', { headUrl: headUrl, error: err });
+      log.warn('Invalid headUrl, skipping candidate', { headUrl: candidate.headUrl, error: err });
       return Promise.resolve(null);
     }
     const newPath: EndpointPathSkeleton = {
@@ -481,12 +494,12 @@ async function processUrlCandidate(
       type: PathType.ENDPOINT,
       head: {
         type: HEAD_TYPE.URL,
-        url: headUrl!,
+        url: candidate.headUrl,
         domain: {
           origin: domain,
           isUnvisited: true // this will be updated before saving
         }
-      } as Head,
+      },
       status: 'active',
       shortestPathLength: distance,
       seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
@@ -504,13 +517,16 @@ function processLiteralCandidate(
   candidate: Candidate
 ): EndpointPathSkeleton {
   const { literalHead, distance, seedPaths } = candidate;
+  if (!literalHead) {
+    throw new Error('processLiteralCandidate called without literalHead');
+  }
   const pathId = new Types.ObjectId();
 
   const newPath: EndpointPathSkeleton = {
     _id: pathId,
     processId: this.processId,
     type: PathType.ENDPOINT,
-    head: literalHead! as Head,
+    head: literalHead,
     status: 'active',
     shortestPathLength: distance,
     seedPaths: Object.entries(seedPaths).map(([seed, minLength]) => ({ seed, minLength })),
