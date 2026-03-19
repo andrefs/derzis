@@ -9,7 +9,10 @@ import {
   type LiteralTripleDocument,
   NamedNodeTriple,
   NamedNodeTripleClass,
-  Triple
+  Triple,
+  isNamedNode,
+  isLiteral,
+  type TripleDocument
 } from '../Triple';
 import { type DocumentType } from '@typegoose/typegoose';
 import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
@@ -76,11 +79,11 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
 
   const triples = await Triple.find({ _id: { $in: tripleIds } }).lean();
 
-  const tripleMap = new Map<string, { type: TripleType; data: any }>();
+  const tripleMap = new Map<string, { type: TripleType; data: LiteralTripleDocument | NamedNodeTripleDocument }>();
   for (const t of triples) {
     tripleMap.set(t._id.toString(), {
       type: t.type,
-      data: t
+      data: t as LiteralTripleDocument | NamedNodeTripleDocument
     });
   }
 
@@ -93,7 +96,7 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
       yield {
         subject: t.subject,
         predicate: t.predicate,
-        object: t.object as string,
+        object: t.object,
         type: TripleType.NAMED_NODE
       };
     } else {
@@ -101,7 +104,7 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
       yield {
         subject: t.subject,
         predicate: t.predicate,
-        object: t.object as { value: string; datatype?: string; language?: string },
+        object: { value: t.object.value, datatype: t.object.datatype, language: t.object.language },
         type: TripleType.LITERAL
       };
     }

@@ -194,7 +194,7 @@ interface BaseProcNotification {
   pid: string;
   messageType: string;
   message: string;
-  details: any;
+  details: unknown;
 }
 
 type ProcCreatedNotification = BaseProcNotification & {
@@ -208,12 +208,12 @@ type ProcStartNotification = BaseProcNotification & {
 };
 
 type StepFinishedNotification = BaseProcNotification & {
-  details: any;
+  details: unknown;
   messageType: 'OK_STEP_FINISHED';
 };
 
 type StepStartedNotification = BaseProcNotification & {
-  details: any;
+  details: unknown;
   messageType: 'OK_STEP_STARTED';
 };
 export type LabelsFetchedNotification = BaseProcNotification & {
