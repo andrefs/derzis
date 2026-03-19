@@ -39,6 +39,27 @@ class CrawlId {
   public counter!: number;
 }
 
+interface MongoBulkWriteError<T = unknown> {
+  writeErrors: Array<{ err: { code: number; index: number } }>;
+  insertedDocs?: T[];
+}
+
+function hasWriteErrors(err: unknown): err is MongoBulkWriteError<ResourceDocument> {
+  return typeof err === 'object' && err !== null && 'writeErrors' in err;
+}
+
+interface HasBulkWriteErrorResult {
+  result: object;
+}
+
+function hasBulkWriteErrorResult(err: unknown): err is HasBulkWriteErrorResult {
+  return typeof err === 'object' && err !== null && 'result' in err && typeof err['result'] === 'object' && err['result'] !== null;
+}
+
+function hasUrlHead<T extends { head: { type: string } }>(p: T): p is T & { head: UrlHead } {
+  return p.head.type === HEAD_TYPE.URL;
+}
+
 @index({ url: 1, status: 1 })
 @index({ domain: 1, status: 1 })
 @index({ url: 1 }, { unique: true })
@@ -83,14 +104,18 @@ class ResourceClass {
       try {
         const docs = await this.insertMany(batchResources, { ordered: false });
         insertedDocs.push(...docs.map((d) => d.toObject()));
-      } catch (err) {
-        for (const e of (err as any).writeErrors) {
-          if (e.err.code && e.err.code === 11000) {
-            existingDocs.push(batchResources[e.err.index]);
+      } catch (err: unknown) {
+        if (hasWriteErrors(err)) {
+          for (const e of err.writeErrors) {
+            if (e.err.code && e.err.code === 11000) {
+              existingDocs.push(batchResources[e.err.index]);
+            }
+            // TO DO handle other errors
           }
-          // TO DO handle other errors
+          if (err.insertedDocs) {
+            insertedDocs.push(...err.insertedDocs);
+          }
         }
-        insertedDocs.push(...(err as any).insertedDocs);
       }
     }
 
@@ -235,10 +260,12 @@ class ResourceClass {
       update['$inc']['crawl.success'] = 1;
     }
 
-    const d = await Domain.findOneAndUpdate(baseFilter, update, { returnDocument: 'after' })!;
-    return {
-      domain: await Domain.setNextCrawlAllowed(url, jobResult.details.ts, d!.crawl.delay)
-    };
+    const d = await Domain.findOneAndUpdate(baseFilter, update, { returnDocument: 'after' });
+    if (!d) {
+      log.error('Domain not found when marking resource as crawled', { url });
+      return;
+    }
+    await Domain.setNextCrawlAllowed(url, jobResult.details.ts, d.crawl.delay);
   }
 
   public static async insertSeeds(
@@ -333,7 +360,7 @@ class ResourceClass {
     // Endpoint paths
     else {
       try {
-        const bulkOps = seeds.map((s) => ({
+        const bulkOps: AnyBulkWriteOperation<EndpointPathClass>[] = seeds.map((s) => ({
           updateOne: {
             filter: {
               processId: pid,
@@ -361,23 +388,32 @@ class ResourceClass {
           }
         }));
 
-        let result;
+        let result: object | undefined;
         try {
           log.warn(
             'Attempting to insert/update EndpointPath seeds with bulkWrite',
             JSON.stringify({ bulkOps })
           );
-          result = await EndpointPath.bulkWrite(bulkOps as any, { ordered: false });
-          log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result.upsertedCount });
+          result = await EndpointPath.bulkWrite(bulkOps, { ordered: false });
+          if (result && 'upsertedCount' in result) {
+            log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result['upsertedCount'] });
+          }
 
           // Check for validation errors in result (Mongoose includes them even when not thrown)
-          if ((result as any).mongoose?.validationErrors?.length) {
-            log.error('BulkWrite result contains validation errors!', {
-              validationErrors: (result as any).mongoose.validationErrors
-            });
+          if (result && 'mongoose' in result) {
+            const mongoose = result['mongoose'];
+            if (mongoose && typeof mongoose === 'object' && 'validationErrors' in mongoose) {
+              const validationErrors = mongoose.validationErrors;
+              if (Array.isArray(validationErrors) && validationErrors.length) {
+                log.error('BulkWrite result contains validation errors!', {
+                  validationErrors
+                });
+              }
+            }
           }
-        } catch (error: any) {
-          if (error.code !== 11000) {
+        } catch (error: unknown) {
+          const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+          if (code !== 11000) {
             log.error('Failed to upsert EndpointPath seed documents', {
               error,
               seedUrls: seeds.map((s) => s.url)
@@ -387,13 +423,18 @@ class ResourceClass {
           log.warn('Duplicate key error on EndpointPath seeds, recovering partial results', {
             seedUrls: seeds.map((s) => s.url)
           });
-          result = error.result;
+          if (hasBulkWriteErrorResult(error)) {
+            result = error.result;
+          }
         }
 
         const insertedIndices = new Set<number>();
-        if (result.upsertedIds) {
-          for (const key of Object.keys(result.upsertedIds)) {
-            insertedIndices.add(Number(key));
+        if (result && 'upsertedIds' in result) {
+          const upsertedIds = result['upsertedIds'];
+          if (upsertedIds && typeof upsertedIds === 'object') {
+            for (const key of Object.keys(upsertedIds)) {
+              insertedIndices.add(Number(key));
+            }
           }
         }
 
@@ -405,7 +446,7 @@ class ResourceClass {
           }
         });
 
-        let domainOps: any[] = [];
+        let domainOps: AnyBulkWriteOperation<DomainClass>[] = [];
         if (domainCounts.size > 0) {
           domainOps = Array.from(domainCounts.entries()).map(([origin, count]) => ({
             updateOne: {
@@ -436,9 +477,7 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: EndpointPathClass[]
   ) {
-    const urlPaths = paths.filter((p) => p.head.type === HEAD_TYPE.URL) as (EndpointPathClass & {
-      head: UrlHead;
-    })[];
+    const urlPaths = paths.filter(hasUrlHead);
     if (!urlPaths.length) {
       return { dom: null };
     }
@@ -464,9 +503,7 @@ class ResourceClass {
     this: ReturnModelType<typeof ResourceClass>,
     paths: TraversalPathDocument[]
   ) {
-    const urlPaths = paths.filter(
-      (p) => p.head.type === HEAD_TYPE.URL
-    ) as (TraversalPathDocument & { head: UrlHead })[];
+    const urlPaths = paths.filter(hasUrlHead);
 
     if (!urlPaths.length) {
       return { res: null, dom: null };
