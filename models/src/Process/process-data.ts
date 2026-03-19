@@ -491,10 +491,14 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
          type: PathType.TRAVERSAL,
          'head.status': 'unvisited',
          'seed.url': { $in: process.currentStep.seeds }
-       }) // TODO add index
-      avgPathLength,
-      avgPathProps
-    },
+        }) // TODO add index
+      },
+      stats: {
+        totalResources: await getResourceCount(process),
+        totalPaths: totalPaths,
+        avgPathLength,
+        avgPathProps
+      },
     createdAt: process.createdAt,
     timeToLastResource: timeToLastResource || '',
     timeRunning: timeRunning || '',

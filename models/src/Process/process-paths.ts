@@ -1,6 +1,7 @@
 import {
   TraversalPath,
   type TraversalPathDocument,
+  TraversalPathClass,
   EndpointPath,
   type EndpointPathDocument,
   type PathSkeleton,
@@ -82,11 +83,11 @@ async function fetchTraversalPathsBatch(
 
 /**
  * Groups traversal paths by head identifier and collects seed -> min distance mappings.
- * @param traversalPaths - Array of traversal path documents to group.
+ * @param traversalPaths - Array of lean traversal paths to group.
  * @returns Map of head identifiers to group data containing type, identifier, and seedMap.
  */
 function groupTraversalPathsByHead(
-  traversalPaths: TraversalPathDocument[]
+  traversalPaths: (TraversalPathClass & { _id: Types.ObjectId })[]
 ): Map<string, { type: string; identifier: string; seedMap: Map<string, number> }> {
   // Group by head identifier and collect seed -> min distance
   // For URL heads: group by head.url
@@ -96,7 +97,7 @@ function groupTraversalPathsByHead(
     { type: string; identifier: string; seedMap: Map<string, number> }
   >();
 
-  for (const tp of traversalPaths as any[]) {
+   for (const tp of traversalPaths) {
     const headType = tp.head.type;
     let identifier: string;
     let seedUrl: string;
