@@ -6,11 +6,11 @@ import type {
   RobotsCheckResultOk
 } from '@derzis/common';
 import { Counter } from './Counter';
- import { HEAD_TYPE, Path, UrlHead, isTraversalPath, HeadBase } from './Path';
- 
- function isUrlHead(head: HeadBase): head is UrlHead {
-   return head.type === HEAD_TYPE.URL;
- }
+import { HEAD_TYPE, Path, UrlHead, isTraversalPath, HeadBase } from './Path';
+
+function isUrlHead(head: HeadBase): head is UrlHead {
+  return head.type === HEAD_TYPE.URL;
+}
 import { Process } from './Process';
 import { Resource } from './Resource';
 import { type QueryFilter, Types } from 'mongoose';
@@ -284,9 +284,9 @@ class DomainClass {
       new: true,
       fields: 'origin jobId'
     };
-     await this.findOneAndUpdate(query, update, options);
-     const domains = await this.find({ jobId });
-     return domains;
+    await this.findOneAndUpdate(query, update, options);
+    const domains = await this.find({ jobId });
+    return domains;
   }
 
   /**
@@ -336,9 +336,9 @@ class DomainClass {
       new: true,
       fields: 'origin jobId'
     };
-     await this.findOneAndUpdate(query, update, options);
-     const domains = await this.find({ jobId });
-     return domains;
+    await this.findOneAndUpdate(query, update, options);
+    const domains = await this.find({ jobId });
+    return domains;
   }
 
   /**
@@ -392,9 +392,9 @@ class DomainClass {
       new: true,
       fields: 'origin jobId'
     };
-     await this.findOneAndUpdate(query, update, options);
-     const domains = await this.find({ jobId });
-     return domains;
+    await this.findOneAndUpdate(query, update, options);
+    const domains = await this.find({ jobId });
+    return domains;
   }
 
   /**
@@ -479,8 +479,8 @@ class DomainClass {
           lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
         }
 
-        const urlPaths = paths.filter((p) => isUrlHead(p.head));
-        const origins = new Set<string>(urlPaths.map((p) => (p.head as UrlHead).domain.origin));
+        const urlPathHeads = paths.map(p => p.head).filter(isUrlHead);
+        const origins = new Set<string>(urlPathHeads.map((h) => h.domain.origin));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
         log.silly(
           `Worker ${wId} locked the following domains for robots checking for process ${proc.id}: ${domains.map(
@@ -523,13 +523,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-          domain,
-          status: 'unvisited',
-          url: { $nin: dPathHeads.map((r) => r.url) }
-        })
-          .limit(limit)
-          .select('url')
-          .lean()
+        domain,
+        status: 'unvisited',
+        url: { $nin: dPathHeads.map((r) => r.url) }
+      })
+        .limit(limit)
+        .select('url')
+        .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
@@ -564,10 +564,10 @@ class DomainClass {
     resources: { url: string }[],
     jobId: number
   ): Promise<void> {
-     await Resource.updateMany(
-       { url: { $in: resources.map((r) => r.url) } },
-       { status: 'crawling', jobId }
-     );
+    await Resource.updateMany(
+      { url: { $in: resources.map((r) => r.url) } },
+      { status: 'crawling', jobId }
+    );
     await this.updateOne({ origin: domain, jobId }, { 'crawl.ongoing': resources.length });
   }
 
@@ -608,8 +608,7 @@ class DomainClass {
         .lean();
 
       log.debug(
-        `Worker ${wId} fetched ${rls.length} resource labels for label fetching, last seen createdAt: ${
-          lastSeenCreatedAt ? lastSeenCreatedAt.toISOString() : 'none'
+        `Worker ${wId} fetched ${rls.length} resource labels for label fetching, last seen createdAt: ${lastSeenCreatedAt ? lastSeenCreatedAt.toISOString() : 'none'
         }`
       );
       if (!rls.length) {
@@ -783,20 +782,20 @@ class DomainClass {
         }
 
         const lastPath = paths[paths.length - 1];
-        lastSeenCreatedAt = (lastPath as { createdAt: Date }).createdAt;
-        lastSeenId = (lastPath as { _id: Types.ObjectId })._id;
+        lastSeenCreatedAt = (lastPath).createdAt ?? null;
+        lastSeenId = lastPath._id;
         // Track length for proper cursor pagination with compound sort
-        if (config.manager.pathType === 'traversal') {
-          lastSeenLength = (lastPath as { nodes: { count: number } }).nodes?.count ?? null;
+        if (isTraversalPath(lastPath)) {
+          lastSeenLength = lastPath.nodes?.count ?? null;
         } else {
           lastSeenShortestPathLength =
-            (lastPath as { shortestPathLength: number }).shortestPathLength ?? null;
+            lastPath.shortestPathLength ?? null;
         }
 
         // get only unvisited path heads
         const unvisHeads = paths
-          .filter((p) => p.head.type === HEAD_TYPE.URL)
-          .map((p) => p.head as UrlHead)
+          .map((p) => p.head)
+          .filter(isUrlHead)
           .filter((h) => h.status === 'unvisited');
         if (!unvisHeads.length) {
           log.silly(
@@ -858,12 +857,12 @@ class DomainClass {
         }
         for (const h of unvisHeads) {
           if (h.domain.origin in domainInfo) {
-            domainInfo[h.domain.origin].resources!.push({ url: h.url });
+            domainInfo[h.domain.origin].resources.push({ url: h.url });
           }
         }
 
         for (const d in domainInfo) {
-          const dPathHeads = domainInfo[d].resources!;
+          const dPathHeads = domainInfo[d].resources;
           const allResources = await this.getAdditionalResources(d, dPathHeads, resLimit);
 
           await this.markRPDCrawling(d, allResources, domainInfo[d].domain.jobId);
@@ -946,7 +945,7 @@ class DomainClass {
 const robotsNotFound = (jobResult: RobotsCheckResultError, crawlDelay: number) => {
   let robotStatus = 'error';
   const msCrawlDelay = 1000 * crawlDelay;
-  if ((jobResult.err as HttpError).httpStatus === 404) {
+  if (jobResult.err instanceof HttpError && jobResult.err.httpStatus === 404) {
     robotStatus = 'not_found';
   }
 
