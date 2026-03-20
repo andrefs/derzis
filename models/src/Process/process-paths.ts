@@ -733,26 +733,20 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   // Past constraints apply regardless of fullness
   if (requirePast.length > 0 && disallowPast.length > 0) {
     // Both require-past and disallow-past: need $and to combine
-    // require-past: every path predicate must match at least one require-past pattern (exact match)
+    // require-past: every path predicate must be in requirePast (setIsSubset: path ⊆ requirePast)
     const disallowFilter =
       disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
 
     query.$and = [
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      {
-        $where: `return this.predicates.elems.every(p => ${requirePast.map((p) => `p === '${p}'`).join(' || ')});`
-      } as any,
+      { $expr: { $setIsSubset: ['$predicates.elems', requirePast] } },
       { 'predicates.elems': disallowFilter }
     ];
   } else if (requirePast.length > 0) {
-    // require-past: every path predicate must match at least one require-past pattern (exact match)
+    // require-past: every path predicate must be in requirePast (setIsSubset: path ⊆ requirePast)
     if (requirePast.length === 1) {
       query['predicates.elems'] = requirePast[0];
     } else {
-      // $where must be at top level, not inside an Array field path
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (query as any).$where =
-        `return this.predicates.elems.every(p => ${requirePast.map((p) => `p === '${p}'`).join(' || ')});`;
+      query.$expr = { $setIsSubset: ['$predicates.elems', requirePast] };
     }
   } else if (disallowPast.length > 0) {
     query['predicates.elems'] =
