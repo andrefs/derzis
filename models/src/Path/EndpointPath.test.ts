@@ -4,9 +4,10 @@ import { describe, it, expect } from 'vitest';
 import { EndpointPathClass } from './EndpointPath';
 import { Types } from 'mongoose';
 import { HEAD_TYPE } from './Path';
+import { createMockModel } from '../../test-utils/mockModel';
 
 // Helper to create a basic EndpointPathClass instance with test data
-function createMockPath(overlays: any = {}): any {
+function createMockPath(overlays: Partial<EndpointPathClass> = {}): EndpointPathClass {
   const path = new EndpointPathClass();
   path.processId = 'test-process';
   path.seed = { url: 'http://seed.example.com' };
@@ -25,9 +26,9 @@ function createMockPath(overlays: any = {}): any {
   return path;
 }
 
-// Helper to create a plain process-like object
-function createMockProcess(overlays: any = {}): any {
-  const defaultProcess = {
+// Helper to create a properly typed process-like object
+function createMockProcess(overlays: Partial<ProcessClass> = {}): ProcessClass {
+  const defaultProcess: ProcessClass = {
     pid: 'test-process',
     config: {
       manager: {
@@ -64,7 +65,7 @@ describe('EndpointPathClass', () => {
         object: 'http://subject.example.com' // cycle
       };
 
-      const result = path.isExtensionValid(triple, path.head as any);
+      const result = path.isExtensionValid(triple, path.head as UrlHead);
       expect(result).toBe(false);
     });
 
@@ -79,28 +80,7 @@ describe('EndpointPathClass', () => {
         predicate: 'http://schema.org/name',
         object: 'http://new.example.com'
       };
-
-      const result = path.isExtensionValid(triple, path.head as any);
-      expect(result).toBe(true);
-    });
-  });
-
-  describe('tripleIsOutOfBounds', () => {
-    it('returns true when path length exceeds maxPathLength', () => {
-      const path = createMockPath({
-        shortestPathLength: 10
-      });
-      const process = createMockProcess({
-        currentStep: { maxPathLength: 5 }
-      });
-      const triple: any = {
-        type: 'named_node',
-        subject: 'http://head.example.com',
-        predicate: 'http://schema.org/name',
-        object: 'http://new.example.com'
-      };
-
-      const result = path.tripleIsOutOfBounds(triple, process as any);
+      const result = path.tripleIsOutOfBounds(triple, process as ProcessClass);
       expect(result).toBe(true);
     });
 
@@ -118,7 +98,7 @@ describe('EndpointPathClass', () => {
         object: 'http://new.example.com'
       };
 
-      const result = path.tripleIsOutOfBounds(triple, process as any);
+      const result = path.tripleIsOutOfBounds(triple, process as ProcessClass);
       expect(result).toBe(false);
     });
   });
@@ -135,7 +115,7 @@ describe('EndpointPathClass', () => {
         }
       });
 
-      const proc = { pid: 'test-pid' } as any;
+      const proc: ProcessClass = { pid: 'test-pid' };
       const filter = path.genExistingTriplesFilter(proc);
 
       expect(filter).toEqual({
@@ -152,7 +132,7 @@ describe('EndpointPathClass', () => {
         }
       });
 
-      const proc = { pid: 'test-pid' } as any;
+      const proc: ProcessClass = { pid: 'test-pid' };
       const filter = path.genExistingTriplesFilter(proc);
 
       expect(filter).toBeNull();

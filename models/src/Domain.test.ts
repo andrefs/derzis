@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Domain } from './Domain';
 import { Process } from './Process';
 import type { DomainClass } from './Domain';
+import type { UrlHead } from './Path/Path';
+import { createMockModel } from './test-utils/mockModel';
 
 // Mock Counter
 vi.mock('../Counter', () => ({
@@ -16,18 +18,21 @@ vi.mock('../Counter', () => ({
 // ============================================
 describe('unlockFromRobotsCheck', () => {
   let mockUpdateMany: ReturnType<typeof vi.fn>;
+  let mockDomain: ReturnType<typeof createMockModel<DomainClass>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockUpdateMany = vi.fn().mockResolvedValue({ modifiedCount: 0 });
-    (Domain as any).updateMany = mockUpdateMany;
+    mockDomain = createMockModel<DomainClass>();
+    mockDomain.updateMany = mockUpdateMany;
+    vi.spyOn(Domain, 'updateMany').mockImplementation(mockDomain.updateMany);
   });
 
   it('should unlock domains with status checking and matching workerId', async () => {
     const wId = 'worker-123';
     const origins = ['http://example.com', 'http://test.com'];
 
-    await (Domain as any).unlockFromRobotsCheck(wId, origins);
+    await Domain.unlockFromRobotsCheck(wId, origins);
 
     expect(mockUpdateMany).toHaveBeenCalledWith(
       {
@@ -46,7 +51,7 @@ describe('unlockFromRobotsCheck', () => {
     const wId = 'worker-123';
     const origins = ['http://example.com'];
 
-    await (Domain as any).unlockFromRobotsCheck(wId, origins);
+    await Domain.unlockFromRobotsCheck(wId, origins);
 
     const update = mockUpdateMany.mock.calls[0][1];
     expect(update.$set).toEqual({ status: 'unvisited' });
@@ -56,7 +61,7 @@ describe('unlockFromRobotsCheck', () => {
     const wId = 'worker-123';
     const origins = ['http://example.com'];
 
-    await (Domain as any).unlockFromRobotsCheck(wId, origins);
+    await Domain.unlockFromRobotsCheck(wId, origins);
 
     const update = mockUpdateMany.mock.calls[0][1];
     expect(update.$unset).toEqual({ jobId: '', workerId: '' });
@@ -68,18 +73,21 @@ describe('unlockFromRobotsCheck', () => {
 // ============================================
 describe('unlockFromLabelFetch', () => {
   let mockUpdateMany: ReturnType<typeof vi.fn>;
+  let mockDomain: ReturnType<typeof createMockModel<DomainClass>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockUpdateMany = vi.fn().mockResolvedValue({ modifiedCount: 0 });
-    (Domain as any).updateMany = mockUpdateMany;
+    mockDomain = createMockModel<DomainClass>();
+    mockDomain.updateMany = mockUpdateMany;
+    vi.spyOn(Domain, 'updateMany').mockImplementation(mockDomain.updateMany);
   });
 
   it('should unlock domains with status labelFetching and matching workerId', async () => {
     const wId = 'worker-456';
     const origins = ['http://example.com', 'http://test.com'];
 
-    await (Domain as any).unlockFromLabelFetch(wId, origins);
+    await Domain.unlockFromLabelFetch(wId, origins);
 
     expect(mockUpdateMany).toHaveBeenCalledWith(
       {
@@ -98,7 +106,7 @@ describe('unlockFromLabelFetch', () => {
     const wId = 'worker-456';
     const origins = ['http://example.com'];
 
-    await (Domain as any).unlockFromLabelFetch(wId, origins);
+    await Domain.unlockFromLabelFetch(wId, origins);
 
     const update = mockUpdateMany.mock.calls[0][1];
     expect(update.$set).toEqual({ status: 'ready' });
@@ -108,7 +116,7 @@ describe('unlockFromLabelFetch', () => {
     const wId = 'worker-456';
     const origins = ['http://example.com'];
 
-    await (Domain as any).unlockFromLabelFetch(wId, origins);
+    await Domain.unlockFromLabelFetch(wId, origins);
 
     const update = mockUpdateMany.mock.calls[0][1];
     expect(update.$unset).toEqual({ jobId: '', workerId: '' });
@@ -124,18 +132,21 @@ describe('domainsToCheck', () => {
   // ============================================
   describe('unlockFromCrawl', () => {
     let mockUpdateMany: ReturnType<typeof vi.fn>;
+    let mockDomain: ReturnType<typeof createMockModel<DomainClass>>;
 
     beforeEach(() => {
       vi.clearAllMocks();
       mockUpdateMany = vi.fn().mockResolvedValue({ modifiedCount: 0 });
-      (Domain as any).updateMany = mockUpdateMany;
+      mockDomain = createMockModel<DomainClass>();
+      mockDomain.updateMany = mockUpdateMany;
+      vi.spyOn(Domain, 'updateMany').mockImplementation(mockDomain.updateMany);
     });
 
     it('should unlock domains with status crawling and matching workerId', async () => {
       const wId = 'worker-789';
       const origins = ['http://example.com', 'http://test.com'];
 
-      await (Domain as any).unlockFromCrawl(wId, origins);
+      await Domain.unlockFromCrawl(wId, origins);
 
       expect(mockUpdateMany).toHaveBeenCalledWith(
         {
@@ -154,7 +165,7 @@ describe('domainsToCheck', () => {
       const wId = 'worker-789';
       const origins = ['http://example.com'];
 
-      await (Domain as any).unlockFromCrawl(wId, origins);
+      await Domain.unlockFromCrawl(wId, origins);
 
       const update = mockUpdateMany.mock.calls[0][1];
       expect(update.$set).toEqual({ status: 'ready' });
@@ -164,7 +175,7 @@ describe('domainsToCheck', () => {
       const wId = 'worker-789';
       const origins = ['http://example.com'];
 
-      await (Domain as any).unlockFromCrawl(wId, origins);
+      await Domain.unlockFromCrawl(wId, origins);
 
       const update = mockUpdateMany.mock.calls[0][1];
       expect(update.$unset).toEqual({ jobId: '', workerId: '' });
@@ -180,7 +191,15 @@ describe('domainsToCheck', () => {
   }
 
   function createMockPath(domain: string, id: number) {
-    return { _id: String(id), head: { type: 'url', domain } as any };
+    return {
+      _id: String(id),
+      head: {
+        type: 'url',
+        url: domain,
+        status: 'unvisited',
+        domain: { origin: domain, isUnvisited: true }
+      }
+    };
   }
 
   beforeEach(() => {
@@ -188,8 +207,10 @@ describe('domainsToCheck', () => {
 
     mockLockForRobotsCheck = vi.fn();
     mockUnlockFromRobotsCheck = vi.fn().mockResolvedValue(undefined);
-    (Domain as any).lockForRobotsCheck = mockLockForRobotsCheck;
-    (Domain as any).unlockFromRobotsCheck = mockUnlockFromRobotsCheck;
+    mockDomain.lockForRobotsCheck = mockLockForRobotsCheck;
+    mockDomain.unlockFromRobotsCheck = mockUnlockFromRobotsCheck;
+    vi.spyOn(Domain, 'lockForRobotsCheck').mockImplementation(mockDomain.lockForRobotsCheck);
+    vi.spyOn(Domain, 'unlockFromRobotsCheck').mockImplementation(mockDomain.unlockFromRobotsCheck);
 
     // Mock Process.getOneRunning
     mockProcessInstance = {
@@ -197,7 +218,7 @@ describe('domainsToCheck', () => {
       getPathsForRobotsChecking: vi.fn()
     };
     mockGetOneRunning = vi.fn().mockReturnValue(mockProcessInstance);
-    vi.mocked(Process as any).getOneRunning = mockGetOneRunning;
+    vi.spyOn(Process, 'getOneRunning').mockImplementation(mockGetOneRunning);
   });
 
   it('should yield exactly limit domains without unlocking when batches fit', async () => {
@@ -230,15 +251,15 @@ describe('domainsToCheck', () => {
     mockProcessInstance.getPathsForRobotsChecking.mockResolvedValueOnce([]);
     mockLockForRobotsCheck.mockResolvedValueOnce([]);
 
-    const results: any[] = [];
-    const generator = (Domain as any).domainsToCheck(wId, limit);
+    const results: DomainClass[] = [];
+    const generator = Domain.domainsToCheck(wId, limit);
 
     for await (const domain of generator) {
       results.push(domain);
     }
 
     expect(results).toHaveLength(5);
-    expect(results.map((d: any) => d.origin)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5']);
+    expect(results.map((d: DomainClass) => d.origin)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5']);
     expect(mockUnlockFromRobotsCheck).not.toHaveBeenCalled();
   });
 
@@ -314,15 +335,18 @@ describe('domainsToCheck', () => {
 });
 
 // ============================================
-// UNIT TESTS: domainsToCrawl2 overflow handling
+// UNIT TESTS: unlockFromRobotsCheck
 // ============================================
-describe('domainsToCrawl2', () => {
-  let mockUnlockFromCrawl: ReturnType<typeof vi.fn>;
+describe('unlockFromRobotsCheck', () => {
+  let mockUpdateMany: ReturnType<typeof vi.fn>;
+  let mockDomain: ReturnType<typeof createMockModel<DomainClass>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUnlockFromCrawl = vi.fn().mockResolvedValue(undefined);
-    (Domain as any).unlockFromCrawl = mockUnlockFromCrawl;
+    mockUpdateMany = vi.fn().mockResolvedValue({ modifiedCount: 0 });
+    mockDomain = createMockModel<DomainClass>();
+    mockDomain.updateMany = mockUpdateMany;
+    vi.spyOn(Domain, 'updateMany').mockImplementation(mockDomain.updateMany);
   });
 
   describe('overflow handling', () => {

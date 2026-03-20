@@ -153,7 +153,7 @@ describe('genTraversalPathQuery', () => {
     step.maxPathLength = overrides.maxPathLength ?? 4;
     step.maxPathProps = overrides.maxPathProps ?? 1;
     if (overrides.predLimitations !== undefined) {
-      step.predLimitations = overrides.predLimitations as any;
+      step.predLimitations = overrides.predLimitations;
     }
     step.seeds = [];
     step.followDirection = false;

@@ -6,41 +6,41 @@ import { Domain } from './Domain';
 import { Process } from './Process';
 import { PathType } from '@derzis/common';
 import config from '@derzis/config';
+import { createMockModel } from './test-utils/mockModel';
 
 describe('Resource.insertSeedPaths', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    // Reset config pathType to default (endpoint)
-    config.manager.pathType = PathType.ENDPOINT;
-    vi.spyOn(Process, 'findOne').mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
-      })
-    } as any);
-    vi.spyOn(Domain, 'find').mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([])
-      })
-    } as any);
-  });
-
   describe('EndpointPath', () => {
+    let mockProcess: ReturnType<typeof createMockModel<import('./Process').ProcessClass>>;
+    let mockDomain: ReturnType<typeof createMockModel<import('./Domain').DomainClass>>;
+    let mockEndpointPath: ReturnType<
+      typeof createMockModel<import('./Path/EndpointPath').EndpointPathClass>
+    >;
+
     beforeEach(() => {
       config.manager.pathType = PathType.ENDPOINT;
-      vi.spyOn(Process, 'findOne').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
-        })
-      } as any);
-      vi.spyOn(Domain, 'find').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          lean: vi.fn().mockResolvedValue([
-            { origin: 'http://example.com', status: 'unvisited' },
-            { origin: 'http://dbpedia.org', status: 'unvisited' }
-          ])
-        })
-      } as any);
-      vi.spyOn(EndpointPath, 'bulkWrite').mockResolvedValue({
+
+      // Mock Process.findOne
+      mockProcess = createMockModel<import('./Process').ProcessClass>();
+      const mockSelect = vi.fn().mockReturnValue({
+        exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
+      });
+      mockProcess.findOne.mockReturnValue(mockSelect);
+      vi.spyOn(Process, 'findOne').mockImplementation(mockProcess.findOne);
+
+      // Mock Domain.find
+      mockDomain = createMockModel<import('./Domain').DomainClass>();
+      const mockDomainSelect = vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([
+          { origin: 'http://example.com', status: 'unvisited' },
+          { origin: 'http://dbpedia.org', status: 'unvisited' }
+        ])
+      });
+      mockDomain.find.mockReturnValue(mockDomainSelect);
+      vi.spyOn(Domain, 'find').mockImplementation(mockDomain.find);
+
+      // Mock EndpointPath.bulkWrite
+      mockEndpointPath = createMockModel<import('./Path/EndpointPath').EndpointPathClass>();
+      mockEndpointPath.bulkWrite.mockResolvedValue({
         result: {},
         insertedCount: 0,
         matchedCount: 0,
@@ -48,8 +48,12 @@ describe('Resource.insertSeedPaths', () => {
         deletedCount: 0,
         upsertedCount: 1,
         upsertedIds: new Map()
-      } as any);
-      vi.spyOn(Domain, 'bulkWrite').mockResolvedValue({ modifiedCount: 1 } as any);
+      });
+      vi.spyOn(EndpointPath, 'bulkWrite').mockImplementation(mockEndpointPath.bulkWrite);
+
+      // Mock Domain.bulkWrite
+      mockDomain.bulkWrite.mockResolvedValue({ modifiedCount: 1 });
+      vi.spyOn(Domain, 'bulkWrite').mockImplementation(mockDomain.bulkWrite);
     });
 
     it('should call EndpointPath.bulkWrite with upsert operations', async () => {
@@ -62,9 +66,9 @@ describe('Resource.insertSeedPaths', () => {
       ];
       const pid = 'test-process';
 
-      await (Resource as any).insertSeedPaths(pid, seeds);
+      await Resource.insertSeedPaths(pid, seeds);
 
-      expect(EndpointPath.bulkWrite).toHaveBeenCalledWith(
+      expect(mockEndpointPath.bulkWrite).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             updateOne: expect.objectContaining({
@@ -108,9 +112,9 @@ describe('Resource.insertSeedPaths', () => {
           status: 'unvisited' as const
         }
       ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+      await Resource.insertSeedPaths('pid', seeds);
 
-      const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
+      const ops = mockEndpointPath.bulkWrite.mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
       expect(update.head.domain).toEqual({ origin: 'http://dbpedia.org', isUnvisited: true });
     });
@@ -123,9 +127,9 @@ describe('Resource.insertSeedPaths', () => {
           status: 'unvisited' as const
         }
       ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+      await Resource.insertSeedPaths('pid', seeds);
 
-      const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
+      const ops = mockEndpointPath.bulkWrite.mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
       expect(update.seedPaths).toHaveLength(1);
       expect(update.seedPaths[0].seed).toBe(seeds[0].url);
@@ -140,9 +144,9 @@ describe('Resource.insertSeedPaths', () => {
           status: 'unvisited' as const
         }
       ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+      await Resource.insertSeedPaths('pid', seeds);
 
-      const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
+      const ops = mockEndpointPath.bulkWrite.mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
       expect(update).not.toHaveProperty('minPath');
     });
@@ -155,28 +159,46 @@ describe('Resource.insertSeedPaths', () => {
           status: 'unvisited' as const
         }
       ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+      await Resource.insertSeedPaths('pid', seeds);
 
-      const ops = (EndpointPath.bulkWrite as any).mock.calls[0][0];
+      const ops = mockEndpointPath.bulkWrite.mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
       expect(update.shortestPathLength).toBe(1);
     });
   });
 
   describe('TraversalPath', () => {
+    let mockProcess: ReturnType<typeof createMockModel<import('./Process').ProcessClass>>;
+    let mockDomain: ReturnType<typeof createMockModel<import('./Domain').DomainClass>>;
+    let mockTraversalPath: ReturnType<
+      typeof createMockModel<import('./Path/TraversalPath').TraversalPathClass>
+    >;
+
     beforeEach(() => {
       config.manager.pathType = PathType.TRAVERSAL;
-      vi.spyOn(Process, 'findOne').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          exec: vi.fn().mockResolvedValue({ curPathType: PathType.TRAVERSAL })
-        })
-      } as any);
-      vi.spyOn(Domain, 'find').mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          lean: vi.fn().mockResolvedValue([{ origin: 'http://example.com', status: 'unvisited' }])
-        })
-      } as any);
-      vi.spyOn(TraversalPath, 'create').mockResolvedValue([]);
+
+      // Mock Process.findOne
+      mockProcess = createMockModel<import('./Process').ProcessClass>();
+      const mockSelect = vi.fn().mockReturnValue({
+        exec: vi.fn().mockResolvedValue({ curPathType: PathType.TRAVERSAL })
+      });
+      mockProcess.findOne.mockReturnValue(mockSelect);
+      vi.spyOn(Process, 'findOne').mockImplementation(mockProcess.findOne);
+
+      // Mock Domain.find
+      mockDomain = createMockModel<import('./Domain').DomainClass>();
+      const mockDomainSelect = vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([{ origin: 'http://example.com', status: 'unvisited' }])
+      });
+      mockDomain.find.mockReturnValue(mockDomainSelect);
+      vi.spyOn(Domain, 'find').mockImplementation(mockDomain.find);
+
+      // Mock TraversalPath.create
+      mockTraversalPath = createMockModel<import('./Path/TraversalPath').TraversalPathClass>();
+      mockTraversalPath.create.mockResolvedValue([]);
+      vi.spyOn(TraversalPath, 'create').mockImplementation(mockTraversalPath.create);
+
+      // Mock Resource.addTvPaths
       vi.spyOn(Resource, 'addTvPaths').mockResolvedValue({ res: null, dom: null });
     });
 
@@ -190,9 +212,9 @@ describe('Resource.insertSeedPaths', () => {
       ];
       const pid = 'test-pid';
 
-      await (Resource as any).insertSeedPaths(pid, seeds);
+      await Resource.insertSeedPaths(pid, seeds);
 
-      expect(TraversalPath.create).toHaveBeenCalledWith(
+      expect(mockTraversalPath.create).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             processId: pid,
@@ -226,9 +248,9 @@ describe('Resource.insertSeedPaths', () => {
           status: 'unvisited' as const
         }
       ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+      await Resource.insertSeedPaths('pid', seeds);
 
-      const passedDoc = (TraversalPath.create as any).mock.calls[0][0][0];
+      const passedDoc = mockTraversalPath.create.mock.calls[0][0][0];
       expect(passedDoc.head).toHaveProperty('domain');
       expect(passedDoc.head.domain).toEqual({ origin: 'http://example.com', isUnvisited: true });
     });
@@ -241,9 +263,9 @@ describe('Resource.insertSeedPaths', () => {
           status: 'unvisited' as const
         }
       ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+      await Resource.insertSeedPaths('pid', seeds);
 
-      const passedDoc = (TraversalPath.create as any).mock.calls[0][0][0];
+      const passedDoc = mockTraversalPath.create.mock.calls[0][0][0];
       expect(passedDoc.nodes).toEqual({
         elems: [seeds[0].url],
         count: 1
@@ -258,9 +280,9 @@ describe('Resource.insertSeedPaths', () => {
           status: 'unvisited' as const
         }
       ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+      await Resource.insertSeedPaths('pid', seeds);
 
-      const passedDoc = (TraversalPath.create as any).mock.calls[0][0][0];
+      const passedDoc = mockTraversalPath.create.mock.calls[0][0][0];
       expect(passedDoc.predicates).toEqual({
         elems: [],
         count: 0
@@ -275,9 +297,9 @@ describe('Resource.insertSeedPaths', () => {
           status: 'unvisited' as const
         }
       ];
-      await (Resource as any).insertSeedPaths('pid', seeds);
+      await Resource.insertSeedPaths('pid', seeds);
 
-      const passedDoc = (TraversalPath.create as any).mock.calls[0][0][0];
+      const passedDoc = mockTraversalPath.create.mock.calls[0][0][0];
       expect(Array.isArray(passedDoc.triples)).toBe(true);
       expect(passedDoc.triples).toHaveLength(0);
     });
