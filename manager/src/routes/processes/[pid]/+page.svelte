@@ -80,6 +80,30 @@
       sendingLabels = false;
     }
   }
+
+  let sendingStepFinished = false;
+  let sendStepFinishedError: string | null = null;
+  let sendStepFinishedSuccess = false;
+
+  async function sendStepFinishedNotification(pid: string) {
+    sendingStepFinished = true;
+    sendStepFinishedError = null;
+    sendStepFinishedSuccess = false;
+
+    try {
+      const resp = await fetch(`/api/processes/${pid}/send-step-finished`, { method: 'POST' });
+      if (resp.ok) {
+        sendStepFinishedSuccess = true;
+      } else {
+        const err = await resp.json();
+        sendStepFinishedError = err.err?.message || 'Failed to send step finished notification';
+      }
+    } catch (e) {
+      sendStepFinishedError = 'Network error: ' + e;
+    } finally {
+      sendingStepFinished = false;
+    }
+  }
 </script>
 
 <header style="padding-bottom: 1rem">
@@ -294,6 +318,30 @@
               </button>
               {#if !data.proc.notification.webhook}
                 <small class="text-muted"> (requires webhook)</small>
+              {/if}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Send Step Finished</th>
+            <td>
+              {#if sendStepFinishedSuccess}
+                <Alert color="success">Step finished notification sent!</Alert>
+              {:else if sendStepFinishedError}
+                <Alert color="danger">{sendStepFinishedError}</Alert>
+              {/if}
+              <button
+                class="btn btn-primary"
+                disabled={sendingStepFinished || (!data.proc.notification.email && !data.proc.notification.webhook)}
+                on:click={() => sendStepFinishedNotification(data.proc.pid)}
+              >
+                {#if sendingStepFinished}
+                  Sending...
+                {:else}
+                  Send Step Finished Notification
+                {/if}
+              </button>
+              {#if !data.proc.notification.email && !data.proc.notification.webhook}
+                <small class="text-muted"> (requires email or webhook)</small>
               {/if}
             </td>
           </tr>
