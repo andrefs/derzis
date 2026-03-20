@@ -6,41 +6,32 @@ import { Domain } from './Domain';
 import { Process } from './Process';
 import { PathType } from '@derzis/common';
 import config from '@derzis/config';
-import { createMockModel } from './test-utils/mockModel';
 
 describe('Resource.insertSeedPaths', () => {
   describe('EndpointPath', () => {
-    let mockProcess: ReturnType<typeof createMockModel<import('./Process').ProcessClass>>;
-    let mockDomain: ReturnType<typeof createMockModel<import('./Domain').DomainClass>>;
-    let mockEndpointPath: ReturnType<
-      typeof createMockModel<import('./Path/EndpointPath').EndpointPathClass>
-    >;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let mockBulkWrite: any;
 
     beforeEach(() => {
       config.manager.pathType = PathType.ENDPOINT;
 
       // Mock Process.findOne
-      mockProcess = createMockModel<import('./Process').ProcessClass>();
       const mockSelect = vi.fn().mockReturnValue({
         exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
       });
-      mockProcess.findOne.mockReturnValue(mockSelect);
-      vi.spyOn(Process, 'findOne').mockImplementation(mockProcess.findOne);
+      vi.spyOn(Process, 'findOne').mockImplementation(mockSelect as any);
 
       // Mock Domain.find
-      mockDomain = createMockModel<import('./Domain').DomainClass>();
       const mockDomainSelect = vi.fn().mockReturnValue({
         lean: vi.fn().mockResolvedValue([
           { origin: 'http://example.com', status: 'unvisited' },
           { origin: 'http://dbpedia.org', status: 'unvisited' }
         ])
       });
-      mockDomain.find.mockReturnValue(mockDomainSelect);
-      vi.spyOn(Domain, 'find').mockImplementation(mockDomain.find);
+      vi.spyOn(Domain, 'find').mockImplementation(mockDomainSelect as any);
 
       // Mock EndpointPath.bulkWrite
-      mockEndpointPath = createMockModel<import('./Path/EndpointPath').EndpointPathClass>();
-      mockEndpointPath.bulkWrite.mockResolvedValue({
+      mockBulkWrite = vi.fn().mockResolvedValue({
         result: {},
         insertedCount: 0,
         matchedCount: 0,
@@ -49,11 +40,10 @@ describe('Resource.insertSeedPaths', () => {
         upsertedCount: 1,
         upsertedIds: new Map()
       });
-      vi.spyOn(EndpointPath, 'bulkWrite').mockImplementation(mockEndpointPath.bulkWrite);
+      vi.spyOn(EndpointPath, 'bulkWrite').mockImplementation(mockBulkWrite as any);
 
       // Mock Domain.bulkWrite
-      mockDomain.bulkWrite.mockResolvedValue({ modifiedCount: 1 });
-      vi.spyOn(Domain, 'bulkWrite').mockImplementation(mockDomain.bulkWrite);
+      vi.spyOn(Domain, 'bulkWrite').mockResolvedValue({ modifiedCount: 1 } as any);
     });
 
     it('should call EndpointPath.bulkWrite with upsert operations', async () => {
@@ -61,14 +51,17 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed1',
           domain: 'http://example.com',
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
       const pid = 'test-process';
 
-      await Resource.insertSeedPaths(pid, seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths(pid, seeds as any);
 
-      expect(mockEndpointPath.bulkWrite).toHaveBeenCalledWith(
+      expect(mockBulkWrite).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             updateOne: expect.objectContaining({
@@ -109,12 +102,15 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://dbpedia.org/resource/Cheese',
           domain: 'http://dbpedia.org',
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
-      await Resource.insertSeedPaths('pid', seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths('pid', seeds as any);
 
-      const ops = mockEndpointPath.bulkWrite.mock.calls[0][0];
+      const ops = mockBulkWrite.mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
       expect(update.head.domain).toEqual({ origin: 'http://dbpedia.org', isUnvisited: true });
     });
@@ -124,12 +120,15 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed',
           domain: { origin: 'http://example.com', isUnvisited: true },
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
-      await Resource.insertSeedPaths('pid', seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths('pid', seeds as any);
 
-      const ops = mockEndpointPath.bulkWrite.mock.calls[0][0];
+      const ops = mockBulkWrite.mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
       expect(update.seedPaths).toHaveLength(1);
       expect(update.seedPaths[0].seed).toBe(seeds[0].url);
@@ -141,12 +140,15 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed',
           domain: { origin: 'http://example.com', isUnvisited: true },
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
-      await Resource.insertSeedPaths('pid', seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths('pid', seeds as any);
 
-      const ops = mockEndpointPath.bulkWrite.mock.calls[0][0];
+      const ops = mockBulkWrite.mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
       expect(update).not.toHaveProperty('minPath');
     });
@@ -156,47 +158,42 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed',
           domain: { origin: 'http://example.com', isUnvisited: true },
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
-      await Resource.insertSeedPaths('pid', seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths('pid', seeds as any);
 
-      const ops = mockEndpointPath.bulkWrite.mock.calls[0][0];
+      const ops = mockBulkWrite.mock.calls[0][0];
       const update = ops[0].updateOne.update.$setOnInsert;
       expect(update.shortestPathLength).toBe(1);
     });
   });
 
   describe('TraversalPath', () => {
-    let mockProcess: ReturnType<typeof createMockModel<import('./Process').ProcessClass>>;
-    let mockDomain: ReturnType<typeof createMockModel<import('./Domain').DomainClass>>;
-    let mockTraversalPath: ReturnType<
-      typeof createMockModel<import('./Path/TraversalPath').TraversalPathClass>
-    >;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let mockCreate: any;
 
     beforeEach(() => {
       config.manager.pathType = PathType.TRAVERSAL;
 
       // Mock Process.findOne
-      mockProcess = createMockModel<import('./Process').ProcessClass>();
       const mockSelect = vi.fn().mockReturnValue({
         exec: vi.fn().mockResolvedValue({ curPathType: PathType.TRAVERSAL })
       });
-      mockProcess.findOne.mockReturnValue(mockSelect);
-      vi.spyOn(Process, 'findOne').mockImplementation(mockProcess.findOne);
+      vi.spyOn(Process, 'findOne').mockImplementation(mockSelect as any);
 
       // Mock Domain.find
-      mockDomain = createMockModel<import('./Domain').DomainClass>();
       const mockDomainSelect = vi.fn().mockReturnValue({
         lean: vi.fn().mockResolvedValue([{ origin: 'http://example.com', status: 'unvisited' }])
       });
-      mockDomain.find.mockReturnValue(mockDomainSelect);
-      vi.spyOn(Domain, 'find').mockImplementation(mockDomain.find);
+      vi.spyOn(Domain, 'find').mockImplementation(mockDomainSelect as any);
 
       // Mock TraversalPath.create
-      mockTraversalPath = createMockModel<import('./Path/TraversalPath').TraversalPathClass>();
-      mockTraversalPath.create.mockResolvedValue([]);
-      vi.spyOn(TraversalPath, 'create').mockImplementation(mockTraversalPath.create);
+      mockCreate = vi.fn().mockResolvedValue([]);
+      vi.spyOn(TraversalPath, 'create').mockImplementation(mockCreate as any);
 
       // Mock Resource.addTvPaths
       vi.spyOn(Resource, 'addTvPaths').mockResolvedValue({ res: null, dom: null });
@@ -207,14 +204,17 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed',
           domain: 'http://example.com',
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
       const pid = 'test-pid';
 
-      await Resource.insertSeedPaths(pid, seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths(pid, seeds as any);
 
-      expect(mockTraversalPath.create).toHaveBeenCalledWith(
+      expect(mockCreate).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             processId: pid,
@@ -245,12 +245,15 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed',
           domain: 'http://example.com',
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
-      await Resource.insertSeedPaths('pid', seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths('pid', seeds as any);
 
-      const passedDoc = mockTraversalPath.create.mock.calls[0][0][0];
+      const passedDoc = mockCreate.mock.calls[0][0][0];
       expect(passedDoc.head).toHaveProperty('domain');
       expect(passedDoc.head.domain).toEqual({ origin: 'http://example.com', isUnvisited: true });
     });
@@ -260,12 +263,15 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed',
           domain: { origin: 'http://example.com', isUnvisited: true },
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
-      await Resource.insertSeedPaths('pid', seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths('pid', seeds as any);
 
-      const passedDoc = mockTraversalPath.create.mock.calls[0][0][0];
+      const passedDoc = mockCreate.mock.calls[0][0][0];
       expect(passedDoc.nodes).toEqual({
         elems: [seeds[0].url],
         count: 1
@@ -277,12 +283,15 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed',
           domain: { origin: 'http://example.com', isUnvisited: true },
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
-      await Resource.insertSeedPaths('pid', seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths('pid', seeds as any);
 
-      const passedDoc = mockTraversalPath.create.mock.calls[0][0][0];
+      const passedDoc = mockCreate.mock.calls[0][0][0];
       expect(passedDoc.predicates).toEqual({
         elems: [],
         count: 0
@@ -294,12 +303,15 @@ describe('Resource.insertSeedPaths', () => {
         {
           url: 'http://example.com/seed',
           domain: { origin: 'http://example.com', isUnvisited: true },
-          status: 'unvisited' as const
+          status: 'unvisited' as const,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       ];
-      await Resource.insertSeedPaths('pid', seeds);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument -- test data doesn't need full ResourceDocument
+      await Resource.insertSeedPaths('pid', seeds as any);
 
-      const passedDoc = mockTraversalPath.create.mock.calls[0][0][0];
+      const passedDoc = mockCreate.mock.calls[0][0][0];
       expect(Array.isArray(passedDoc.triples)).toBe(true);
       expect(passedDoc.triples).toHaveLength(0);
     });
