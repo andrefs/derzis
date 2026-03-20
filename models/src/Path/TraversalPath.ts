@@ -25,7 +25,8 @@ import {
   matchesOne,
   ProcessClass,
   StepClass,
-  type PredLimitation
+  type PredLimitation,
+  isUrlHead
 } from '../Process';
 import { Domain } from '../Domain';
 import { PathClass, Path, ResourceCount, HEAD_TYPE, UrlHead, type Head, SeedClass } from './Path';
@@ -61,8 +62,8 @@ type RecursivePartial<T> = {
     this.lastPredicate = this.predicates.elems[this.predicates.count - 1];
   }
 
-  if (this.head.type === HEAD_TYPE.URL) {
-    const urlHead = this.head as UrlHead;
+  if (isUrlHead(this.head)) {
+    const urlHead = this.head;
     if (!urlHead.url || typeof urlHead.url !== 'string' || urlHead.url.trim() === '') {
       throw new Error(`Invalid TraversalPath: head.type is 'url' but head.url is missing or empty`);
     }
@@ -195,7 +196,7 @@ export class TraversalPathClass extends PathClass {
       seed: {
         url: this.seed.url
       },
-      head: this.head as Head,
+      head: this.head,
       status: this.status,
       predicates: { elems: [...this.predicates.elems] },
       nodes: { elems: [...this.nodes.elems] }
@@ -214,7 +215,7 @@ export class TraversalPathClass extends PathClass {
     triples?: TripleDocument[]
   ): Promise<ExtendedPathsResult<TraversalPathSkeleton>> {
     // If the head is a literal, we cannot extend further, so return empty results.
-    if (this.head.type === HEAD_TYPE.LITERAL) {
+    if (!isUrlHead(this.head)) {
       return { extendedPaths: [], procTriples: [] };
     }
 
@@ -238,11 +239,11 @@ export class TraversalPathClass extends PathClass {
       return { extendedPaths: [], procTriples: [] };
     }
 
-    const urlHead = this.head as UrlHead;
+    const urlHead = this.head;
     let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
     let procTriples: TypedTripleId[] = [];
     const predsBF = process.curPredsBranchFactor();
-    const followDirection = process!.currentStep.followDirection;
+    const followDirection = process.currentStep.followDirection;
 
     // Named node triples
     const namedNodeTriples = triplesToExtend
@@ -260,10 +261,10 @@ export class TraversalPathClass extends PathClass {
       const prop = t.predicate;
 
       extendedPaths[prop] = extendedPaths[prop] || {};
-      if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process!)) {
+      if (!extendedPaths[prop][newHeadUrl] && !this.tripleIsOutOfBounds(t, process)) {
         const domain = new URL(newHeadUrl).origin;
         const ep = this.copy();
-        ep.head = {
+        const head: Head = {
           type: HEAD_TYPE.URL,
           url: newHeadUrl,
           domain: {
@@ -271,7 +272,8 @@ export class TraversalPathClass extends PathClass {
             isUnvisited: true // this will be updated before saving
           },
           status: 'unvisited'
-        } as Head;
+        };
+        ep.head = head;
         ep.status = 'active';
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
@@ -296,12 +298,14 @@ export class TraversalPathClass extends PathClass {
       extendedPaths[prop] = extendedPaths[prop] || {};
       if (!extendedPaths[prop][literalKey]) {
         const ep = this.copy();
-        ep.head = {
+        const head: Head = {
           type: HEAD_TYPE.LITERAL,
           value: t.object.value,
           datatype: t.object.datatype,
           language: t.object.language
-        } as Head;
+        };
+
+        ep.head = head;
         ep.status = 'active';
         ep.triples = [...this.triples, t._id];
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
@@ -329,19 +333,19 @@ export class TraversalPathClass extends PathClass {
     t: NamedNodeTripleClass | LiteralTripleDocument
   ): boolean {
     // If the head is not a URL, we cannot extend
-    if (this.head.type !== HEAD_TYPE.URL) {
+    if (!isUrlHead(this.head)) {
       return false;
     }
 
-    const urlHead = this.head as UrlHead;
-    if (t.type === TripleType.LITERAL) {
+    const urlHead = this.head;
+    if (isLiteral(t)) {
       if (t.predicate === urlHead.url) {
         return false;
       }
       return true;
     }
 
-    const namedNodeTriple = t as NamedNodeTripleClass;
+    const namedNodeTriple = t;
     if (namedNodeTriple.subject === namedNodeTriple.object) {
       return false;
     }
@@ -369,6 +373,21 @@ export class TraversalPathClass extends PathClass {
       return false;
     }
 
+    // Always enforce maxPathLength
+    if (this.nodes.count >= currentStep.maxPathLength) {
+      return false;
+    }
+
+    // Exempt rdfs:label and rdfs:comment from past constraints
+    const EXEMPT_PREDICATES = new Set([
+      'http://www.w3.org/2000/01/rdf-schema#label',
+      'http://www.w3.org/2000/01/rdf-schema#comment'
+    ]);
+    if (EXEMPT_PREDICATES.has(t.predicate)) {
+      return true;
+    }
+
+    // Non-exempt predicates must satisfy past constraints
     return this.isExtensionAllowedByPath(currentStep, limsByType);
   }
 
@@ -405,6 +424,15 @@ export class TraversalPathClass extends PathClass {
     currentStep: StepClass,
     limsByType: LimsByType
   ): boolean {
+    // Exempt rdfs:label and rdfs:comment from all limitations
+    const EXEMPT_PREDICATES = new Set([
+      'http://www.w3.org/2000/01/rdf-schema#label',
+      'http://www.w3.org/2000/01/rdf-schema#comment'
+    ]);
+    if (EXEMPT_PREDICATES.has(t.predicate)) {
+      return true;
+    }
+
     // if path predicates are maxed out, predicate must be in predicates.elems
     if (
       this.predicates.count >= currentStep.maxPathProps &&
@@ -442,7 +470,7 @@ export class TraversalPathClass extends PathClass {
   ): {
     allowed: Set<string>;
     notAllowed: Set<string>;
-    predFilter: QueryFilter<NamedNodeTripleClass>;
+    predFilter: QueryFilter<NamedNodeTripleDocument>;
   } | null {
     // Extract future constraints from predLimitations
     const requireFuture: string[] = [];
@@ -552,12 +580,12 @@ export class TraversalPathClass extends PathClass {
     limType: string,
     followDirection: boolean,
     predsBF: Map<string, BranchFactorClass> | undefined
-  ): QueryFilter<NamedNodeTripleClass> {
-    if (this.head.type !== HEAD_TYPE.URL) {
+  ): QueryFilter<NamedNodeTripleDocument> {
+    if (!isUrlHead(this.head)) {
       return {};
     }
 
-    const urlHead = this.head as UrlHead;
+    const urlHead = this.head;
 
     if (!followDirection || !predsBF || predsBF.size === 0) {
       return {};
@@ -647,11 +675,11 @@ export class TraversalPathClass extends PathClass {
   public genExistingTriplesFilter(
     process: ProcessClass
   ): QueryFilter<NamedNodeTripleDocument> | null {
-    if (this.head.type !== HEAD_TYPE.URL) {
+    if (!isUrlHead(this.head)) {
       return null;
     }
 
-    const urlHead = this.head as UrlHead;
+    const urlHead = this.head;
     const predLimitations = process.currentStep.predLimitations || [];
     const pathFull = this.predicates.count >= process.currentStep.maxPathProps;
 
@@ -680,18 +708,17 @@ export class TraversalPathClass extends PathClass {
       predsBF
     );
 
-    const baseFilter = {
+    const baseFilter: QueryFilter<NamedNodeTripleDocument> = {
       nodes: urlHead.url,
       _id: { $nin: this.triples }
     };
 
     const hasDirectionFilter = directionFilter && Object.keys(directionFilter).length > 0;
 
-    if (hasDirectionFilter) {
-      return { ...baseFilter, ...directionFilter } as any;
-    } else {
-      return { ...baseFilter, ...predFilter } as any;
-    }
+    const result = hasDirectionFilter
+      ? { ...baseFilter, ...directionFilter }
+      : { ...baseFilter, ...predFilter };
+    return result;
   }
 }
 

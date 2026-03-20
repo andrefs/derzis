@@ -885,7 +885,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result!.allowed).toContain('http://pred1.org');
+      expect(result?.allowed).toContain('http://pred1.org');
     });
 
     it('with disallow-future, adds disallowed predicates to notAllowed', () => {
@@ -896,7 +896,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result!.notAllowed).toContain('http://bad.org');
+      expect(result?.notAllowed).toContain('http://bad.org');
     });
 
     it('always adds literal predicates to allowed with require-future', () => {
@@ -906,8 +906,8 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
         false
       );
 
-      expect(result!.allowed).toContain(LITERAL_PREDS[0]);
-      expect(result!.allowed).toContain(LITERAL_PREDS[1]);
+      expect(result?.allowed).toContain(LITERAL_PREDS[0]);
+      expect(result?.allowed).toContain(LITERAL_PREDS[1]);
     });
   });
 
@@ -920,7 +920,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result!.allowed).toContain('http://required.org');
+      expect(result?.allowed).toContain('http://required.org');
     });
 
     it('with disallow-future, allows predicates in path that are not disallowed', () => {
@@ -931,8 +931,8 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result!.allowed).toContain('http://good.org');
-      expect(result!.allowed).not.toContain('http://bad.org');
+      expect(result?.allowed).toContain('http://good.org');
+      expect(result?.allowed).not.toContain('http://bad.org');
     });
   });
 
@@ -955,7 +955,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       const result = path.genPredicatesFilter([], false);
 
       expect(result).not.toBeNull();
-      expect(result!.predFilter).toEqual({});
+      expect(result?.predFilter).toEqual({});
     });
   });
 
@@ -971,8 +971,8 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result!.allowed).toContain('http://required.org');
-      expect(result!.notAllowed).toContain('http://blocked.org');
+      expect(result?.allowed).toContain('http://required.org');
+      expect(result?.notAllowed).toContain('http://blocked.org');
     });
 
     it('handles same predicate with multiple lims', () => {
@@ -985,7 +985,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
 
       // Full path with require-future - predicate is in path, so allowed
       expect(result).not.toBeNull();
-      expect(result!.allowed).toContain('http://both.org');
+      expect(result?.allowed).toContain('http://both.org');
     });
 
     it('handles require-past constraint', () => {
@@ -997,7 +997,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       // No future constraints, so returns empty filter (all predicates allowed)
-      expect(result!.predFilter).toEqual({});
+      expect(result?.predFilter).toEqual({});
     });
 
     it('handles disallow-past constraint', () => {
@@ -1009,7 +1009,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       // No future constraints, so returns empty filter (all predicates allowed)
-      expect(result!.predFilter).toEqual({});
+      expect(result?.predFilter).toEqual({});
     });
 
     it('handles combination of require-past and require-future on same predicate', () => {
@@ -1020,7 +1020,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       // Non-full path with require-future - predicate is allowed
-      expect(result!.allowed).toContain('http://both.org');
+      expect(result?.allowed).toContain('http://both.org');
     });
 
     it('handles combination of disallow-past and disallow-future on same predicate', () => {
@@ -1031,7 +1031,7 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       );
 
       // Non-full path with disallow-future - predicate is not allowed
-      expect(result!.notAllowed).toContain('http://blocked.org');
+      expect(result?.notAllowed).toContain('http://blocked.org');
     });
   });
 });

@@ -68,7 +68,7 @@ export async function calcProcMetrics(
 }
 
 export async function getPredicateCounts(pid: string) {
-  const result = await ProcessTriple.aggregate([
+  const result = await ProcessTriple.aggregate<{ _id: string; count: number }>([
     { $match: { processId: pid } },
     {
       $lookup: {
@@ -99,7 +99,7 @@ export async function getSeedCoverage(
     `getSeedCoverage: pid=${pid}, predicate=${predicate}, field=${field}, seeds=${JSON.stringify(seeds)}`
   );
 
-  const result = await ProcessTriple.aggregate([
+  const result = await ProcessTriple.aggregate<{ coverage: number }>([
     { $match: { processId: pid } },
     {
       $lookup: {
@@ -126,12 +126,12 @@ export async function getBranchingFactor(
   // Use global triples data with server-side aggregation
   // Branching factor is independent of process - uses all triples in database
   const [subjectsResult, objectsResult] = await Promise.all([
-    Triple.aggregate([
+    Triple.aggregate<{ count: number }>([
       { $match: { predicate } },
       { $group: { _id: '$subject' } },
       { $count: 'count' }
     ]),
-    Triple.aggregate([
+    Triple.aggregate<{ count: number }>([
       { $match: { predicate } },
       { $group: { _id: '$object' } },
       { $count: 'count' }
@@ -147,7 +147,7 @@ export async function getBranchingFactor(
 export async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
   const [triplesResult, subjectsResult, objectsResult, resourcesResult] = await Promise.all([
     ProcessTriple.countDocuments({ processId: pid }),
-    ProcessTriple.aggregate([
+    ProcessTriple.aggregate<{ totalSubjects: number }>([
       { $match: { processId: pid } },
       {
         $lookup: {
@@ -161,7 +161,7 @@ export async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
       { $group: { _id: '$tripleData.subject' } },
       { $count: 'totalSubjects' }
     ]),
-    ProcessTriple.aggregate([
+    ProcessTriple.aggregate<{ totalObjects: number }>([
       { $match: { processId: pid } },
       {
         $lookup: {
@@ -175,7 +175,7 @@ export async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
       { $group: { _id: '$tripleData.object' } },
       { $count: 'totalObjects' }
     ]),
-    ProcessTriple.aggregate([
+    ProcessTriple.aggregate<{ totalResources: number }>([
       { $match: { processId: pid } },
       {
         $lookup: {

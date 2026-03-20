@@ -1,23 +1,15 @@
-import {
-  type Types,
-  Document,
-  type QueryFilter,
-  type QueryWithHelpers,
-  type UpdateWriteOpResult,
-  type UpdateQuery
-} from 'mongoose';
-import { Resource, type ResourceDocument } from '../Resource';
+import { type Types, Document, type QueryFilter, type UpdateQuery } from 'mongoose';
+import { Resource } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
   TraversalPath,
   EndpointPath,
-  TraversalPathClass,
-  EndpointPathClass,
   PathClass,
   HEAD_TYPE,
-  UrlHead
+  UrlHead,
+  TraversalPathDocument,
+  EndpointPathDocument
 } from '../Path';
-import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Process');
 import {
@@ -29,7 +21,7 @@ import {
   PropType,
   type DocumentType
 } from '@typegoose/typegoose';
-import { Domain, type DomainDocument } from '../Domain';
+import { Domain } from '../Domain';
 import {
   getPathsForRobotsChecking,
   getPathsForDomainCrawl,
@@ -151,7 +143,7 @@ class ProcessClass extends Document {
    * Check if the process is done
    * @returns {Promise<boolean>} - Whether the process is done
    */
-  public async isDone(this: ProcessClass): Promise<boolean> {
+  public async isDone(): Promise<boolean> {
     // process is done
     if (['done', 'error'].includes(this.status)) {
       return true;
@@ -210,8 +202,10 @@ class ProcessClass extends Document {
    * Get triples as a stream
    * @returns {AsyncGenerator<SimpleTriple>} - Triples
    */
-  public async *getTriples(this: ProcessClass): AsyncGenerator<SimpleTriple> {
-    return yield* getTriples(this);
+  public async *getTriples(): AsyncGenerator<SimpleTriple> {
+    for await (const t of getTriples(this)) {
+      yield t;
+    }
   }
 
   /**
@@ -219,19 +213,22 @@ class ProcessClass extends Document {
    * @param includeCreatedAt - Whether to include createdAt timestamp
    * @returns {AsyncGenerator<string>} - JSON strings of triples
    */
-  public async *getTriplesJson(
-    this: ProcessClass,
-    includeCreatedAt: boolean = false
-  ): AsyncGenerator<string> {
-    return yield* getTriplesJson(this, includeCreatedAt);
+  public async *getTriplesJson(includeCreatedAt: boolean = false): AsyncGenerator<string> {
+    for await (const t of getTriplesJson(this, includeCreatedAt)) {
+      yield t;
+    }
   }
 
-  public async *getDomainsJson(this: ProcessClass) {
-    return yield* getDomainsJson(this);
+  public async *getDomainsJson() {
+    for await (const d of getDomainsJson(this)) {
+      yield d;
+    }
   }
 
-  public async *getResourcesJson(this: ProcessClass) {
-    return yield* getResourcesJson(this);
+  public async *getResourcesJson() {
+    for await (const r of getResourcesJson(this)) {
+      yield r;
+    }
   }
 
   public async getPathsForRobotsChecking(
@@ -288,23 +285,23 @@ class ProcessClass extends Document {
    * Get predicates branching factor for the current step as a map
    * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor
    */
-  public curPredsBranchFactor(this: ProcessClass): Map<string, BranchFactorClass> | undefined {
+  public curPredsBranchFactor(): Map<string, BranchFactorClass> | undefined {
     return curPredsBranchFactor(this);
   }
 
-  public async getResourceCount(this: ProcessClass) {
+  public async getResourceCount(): Promise<number> {
     return getResourceCount(this);
   }
 
-  public async *getAllResources(this: ProcessClass) {
+  public async *getAllResources() {
     return yield* getAllResources(this);
   }
 
-  public async *getAllDomains(this: ProcessClass) {
+  public async *getAllDomains() {
     return yield* getAllDomains(this);
   }
 
-  public async getInfo(this: DocumentType<ProcessClass>) {
+  public async getInfo(): Promise<ReturnType<typeof getInfo>> {
     return getInfo(this);
   }
 
@@ -480,18 +477,20 @@ class ProcessClass extends Document {
               processId: this.pid,
               'head.type': HEAD_TYPE.URL,
               ...cursorCondition
-            } as QueryFilter<TraversalPathClass>)
+            })
               .sort({ createdAt: 1, _id: 1 })
               .limit(batchSize)
               .select('head.url head.domain createdAt _id')
+              .lean()
           : await EndpointPath.find({
               processId: this.pid,
               'head.type': HEAD_TYPE.URL,
               ...cursorCondition
-            } as QueryFilter<EndpointPathClass>)
+            })
               .sort({ createdAt: 1, _id: 1 })
               .limit(batchSize)
-              .select('head.url head.domain createdAt _id');
+              .select('head.url head.domain createdAt _id')
+              .lean();
 
       if (paths.length === 0) {
         hasMore = false;
@@ -500,6 +499,7 @@ class ProcessClass extends Document {
 
       const lastPath = paths[paths.length - 1];
       lastSeenCreatedAt = lastPath.createdAt || null;
+      // eslint-disable-next-line no-restricted-syntax
       lastSeenId = lastPath._id as Types.ObjectId;
 
       const pathHeads = paths
@@ -514,17 +514,20 @@ class ProcessClass extends Document {
         'head.status': 'error',
         'head.url': { $in: Array.from(headUrls) }
       };
+      // eslint-disable-next-line no-restricted-syntax
       const pathUpdate = { $set: { 'head.status': 'unvisited' } } as UpdateQuery<PathClass>;
+      const headUrlsArray: string[] = Array.from(headUrls);
+      const originsArray: string[] = Array.from(origins);
       const [resourceRes, domainRes, pathRes] = await Promise.all([
         Resource.updateMany(
-          { status: 'error', url: { $in: Array.from(headUrls) as string[] } },
+          { status: 'error', url: { $in: headUrlsArray } },
           {
             $set: { status: 'unvisited' },
             $unset: { jobId: '', crawlId: '' }
           }
-        ) as QueryWithHelpers<UpdateWriteOpResult, ResourceDocument>,
+        ),
         Domain.updateMany(
-          { status: 'error', origin: { $in: Array.from(origins) as string[] } },
+          { status: 'error', origin: { $in: originsArray } },
           {
             $set: {
               status: 'ready',
@@ -533,10 +536,10 @@ class ProcessClass extends Document {
             },
             $unset: { workerId: '', jobId: '' }
           }
-        ) as QueryWithHelpers<UpdateWriteOpResult, DomainDocument>,
+        ),
         this.curPathType === PathType.TRAVERSAL
-          ? TraversalPath.updateMany(pathQuery as QueryFilter<TraversalPathClass>, pathUpdate)
-          : EndpointPath.updateMany(pathQuery as QueryFilter<EndpointPathClass>, pathUpdate)
+          ? TraversalPath.updateMany(pathQuery, pathUpdate)
+          : EndpointPath.updateMany(pathQuery, pathUpdate)
       ]);
 
       summary.resources += resourceRes.modifiedCount ?? resourceRes.matchedCount ?? 0;

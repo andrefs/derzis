@@ -9,11 +9,16 @@ import {
   type LiteralTripleDocument,
   NamedNodeTriple,
   NamedNodeTripleClass,
-  Triple
+  type NamedNodeTripleDocument,
+  Triple,
+  isNamedNode,
+  isLiteral
 } from '../Triple';
-import { type DocumentType } from '@typegoose/typegoose';
 import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
 import { ResourceLabel } from '../ResourceLabel';
+import { createLogger } from '@derzis/common/server';
+
+const log = createLogger('process-data');
 
 const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
 const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
@@ -64,22 +69,30 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
   const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();
   const tripleIds = procTriples.map((pt) => pt.triple);
 
-  console.log(
-    '[DEBUG getTriples] procTriples count:',
-    procTriples.length,
-    'tripleIds count:',
-    tripleIds.length
-  );
+  log.debug('[getTriples]', {
+    procTriplesCount: procTriples.length,
+    tripleIdsCount: tripleIds.length
+  });
 
   if (tripleIds.length === 0) return;
 
   const triples = await Triple.find({ _id: { $in: tripleIds } }).lean();
 
-  const tripleMap = new Map<string, { type: TripleType; data: any }>();
+  const tripleMap = new Map<
+    string,
+    { type: TripleType; data: LiteralTripleDocument | NamedNodeTripleDocument }
+  >();
   for (const t of triples) {
+    let _t;
+    if (isNamedNode(t)) {
+      _t = t;
+    } else if (isLiteral(t)) {
+      _t = t;
+    }
+    if (!_t) continue;
     tripleMap.set(t._id.toString(), {
       type: t.type,
-      data: t
+      data: _t
     });
   }
 
@@ -87,20 +100,20 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
     const entry = tripleMap.get(procTriple.triple.toString());
     if (!entry) continue;
 
-    if (entry.type === TripleType.NAMED_NODE) {
+    if (isNamedNode(entry.data)) {
       const t = entry.data;
       yield {
         subject: t.subject,
         predicate: t.predicate,
-        object: t.object as string,
+        object: t.object,
         type: TripleType.NAMED_NODE
       };
-    } else {
+    } else if (isLiteral(entry.data)) {
       const t = entry.data;
       yield {
         subject: t.subject,
         predicate: t.predicate,
-        object: t.object as { value: string; datatype?: string; language?: string },
+        object: { value: t.object.value, datatype: t.object.datatype, language: t.object.language },
         type: TripleType.LITERAL
       };
     }
@@ -121,7 +134,7 @@ export async function* getTriplesJson(
 
 export async function* getDomainsJson(process: ProcessClass) {
   for await (const d of getAllDomains(process)) {
-    console.log('XXXXXXXXXXXX', d);
+    log.debug('Domain', d);
     yield JSON.stringify(d.origin);
   }
 }
@@ -133,7 +146,7 @@ export async function* getResourcesJson(process: ProcessClass) {
 }
 
 export async function getResourceCount(process: ProcessClass) {
-  const res = await ProcessTriple.aggregate(
+  const res = await ProcessTriple.aggregate<{ count: number }>(
     [
       {
         $match: {
@@ -171,7 +184,7 @@ export async function getResourceCount(process: ProcessClass) {
 }
 
 export async function getDoneResourceCount(process: ProcessClass) {
-  const res = await ProcessTriple.aggregate(
+  const res = await ProcessTriple.aggregate<{ count: number }>(
     [
       {
         $match: {
@@ -271,14 +284,14 @@ export async function* getAllResources(process: ProcessClass) {
       { $group: { _id: '$sources' } }
     ],
     { maxTimeMS: 60000, allowDiskUse: true }
-  ).cursor({ batchSize: 100 });
+  ).cursor<{ _id: string }>({ batchSize: 100 });
   for await (const r of res) {
     yield r;
   }
 }
 
 export async function* getAllDomains(process: ProcessClass) {
-  const res = ProcessTriple.aggregate(
+  const res = ProcessTriple.aggregate<{ _id: unknown; origin: string }>(
     [
       {
         $match: {
@@ -366,7 +379,7 @@ export async function* getAllDomains(process: ProcessClass) {
       }
     ],
     { maxTimeMS: 60000, allowDiskUse: true }
-  ).cursor({ batchSize: 100 });
+  ).cursor<{ _id: unknown; origin: string }>({ batchSize: 100 });
   for await (const d of res) {
     yield d;
   }
@@ -377,19 +390,19 @@ export async function* getAllDomains(process: ProcessClass) {
  * @param {DocumentType<ProcessClass>} process - the process to get info for
  * @returns {Promise<object>} - an object containing info about the process
  */
-export async function getInfo(process: DocumentType<ProcessClass>) {
+export async function getInfo(process: ProcessClass) {
   const baseFilter = { processId: process.pid };
   const lastResource = await Resource.findOne().sort({ updatedAt: -1 }); // TODO these should be process specific
   const lastLT = await LiteralTriple.findOne().sort({ updatedAt: -1 });
   const lastNNT = await NamedNodeTriple.findOne().sort({ updatedAt: -1 });
-  const lastTriple = [lastLT, lastNNT].reduce(
+  const lastTriple = [lastLT, lastNNT].reduce<LiteralTripleClass | NamedNodeTripleClass | null>(
     (latest, t) => {
       if (!t) return latest;
       return !latest || (t.updatedAt ?? new Date(0)) > (latest.updatedAt ?? new Date(0))
         ? t
         : latest;
     },
-    null as LiteralTripleClass | NamedNodeTripleClass | null
+    null
   );
   const lastPath = await TraversalPath.findOne().sort({ updatedAt: -1 });
   const last = Math.max(
@@ -401,9 +414,9 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
   const totalPaths = await TraversalPath.countDocuments({
     processId: process.pid,
     'seed.url': { $in: process.currentStep.seeds }
-  }).lean();
+  });
   const avgPathLength = totalPaths
-    ? await TraversalPath.aggregate([
+    ? await TraversalPath.aggregate<{ avgLength: number }>([
         {
           $match: {
             processId: process.pid,
@@ -416,7 +429,7 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
     : 0;
 
   const avgPathProps = totalPaths
-    ? await TraversalPath.aggregate([
+    ? await TraversalPath.aggregate<{ avgProps: number }>([
         {
           $match: {
             processId: process.pid,
@@ -429,9 +442,9 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
     : 0;
 
   const timeToLastResource = lastResource
-    ? (lastResource!.updatedAt.getTime() - process.createdAt!.getTime()) / 1000
+    ? (lastResource.updatedAt.getTime() - (process.createdAt?.getTime() ?? 0)) / 1000
     : null;
-  const timeRunning = last ? (last - process.createdAt!.getTime()) / 1000 : null;
+  const timeRunning = last ? (last - (process.createdAt?.getTime() ?? 0)) / 1000 : null;
 
   return {
     resources: {
@@ -439,22 +452,22 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
       done: await Resource.countDocuments({
         ...baseFilter,
         status: 'done'
-      }).lean(), // TODO add index
+      }),
       crawling: await Resource.countDocuments({
         ...baseFilter,
         status: 'crawling'
-      }).lean(), // TODO add index
+      }),
       error: await Resource.countDocuments({
         ...baseFilter,
         status: 'error'
-      }).lean() // TODO add index
+      })
       //seed: await Resource.countDocuments({
       //  ...baseFilter,
       //  isSeed: true,
       //}).lean(), // TODO add index
     },
     triples: {
-      total: await ProcessTriple.countDocuments(baseFilter).lean()
+      total: await ProcessTriple.countDocuments(baseFilter)
     },
     domains: {
       total: (await Array.fromAsync(getAllDomains(process))).length
@@ -481,13 +494,17 @@ export async function getInfo(process: DocumentType<ProcessClass>) {
         processId: process.pid,
         type: PathType.TRAVERSAL,
         'seed.url': { $in: process.currentStep.seeds }
-      }).lean(),
+      }),
       headUnvisited: await TraversalPath.countDocuments({
         processId: process.pid,
         type: PathType.TRAVERSAL,
         'head.status': 'unvisited',
         'seed.url': { $in: process.currentStep.seeds }
-      }).lean(), // TODO add index
+      }) // TODO add index
+    },
+    stats: {
+      totalResources: await getResourceCount(process),
+      totalPaths: totalPaths,
       avgPathLength,
       avgPathProps
     },
@@ -538,11 +555,13 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
   const pipeline = [{ $match: baseQuery }, { $group: { _id: '$head.status', count: { $sum: 1 } } }];
 
   const PathModel = pathType === PathType.TRAVERSAL ? TraversalPath : EndpointPath;
-  const aggregateResult = PathModel.aggregate(pipeline);
+  const aggregateResult = PathModel.aggregate<{ _id: string | null; count: number }>(pipeline);
 
   const counts: Record<string, number> = {};
   for await (const r of aggregateResult) {
-    counts[r._id as string] = r.count;
+    if (r._id) {
+      counts[r._id] = r.count;
+    }
   }
 
   const done = counts['done'] || 0;

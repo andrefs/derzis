@@ -26,13 +26,11 @@ type TraversalPathQueryWithExpr = QueryFilter<TraversalPathDocument> & {
 
 // Mock implementations using vi.mock
 vi.mock('../Path/TraversalPath', () => {
-  type TraversalPathDoc = any;
-
-  const createChainableMock = (result: any) => {
+  const createChainableMock = <T>(result: T) => {
     return {
       sort: vi.fn().mockReturnValue({
         limit: vi.fn().mockReturnValue({
-          then: (onfulfilled: any) => Promise.resolve(result).then(onfulfilled)
+          then: (onfulfilled: (v: T) => unknown) => Promise.resolve(result).then(onfulfilled)
         })
       })
     };
@@ -44,17 +42,17 @@ vi.mock('../Path/TraversalPath', () => {
     status = 'active';
     createdAt = new Date();
     extensionCounter = 0;
-    nodes = { count: 1, elems: [] };
-    predicates = { count: 0, elems: [] };
-    head: any = {
-      type: 'url',
+    nodes = { count: 1, elems: [] as unknown[] };
+    predicates = { count: 0, elems: [] as unknown[] };
+    head = {
+      type: 'url' as const,
       url: 'http://test.com',
-      status: 'unvisited',
+      status: 'unvisited' as const,
       domain: { origin: 'http://test.com', isUnvisited: true }
     };
-    seed: any = { url: 'http://example.com/seed' };
+    seed = { url: 'http://example.com/seed' };
 
-    extendWithExistingTriples(proc: any) {
+    extendWithExistingTriples(proc: unknown) {
       return Promise.resolve({ extendedPaths: [], procTriples: [] });
     }
   }
@@ -64,17 +62,17 @@ vi.mock('../Path/TraversalPath', () => {
   MockTraversalPathClass.updateMany = vi.fn();
 
   return {
-    TraversalPath: MockTraversalPathClass as any,
-    TraversalPathClass: MockTraversalPathClass as any
+    TraversalPath: MockTraversalPathClass as unknown,
+    TraversalPathClass: MockTraversalPathClass as unknown
   };
 });
 
 vi.mock('../Path/EndpointPath', () => {
-  const createChainableMock = (result: any) => {
+  const createChainableMock = <T>(result: T) => {
     return {
       sort: vi.fn().mockReturnValue({
         limit: vi.fn().mockReturnValue({
-          then: (onfulfilled: any) => Promise.resolve(result).then(onfulfilled)
+          then: (onfulfilled: (v: T) => unknown) => Promise.resolve(result).then(onfulfilled)
         })
       })
     };
@@ -86,17 +84,17 @@ vi.mock('../Path/EndpointPath', () => {
     status = 'active';
     createdAt = new Date();
     extensionCounter = 0;
-    shortestPath: any = { length: 1, seed: { url: 'http://test.com' } };
+    shortestPath = { length: 1, seed: { url: 'http://test.com' } };
     seedPaths: Record<string, number> = {};
-    head: any = {
-      type: 'url',
+    head = {
+      type: 'url' as const,
       url: 'http://test.com',
-      status: 'unvisited',
+      status: 'unvisited' as const,
       domain: { origin: 'http://test.com', isUnvisited: true }
     };
-    seed: any = { url: 'http://example.com/seed' };
+    seed = { url: 'http://example.com/seed' };
 
-    extendWithExistingTriples(proc: any) {
+    extendWithExistingTriples(proc: unknown) {
       return Promise.resolve({ extendedPaths: [], procTriples: [] });
     }
   }
@@ -106,8 +104,8 @@ vi.mock('../Path/EndpointPath', () => {
   MockEndpointPathClass.updateMany = vi.fn();
 
   return {
-    EndpointPath: MockEndpointPathClass as any,
-    EndpointPathClass: MockEndpointPathClass as any
+    EndpointPath: MockEndpointPathClass as unknown,
+    EndpointPathClass: MockEndpointPathClass as unknown
   };
 });
 
@@ -155,7 +153,7 @@ describe('genTraversalPathQuery', () => {
     step.maxPathLength = overrides.maxPathLength ?? 4;
     step.maxPathProps = overrides.maxPathProps ?? 1;
     if (overrides.predLimitations !== undefined) {
-      step.predLimitations = overrides.predLimitations as any;
+      step.predLimitations = overrides.predLimitations;
     }
     step.seeds = [];
     step.followDirection = false;

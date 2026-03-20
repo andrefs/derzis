@@ -88,14 +88,25 @@ export class TripleClass extends TimeStamps {
   }
 }
 
+interface TripleForBulkOps {
+  subject: string;
+  predicate: string;
+  object: string | LiteralObject;
+  sources: string[];
+  nodes: string[];
+  type: TripleType;
+}
+
 function buildBulkOps(
   triples: SimpleTriple[],
   sourceUrl: string,
   type: TripleType
-): ReturnModelType<typeof TripleClass>['bulkWrite'] extends (ops: infer T) => Promise<any>
+): ReturnModelType<typeof TripleClass>['bulkWrite'] extends (
+  ops: infer T
+) => Promise<BulkWriteResult>
   ? T
   : never {
-  const tripleMap = new Map<string, NamedNodeTripleClass | LiteralTripleClass>();
+  const tripleMap = new Map<string, TripleForBulkOps>();
 
   for (const t of triples) {
     const key =
@@ -104,7 +115,10 @@ function buildBulkOps(
         : `${t.subject}\u0000${t.predicate}\u0000${JSON.stringify(t.object)}`;
 
     if (tripleMap.has(key)) {
-      tripleMap.get(key)!.sources!.push(sourceUrl);
+      const existing = tripleMap.get(key);
+      if (existing && existing.sources) {
+        existing.sources.push(sourceUrl);
+      }
     } else {
       const nodes =
         t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
@@ -118,12 +132,7 @@ function buildBulkOps(
         nodes,
         type: t.type
       };
-      tripleMap.set(
-        key,
-        t.type === TripleType.NAMED_NODE
-          ? (obj as NamedNodeTripleClass)
-          : (obj as LiteralTripleClass)
-      );
+      tripleMap.set(key, obj);
     }
   }
 
@@ -134,15 +143,14 @@ function buildBulkOps(
       t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
         ? [t.subject, t.object]
         : [t.subject];
-    const isLiteral = t.type !== TripleType.NAMED_NODE;
     const filter = {
       subject: t.subject,
       predicate: t.predicate,
-      ...(isLiteral
+      ...(isLiteral(t)
         ? {
-            'object.value': (t.object as LiteralObject).value,
-            'object.language': (t.object as LiteralObject).language,
-            'object.datatype': (t.object as LiteralObject).datatype
+            'object.value': t.object.value,
+            'object.language': t.object.language,
+            'object.datatype': t.object.datatype
           }
         : { object: t.object })
     };
@@ -168,15 +176,16 @@ function buildBulkOps(
 }
 
 interface BulkWriteModel {
-  bulkWrite(writes: any[], options?: any): Promise<BulkWriteResult>;
+  bulkWrite(writes: unknown[], options?: unknown): Promise<BulkWriteResult>;
 }
 
-async function executeBulkOps(model: BulkWriteModel, ops: any): Promise<BulkWriteResult[]> {
+async function executeBulkOps(model: BulkWriteModel, ops: unknown): Promise<BulkWriteResult[]> {
   const BATCH_SIZE = 100;
   const results: BulkWriteResult[] = [];
 
-  for (let i = 0; i < ops.length; i += BATCH_SIZE) {
-    const batchOps = ops.slice(i, i + BATCH_SIZE);
+  const opArray = Array.isArray(ops) ? ops : [];
+  for (let i = 0; i < opArray.length; i += BATCH_SIZE) {
+    const batchOps = opArray.slice(i, i + BATCH_SIZE);
     const result = await model.bulkWrite(batchOps, { ordered: false });
     results.push(result);
   }
@@ -213,11 +222,17 @@ export class NamedNodeTripleClass extends TripleClass {
       return true;
     }
 
-    const bf = predsBF.get(this.predicate)!;
+    const bf = predsBF.get(this.predicate);
+    if (!bf) return true;
     const bfRatio = bf.subj / bf.obj;
 
     const dOk = directionOk(
-      { subject: this.subject, predicate: this.predicate, object: this.object } as any,
+      {
+        subject: this.subject,
+        predicate: this.predicate,
+        object: this.object,
+        type: TripleType.NAMED_NODE as const
+      },
       headUrl,
       bfRatio
     );
@@ -254,10 +269,6 @@ export const NamedNodeTriple = getDiscriminatorModelForClass(
   TripleType.NAMED_NODE
 );
 export type NamedNodeTripleDocument = DocumentType<NamedNodeTripleClass>;
-
-interface BulkWriteModel {
-  bulkWrite(writes: any[], options?: any): Promise<BulkWriteResult>;
-}
 
 export function checkForClass(
   doc: TripleDocument,

@@ -1,0 +1,30 @@
+{
+  "name": "derzis-dev",
+  "version": "1.0.0",
+  "description": "You can run the Manager locally by running",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "devDependencies": {
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrefs/derzis.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/andrefs/derzis/issues"
+  },
+  "homepage": "https://github.com/andrefs/derzis#readme"
+}

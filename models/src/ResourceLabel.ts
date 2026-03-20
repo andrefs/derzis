@@ -1,7 +1,15 @@
 import { urlValidator } from '@derzis/common';
 import { prop, index, getModelForClass, type ReturnModelType } from '@typegoose/typegoose';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
-import type { UpdateOneModel } from 'mongoose';
+import { DocumentType } from '@typegoose/typegoose';
+import { AnyBulkWriteOperation } from 'mongoose';
+
+type LabelUpdate = {
+  domain: string;
+  status?: 'new' | 'done' | 'error';
+  source?: 'web' | 'cardea';
+  extend?: boolean;
+};
 
 @index({ pid: 1, url: 1 }, { unique: true })
 @index({ createdAt: 1 })
@@ -55,7 +63,8 @@ class ResourceLabelClass extends TimeStamps {
     // Extract domain once per unique URL
     const domainCache = new Map<string, string>();
     const getDomain = (url: string) => {
-      if (domainCache.has(url)) return domainCache.get(url)!;
+      const cached = domainCache.get(url);
+      if (cached !== undefined) return cached;
       let domain = '';
       try {
         domain = new URL(url).origin;
@@ -66,11 +75,7 @@ class ResourceLabelClass extends TimeStamps {
       return domain;
     };
 
-    const bulkOps: ReturnModelType<typeof ResourceLabelClass>['bulkWrite'] extends (
-      ops: infer T
-    ) => Promise<any>
-      ? T
-      : never = [];
+    const bulkOps: AnyBulkWriteOperation<ResourceLabelClass>[] = [];
 
     for (const label of uniqueLabels) {
       const existingLabel = existingMap.get(`${label.pid}_${label.url}`);
@@ -86,7 +91,7 @@ class ResourceLabelClass extends TimeStamps {
               domain,
               source: label.source,
               extend: label.extend,
-              status: 'new' as const
+              status: 'new'
             }
           }
         });
@@ -95,9 +100,8 @@ class ResourceLabelClass extends TimeStamps {
         continue;
       } else {
         // Existing label with status 'new' or 'error' - update
-        const update: Record<string, any> = {
-          domain,
-          status: 'new'
+        const update: LabelUpdate = {
+          domain
         };
 
         // Upgrade source: web -> cardea
@@ -120,7 +124,7 @@ class ResourceLabelClass extends TimeStamps {
     }
 
     if (bulkOps.length > 0) {
-      await this.bulkWrite(bulkOps as any);
+      await this.bulkWrite(bulkOps);
     }
   }
 }
@@ -128,5 +132,7 @@ class ResourceLabelClass extends TimeStamps {
 const ResourceLabel = getModelForClass(ResourceLabelClass, {
   schemaOptions: { collection: 'resourceLabels' }
 });
+
+export type ResourceLabelDocument = DocumentType<ResourceLabelClass>;
 
 export { ResourceLabel, ResourceLabelClass };
