@@ -288,15 +288,15 @@ describe('domainsToCheck', () => {
     mockProcessInstance.getPathsForRobotsChecking.mockResolvedValueOnce([]);
     mockLockForRobotsCheck.mockResolvedValueOnce([]);
 
-    const results: any[] = [];
-    const generator = (Domain as any).domainsToCheck(wId, limit);
+    const results: DomainClass[] = [];
+    const generator = Domain.domainsToCheck(wId, limit);
 
     for await (const domain of generator) {
       results.push(domain);
     }
 
     expect(results).toHaveLength(5);
-    expect(results.map((d: any) => d.origin)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5']);
+    expect(results.map((d: DomainClass) => d.origin)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5']);
 
     expect(mockUnlockFromRobotsCheck).toHaveBeenCalledTimes(1);
     expect(mockUnlockFromRobotsCheck).toHaveBeenCalledWith(wId, ['d6', 'd7']);
