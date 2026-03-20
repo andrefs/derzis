@@ -733,13 +733,21 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   // Past constraints apply regardless of fullness
   if (requirePast.length > 0 && disallowPast.length > 0) {
     // Both require-past and disallow-past: need $and to combine
-    const requireFilter = requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
+    // require-past: every path predicate must match at least one require-past pattern
+    const requireFilter =
+      requirePast.length === 1
+        ? requirePast[0]
+        : { $expr: { $setIsSubset: ['$predicates.elems', requirePast] } };
     const disallowFilter =
       disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
 
     query.$and = [{ 'predicates.elems': requireFilter }, { 'predicates.elems': disallowFilter }];
   } else if (requirePast.length > 0) {
-    query['predicates.elems'] = requirePast.length === 1 ? requirePast[0] : { $all: requirePast };
+    // require-past: every path predicate must match at least one require-past pattern
+    query['predicates.elems'] =
+      requirePast.length === 1
+        ? requirePast[0]
+        : { $expr: { $setIsSubset: ['$predicates.elems', requirePast] } };
   } else if (disallowPast.length > 0) {
     query['predicates.elems'] =
       disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };

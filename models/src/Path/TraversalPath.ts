@@ -403,11 +403,12 @@ export class TraversalPathClass extends PathClass {
       return false;
     }
 
-    if (
-      limsByType['require-past'] &&
-      !matchesAny(this.predicates.elems, limsByType['require-past'])
-    ) {
-      return false;
+    if (limsByType['require-past']) {
+      for (const p of this.predicates.elems) {
+        if (!matchesOne(p, limsByType['require-past'])) {
+          return false;
+        }
+      }
     }
     if (
       limsByType['disallow-past'] &&

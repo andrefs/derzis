@@ -450,6 +450,60 @@ describe('genTraversalPathQuery', () => {
       expect(Path.countDocuments).not.toHaveBeenCalled();
     });
   });
+
+  describe('require-past semantics', () => {
+    it('require-past with multiple predicates uses $setIsSubset', () => {
+      const process = createMockProcess({
+        maxPathProps: 3,
+        predLimitations: [
+          { predicate: 'http://p1.org', lims: ['require-past'] as const },
+          { predicate: 'http://p2.org', lims: ['require-past'] as const }
+        ]
+      });
+
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
+
+      expect(query['predicates.elems']).toEqual({
+        $expr: { $setIsSubset: ['$predicates.elems', ['http://p1.org', 'http://p2.org']] }
+      });
+    });
+
+    it('require-past with single predicate uses direct value', () => {
+      const process = createMockProcess({
+        maxPathProps: 2,
+        predLimitations: [{ predicate: 'http://only.org', lims: ['require-past'] as const }]
+      });
+
+      const query = genTraversalPathQuery(process);
+
+      expect(query['predicates.elems']).toEqual('http://only.org');
+    });
+
+    it('require-past and disallow-past with multiple require-past uses $setIsSubset in $and', () => {
+      const process = createMockProcess({
+        maxPathProps: 2,
+        predLimitations: [
+          { predicate: 'http://p1.org', lims: ['require-past'] as const },
+          { predicate: 'http://p2.org', lims: ['require-past'] as const },
+          { predicate: 'http://blocked.org', lims: ['disallow-past'] as const },
+          { predicate: 'http://blocked2.org', lims: ['disallow-past'] as const }
+        ]
+      });
+
+      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
+
+      expect(query.$and).toBeDefined();
+      expect(query.$and).toHaveLength(2);
+      expect(query.$and[0]).toEqual({
+        'predicates.elems': {
+          $expr: { $setIsSubset: ['$predicates.elems', ['http://p1.org', 'http://p2.org']] }
+        }
+      });
+      expect(query.$and[1]).toEqual({
+        'predicates.elems': { $nin: ['http://blocked.org', 'http://blocked2.org'] }
+      });
+    });
+  });
 });
 
 describe('buildStepPathQuery', () => {

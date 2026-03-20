@@ -6,6 +6,7 @@ import {
   BranchFactorClass,
   PredLimitation
 } from '../Process/aux-classes';
+import { buildLimsByType } from '../Process';
 import { Head } from './Path';
 
 const LITERAL_PREDS = [
@@ -1033,5 +1034,91 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       // Non-full path with disallow-future - predicate is not allowed
       expect(result?.notAllowed).toContain('http://blocked.org');
     });
+  });
+});
+
+describe('TraversalPathClass.isExtensionAllowedByPath', () => {
+  const createMockPath = (predicatesElems: string[] = []) => {
+    const path = new TraversalPathClass();
+    path.processId = 'test-pid';
+    path.seed = { url: 'http://example.com/seed' };
+    path.head = {
+      url: 'http://example.com/head',
+      status: 'unvisited',
+      domain: { origin: 'http://example.com', isUnvisited: true },
+      type: 'url'
+    } as Head;
+    path.predicates = { count: predicatesElems.length, elems: predicatesElems };
+    path.nodes = { count: 1, elems: ['http://example.com/node1'] };
+    path.triples = [];
+    return path;
+  };
+
+  const createMockProcess = (maxPathLength: number, maxPathProps: number) => {
+    const step = new StepClass();
+    step.maxPathLength = maxPathLength;
+    step.maxPathProps = maxPathProps;
+    step.seeds = [];
+    step.followDirection = false;
+    step.resetErrors = false;
+    step.predLimit = new PredicateLimitationClass();
+    return step;
+  };
+
+  const createPredLimitation = (predicate: string, lims: string[]): PredLimitation => {
+    const pl = new PredLimitation();
+    pl.predicate = predicate;
+    pl.lims = lims as any;
+    return pl;
+  };
+
+  it('returns true when all path predicates match a require-past pattern', () => {
+    const path = createMockPath(['http://p1.org', 'http://p2.org']);
+    const currentStep = createMockProcess(5, 3);
+    currentStep.predLimitations = [
+      createPredLimitation('http://p1.org', ['require-past']),
+      createPredLimitation('http://p2.org', ['require-past'])
+    ];
+    const limsByType = buildLimsByType(currentStep.predLimitations);
+
+    const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns false when a path predicate does not match any require-past pattern', () => {
+    const path = createMockPath(['http://valid.org', 'http://invalid.org']);
+    const currentStep = createMockProcess(5, 3);
+    currentStep.predLimitations = [createPredLimitation('http://valid.org', ['require-past'])];
+    const limsByType = buildLimsByType(currentStep.predLimitations);
+
+    const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+
+    expect(result).toBe(false);
+  });
+
+  it('returns true when require-past patterns are a superset and all path predicates match', () => {
+    const path = createMockPath(['http://p1.org']);
+    const currentStep = createMockProcess(5, 2);
+    currentStep.predLimitations = [
+      createPredLimitation('http://p1.org', ['require-past']),
+      createPredLimitation('http://p2.org', ['require-past'])
+    ];
+    const limsByType = buildLimsByType(currentStep.predLimitations);
+
+    const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+
+    expect(result).toBe(true);
+  });
+
+  it('returns true when there is no require-past constraint', () => {
+    const path = createMockPath(['http://anything.org']);
+    const currentStep = createMockProcess(5, 2);
+    currentStep.predLimitations = [];
+    const limsByType = buildLimsByType(currentStep.predLimitations);
+
+    const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+
+    expect(result).toBe(true);
   });
 });
