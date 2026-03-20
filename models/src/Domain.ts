@@ -479,7 +479,7 @@ class DomainClass {
           lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
         }
 
-        const urlPathHeads = paths.map(p => p.head).filter(isUrlHead);
+        const urlPathHeads = paths.map((p) => p.head).filter(isUrlHead);
         const origins = new Set<string>(urlPathHeads.map((h) => h.domain.origin));
         const domains = await this.lockForRobotsCheck(wId, Array.from(origins));
         log.silly(
@@ -523,13 +523,13 @@ class DomainClass {
     const limit = Math.max(resLimit - dPathHeads.length, 0);
     const additionalResources = limit
       ? await Resource.find({
-        domain,
-        status: 'unvisited',
-        url: { $nin: dPathHeads.map((r) => r.url) }
-      })
-        .limit(limit)
-        .select('url')
-        .lean()
+          domain,
+          status: 'unvisited',
+          url: { $nin: dPathHeads.map((r) => r.url) }
+        })
+          .limit(limit)
+          .select('url')
+          .lean()
       : [];
     const allResources = [...dPathHeads, ...additionalResources].slice(0, resLimit);
     return allResources;
@@ -608,7 +608,8 @@ class DomainClass {
         .lean();
 
       log.debug(
-        `Worker ${wId} fetched ${rls.length} resource labels for label fetching, last seen createdAt: ${lastSeenCreatedAt ? lastSeenCreatedAt.toISOString() : 'none'
+        `Worker ${wId} fetched ${rls.length} resource labels for label fetching, last seen createdAt: ${
+          lastSeenCreatedAt ? lastSeenCreatedAt.toISOString() : 'none'
         }`
       );
       if (!rls.length) {
@@ -782,14 +783,13 @@ class DomainClass {
         }
 
         const lastPath = paths[paths.length - 1];
-        lastSeenCreatedAt = (lastPath).createdAt ?? null;
+        lastSeenCreatedAt = lastPath.createdAt ?? null;
         lastSeenId = lastPath._id;
         // Track length for proper cursor pagination with compound sort
         if (isTraversalPath(lastPath)) {
           lastSeenLength = lastPath.nodes?.count ?? null;
         } else {
-          lastSeenShortestPathLength =
-            lastPath.shortestPathLength ?? null;
+          lastSeenShortestPathLength = lastPath.shortestPathLength ?? null;
         }
 
         // get only unvisited path heads

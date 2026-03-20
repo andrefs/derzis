@@ -1,9 +1,4 @@
-import {
-  type Types,
-  Document,
-  type QueryFilter,
-  type UpdateQuery
-} from 'mongoose';
+import { type Types, Document, type QueryFilter, type UpdateQuery } from 'mongoose';
 import { Resource } from '../Resource';
 import { humanize } from 'humanize-digest';
 import {
@@ -218,9 +213,7 @@ class ProcessClass extends Document {
    * @param includeCreatedAt - Whether to include createdAt timestamp
    * @returns {AsyncGenerator<string>} - JSON strings of triples
    */
-  public async *getTriplesJson(
-    includeCreatedAt: boolean = false
-  ): AsyncGenerator<string> {
+  public async *getTriplesJson(includeCreatedAt: boolean = false): AsyncGenerator<string> {
     for await (const t of getTriplesJson(this, includeCreatedAt)) {
       yield t;
     }
@@ -397,7 +390,7 @@ class ProcessClass extends Document {
   }
 
   /**
-    * Get a running process, most recent first
+   * Get a running process, most recent first
    * @param skip - number of processes to skip
    * @memberof ProcessClass
    */

@@ -60,7 +60,6 @@ export function isEndpointPathSkeleton(path: PathSkeleton): path is EndpointPath
   return path.type === PathType.ENDPOINT;
 }
 
-
 @index({ processId: 1 }, { name: 'idx_endpoint_process' })
 @index({ createdAt: 1, _id: 1 })
 @index({ type: 1 }, { name: 'idx_endpoint_type' })
@@ -189,7 +188,9 @@ export class EndpointPathClass extends PathClass {
     return this.shortestPathLength >= process.currentStep.maxPathLength;
   }
 
-  public genExistingTriplesFilter(_process: ProcessClass): QueryFilter<NamedNodeTripleClass> | null {
+  public genExistingTriplesFilter(
+    _process: ProcessClass
+  ): QueryFilter<NamedNodeTripleClass> | null {
     if (this.head.type !== HEAD_TYPE.URL) {
       return null;
     }
@@ -236,7 +237,12 @@ export class EndpointPathClass extends PathClass {
 
     const urlHead: UrlHead = isUrlHead(this.head)
       ? this.head
-      : { type: HEAD_TYPE.URL, url: '', status: 'unvisited', domain: { origin: '', isUnvisited: true } };
+      : {
+          type: HEAD_TYPE.URL,
+          url: '',
+          status: 'unvisited',
+          domain: { origin: '', isUnvisited: true }
+        };
     if (!isUrlHead(urlHead) || !urlHead.url) {
       return { extendedPaths: [], procTriples: [] };
     }
@@ -271,7 +277,9 @@ export class EndpointPathClass extends PathClass {
     const literalCandidatesOnly = candidates.filter((c) => c.literalHead !== undefined);
 
     // Phase 3: Query existing endpoint paths for URL heads
-    const headUrls = urlCandidates.map((c) => c.headUrl).filter((url): url is string => typeof url === 'string');
+    const headUrls = urlCandidates
+      .map((c) => c.headUrl)
+      .filter((url): url is string => typeof url === 'string');
     const existingMap = await queryExistingEndpointPaths.call(this, headUrls);
 
     // Phase 4: Process candidates
@@ -322,7 +330,8 @@ function collectNamedNodeCandidates(
     );
 
   for (const t of namedNodeTriples) {
-    const newHeadUrl: string = typeof t.object === 'string' && t.subject === urlHead.url ? t.object : t.subject;
+    const newHeadUrl: string =
+      typeof t.object === 'string' && t.subject === urlHead.url ? t.object : t.subject;
 
     // Simple cycle check: skip if extending to any seed URL
     if (this.seedPaths.some((entry) => entry.seed === newHeadUrl)) {

@@ -224,7 +224,9 @@ async function processHeadGroup(
 
     if (existing) {
       // Merge with existing seedPaths
-      const existingSeedMap = new Map(existing.seedPaths.map((sp: SeedPathEntryClass) => [sp.seed, sp.minLength]));
+      const existingSeedMap = new Map(
+        existing.seedPaths.map((sp: SeedPathEntryClass) => [sp.seed, sp.minLength])
+      );
       for (const [seed, minLength] of seedMap.entries()) {
         const cur = existingSeedMap.get(seed);
         if (cur === undefined || minLength < cur) {
@@ -301,7 +303,8 @@ async function processHeadGroup(
         success = true;
       } catch (err: unknown) {
         const code = err && typeof err === 'object' && 'code' in err ? err.code : undefined;
-        const message = err && typeof err === 'object' && 'message' in err ? err.message : undefined;
+        const message =
+          err && typeof err === 'object' && 'message' in err ? err.message : undefined;
         if (code === 11000 || (typeof message === 'string' && message.includes('duplicate key'))) {
           log.warn('Duplicate key detected in processHeadGroup, fetching and merging', {
             pid,
@@ -792,7 +795,7 @@ async function createNewPaths(
   const urlGroups = new Map<string, Map<string, EndpointPathSkeleton[]>>();
   const literalPaths: EndpointPathSkeleton[] = [];
 
-  for (const p of pathsToCreate.filter(p => isEndpoint(p))) {
+  for (const p of pathsToCreate.filter((p) => isEndpoint(p))) {
     const head = p.head;
     if (isUrlHead(head)) {
       const processId = p.processId;
@@ -852,11 +855,14 @@ async function createNewPaths(
 
         if (existing) {
           if (!isUrlHead(existing.head)) {
-            log.warn('Expected URL head in existing EndpointPath but found different type, skipping', {
-              processId,
-              headUrl,
-              existingHeadType: existing.head.type
-            });
+            log.warn(
+              'Expected URL head in existing EndpointPath but found different type, skipping',
+              {
+                processId,
+                headUrl,
+                existingHeadType: existing.head.type
+              }
+            );
             continue;
           }
           const existingHead = existing.head;
@@ -917,8 +923,12 @@ async function createNewPaths(
             success = true;
           } catch (err: unknown) {
             const code = err && typeof err === 'object' && 'code' in err ? err.code : undefined;
-            const message = err && typeof err === 'object' && 'message' in err ? err.message : undefined;
-            if (code === 11000 || (typeof message === 'string' && message.includes('duplicate key'))) {
+            const message =
+              err && typeof err === 'object' && 'message' in err ? err.message : undefined;
+            if (
+              code === 11000 ||
+              (typeof message === 'string' && message.includes('duplicate key'))
+            ) {
               log.warn('Duplicate key detected during insert, fetching and merging', {
                 processId,
                 headUrl
@@ -989,8 +999,8 @@ async function deleteOldPaths(
 async function setNewPathHeadStatus(newPaths: PathSkeleton[]): Promise<void> {
   // Only process paths with URL heads (not literal heads)
   const urlPaths = newPaths.filter((p) => isUrlHead(p.head));
-  const heads = urlPaths.map(p => p.head).filter((h): h is UrlHead => isUrlHead(h));
-  const headUrls = heads.map(h => h.url);
+  const heads = urlPaths.map((p) => p.head).filter((h): h is UrlHead => isUrlHead(h));
+  const headUrls = heads.map((h) => h.url);
 
   if (!headUrls.length) {
     return;
@@ -1354,7 +1364,9 @@ async function* queryPathsForTriples(
   const nodeUrls = new Set<string>();
   for (const t of triples) {
     if (typeof t.subject === 'string') nodeUrls.add(t.subject);
-    if (isNamedNode(t)) { nodeUrls.add(t.object); }
+    if (isNamedNode(t)) {
+      nodeUrls.add(t.object);
+    }
   }
 
   if (nodeUrls.size === 0) {
@@ -1375,7 +1387,6 @@ async function* queryPathsForTriples(
       'head.type': HEAD_TYPE.URL,
       'head.url': { $in: Array.from(nodeUrls) }
     };
-
 
     const paths: (TraversalPathDocument | EndpointPathDocument)[] = await (
       pathType === PathType.TRAVERSAL
@@ -1491,7 +1502,7 @@ function convertToEndpointSkeletons(skeletons: PathSkeleton[]): EndpointPathSkel
       status: 'active',
       shortestPathLength: pathLength,
       seedPaths: [{ seed: tp.seed.url, minLength: pathLength }]
-    }
+    };
     return eps;
   });
 }

@@ -54,9 +54,7 @@ class ProcessTripleClass extends TimeStamps {
     triples: ProcessTripleInput[]
   ) {
     const uniqueTriples = Array.from(
-      new Map(
-        triples.map((t) => [ `${t.processId}_${getTripleId(t.triple)}`, t])
-      ).values()
+      new Map(triples.map((t) => [`${t.processId}_${getTripleId(t.triple)}`, t])).values()
     );
 
     const bulkOps = uniqueTriples.map((t) => {

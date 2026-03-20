@@ -12,7 +12,7 @@ import {
   type NamedNodeTripleDocument,
   Triple,
   isNamedNode,
-  isLiteral,
+  isLiteral
 } from '../Triple';
 import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
 import { ResourceLabel } from '../ResourceLabel';
@@ -78,7 +78,10 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
 
   const triples = await Triple.find({ _id: { $in: tripleIds } }).lean();
 
-  const tripleMap = new Map<string, { type: TripleType; data: LiteralTripleDocument | NamedNodeTripleDocument }>();
+  const tripleMap = new Map<
+    string,
+    { type: TripleType; data: LiteralTripleDocument | NamedNodeTripleDocument }
+  >();
   for (const t of triples) {
     let _t;
     if (isNamedNode(t)) {
@@ -414,28 +417,28 @@ export async function getInfo(process: ProcessClass) {
   });
   const avgPathLength = totalPaths
     ? await TraversalPath.aggregate<{ avgLength: number }>([
-      {
-        $match: {
-          processId: process.pid,
-          type: PathType.TRAVERSAL,
-          'seed.url': { $in: process.currentStep.seeds }
-        }
-      },
-      { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
-    ]).then((res) => res[0]?.avgLength || 0)
+        {
+          $match: {
+            processId: process.pid,
+            type: PathType.TRAVERSAL,
+            'seed.url': { $in: process.currentStep.seeds }
+          }
+        },
+        { $group: { _id: null, avgLength: { $avg: '$nodes.count' } } }
+      ]).then((res) => res[0]?.avgLength || 0)
     : 0;
 
   const avgPathProps = totalPaths
     ? await TraversalPath.aggregate<{ avgProps: number }>([
-      {
-        $match: {
-          processId: process.pid,
-          type: PathType.TRAVERSAL,
-          'seed.url': { $in: process.currentStep.seeds }
-        }
-      },
-      { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
-    ]).then((res) => res[0]?.avgProps || 0)
+        {
+          $match: {
+            processId: process.pid,
+            type: PathType.TRAVERSAL,
+            'seed.url': { $in: process.currentStep.seeds }
+          }
+        },
+        { $group: { _id: null, avgProps: { $avg: '$predicates.count' } } }
+      ]).then((res) => res[0]?.avgProps || 0)
     : 0;
 
   const timeToLastResource = lastResource

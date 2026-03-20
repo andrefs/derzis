@@ -134,12 +134,8 @@ export interface IPath {
   status: 'active' | 'deleted';
   type: PathType;
   extensionCounter: number;
-  genExistingTriplesFilter: (
-
-    process: ProcessClass
-  ) => QueryFilter<NamedNodeTripleDocument> | null;
+  genExistingTriplesFilter: (process: ProcessClass) => QueryFilter<NamedNodeTripleDocument> | null;
   genExtendedPaths: (
-
     process: ProcessClass,
 
     triples?: TripleDocument[]

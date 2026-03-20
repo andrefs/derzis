@@ -126,8 +126,8 @@ class ResourceLabelClass extends TimeStamps {
     if (bulkOps.length > 0) {
       await this.bulkWrite(bulkOps);
     }
-   }
- }
+  }
+}
 
 const ResourceLabel = getModelForClass(ResourceLabelClass, {
   schemaOptions: { collection: 'resourceLabels' }

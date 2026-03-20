@@ -101,7 +101,9 @@ function buildBulkOps(
   triples: SimpleTriple[],
   sourceUrl: string,
   type: TripleType
-): ReturnModelType<typeof TripleClass>['bulkWrite'] extends (ops: infer T) => Promise<BulkWriteResult>
+): ReturnModelType<typeof TripleClass>['bulkWrite'] extends (
+  ops: infer T
+) => Promise<BulkWriteResult>
   ? T
   : never {
   const tripleMap = new Map<string, TripleForBulkOps>();
@@ -146,10 +148,10 @@ function buildBulkOps(
       predicate: t.predicate,
       ...(isLiteral(t)
         ? {
-          'object.value': t.object.value,
-          'object.language': t.object.language,
-          'object.datatype': t.object.datatype
-        }
+            'object.value': t.object.value,
+            'object.language': t.object.language,
+            'object.datatype': t.object.datatype
+          }
         : { object: t.object })
     };
     return {
@@ -225,7 +227,12 @@ export class NamedNodeTripleClass extends TripleClass {
     const bfRatio = bf.subj / bf.obj;
 
     const dOk = directionOk(
-      { subject: this.subject, predicate: this.predicate, object: this.object, type: TripleType.NAMED_NODE as const },
+      {
+        subject: this.subject,
+        predicate: this.predicate,
+        object: this.object,
+        type: TripleType.NAMED_NODE as const
+      },
       headUrl,
       bfRatio
     );

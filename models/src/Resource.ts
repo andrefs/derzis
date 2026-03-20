@@ -53,7 +53,13 @@ interface HasBulkWriteErrorResult {
 }
 
 function hasBulkWriteErrorResult(err: unknown): err is HasBulkWriteErrorResult {
-  return typeof err === 'object' && err !== null && 'result' in err && typeof err['result'] === 'object' && err['result'] !== null;
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'result' in err &&
+    typeof err['result'] === 'object' &&
+    err['result'] !== null
+  );
 }
 
 function hasUrlHead<T extends { head: { type: string } }>(p: T): p is T & { head: UrlHead } {
@@ -396,7 +402,9 @@ class ResourceClass {
           );
           result = await EndpointPath.bulkWrite(bulkOps, { ordered: false });
           if (result && 'upsertedCount' in result) {
-            log.silly('Inserted/updated EndpointPath seeds', { upsertedCount: result['upsertedCount'] });
+            log.silly('Inserted/updated EndpointPath seeds', {
+              upsertedCount: result['upsertedCount']
+            });
           }
 
           // Check for validation errors in result (Mongoose includes them even when not thrown)
@@ -412,7 +420,8 @@ class ResourceClass {
             }
           }
         } catch (error: unknown) {
-          const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+          const code =
+            error && typeof error === 'object' && 'code' in error ? error.code : undefined;
           if (code !== 11000) {
             log.error('Failed to upsert EndpointPath seed documents', {
               error,
