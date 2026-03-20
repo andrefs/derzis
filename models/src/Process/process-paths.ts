@@ -733,21 +733,27 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   // Past constraints apply regardless of fullness
   if (requirePast.length > 0 && disallowPast.length > 0) {
     // Both require-past and disallow-past: need $and to combine
-    // require-past: every path predicate must match at least one require-past pattern
-    const requireFilter =
-      requirePast.length === 1
-        ? requirePast[0]
-        : { $expr: { $setIsSubset: ['$predicates.elems', requirePast] } };
+    // require-past: every path predicate must match at least one require-past pattern (exact match)
     const disallowFilter =
       disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
 
-    query.$and = [{ 'predicates.elems': requireFilter }, { 'predicates.elems': disallowFilter }];
+    query.$and = [
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {
+        $where: `return this.predicates.elems.every(p => ${requirePast.map((p) => `p === '${p}'`).join(' || ')});`
+      } as any,
+      { 'predicates.elems': disallowFilter }
+    ];
   } else if (requirePast.length > 0) {
-    // require-past: every path predicate must match at least one require-past pattern
-    query['predicates.elems'] =
-      requirePast.length === 1
-        ? requirePast[0]
-        : { $expr: { $setIsSubset: ['$predicates.elems', requirePast] } };
+    // require-past: every path predicate must match at least one require-past pattern (exact match)
+    if (requirePast.length === 1) {
+      query['predicates.elems'] = requirePast[0];
+    } else {
+      // $where must be at top level, not inside an Array field path
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (query as any).$where =
+        `return this.predicates.elems.every(p => ${requirePast.map((p) => `p === '${p}'`).join(' || ')});`;
+    }
   } else if (disallowPast.length > 0) {
     query['predicates.elems'] =
       disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };

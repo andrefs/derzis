@@ -452,7 +452,7 @@ describe('genTraversalPathQuery', () => {
   });
 
   describe('require-past semantics', () => {
-    it('require-past with multiple predicates uses $setIsSubset', () => {
+    it('require-past with multiple predicates uses $where', () => {
       const process = createMockProcess({
         maxPathProps: 3,
         predLimitations: [
@@ -461,11 +461,11 @@ describe('genTraversalPathQuery', () => {
         ]
       });
 
-      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
+      const query = genTraversalPathQuery(process);
 
-      expect(query['predicates.elems']).toEqual({
-        $expr: { $setIsSubset: ['$predicates.elems', ['http://p1.org', 'http://p2.org']] }
-      });
+      expect(query.$where).toEqual(
+        "return this.predicates.elems.every(p => p === 'http://p1.org' || p === 'http://p2.org');"
+      );
     });
 
     it('require-past with single predicate uses direct value', () => {
@@ -479,7 +479,7 @@ describe('genTraversalPathQuery', () => {
       expect(query['predicates.elems']).toEqual('http://only.org');
     });
 
-    it('require-past and disallow-past with multiple require-past uses $setIsSubset in $and', () => {
+    it('require-past and disallow-past with multiple require-past uses $where in $and', () => {
       const process = createMockProcess({
         maxPathProps: 2,
         predLimitations: [
@@ -490,14 +490,13 @@ describe('genTraversalPathQuery', () => {
         ]
       });
 
-      const query = genTraversalPathQuery(process) as TraversalPathQueryWithExpr;
+      const query = genTraversalPathQuery(process);
 
       expect(query.$and).toBeDefined();
       expect(query.$and).toHaveLength(2);
       expect(query.$and[0]).toEqual({
-        'predicates.elems': {
-          $expr: { $setIsSubset: ['$predicates.elems', ['http://p1.org', 'http://p2.org']] }
-        }
+        $where:
+          "return this.predicates.elems.every(p => p === 'http://p1.org' || p === 'http://p2.org');"
       });
       expect(query.$and[1]).toEqual({
         'predicates.elems': { $nin: ['http://blocked.org', 'http://blocked2.org'] }
