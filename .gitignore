@@ -24,3 +24,4 @@ manager/.server.pid
 */logs
 .sisyphus/
 .opencode
+.playwright-cli
