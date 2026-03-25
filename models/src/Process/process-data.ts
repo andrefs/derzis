@@ -17,6 +17,7 @@ import {
 import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
 import { ResourceLabel } from '../ResourceLabel';
 import { createLogger } from '@derzis/common/server';
+import { Types } from 'mongoose';
 
 const log = createLogger('process-data');
 
@@ -66,56 +67,72 @@ export async function getLabelDataForProcess(pid: string) {
 }
 
 export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleTriple> {
-  const procTriples = await ProcessTriple.find({ processId: process.pid }).lean();
-  const tripleIds = procTriples.map((pt) => pt.triple);
+  const batchSize = 1000;
+  let lastId: Types.ObjectId | undefined;
 
-  log.debug('[getTriples]', {
-    procTriplesCount: procTriples.length,
-    tripleIdsCount: tripleIds.length
-  });
-
-  if (tripleIds.length === 0) return;
-
-  const triples = await Triple.find({ _id: { $in: tripleIds } }).lean();
-
-  const tripleMap = new Map<
-    string,
-    { type: TripleType; data: LiteralTripleDocument | NamedNodeTripleDocument }
-  >();
-  for (const t of triples) {
-    let _t;
-    if (isNamedNode(t)) {
-      _t = t;
-    } else if (isLiteral(t)) {
-      _t = t;
+  while (true) {
+    const query: Record<string, unknown> = { processId: process.pid };
+    if (lastId) {
+      query._id = { $gt: lastId };
     }
-    if (!_t) continue;
-    tripleMap.set(t._id.toString(), {
-      type: t.type,
-      data: _t
-    });
-  }
 
-  for (const procTriple of procTriples) {
-    const entry = tripleMap.get(procTriple.triple.toString());
-    if (!entry) continue;
+    const batch = await ProcessTriple.find(query)
+      .sort({ _id: 1 })
+      .limit(batchSize)
+      .select('triple')
+      .lean();
 
-    if (isNamedNode(entry.data)) {
-      const t = entry.data;
-      yield {
-        subject: t.subject,
-        predicate: t.predicate,
-        object: t.object,
-        type: TripleType.NAMED_NODE
-      };
-    } else if (isLiteral(entry.data)) {
-      const t = entry.data;
-      yield {
-        subject: t.subject,
-        predicate: t.predicate,
-        object: { value: t.object.value, datatype: t.object.datatype, language: t.object.language },
-        type: TripleType.LITERAL
-      };
+    if (batch.length === 0) break;
+
+    lastId = batch[batch.length - 1]._id;
+    const tripleIds = batch.map((pt) => pt.triple);
+
+    const triples = await Triple.find({ _id: { $in: tripleIds } }).lean();
+
+    const tripleMap = new Map<
+      string,
+      { type: TripleType; data: LiteralTripleDocument | NamedNodeTripleDocument }
+    >();
+
+    for (const t of triples) {
+      let _t;
+      if (isNamedNode(t)) {
+        _t = t;
+      } else if (isLiteral(t)) {
+        _t = t;
+      }
+      if (!_t) continue;
+      tripleMap.set(t._id.toString(), {
+        type: t.type,
+        data: _t
+      });
+    }
+
+    for (const procTriple of batch) {
+      const entry = tripleMap.get(procTriple.triple.toString());
+      if (!entry) continue;
+
+      if (isNamedNode(entry.data)) {
+        const t = entry.data;
+        yield {
+          subject: t.subject,
+          predicate: t.predicate,
+          object: t.object,
+          type: TripleType.NAMED_NODE
+        };
+      } else if (isLiteral(entry.data)) {
+        const t = entry.data;
+        yield {
+          subject: t.subject,
+          predicate: t.predicate,
+          object: {
+            value: t.object.value,
+            datatype: t.object.datatype,
+            language: t.object.language
+          },
+          type: TripleType.LITERAL
+        };
+      }
     }
   }
 }
