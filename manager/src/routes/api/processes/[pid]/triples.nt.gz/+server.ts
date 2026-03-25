@@ -32,7 +32,7 @@ export async function GET({ params, setHeaders }: RequestEvent) {
   });
 
   readableStream.on('data', (quad: SimpleTriple) => {
-    console.log('Processing quad:', quad);
+    // Logging removed to prevent memory pressure during large exports
     if (quad.type === 'namedNode') {
       writer.addQuad(namedNode(quad.subject), namedNode(quad.predicate), namedNode(quad.object));
     } else if (quad.type === 'literal') {
