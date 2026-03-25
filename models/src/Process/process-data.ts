@@ -95,16 +95,9 @@ export async function* getTriples(process: ProcessClass): AsyncGenerator<SimpleT
     >();
 
     for (const t of triples) {
-      let _t;
-      if (isNamedNode(t)) {
-        _t = t;
-      } else if (isLiteral(t)) {
-        _t = t;
-      }
-      if (!_t) continue;
       tripleMap.set(t._id.toString(), {
         type: t.type,
-        data: _t
+        data: t as unknown as LiteralTripleDocument | NamedNodeTripleDocument
       });
     }
 
