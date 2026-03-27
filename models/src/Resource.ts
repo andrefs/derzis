@@ -11,6 +11,8 @@ import {
   UrlHead
 } from './Path';
 import { NamedNodeTriple, type NamedNodeTripleClass } from './Triple';
+import { ProcessDoneResource } from './ProcessDoneResource';
+import { Process } from './Process';
 import type {
   CrawlResourceResult,
   CrawlResourceResultDetails,
@@ -20,7 +22,6 @@ import type {
 } from '@derzis/common';
 import config from '@derzis/config';
 import { createLogger } from '@derzis/common/server';
-import { Process } from './Process';
 const log = createLogger('Resource');
 
 import {
@@ -272,6 +273,32 @@ class ResourceClass {
       return;
     }
     await Domain.setNextCrawlAllowed(url, jobResult.details.ts, d.crawl.delay);
+
+    // NEW: Increment doneResourceCount for all processes tracking this resource
+    if (!error && oldRes && oldRes.status !== 'done') {
+      // Resource just transitioned to 'done' status
+      const newRes = await this.findOne({ url }).select('_id');
+      if (newRes) {
+        const processDoneResources = await ProcessDoneResource.find({
+          resource: newRes._id as any
+        })
+          .select('processId')
+          .lean();
+
+        // Increment counter for each process
+        if (processDoneResources.length > 0) {
+          const processIds = processDoneResources.map((pr) => pr.processId);
+          await Process.updateMany(
+            { pid: { $in: processIds } },
+            { $inc: { 'currentStep.doneResourceCount': 1 } }
+          );
+
+          log.debug(
+            `Incremented doneResourceCount for ${processIds.length} processes after ${url} completed`
+          );
+        }
+      }
+    }
   }
 
   public static async insertSeeds(

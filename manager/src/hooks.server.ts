@@ -1,5 +1,5 @@
 import { building } from '$app/environment';
-import { db, Process, Triple, Path } from '@derzis/models';
+import { db, Process, Triple, Path, ProcessDoneResource } from '@derzis/models';
 import ManagerPubSub from './lib/ManagerPubSub';
 import type { Handle } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
@@ -29,6 +29,8 @@ await db.connect(connStr);
 
 log.info('Syncing indexes for Path');
 await Path.syncIndexes();
+log.info('Syncing indexes for ProcessDoneResource');
+await ProcessDoneResource.syncIndexes();
 log.info('Index sync complete');
 
 const logDir = './logs';

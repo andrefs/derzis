@@ -2,7 +2,7 @@ import { ResourceClass } from './Resource';
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
 
 @index({ processId: 1, resource: 1 }, { unique: true })
-class ProcessResourceClass {
+class ProcessDoneResourceClass {
   @prop({ required: true, type: String })
   public processId!: string;
 
@@ -10,8 +10,8 @@ class ProcessResourceClass {
   public resource!: ResourceClass;
 }
 
-const ProcessResource = getModelForClass(ProcessResourceClass, {
-  schemaOptions: { timestamps: true, collection: 'processResources' }
+const ProcessDoneResource = getModelForClass(ProcessDoneResourceClass, {
+  schemaOptions: { timestamps: true, collection: 'processDoneResources' }
 });
 
-export { ProcessResource, ProcessResourceClass };
+export { ProcessDoneResource, ProcessDoneResourceClass };

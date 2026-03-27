@@ -21,6 +21,8 @@ import { buildLimsByType } from './process-utils';
 import { createLogger } from '@derzis/common/server';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
+import { ProcessDoneResource } from '../ProcessDoneResource';
+import { Triple } from '../Triple';
 const log = createLogger('ProcessPaths');
 import { type QueryFilter, Types } from 'mongoose';
 import { isNamedNode, type TripleClass, type TripleDocument } from '../Triple';
@@ -778,6 +780,96 @@ async function insertProcTriples(pid: string, procTriples: TypedTripleId[], proc
 }
 
 /**
+ * Create ProcessDoneResource records for the source resources of the given triples.
+ * This tracks which resources (that were crawled) contributed triples to this process.
+ * Also increments the doneResourceCount for resources that are already 'done'.
+ *
+ * @param pid Process ID
+ * @param procTriples Array of triple IDs that were just inserted
+ */
+async function insertProcDoneRes(pid: string, procTriples: TypedTripleId[]) {
+  if (procTriples.length === 0) {
+    log.silly('No triples to track resources for.');
+    return;
+  }
+
+  // Get unique triple IDs
+  const tripleIds = [...new Set(procTriples.map((t) => new Types.ObjectId(t.id)))];
+
+  // Look up sources for these triples
+  const triples = await Triple.find({
+    _id: { $in: tripleIds }
+  })
+    .select('sources')
+    .lean();
+
+  // Collect all unique source URLs
+  const sourceUrls = new Set<string>();
+  for (const triple of triples) {
+    if (triple.sources && triple.sources.length > 0) {
+      triple.sources.forEach((url) => sourceUrls.add(url));
+    }
+  }
+
+  if (sourceUrls.size === 0) {
+    log.silly('No source resources found in triples.');
+    return;
+  }
+
+  // Find Resource documents for these URLs
+  const resources = await Resource.find({
+    url: { $in: Array.from(sourceUrls) }
+  })
+    .select('_id url status')
+    .lean();
+
+  if (resources.length === 0) {
+    log.warn(`Found ${sourceUrls.size} source URLs but no matching Resource documents`);
+    return;
+  }
+
+  // Create ProcessDoneResource records (track process-resource relationships)
+  const processDoneResources = resources.map((r) => ({
+    processId: pid,
+    resource: r._id
+  }));
+
+  if (processDoneResources.length > 0) {
+    try {
+      await ProcessDoneResource.insertMany(processDoneResources, {
+        ordered: false // Continue on duplicate key errors
+      });
+      log.debug(
+        `Created ${processDoneResources.length} ProcessDoneResource records for process ${pid}`
+      );
+    } catch (err: any) {
+      if (err.code === 11000) {
+        // Duplicate key errors are expected (resources already tracked)
+        const insertedCount = err.result?.nInserted || 0;
+        log.debug(
+          `Inserted ${insertedCount} new ProcessDoneResource records (${processDoneResources.length - insertedCount} duplicates) for process ${pid}`
+        );
+      } else {
+        throw err;
+      }
+    }
+
+    // Increment counter for resources that are already 'done'
+    const doneResourceIds = resources.filter((r) => r.status === 'done').map((r) => r._id);
+
+    if (doneResourceIds.length > 0) {
+      await Process.updateOne(
+        { pid },
+        { $inc: { 'currentStep.doneResourceCount': doneResourceIds.length } }
+      );
+      log.debug(
+        `Incremented doneResourceCount by ${doneResourceIds.length} for process ${pid} (resources already done)`
+      );
+    }
+  }
+}
+
+/**
  * Helper function to create new paths in bulk.
  * @param pathsToCreate Array of PathSkeleton objects to create as new paths
  * @param pathType Type of paths to create ('traversal' or 'endpoint')
@@ -1466,6 +1558,7 @@ async function extendPathsBatch(
         pathsToCreate = convertToEndpointSkeletons(pathsToCreate);
       }
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
+      await insertProcDoneRes(process.pid, result.procTriples);
       await createNewPaths(pathsToCreate, pathType);
       await deleteOldPaths(
         new Set([path._id]),
