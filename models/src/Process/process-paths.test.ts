@@ -534,8 +534,10 @@ describe('buildStepPathQuery', () => {
     // With both require-past and disallow-past, we use $and to combine the filters
     expect(query.$and).toBeDefined();
     expect(query.$and).toHaveLength(2);
-    // First condition: require-past (single element, so direct value)
-    expect(query.$and[0]).toEqual({ 'predicates.elems': 'http://purl.org/dc/terms/subject' });
+    // First condition: require-past uses $expr setIsSubset (path ⊆ requirePast)
+    expect(query.$and[0]).toEqual({
+      $expr: { $setIsSubset: ['$predicates.elems', ['http://purl.org/dc/terms/subject']] }
+    });
     // Second condition: disallow-past (single element, so $ne)
     expect(query.$and[1]).toEqual({
       'predicates.elems': { $ne: 'http://dbpedia.org/ontology/wikiPageWikiLink' }
