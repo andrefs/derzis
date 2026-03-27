@@ -37,6 +37,9 @@ export const POST: RequestHandler = async ({ params }) => {
     return json({ ok: true, message: 'Step finished notification sent successfully' });
   } catch (e) {
     log.error(`Error sending step finished notification for process ${pid}:`, e);
-    return json({ ok: false, err: { message: 'Failed to send step finished notification' } }, { status: 500 });
+    return json(
+      { ok: false, err: { message: 'Failed to send step finished notification' } },
+      { status: 500 }
+    );
   }
 };

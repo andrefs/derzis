@@ -331,7 +331,8 @@
               {/if}
               <button
                 class="btn btn-primary"
-                disabled={sendingStepFinished || (!data.proc.notification.email && !data.proc.notification.webhook)}
+                disabled={sendingStepFinished ||
+                  (!data.proc.notification.email && !data.proc.notification.webhook)}
                 on:click={() => sendStepFinishedNotification(data.proc.pid)}
               >
                 {#if sendingStepFinished}
