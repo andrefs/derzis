@@ -7,7 +7,15 @@ import {
   getDiscriminatorModelForClass,
   index
 } from '@typegoose/typegoose';
-import { urlValidator, type SimpleTriple, directionOk, TripleType } from '@derzis/common';
+import {
+  urlValidator,
+  urlOrBlankNodeValidator,
+  type SimpleTriple,
+  directionOk,
+  TripleType,
+  type BlankNodeObject
+} from '@derzis/common';
+import config from '@derzis/config';
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import { type DocumentType } from '@typegoose/typegoose/lib/types';
@@ -27,6 +35,11 @@ export class LiteralObject {
   public language?: string;
 }
 
+export class BlankNodeObjectClass {
+  @prop({ required: true, type: String })
+  public id!: string;
+}
+
 @modelOptions({
   schemaOptions: {
     discriminatorKey: 'type',
@@ -42,16 +55,22 @@ export class LiteralObject {
 @index({ predicate: 1 }) // for metrics queries
 @index({ predicate: 1, subject: 1 }) // for metrics queries with subject filter
 export class TripleClass extends TimeStamps {
-  @prop({ required: true, validate: urlValidator, type: String, index: true })
+  @prop({ required: true, validate: urlOrBlankNodeValidator, type: String, index: true })
   public subject!: string;
 
-  @prop({ required: true, validate: urlValidator, type: String })
+  @prop({ required: true, validate: urlOrBlankNodeValidator, type: String })
   public predicate!: string;
 
-  @prop({ default: [], validate: urlValidator, type: [String], index: true }, PropType.ARRAY)
+  @prop(
+    { default: [], validate: urlOrBlankNodeValidator, type: [String], index: true },
+    PropType.ARRAY
+  )
   public nodes!: string[];
 
-  @prop({ default: [], validate: urlValidator, type: [String], index: true }, PropType.ARRAY)
+  @prop(
+    { default: [], validate: urlOrBlankNodeValidator, type: [String], index: true },
+    PropType.ARRAY
+  )
   public sources?: string[];
 
   @prop({ required: true, enum: TripleType, type: String, index: true })
@@ -67,8 +86,15 @@ export class TripleClass extends TimeStamps {
       return [];
     }
 
-    const namedNodeTriples = triples.filter((t) => t.type === TripleType.NAMED_NODE);
-    const literalTriples = triples.filter((t) => t.type === TripleType.LITERAL);
+    const allowBlankNodes = config.allowBlankNodes ?? false;
+
+    const allowedTriples = allowBlankNodes
+      ? triples
+      : triples.filter((t) => t.type !== TripleType.BLANK_NODE);
+
+    const namedNodeTriples = allowedTriples.filter((t) => t.type === TripleType.NAMED_NODE);
+    const literalTriples = allowedTriples.filter((t) => t.type === TripleType.LITERAL);
+    const blankNodeTriples = allowedTriples.filter((t) => t.type === TripleType.BLANK_NODE);
 
     const results: BulkWriteResult[] = [];
 
@@ -84,6 +110,12 @@ export class TripleClass extends TimeStamps {
       results.push(...literalResults);
     }
 
+    if (blankNodeTriples.length > 0) {
+      const blankNodeOps = buildBulkOps(blankNodeTriples, sourceUrl, TripleType.BLANK_NODE);
+      const blankNodeResults = await executeBulkOps(BlankNodeTriple, blankNodeOps);
+      results.push(...blankNodeResults);
+    }
+
     return results;
   }
 }
@@ -91,7 +123,7 @@ export class TripleClass extends TimeStamps {
 interface TripleForBulkOps {
   subject: string;
   predicate: string;
-  object: string | LiteralObject;
+  object: string | LiteralObject | BlankNodeObject;
   sources: string[];
   nodes: string[];
   type: TripleType;
@@ -123,7 +155,9 @@ function buildBulkOps(
       const nodes =
         t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
           ? [t.subject, t.object]
-          : [t.subject];
+          : t.type === TripleType.BLANK_NODE && typeof t.object === 'object' && 'id' in t.object
+            ? [t.subject, t.object.id]
+            : [t.subject];
       const obj = {
         subject: t.subject,
         predicate: t.predicate,
@@ -142,7 +176,9 @@ function buildBulkOps(
     const nodes =
       t.type === TripleType.NAMED_NODE && typeof t.object === 'string'
         ? [t.subject, t.object]
-        : [t.subject];
+        : t.type === TripleType.BLANK_NODE && typeof t.object === 'object' && 'id' in t.object
+          ? [t.subject, t.object.id]
+          : [t.subject];
     const filter = {
       subject: t.subject,
       predicate: t.predicate,
@@ -152,7 +188,9 @@ function buildBulkOps(
             'object.language': t.object.language,
             'object.datatype': t.object.datatype
           }
-        : { object: t.object })
+        : t.type === TripleType.BLANK_NODE && typeof t.object === 'object' && 'id' in t.object
+          ? { 'object.id': t.object.id }
+          : { object: t.object })
     };
     return {
       updateOne: {
@@ -201,7 +239,7 @@ async function executeBulkOps(model: BulkWriteModel, ops: unknown): Promise<Bulk
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
 @index({ predicate: 1, object: 1 }) // for metrics queries with object filter
 export class NamedNodeTripleClass extends TripleClass {
-  @prop({ required: true, validate: urlValidator, type: String })
+  @prop({ required: true, validate: urlOrBlankNodeValidator, type: String })
   public object!: string;
 
   public directionOk(
@@ -253,6 +291,12 @@ export class LiteralTripleClass extends TripleClass {
   public object!: LiteralObject;
 }
 
+@index({ subject: 1, predicate: 1, 'object.id': 1 }, { unique: true })
+export class BlankNodeTripleClass extends TripleClass {
+  @prop({ required: true, type: BlankNodeObjectClass })
+  public object!: BlankNodeObjectClass;
+}
+
 export const Triple = getModelForClass(TripleClass);
 export type TripleDocument = DocumentType<TripleClass>;
 
@@ -269,6 +313,13 @@ export const NamedNodeTriple = getDiscriminatorModelForClass(
   TripleType.NAMED_NODE
 );
 export type NamedNodeTripleDocument = DocumentType<NamedNodeTripleClass>;
+
+export const BlankNodeTriple = getDiscriminatorModelForClass(
+  Triple,
+  BlankNodeTripleClass,
+  TripleType.BLANK_NODE
+);
+export type BlankNodeTripleDocument = DocumentType<BlankNodeTripleClass>;
 
 export function checkForClass(
   doc: TripleDocument,
@@ -294,4 +345,10 @@ export function isLiteral(
   triple: TripleClass | TripleDocument
 ): triple is LiteralTripleClass | LiteralTripleDocument {
   return triple.type === TripleType.LITERAL;
+}
+
+export function isBlankNode(
+  triple: TripleClass | TripleDocument
+): triple is BlankNodeTripleClass | BlankNodeTripleDocument {
+  return triple.type === TripleType.BLANK_NODE;
 }

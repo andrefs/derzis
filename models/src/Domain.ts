@@ -24,8 +24,12 @@ import {
 } from '@typegoose/typegoose';
 import type { DomainCrawlJobInfo } from '@derzis/common';
 import config from '@derzis/config';
+<<<<<<< HEAD
 import { ResourceLabel } from './ResourceLabel';
 import type { ResourceLabelDocument } from './ResourceLabel';
+=======
+import { ResourceLabel, type ResourceLabelDocument } from './ResourceLabel';
+>>>>>>> 7f2e0c9 (feat: add RDF blank node support)
 const log = createLogger('Domain');
 
 type DomainErrorType =

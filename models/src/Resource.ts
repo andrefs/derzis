@@ -1,5 +1,5 @@
 import type { Types, Document, UpdateQuery, AnyBulkWriteOperation } from 'mongoose';
-import { PathType, TripleType, urlValidator, WorkerError } from '@derzis/common';
+import { PathType, TripleType, urlValidator, WorkerError, isBlankNodeId } from '@derzis/common';
 import { Domain, DomainClass } from './Domain';
 import {
   TraversalPath,
@@ -145,8 +145,10 @@ class ResourceClass {
   ) {
     const resources: { [pos: string]: boolean } = {};
     for (const t of triples) {
-      resources[t.subject] = true;
-      if (t.type === TripleType.NAMED_NODE) {
+      if (!isBlankNodeId(t.subject)) {
+        resources[t.subject] = true;
+      }
+      if (t.type === TripleType.NAMED_NODE && !isBlankNodeId(t.object)) {
         resources[t.object] = true;
       }
     }
