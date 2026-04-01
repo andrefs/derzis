@@ -1164,9 +1164,9 @@ describe('TraversalPathClass blank node extension', () => {
         directionOk: () => true
       } as any;
 
-      vi.spyOn(Triple, 'find').mockImplementation(() => ({
-      limit: () => Promise.resolve([outgoingTriple])
-    })) as any;
+      vi.spyOn(Triple as any, 'find').mockImplementation(() => ({
+        limit: () => Promise.resolve([outgoingTriple])
+      })) as any;
 
       const process: any = {
         currentStep: {
