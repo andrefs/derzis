@@ -4,6 +4,7 @@ import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
 import { type LiteralTripleDocument } from '../Triple';
 import { getLabelDataForProcess } from './process-data';
+import { type ProcessMetrics } from './process-metrics';
 const log = createLogger('ProcessNotifications');
 
 export async function notifyLabelsFetched(pid: string) {
@@ -32,6 +33,33 @@ export async function notifyLabelsFetched(pid: string) {
   const notif: ProcessNotification = { ok: true, data };
 
   log.info(`Sending labels to Cardea for process ${pid}`, process.notification.webhook ?? '');
+
+  if (process.notification.webhook) {
+    await notifyWebhook(process.notification.webhook, notif);
+  }
+}
+
+export async function notifyMetricsCalculated(
+  pid: string,
+  metrics: ProcessMetrics,
+  stepIndex: number
+) {
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.error(`Process ${pid} not found when sending metrics to Cardea`);
+    return;
+  }
+
+  const data: MetricsCalculatedNotification = {
+    pid,
+    messageType: 'OK_METRICS_CALCULATED',
+    message: `Process ${pid} has calculated metrics for step ${stepIndex}.`,
+    details: { stepIndex, metrics }
+  };
+
+  const notif: ProcessNotification = { ok: true, data };
+
+  log.info(`Sending metrics to Cardea for process ${pid}`, process.notification.webhook ?? '');
 
   if (process.notification.webhook) {
     await notifyWebhook(process.notification.webhook, notif);
@@ -96,6 +124,16 @@ export async function notifyProcessCreated(process: ProcessClass) {
 
 export async function notifyStepFinished(process: ProcessClass) {
   const doneResourceCount = process.currentStep.doneResourceCount ?? 0;
+  const stepIndex = process.steps.length - 1; // 0-based index of the step that just finished
+
+  // Build details object including stepIndex and all fields from currentStep
+  const stepData = process.currentStep.toObject
+    ? process.currentStep.toObject()
+    : process.currentStep;
+  const details = {
+    ...(stepData as object),
+    stepIndex
+  };
 
   const notif: ProcessNotification = {
     ok: true,
@@ -103,7 +141,7 @@ export async function notifyStepFinished(process: ProcessClass) {
       pid: process.pid,
       messageType: 'OK_STEP_FINISHED',
       message: `Process ${process.pid} just finished step #${process.steps.length} with ${doneResourceCount} resources completed.`,
-      details: process.currentStep
+      details
     }
   };
 
@@ -217,6 +255,14 @@ export type LabelsFetchedNotification = BaseProcNotification & {
   messageType: 'OK_LABELS_FETCHED';
 };
 
+export type MetricsCalculatedNotification = BaseProcNotification & {
+  details: {
+    stepIndex: number;
+    metrics: ProcessMetrics;
+  };
+  messageType: 'OK_METRICS_CALCULATED';
+};
+
 type ProcessNotification = {
   ok: boolean;
   data:
@@ -224,5 +270,6 @@ type ProcessNotification = {
     | StepFinishedNotification
     | ProcStartNotification
     | ProcCreatedNotification
-    | LabelsFetchedNotification;
+    | LabelsFetchedNotification
+    | MetricsCalculatedNotification;
 };
