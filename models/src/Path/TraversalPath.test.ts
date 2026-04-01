@@ -12,6 +12,7 @@ import { Triple } from '../Triple/Triple';
 import { TripleType } from '@derzis/common';
 import { Types } from 'mongoose';
 import config from '@derzis/config';
+import { countNonBlankNodes } from './TraversalPath';
 
 const LITERAL_PREDS = [
   'http://www.w3.org/2000/01/rdf-schema#label',
@@ -1163,7 +1164,9 @@ describe('TraversalPathClass blank node extension', () => {
         directionOk: () => true
       } as any;
 
-      vi.spyOn(Triple, 'find').mockResolvedValue([outgoingTriple] as any);
+      vi.spyOn(Triple, 'find').mockImplementation(() => ({
+      limit: () => Promise.resolve([outgoingTriple])
+    })) as any;
 
       const process: any = {
         currentStep: {
@@ -1188,5 +1191,21 @@ describe('TraversalPathClass blank node extension', () => {
     } finally {
       config.allowBlankNodes = originalAllowBlankNodes;
     }
+  });
+});
+
+describe('countNonBlankNodes', () => {
+  it('counts non-blank node IDs', () => {
+    const elems = ['http://a.com', '_:b1', 'http://c.com', '_:b2'];
+    expect(countNonBlankNodes(elems)).toBe(2);
+  });
+
+  it('returns 0 for empty array', () => {
+    expect(countNonBlankNodes([])).toBe(0);
+  });
+
+  it('returns full count when no blank nodes', () => {
+    const elems = ['http://a.com', 'http://b.com'];
+    expect(countNonBlankNodes(elems)).toBe(2);
   });
 });

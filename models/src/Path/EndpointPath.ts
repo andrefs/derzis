@@ -278,7 +278,13 @@ export class EndpointPathClass extends PathClass {
         const blankNodeId = t.object.id;
 
         // Find outgoing triples from this blank node
-        const outgoingTriples = await Triple.find({ subject: blankNodeId });
+        let outgoingTriples: TripleDocument[];
+        try {
+          outgoingTriples = await Triple.find({ subject: blankNodeId }).limit(100);
+        } catch (error) {
+          log.error('Error fetching outgoing triples for blank node', { error, blankNodeId });
+          continue; // skip this blank node
+        }
 
         for (const outgoing of outgoingTriples) {
           // Skip if outgoing is a blank node (can't have blank as final head)

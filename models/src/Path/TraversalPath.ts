@@ -39,6 +39,9 @@ const log = createLogger('TraversalPath');
 import config from '@derzis/config';
 const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
 
+export const countNonBlankNodes = (elems: string[]): number =>
+  elems.filter(n => !isBlankNodeId(n)).length;
+
 export type TraversalPathSkeleton = Pick<
   TraversalPathClass,
   'processId' | 'seed' | 'head' | 'type' | 'status'
@@ -58,7 +61,7 @@ type RecursivePartial<T> = {
  * This ensures that the counts and last predicate are always accurate, and that URL heads have up-to-date domain information based on the URL's origin.
  */
 @pre<TraversalPathClass>('save', async function () {
-  this.nodes.count = this.nodes.elems.filter((n) => !isBlankNodeId(n)).length;
+  this.nodes.count = countNonBlankNodes(this.nodes.elems);
   this.predicates.count = this.predicates.elems.length;
   if (this.predicates.count) {
     this.lastPredicate = this.predicates.elems[this.predicates.count - 1];
@@ -298,7 +301,13 @@ export class TraversalPathClass extends PathClass {
         const blankNodeId = t.object.id;
 
         // Find outgoing triples from this blank node (the chain)
-        const outgoingTriples = await Triple.find({ subject: blankNodeId });
+        let outgoingTriples: TripleDocument[];
+        try {
+          outgoingTriples = await Triple.find({ subject: blankNodeId }).limit(100);
+        } catch (error) {
+          log.error('Error fetching outgoing triples for blank node', { error, blankNodeId });
+          continue; // skip this blank node
+        }
 
         for (const outgoing of outgoingTriples) {
           // Only consider NamedNode or Literal outgoing triples

@@ -620,10 +620,12 @@ export class Worker extends EventEmitter {
             };
             return st;
           } else if (t.object.termType === 'BlankNode' && config.allowBlankNodes) {
+            const rawValue = t.object.value;
+            const blankId = rawValue.startsWith('_:') ? rawValue : `_:${rawValue}`;
             const st: SimpleTriple = {
               subject: t.subject.value,
               predicate: t.predicate.value,
-              object: { id: '_:' + t.object.value },
+              object: { id: blankId },
               type: TripleType.BLANK_NODE
             };
             return st;
