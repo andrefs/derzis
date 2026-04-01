@@ -16,19 +16,21 @@ describe('Resource.insertSeedPaths', () => {
       config.manager.pathType = PathType.ENDPOINT;
 
       // Mock Process.findOne
-      const mockSelect = vi.fn().mockReturnValue({
-        exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
-      });
-      vi.spyOn(Process, 'findOne').mockImplementation(mockSelect as any);
+      vi.spyOn(Process, 'findOne').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue({ curPathType: PathType.ENDPOINT })
+        })
+      } as any);
 
       // Mock Domain.find
-      const mockDomainSelect = vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([
-          { origin: 'http://example.com', status: 'unvisited' },
-          { origin: 'http://dbpedia.org', status: 'unvisited' }
-        ])
-      });
-      vi.spyOn(Domain, 'find').mockImplementation(mockDomainSelect as any);
+      vi.spyOn(Domain, 'find').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([
+            { origin: 'http://example.com', status: 'unvisited' },
+            { origin: 'http://dbpedia.org', status: 'unvisited' }
+          ])
+        })
+      } as any);
 
       // Mock EndpointPath.bulkWrite
       mockBulkWrite = vi.fn().mockResolvedValue({
@@ -180,16 +182,18 @@ describe('Resource.insertSeedPaths', () => {
       config.manager.pathType = PathType.TRAVERSAL;
 
       // Mock Process.findOne
-      const mockSelect = vi.fn().mockReturnValue({
-        exec: vi.fn().mockResolvedValue({ curPathType: PathType.TRAVERSAL })
-      });
-      vi.spyOn(Process, 'findOne').mockImplementation(mockSelect as any);
+      vi.spyOn(Process, 'findOne').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue({ curPathType: PathType.TRAVERSAL })
+        })
+      } as any);
 
       // Mock Domain.find
-      const mockDomainSelect = vi.fn().mockReturnValue({
-        lean: vi.fn().mockResolvedValue([{ origin: 'http://example.com', status: 'unvisited' }])
-      });
-      vi.spyOn(Domain, 'find').mockImplementation(mockDomainSelect as any);
+      vi.spyOn(Domain, 'find').mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          lean: vi.fn().mockResolvedValue([{ origin: 'http://example.com', status: 'unvisited' }])
+        })
+      } as any);
 
       // Mock TraversalPath.create
       mockCreate = vi.fn().mockResolvedValue([]);

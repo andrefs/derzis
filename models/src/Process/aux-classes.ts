@@ -132,6 +132,6 @@ export class StepClass {
   /**
    * Number of resources with status=done for this step (populated in notifications)
    */
-  @prop({ type: Number })
+  @prop({ type: Number, default: 0 })
   public doneResourceCount?: number;
 }

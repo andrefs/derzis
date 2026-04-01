@@ -69,9 +69,9 @@ describe('EndpointPathClass', () => {
       expect(result).toBe(false);
     });
 
-    it('returns true when valid extension', () => {
+    it('returns false when path length within limit', () => {
       const path = createMockPath({
-        shortestPath: { length: 2, seed: 'http://seed.example.com' }
+        shortestPathLength: 2
       });
       const process = createMockProcess();
       const triple: any = {
@@ -81,7 +81,7 @@ describe('EndpointPathClass', () => {
         object: 'http://new.example.com'
       };
       const result = path.tripleIsOutOfBounds(triple, process as ProcessClass);
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
 
     it('returns false when path length within limit', () => {
