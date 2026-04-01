@@ -1164,9 +1164,12 @@ describe('TraversalPathClass blank node extension', () => {
         directionOk: () => true
       } as any;
 
-      vi.spyOn(Triple as any, 'find').mockImplementation(() => ({
-        limit: () => Promise.resolve([outgoingTriple])
-      })) as any;
+       const mockCursor = {
+         [Symbol.asyncIterator]: async function* () {
+           yield outgoingTriple;
+         }
+       };
+       vi.spyOn(Triple as any, 'find').mockReturnValue({ cursor: () => mockCursor });
 
       const process: any = {
         currentStep: {

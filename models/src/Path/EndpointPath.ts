@@ -277,74 +277,71 @@ export class EndpointPathClass extends PathClass {
       for (const t of blankNodeTriples) {
         const blankNodeId = t.object.id;
 
-        // Find outgoing triples from this blank node
-        let outgoingTriples: TripleDocument[];
         try {
-          outgoingTriples = await Triple.find({ subject: blankNodeId }).limit(100);
+          const cursor = Triple.find({ subject: blankNodeId }).cursor();
+          for await (const outgoing of cursor) {
+            // Skip if outgoing is a blank node (can't have blank as final head)
+            if (isBlankNode(outgoing)) continue;
+
+            // Check validity of outgoing triple
+            if (!this.isExtensionValid(outgoing, urlHead)) continue;
+
+            // Check extension allowed for outgoing (predicate limitations, maxPathLength)
+            if (!this.isExtensionAllowed(outgoing, process.currentStep)) continue;
+
+            // For NamedNode outgoing, also check direction and handle candidate
+            if (isNamedNode(outgoing)) {
+              if (!outgoing.directionOk(urlHead.url, followDirection, predsBF)) continue;
+
+              const newHeadUrl: string =
+                outgoing.subject === blankNodeId ? outgoing.object : outgoing.subject;
+              if (typeof newHeadUrl !== 'string') continue;
+
+              // Check cycle: if newHeadUrl in seedPaths or already processed
+              if (this.seedPaths.some((entry) => entry.seed === newHeadUrl)) continue;
+              if (processedUrlHeads.has(newHeadUrl)) continue;
+              processedUrlHeads.add(newHeadUrl);
+
+              const distance = this.shortestPathLength; // blank node hop doesn't count
+              const seedPaths: Record<string, number> = {};
+              for (const entry of this.seedPaths) {
+                seedPaths[entry.seed] = entry.minLength; // no increment for blank node hop
+              }
+
+              namedNodeCandidates.push({ headUrl: newHeadUrl, distance, seedPaths });
+              procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
+              procTriples.push({ id: outgoing._id.toString(), type: TripleType.NAMED_NODE });
+            }
+            // For Literal outgoing
+            else if (isLiteral(outgoing)) {
+              const literalKey = JSON.stringify({
+                value: outgoing.object.value,
+                datatype: outgoing.object.datatype || '',
+                language: outgoing.object.language || ''
+              });
+              if (processedLiterals.has(literalKey)) continue;
+              processedLiterals.add(literalKey);
+
+              const distance = this.shortestPathLength;
+              const seedPaths: Record<string, number> = {};
+              for (const entry of this.seedPaths) {
+                seedPaths[entry.seed] = entry.minLength;
+              }
+
+              const literalHead: LiteralHead = {
+                type: HEAD_TYPE.LITERAL,
+                value: outgoing.object.value,
+                datatype: outgoing.object.datatype,
+                language: outgoing.object.language
+              };
+              literalCandidates.push({ literalHead, distance, seedPaths });
+              procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
+              procTriples.push({ id: outgoing._id.toString(), type: TripleType.LITERAL });
+            }
+          } // end for await
         } catch (error) {
           log.error('Error fetching outgoing triples for blank node', { error, blankNodeId });
           continue; // skip this blank node
-        }
-
-        for (const outgoing of outgoingTriples) {
-          // Skip if outgoing is a blank node (can't have blank as final head)
-          if (isBlankNode(outgoing)) continue;
-
-          // Check validity of outgoing triple
-          if (!this.isExtensionValid(outgoing, urlHead)) continue;
-
-          // Check extension allowed for outgoing (predicate limitations, maxPathLength)
-          if (!this.isExtensionAllowed(outgoing, process.currentStep)) continue;
-
-          // For NamedNode outgoing, also check direction and handle candidate
-          if (isNamedNode(outgoing)) {
-            if (!outgoing.directionOk(urlHead.url, followDirection, predsBF)) continue;
-
-            const newHeadUrl: string =
-              outgoing.subject === blankNodeId ? outgoing.object : outgoing.subject;
-            if (typeof newHeadUrl !== 'string') continue;
-
-            // Check cycle: if newHeadUrl in seedPaths or already processed
-            if (this.seedPaths.some((entry) => entry.seed === newHeadUrl)) continue;
-            if (processedUrlHeads.has(newHeadUrl)) continue;
-            processedUrlHeads.add(newHeadUrl);
-
-            const distance = this.shortestPathLength; // blank node hop doesn't count
-            const seedPaths: Record<string, number> = {};
-            for (const entry of this.seedPaths) {
-              seedPaths[entry.seed] = entry.minLength; // no increment for blank node hop
-            }
-
-            namedNodeCandidates.push({ headUrl: newHeadUrl, distance, seedPaths });
-            procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
-            procTriples.push({ id: outgoing._id.toString(), type: TripleType.NAMED_NODE });
-          }
-          // For Literal outgoing
-          else if (isLiteral(outgoing)) {
-            const literalKey = JSON.stringify({
-              value: outgoing.object.value,
-              datatype: outgoing.object.datatype || '',
-              language: outgoing.object.language || ''
-            });
-            if (processedLiterals.has(literalKey)) continue;
-            processedLiterals.add(literalKey);
-
-            const distance = this.shortestPathLength;
-            const seedPaths: Record<string, number> = {};
-            for (const entry of this.seedPaths) {
-              seedPaths[entry.seed] = entry.minLength;
-            }
-
-            const literalHead: LiteralHead = {
-              type: HEAD_TYPE.LITERAL,
-              value: outgoing.object.value,
-              datatype: outgoing.object.datatype,
-              language: outgoing.object.language
-            };
-            literalCandidates.push({ literalHead, distance, seedPaths });
-            procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
-            procTriples.push({ id: outgoing._id.toString(), type: TripleType.LITERAL });
-          }
         }
       }
     }

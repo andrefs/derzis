@@ -300,71 +300,68 @@ export class TraversalPathClass extends PathClass {
         log.silly('Extending path through blank node', t);
         const blankNodeId = t.object.id;
 
-        // Find outgoing triples from this blank node (the chain)
-        let outgoingTriples: TripleDocument[];
         try {
-          outgoingTriples = await Triple.find({ subject: blankNodeId }).limit(100);
+          const cursor = Triple.find({ subject: blankNodeId }).cursor();
+          for await (const outgoing of cursor) {
+            // Only consider NamedNode or Literal outgoing triples
+            if (isBlankNode(outgoing)) continue;
+
+            // Check basic validity
+            if (!this.isExtensionValid(outgoing)) continue;
+
+            // Only consider NamedNode outgoing for URL heads
+            if (!isNamedNode(outgoing)) continue;
+
+            if (!this.isExtensionAllowed(outgoing, process.currentStep)) continue;
+            if (!outgoing.directionOk(urlHead.url, followDirection, predsBF)) continue;
+
+            const newHeadUrl: string =
+              outgoing.subject === blankNodeId ? outgoing.object : outgoing.subject;
+            if (typeof newHeadUrl !== 'string') continue;
+
+            // Cycle check: check if newHeadUrl or blankNodeId already in nodes.elems
+            if (this.nodes.elems.includes(newHeadUrl) || this.nodes.elems.includes(blankNodeId)) {
+              continue;
+            }
+
+            const prop = outgoing.predicate;
+            if (extendedPaths[prop]?.[newHeadUrl]) continue;
+
+            // Out of bounds check
+            if (this.tripleIsOutOfBounds(outgoing, process)) continue;
+
+            const domain = new URL(newHeadUrl).origin;
+            const ep = this.copy();
+            const head: Head = {
+              type: HEAD_TYPE.URL,
+              url: newHeadUrl,
+              domain: { origin: domain, isUnvisited: true },
+              status: 'unvisited'
+            };
+            ep.head = head;
+            ep.status = 'active';
+            ep.triples = [...this.triples, t._id, outgoing._id];
+            ep.predicates.elems = Array.from(
+              new Set([...this.predicates.elems, t.predicate, outgoing.predicate])
+            );
+            ep.nodes.elems.push(blankNodeId, newHeadUrl);
+            // nodes.count will be recalculated in pre-save hook
+
+            procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
+            const outgoingType = isNamedNode(outgoing)
+              ? TripleType.NAMED_NODE
+              : isLiteral(outgoing)
+                ? TripleType.LITERAL
+                : TripleType.BLANK_NODE;
+            procTriples.push({ id: outgoing._id.toString(), type: outgoingType });
+
+            log.silly('New path via blank node', ep);
+            extendedPaths[prop] = extendedPaths[prop] || {};
+            extendedPaths[prop][newHeadUrl] = ep;
+          }
         } catch (error) {
           log.error('Error fetching outgoing triples for blank node', { error, blankNodeId });
           continue; // skip this blank node
-        }
-
-        for (const outgoing of outgoingTriples) {
-          // Only consider NamedNode or Literal outgoing triples
-          if (isBlankNode(outgoing)) continue;
-
-          // Check basic validity
-          if (!this.isExtensionValid(outgoing)) continue;
-
-          // Only consider NamedNode outgoing for URL heads
-          if (!isNamedNode(outgoing)) continue;
-
-          if (!this.isExtensionAllowed(outgoing, process.currentStep)) continue;
-          if (!outgoing.directionOk(urlHead.url, followDirection, predsBF)) continue;
-
-          const newHeadUrl: string =
-            outgoing.subject === blankNodeId ? outgoing.object : outgoing.subject;
-          if (typeof newHeadUrl !== 'string') continue;
-
-          // Cycle check: check if newHeadUrl or blankNodeId already in nodes.elems
-          if (this.nodes.elems.includes(newHeadUrl) || this.nodes.elems.includes(blankNodeId)) {
-            continue;
-          }
-
-          const prop = outgoing.predicate;
-          if (extendedPaths[prop]?.[newHeadUrl]) continue;
-
-          // Out of bounds check
-          if (this.tripleIsOutOfBounds(outgoing, process)) continue;
-
-          const domain = new URL(newHeadUrl).origin;
-          const ep = this.copy();
-          const head: Head = {
-            type: HEAD_TYPE.URL,
-            url: newHeadUrl,
-            domain: { origin: domain, isUnvisited: true },
-            status: 'unvisited'
-          };
-          ep.head = head;
-          ep.status = 'active';
-          ep.triples = [...this.triples, t._id, outgoing._id];
-          ep.predicates.elems = Array.from(
-            new Set([...this.predicates.elems, t.predicate, outgoing.predicate])
-          );
-          ep.nodes.elems.push(blankNodeId, newHeadUrl);
-          // nodes.count will be recalculated in pre-save hook
-
-          procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
-          const outgoingType = isNamedNode(outgoing)
-            ? TripleType.NAMED_NODE
-            : isLiteral(outgoing)
-              ? TripleType.LITERAL
-              : TripleType.BLANK_NODE;
-          procTriples.push({ id: outgoing._id.toString(), type: outgoingType });
-
-          log.silly('New path via blank node', ep);
-          extendedPaths[prop] = extendedPaths[prop] || {};
-          extendedPaths[prop][newHeadUrl] = ep;
         }
       }
     }
