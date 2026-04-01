@@ -60,6 +60,15 @@ interface JobsTimedOut {
   [domain: string]: boolean;
 }
 
+/**
+ * Generates a globally unique blank node ID by namespacing with the source URL.
+ * This prevents collisions when the same local blank node ID appears in different RDF documents.
+ */
+export function makeBlankNodeId(sourceUrl: string, localId: string): string {
+  const clean = localId.startsWith('_:') ? localId.slice(2) : localId;
+  return `_:${sourceUrl}:${clean}`;
+}
+
 export class Worker extends EventEmitter {
   /**
    * Unique Worker ID
@@ -620,8 +629,7 @@ export class Worker extends EventEmitter {
             };
             return st;
           } else if (t.object.termType === 'BlankNode' && config.allowBlankNodes) {
-            const rawValue = t.object.value;
-            const blankId = rawValue.startsWith('_:') ? rawValue : `_:${rawValue}`;
+            const blankId = makeBlankNodeId(url, t.object.value);
             const st: SimpleTriple = {
               subject: t.subject.value,
               predicate: t.predicate.value,
