@@ -23,7 +23,7 @@ import {
   HEAD_TYPE,
   UrlHead,
   type LiteralHead,
-  PathSkeleton
+  type PathSkeleton
 } from './Path';
 import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
 import { type RecursivePartial } from '@derzis/common';

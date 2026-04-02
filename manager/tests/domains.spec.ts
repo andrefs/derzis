@@ -100,7 +100,7 @@ test.describe('Domains Page', () => {
        const warningsLabel = firstCard.getByText('Warnings:', { exact: true });
        await expect(warningsLabel).toBeVisible();
        // Get the parent div.mb-3 that contains the warnings
-       const warningsSection = warningsLabel.locator('xpath=..').filter({ hasClass: 'mb-3' });
+        const warningsSection = warningsLabel.locator('xpath=..[contains(@class, "mb-3")]');
        await expect(warningsSection).toBeVisible();
 
        // Look for warning badges (may or may not exist)

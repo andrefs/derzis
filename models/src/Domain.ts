@@ -24,7 +24,8 @@ import {
 } from '@typegoose/typegoose';
 import type { DomainCrawlJobInfo } from '@derzis/common';
 import config from '@derzis/config';
-import { ResourceLabel, ResourceLabelDocument } from './ResourceLabel';
+import { ResourceLabel } from './ResourceLabel';
+import type { ResourceLabelDocument } from './ResourceLabel';
 const log = createLogger('Domain');
 
 type DomainErrorType =
