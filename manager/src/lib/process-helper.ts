@@ -23,8 +23,20 @@ const log = createLogger('process-helper');
  * @param p Process parameters
  */
 export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<ProcessDocument> {
+  const seedsInput = p.currentStep!.seeds!;
+  const uniqueSeedsSet = new Set(seedsInput);
+  const uniqueSeeds = [...uniqueSeedsSet];
+
+  const existingResources = await Resource.find({ url: { $in: uniqueSeeds } })
+    .select('url')
+    .lean();
+  const existingUrls = new Set(existingResources.map((r) => r.url));
+
+  const newSeeds = uniqueSeeds.filter((s) => !existingUrls.has(s));
+  p.currentStep!.seeds = newSeeds;
+
   const pathHeads: Map<string, number> = new Map();
-  for (const s of p.currentStep!.seeds!) {
+  for (const s of newSeeds) {
     const domain = new URL(s).origin;
     if (!pathHeads.get(domain)) {
       pathHeads.set(domain, 0);
@@ -69,13 +81,23 @@ export async function addStep(
     throw new Error('Process not found');
   }
 
-  const oldSeeds = new Set(p.currentStep.seeds);
-  const newSeeds = (params.seeds || []).filter((s) => !oldSeeds.has(s));
+  const allPreviousSeeds = new Set(p.steps.flatMap((step) => step.seeds || []));
+
+  const inputSeeds = params.seeds || [];
+  const uniqueInputSeedsSet = new Set(inputSeeds);
+  const uniqueInputSeeds = [...uniqueInputSeedsSet];
+
+  const existingResources = await Resource.find({ url: { $in: uniqueInputSeeds } })
+    .select('url')
+    .lean();
+  const existingUrls = new Set(existingResources.map((r) => r.url));
+
+  const newSeeds = uniqueInputSeeds.filter((s) => !allPreviousSeeds.has(s) && !existingUrls.has(s));
   const newMPL = Math.max(p.currentStep.maxPathLength, params.maxPathLength);
   const newMPP = Math.max(p.currentStep.maxPathProps, params.maxPathProps);
 
   const newStep = {
-    seeds: [...oldSeeds, ...newSeeds],
+    seeds: [...allPreviousSeeds, ...newSeeds],
     maxPathLength: newMPL,
     maxPathProps: newMPP,
     predLimit: params.predLimit,
