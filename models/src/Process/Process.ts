@@ -1,6 +1,18 @@
 import { type Types, Document, type QueryFilter, type UpdateQuery } from 'mongoose';
 import { Resource } from '../Resource';
 import { humanize } from 'humanize-digest';
+
+interface DomainState {
+  origin: string;
+  status: string;
+  nextAllowed: number;
+}
+
+interface ProcessState {
+  domains: DomainState[];
+  beingSavedCount: number;
+}
+
 import {
   TraversalPath,
   EndpointPath,
@@ -139,6 +151,35 @@ class ProcessClass extends Document {
   @prop({ default: 1, type: Number })
   public pathExtensionCounter!: number;
 
+  public async captureState(beingSaved?: { count: () => number }): Promise<ProcessState> {
+    const domains = await Domain.find({}).select('origin status crawl.nextAllowed').lean();
+    return {
+      domains: domains.map((d) => ({
+        origin: d.origin,
+        status: d.status,
+        nextAllowed: d.crawl?.nextAllowed?.getTime() ?? 0
+      })),
+      beingSavedCount: beingSaved?.count() ?? 0
+    };
+  }
+
+  public stateChanged(before: ProcessState, after: ProcessState): boolean {
+    if (before.beingSavedCount !== after.beingSavedCount) {
+      return true;
+    }
+
+    const beforeDomains = new Map(before.domains.map((d) => [d.origin, d.status]));
+    const afterDomains = new Map(after.domains.map((d) => [d.origin, d.status]));
+
+    for (const [origin, status] of afterDomains) {
+      if (beforeDomains.get(origin) !== status) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /**
    * Check if the process is done
    * @returns {Promise<boolean>} - Whether the process is done
@@ -157,6 +198,9 @@ class ProcessClass extends Document {
     // check for more paths to crawl or check
     const maxPathLength = this.currentStep.maxPathLength;
     const maxPathProps = this.currentStep.maxPathProps;
+
+    // Capture state before checks to detect if state changed during execution
+    const beforeState = await this.captureState(beingSaved);
 
     // Check resources being saved first (in-flight work that hasn't completed yet)
     if (beingSaved && beingSaved.count() > 0) {
@@ -223,6 +267,17 @@ class ProcessClass extends Document {
             2
           )
       );
+      // Capture state after checks to detect if state changed during execution
+      const afterState = await this.captureState(beingSaved);
+
+      // If state changed during isDone execution, don't mark done
+      if (this.stateChanged(beforeState, afterState)) {
+        log.debug(
+          `State changed during isDone execution (beingSaved: ${beforeState.beingSavedCount} -> ${afterState.beingSavedCount}), returning false`
+        );
+        return false;
+      }
+
       // mark as done and notify
       await this.done();
       return true;
