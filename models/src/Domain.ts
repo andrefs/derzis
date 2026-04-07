@@ -753,7 +753,7 @@ class DomainClass {
     let pathLimit = 20; // TODO get from config
 
     let skipDomains: { [origin: string]: Date } = {};
-    let justAssignedWork = false;
+    let hasAssignedWork = false;
 
     // iterate over processes
     PROCESS_LOOP: while (domainsFound < domLimit) {
@@ -767,10 +767,10 @@ class DomainClass {
       procSkip++;
       // Skip isDone check if we just successfully assigned work
       // We've proven there's more work, no point checking yet
-      if (!justAssignedWork && (await proc.isDone(beingSaved))) {
+      if (!hasAssignedWork && (await proc.isDone(beingSaved))) {
         continue PROCESS_LOOP;
       }
-      justAssignedWork = false; // Reset after check
+      // hasAssignedWork stays true once set
 
       // for pagination of paths within the process
       let lastSeenCreatedAt: Date | null = null;
@@ -814,8 +814,7 @@ class DomainClass {
         );
         if (!paths.length) {
           // If we just assigned work, try another batch instead of checking isDone
-          if (justAssignedWork) {
-            justAssignedWork = false;
+          if (hasAssignedWork) {
             continue PATHS_LOOP;
           }
           continue PROCESS_LOOP;
@@ -862,8 +861,7 @@ class DomainClass {
             `No domains could be locked for crawling for process ${proc.id} with current path batch, skipping to next batch.`
           );
           // If we just assigned work, try another batch instead of checking isDone
-          if (justAssignedWork) {
-            justAssignedWork = false;
+          if (hasAssignedWork) {
             continue PATHS_LOOP;
           }
           const domains = await this.find({ origin: { $in: Array.from(origins) } })
@@ -912,7 +910,7 @@ class DomainClass {
           await this.markRPDCrawling(d, allResources, domainInfo[d].domain.jobId);
 
           // We successfully assigned work, don't check isDone next iteration
-          justAssignedWork = true;
+          hasAssignedWork = true;
 
           let res = {
             domain: domainInfo[d].domain,
