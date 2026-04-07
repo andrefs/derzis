@@ -382,6 +382,12 @@ class DomainClass {
       status: 'ready',
       'crawl.nextAllowed': { $lte: Date.now() }
     };
+
+    log.debug(
+      `lockForCrawl: Attempting to lock domains for worker ${wId}. ` +
+        `Query: ${JSON.stringify(query, null, 2)}`
+    );
+
     const update = {
       $set: {
         status: 'crawling',
@@ -395,6 +401,28 @@ class DomainClass {
     };
     await this.findOneAndUpdate(query, update, options);
     const domains = await this.find({ jobId });
+
+    // Check which domains were NOT locked due to rate limiting
+    const allDomains = await this.find({ origin: { $in: origins } })
+      .select('origin crawl.nextAllowed status')
+      .lean();
+    const lockedOrigins = domains.map((d) => d.origin);
+    const rateLimitedDomains = allDomains.filter(
+      (d) => d.crawl?.nextAllowed && d.crawl.nextAllowed > new Date()
+    );
+
+    if (rateLimitedDomains.length > 0) {
+      log.debug(
+        `lockForCrawl: Rate-limited domains (not locked): ${rateLimitedDomains
+          .map((d) => `${d.origin} (nextAllowed: ${d.crawl?.nextAllowed?.toISOString()})`)
+          .join(', ')}`
+      );
+    }
+
+    log.debug(
+      `lockForCrawl: Locked ${domains.length} domains: ${lockedOrigins.join(', ') || 'none'}`
+    );
+
     return domains;
   }
 
@@ -714,7 +742,8 @@ class DomainClass {
     wId: string,
     domLimit: number,
     resLimit: number,
-    getRunningDomains?: () => string[]
+    getRunningDomains?: () => string[],
+    beingSaved?: { count: () => number }
   ): AsyncGenerator<DomainCrawlJobInfo> {
     log.info(
       `Starting domain crawl locking for worker ${wId} with domain limit ${domLimit} and resource limit ${resLimit}`
@@ -735,7 +764,7 @@ class DomainClass {
         return;
       }
       procSkip++;
-      if (await proc.isDone()) {
+      if (await proc.isDone(beingSaved)) {
         continue PROCESS_LOOP;
       }
 
