@@ -1,8 +1,8 @@
 import { urlValidator } from '@derzis/common';
 import { prop, index, getModelForClass, type ReturnModelType } from '@typegoose/typegoose';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
-import { DocumentType } from '@typegoose/typegoose';
-import { AnyBulkWriteOperation } from 'mongoose';
+import type { DocumentType } from '@typegoose/typegoose';
+import type { AnyBulkWriteOperation } from 'mongoose';
 
 type LabelUpdate = {
   domain: string;

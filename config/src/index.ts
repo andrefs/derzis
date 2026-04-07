@@ -45,6 +45,7 @@ export default {
     maxPathLength: Number(process.env.MAX_PATH_LENGTH) || 2,
     maxPathProps: Number(process.env.MAX_PATH_PROPS) || 1
   },
+  allowBlankNodes: process.env.ALLOW_BLANK_NODES === 'true',
   pubsub: {
     debug: false,
     port: process.env.REDIS_PORT || 6379,

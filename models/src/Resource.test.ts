@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Resource } from './Resource';
 import { EndpointPath } from './Path/EndpointPath';
 import { TraversalPath } from './Path/TraversalPath';
 import { Domain } from './Domain';
 import { Process } from './Process';
-import { PathType } from '@derzis/common';
+import { PathType, TripleType, type SimpleTriple } from '@derzis/common';
 import config from '@derzis/config';
 
 describe('Resource.insertSeedPaths', () => {
@@ -320,4 +320,73 @@ describe('Resource.insertSeedPaths', () => {
       expect(passedDoc.triples).toHaveLength(0);
     });
   });
+});
+
+describe('Resource.addFromTriples', () => {
+  let originalAllowBlankNodes: boolean;
+
+  beforeEach(() => {
+    originalAllowBlankNodes = config.allowBlankNodes;
+    config.allowBlankNodes = true;
+  });
+
+  afterEach(() => {
+    config.allowBlankNodes = originalAllowBlankNodes;
+  });
+
+  it('should skip blank node subjects', async () => {
+    const triples: SimpleTriple[] = [
+      {
+        subject: 'http://example.com/subj',
+        predicate: 'http://example.com/pred',
+        object: 'http://example.com/obj',
+        type: TripleType.NAMED_NODE
+      },
+      {
+        subject: '_:b1',
+        predicate: 'http://example.com/pred',
+        object: 'http://example.com/obj2',
+        type: TripleType.NAMED_NODE
+      }
+    ];
+    const addManySpy = vi.spyOn(Resource, 'addMany').mockResolvedValue([] as any);
+    await Resource.addFromTriples(triples as any);
+    expect(addManySpy).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ url: 'http://example.com/subj' }),
+        expect.objectContaining({ url: 'http://example.com/obj' }),
+        expect.objectContaining({ url: 'http://example.com/obj2' })
+      ])
+    );
+  });
+
+  it('should skip blank node objects in named node triples', async () => {
+    const triples: SimpleTriple[] = [
+      {
+        subject: 'http://example.com/subj',
+        predicate: 'http://example.com/pred',
+        object: '_:b2',
+        type: TripleType.NAMED_NODE
+      }
+    ];
+    const addManySpy = vi.spyOn(Resource, 'addMany').mockResolvedValue([] as any);
+    await Resource.addFromTriples(triples as any);
+    expect(addManySpy).toHaveBeenCalledWith([
+      expect.objectContaining({ url: 'http://example.com/subj' })
+    ]);
+  });
+
+   it('should not add any resources from blank node triples', async () => {
+     const triples: SimpleTriple[] = [
+       {
+         subject: '_:b3',
+         predicate: 'http://example.com/pred',
+         object: { id: '_:b4' } as any,
+         type: TripleType.BLANK_NODE
+       }
+     ];
+     const addManySpy = vi.spyOn(Resource, 'addMany').mockResolvedValue([] as any);
+     await Resource.addFromTriples(triples as any);
+     expect(addManySpy).toHaveBeenCalledWith([]);
+   });
 });

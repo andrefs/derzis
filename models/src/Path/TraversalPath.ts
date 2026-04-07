@@ -14,9 +14,12 @@ import {
   type LiteralTripleDocument,
   Triple,
   type TripleDocument,
+  type BlankNodeTripleDocument,
   isNamedNode,
-  isLiteral
+  isLiteral,
+  isBlankNode
 } from '../Triple';
+import { iterateBlankNodeOutgoings } from './blank-node-utils';
 import {
   BranchFactorClass,
   buildLimsByType,
@@ -30,12 +33,15 @@ import {
 } from '../Process';
 import { Domain } from '../Domain';
 import { PathClass, Path, ResourceCount, HEAD_TYPE, UrlHead, type Head, SeedClass } from './Path';
-import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
+import { PathType, TripleType, type TypedTripleId, isBlankNodeId } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 import type { ExtendedPathsResult } from '../types';
 const log = createLogger('TraversalPath');
 import config from '@derzis/config';
 const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
+
+export const countNonBlankNodes = (elems: string[]): number =>
+  elems.filter(n => !isBlankNodeId(n)).length;
 
 export type TraversalPathSkeleton = Pick<
   TraversalPathClass,
@@ -56,7 +62,7 @@ type RecursivePartial<T> = {
  * This ensures that the counts and last predicate are always accurate, and that URL heads have up-to-date domain information based on the URL's origin.
  */
 @pre<TraversalPathClass>('save', async function () {
-  this.nodes.count = this.nodes.elems.length;
+  this.nodes.count = countNonBlankNodes(this.nodes.elems);
   this.predicates.count = this.predicates.elems.length;
   if (this.predicates.count) {
     this.lastPredicate = this.predicates.elems[this.predicates.count - 1];
@@ -285,6 +291,67 @@ export class TraversalPathClass extends PathClass {
       }
     }
 
+    // Blank node triples (with chaining)
+    if (config.allowBlankNodes) {
+      const blankNodeTriples = triplesToExtend
+        .filter((t): t is BlankNodeTripleDocument => isBlankNode(t))
+        .filter((t) => this.isExtensionValid(t) && this.isExtensionAllowed(t, process.currentStep));
+
+      // Use shared iterator for cursor handling and error logging
+      for await (const { blankTriple: t, outgoing, blankNodeId } of iterateBlankNodeOutgoings(blankNodeTriples)) {
+        // Only consider NamedNode outgoing for URL heads
+        if (!isNamedNode(outgoing)) continue;
+
+        if (!this.isExtensionValid(outgoing)) continue;
+        if (!this.isExtensionAllowed(outgoing, process.currentStep)) continue;
+        if (!outgoing.directionOk(urlHead.url, followDirection, predsBF)) continue;
+
+        const newHeadUrl: string =
+          outgoing.subject === blankNodeId ? outgoing.object : outgoing.subject;
+        if (typeof newHeadUrl !== 'string') continue;
+
+        // Cycle check: check if newHeadUrl or blankNodeId already in nodes.elems
+        if (this.nodes.elems.includes(newHeadUrl) || this.nodes.elems.includes(blankNodeId)) {
+          continue;
+        }
+
+        const prop = outgoing.predicate;
+        if (extendedPaths[prop]?.[newHeadUrl]) continue;
+
+        // Out of bounds check
+        if (this.tripleIsOutOfBounds(outgoing, process)) continue;
+
+        const domain = new URL(newHeadUrl).origin;
+        const ep = this.copy();
+        const head: Head = {
+          type: HEAD_TYPE.URL,
+          url: newHeadUrl,
+          domain: { origin: domain, isUnvisited: true },
+          status: 'unvisited'
+        };
+        ep.head = head;
+        ep.status = 'active';
+        ep.triples = [...this.triples, t._id, outgoing._id];
+        ep.predicates.elems = Array.from(
+          new Set([...this.predicates.elems, t.predicate, outgoing.predicate])
+        );
+        ep.nodes.elems.push(blankNodeId, newHeadUrl);
+        // nodes.count will be recalculated in pre-save hook
+
+        procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
+        const outgoingType = isNamedNode(outgoing)
+          ? TripleType.NAMED_NODE
+          : isLiteral(outgoing)
+            ? TripleType.LITERAL
+            : TripleType.BLANK_NODE;
+        procTriples.push({ id: outgoing._id.toString(), type: outgoingType });
+
+        log.silly('New path via blank node', ep);
+        extendedPaths[prop] = extendedPaths[prop] || {};
+        extendedPaths[prop][newHeadUrl] = ep;
+      }
+    }
+
     // Literal triples
     const literalTriples = triplesToExtend
       .filter((t): t is LiteralTripleDocument => isLiteral(t))
@@ -328,10 +395,7 @@ export class TraversalPathClass extends PathClass {
    * @param t The triple to evaluate for path extension.
    * @returns A boolean indicating whether a new path should be created based on the triple.
    */
-  public isExtensionValid(
-    this: TraversalPathClass,
-    t: NamedNodeTripleClass | LiteralTripleDocument
-  ): boolean {
+  public isExtensionValid(this: TraversalPathClass, t: TripleDocument): boolean {
     // If the head is not a URL, we cannot extend
     if (!isUrlHead(this.head)) {
       return false;
@@ -345,26 +409,38 @@ export class TraversalPathClass extends PathClass {
       return true;
     }
 
-    const namedNodeTriple = t;
-    if (namedNodeTriple.subject === namedNodeTriple.object) {
-      return false;
-    }
-    if (namedNodeTriple.predicate === urlHead.url) {
-      return false;
+    if (isBlankNode(t)) {
+      // For blank nodes, ensure not self-loop and not using head URL as predicate
+      if (t.subject === t.object.id) {
+        return false;
+      }
+      if (t.predicate === urlHead.url) {
+        return false;
+      }
+      return true;
     }
 
-    const newHeadUrl: string =
-      namedNodeTriple.subject === urlHead.url ? namedNodeTriple.object : namedNodeTriple.subject;
+     // Must be a named node triple
+     if (isNamedNode(t)) {
+       if (t.subject === t.object) {
+         return false;
+       }
+       if (t.predicate === urlHead.url) {
+         return false;
+       }
+       const newHeadUrl: string = t.subject === urlHead.url ? t.object : t.subject;
+       if (this.nodes.elems.includes(newHeadUrl)) {
+         return false;
+       }
+       return true;
+     }
 
-    if (this.nodes.elems.includes(newHeadUrl)) {
-      return false;
-    }
-    return true;
+    return false;
   }
 
   public isExtensionAllowed(
     this: TraversalPathClass,
-    t: NamedNodeTripleClass,
+    t: TripleDocument,
     currentStep: StepClass
   ): boolean {
     const limsByType = buildLimsByType(currentStep.predLimitations || []);
@@ -421,7 +497,7 @@ export class TraversalPathClass extends PathClass {
 
   public isExtensionAllowedByTriple(
     this: TraversalPathClass,
-    t: NamedNodeTripleClass,
+    t: TripleDocument,
     currentStep: StepClass,
     limsByType: LimsByType
   ): boolean {

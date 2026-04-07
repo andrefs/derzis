@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { TraversalPathClass } from './TraversalPath';
 import {
   StepClass,
@@ -8,6 +8,11 @@ import {
 } from '../Process/aux-classes';
 import { buildLimsByType } from '../Process';
 import { Head } from './Path';
+import { Triple } from '../Triple/Triple';
+import { TripleType } from '@derzis/common';
+import { Types } from 'mongoose';
+import config from '@derzis/config';
+import { countNonBlankNodes } from './TraversalPath';
 
 const LITERAL_PREDS = [
   'http://www.w3.org/2000/01/rdf-schema#label',
@@ -561,7 +566,7 @@ describe('TraversalPathClass.isExtensionValid', () => {
   };
 
   const createMockTriple = (subject: string, object: string, predicate: string) => {
-    return { subject, object, predicate } as any;
+    return { subject, object, predicate, type: TripleType.NAMED_NODE } as any;
   };
 
   describe('returns false', () => {
@@ -1120,5 +1125,90 @@ describe('TraversalPathClass.isExtensionAllowedByPath', () => {
     const result = path.isExtensionAllowedByPath(currentStep, limsByType);
 
     expect(result).toBe(true);
+  });
+});
+
+describe('TraversalPathClass blank node extension', () => {
+  it('extends through blank node and includes blank node in nodes.elems without counting it', async () => {
+    const originalAllowBlankNodes = config.allowBlankNodes;
+    config.allowBlankNodes = true;
+    try {
+      const path = new TraversalPathClass();
+      path.processId = 'test-pid';
+      path.seed = { url: 'http://seed.example.com' };
+      path.head = {
+        type: 'url',
+        url: 'http://head.example.com',
+        status: 'unvisited',
+        domain: { origin: 'http://head.example.com', isUnvisited: true }
+      } as Head;
+      path.nodes = { count: 1, elems: ['http://head.example.com'] };
+      path.predicates = { count: 0, elems: [] };
+      path.triples = [];
+      path.extensionCounter = 0;
+
+      const blankNodeTriple = {
+        _id: { toString: () => 'blankTripleId' } as any,
+        subject: 'http://head.example.com',
+        predicate: 'http://example.com/p1',
+        object: { id: '_:b1' },
+        type: TripleType.BLANK_NODE
+      } as any;
+
+      const outgoingTriple = {
+        _id: { toString: () => 'outgoingTripleId' } as any,
+        subject: '_:b1',
+        predicate: 'http://example.com/p2',
+        object: 'http://newhead.example.com',
+        type: TripleType.NAMED_NODE,
+        directionOk: () => true
+      } as any;
+
+       const mockCursor = {
+         [Symbol.asyncIterator]: async function* () {
+           yield outgoingTriple;
+         }
+       };
+       vi.spyOn(Triple as any, 'find').mockReturnValue({ cursor: () => mockCursor });
+
+      const process: any = {
+        currentStep: {
+          followDirection: false,
+          predLimitations: [],
+          maxPathLength: 10,
+          maxPathProps: 5
+        },
+        curPredsBranchFactor: () => new Map()
+      };
+
+      const result = await path.genExtendedPaths(process, [blankNodeTriple]);
+
+      expect(result.extendedPaths).toHaveLength(1);
+      const ep = result.extendedPaths[0];
+      // nodes.elems should include blank node id and new head url
+      expect(ep.nodes.elems).toContain('_:b1');
+      expect(ep.nodes.elems).toContain('http://newhead.example.com');
+      // procTriples should include both triples with correct types
+      expect(result.procTriples).toContainEqual({ id: 'blankTripleId', type: TripleType.BLANK_NODE });
+      expect(result.procTriples).toContainEqual({ id: 'outgoingTripleId', type: TripleType.NAMED_NODE });
+    } finally {
+      config.allowBlankNodes = originalAllowBlankNodes;
+    }
+  });
+});
+
+describe('countNonBlankNodes', () => {
+  it('counts non-blank node IDs', () => {
+    const elems = ['http://a.com', '_:b1', 'http://c.com', '_:b2'];
+    expect(countNonBlankNodes(elems)).toBe(2);
+  });
+
+  it('returns 0 for empty array', () => {
+    expect(countNonBlankNodes([])).toBe(0);
+  });
+
+  it('returns full count when no blank nodes', () => {
+    const elems = ['http://a.com', 'http://b.com'];
+    expect(countNonBlankNodes(elems)).toBe(2);
   });
 });

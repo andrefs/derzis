@@ -12,9 +12,12 @@ import {
   type LiteralTripleDocument,
   Triple,
   type TripleDocument,
+  type BlankNodeTripleDocument,
   isNamedNode,
-  isLiteral
+  isLiteral,
+  isBlankNode
 } from '../Triple';
+import { iterateBlankNodeOutgoings } from './blank-node-utils';
 import { buildLimsByType, isUrlHead, matchesOne, ProcessClass, StepClass } from '../Process';
 import {
   PathClass,
@@ -23,9 +26,10 @@ import {
   HEAD_TYPE,
   UrlHead,
   type LiteralHead,
-  PathSkeleton
+  type PathSkeleton
 } from './Path';
-import { PathType, TripleType, type TypedTripleId } from '@derzis/common';
+import { PathType, TripleType, type TypedTripleId, isBlankNodeId } from '@derzis/common';
+import config from '@derzis/config';
 import { type RecursivePartial } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 import type { ExtendedPathsResult } from '../types';
@@ -128,32 +132,27 @@ export class EndpointPathClass extends PathClass {
   @prop({ required: true, default: [], type: [SeedPathEntryClass] })
   public seedPaths!: SeedPathEntryClass[];
 
-  public isExtensionValid(
-    this: EndpointPathClass,
-    t: NamedNodeTripleClass | LiteralTripleDocument,
-    urlHead: UrlHead
-  ): boolean {
-    if (t.type === TripleType.LITERAL) {
-      if (t.predicate === urlHead.url) {
-        return false;
-      }
+  public isExtensionValid(this: EndpointPathClass, t: TripleDocument, urlHead?: UrlHead): boolean {
+    if (isLiteral(t)) {
+      if (urlHead && t.predicate === urlHead.url) return false;
       return true;
     }
-
-    if (t.subject === t.object) {
-      return false;
+    if (isBlankNode(t)) {
+      if (t.subject === t.object.id) return false;
+      return true;
     }
-
-    if (t.predicate === urlHead.url) {
-      return false;
+    // Must be a named node triple
+    if (isNamedNode(t)) {
+      if (t.subject === t.object) return false;
+      if (urlHead && t.predicate === urlHead.url) return false;
+      return true;
     }
-
-    return true;
+    return false;
   }
 
   public isExtensionAllowed(
     this: EndpointPathClass,
-    t: NamedNodeTripleClass,
+    t: TripleDocument,
     currentStep: StepClass
   ): boolean {
     if (!currentStep?.predLimitations?.length) {
@@ -266,6 +265,74 @@ export class EndpointPathClass extends PathClass {
       procTriples,
       processedLiterals
     );
+
+    // Phase 1b: Process blank node triples with chaining (if allowed)
+    if (config.allowBlankNodes) {
+      const blankNodeTriples = triplesToExtend
+        .filter((t): t is BlankNodeTripleDocument => isBlankNode(t))
+        .filter((t) => this.isExtensionValid(t) && this.isExtensionAllowed(t, process.currentStep));
+
+      const followDirection = process.currentStep.followDirection;
+      const predsBF = process.curPredsBranchFactor();
+
+      for await (const { blankTriple: t, outgoing, blankNodeId } of iterateBlankNodeOutgoings(blankNodeTriples)) {
+        // Check validity of outgoing triple
+        if (!this.isExtensionValid(outgoing, urlHead)) continue;
+
+        // Check extension allowed for outgoing (predicate limitations, maxPathLength)
+        if (!this.isExtensionAllowed(outgoing, process.currentStep)) continue;
+
+        // For NamedNode outgoing, also check direction and handle candidate
+        if (isNamedNode(outgoing)) {
+          if (!outgoing.directionOk(urlHead.url, followDirection, predsBF)) continue;
+
+          const newHeadUrl: string =
+            outgoing.subject === blankNodeId ? outgoing.object : outgoing.subject;
+          if (typeof newHeadUrl !== 'string') continue;
+
+          // Check cycle: if newHeadUrl in seedPaths or already processed
+          if (this.seedPaths.some((entry) => entry.seed === newHeadUrl)) continue;
+          if (processedUrlHeads.has(newHeadUrl)) continue;
+          processedUrlHeads.add(newHeadUrl);
+
+          const distance = this.shortestPathLength; // blank node hop doesn't count
+          const seedPaths: Record<string, number> = {};
+          for (const entry of this.seedPaths) {
+            seedPaths[entry.seed] = entry.minLength; // no increment for blank node hop
+          }
+
+          namedNodeCandidates.push({ headUrl: newHeadUrl, distance, seedPaths });
+          procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
+          procTriples.push({ id: outgoing._id.toString(), type: TripleType.NAMED_NODE });
+        }
+        // For Literal outgoing
+        else if (isLiteral(outgoing)) {
+          const literalKey = JSON.stringify({
+            value: outgoing.object.value,
+            datatype: outgoing.object.datatype || '',
+            language: outgoing.object.language || ''
+          });
+          if (processedLiterals.has(literalKey)) continue;
+          processedLiterals.add(literalKey);
+
+          const distance = this.shortestPathLength;
+          const seedPaths: Record<string, number> = {};
+          for (const entry of this.seedPaths) {
+            seedPaths[entry.seed] = entry.minLength;
+          }
+
+          const literalHead: LiteralHead = {
+            type: HEAD_TYPE.LITERAL,
+            value: outgoing.object.value,
+            datatype: outgoing.object.datatype,
+            language: outgoing.object.language
+          };
+          literalCandidates.push({ literalHead, distance, seedPaths });
+          procTriples.push({ id: t._id.toString(), type: TripleType.BLANK_NODE });
+          procTriples.push({ id: outgoing._id.toString(), type: TripleType.LITERAL });
+        }
+      }
+    }
 
     const candidates = [...namedNodeCandidates, ...literalCandidates];
     if (candidates.length === 0) {

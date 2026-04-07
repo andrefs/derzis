@@ -134,4 +134,32 @@ export class StepClass {
    */
   @prop({ type: Number, default: 0 })
   public doneResourceCount?: number;
+
+  public toObject?(): object {
+    return {
+      seeds: this.seeds,
+      maxPathLength: this.maxPathLength,
+      maxPathProps: this.maxPathProps,
+      predLimit: this.predLimit
+        ? {
+            limType: this.predLimit.limType,
+            limPredicates: this.predLimit.limPredicates
+          }
+        : undefined,
+      predLimitations: this.predLimitations?.map(pl => ({
+        predicate: pl.predicate,
+        lims: pl.lims
+      })),
+      predsBranchFactor: this.predsBranchFactor?.map(pbf => ({
+        url: pbf.url,
+        branchFactor: pbf.branchFactor
+          ? { subj: pbf.branchFactor.subj, obj: pbf.branchFactor.obj }
+          : undefined
+      })),
+      followDirection: this.followDirection,
+      resetErrors: this.resetErrors,
+      convertToEndpointPaths: this.convertToEndpointPaths,
+      doneResourceCount: this.doneResourceCount
+    };
+  }
 }

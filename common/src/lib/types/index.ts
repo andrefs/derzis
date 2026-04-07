@@ -3,7 +3,8 @@ export * from './worker';
 
 export enum TripleType {
   LITERAL = 'literal',
-  NAMED_NODE = 'namedNode'
+  NAMED_NODE = 'namedNode',
+  BLANK_NODE = 'blankNode'
 }
 
 export type TypedTripleId = {
@@ -21,6 +22,10 @@ export type LiteralObject = {
   language?: string;
 };
 
+export type BlankNodeObject = {
+  id: string;
+};
+
 export interface BaseSimpleTriple {
   subject: string;
   predicate: string;
@@ -34,7 +39,11 @@ export type SimpleNamedNodeTriple = BaseSimpleTriple & {
   object: string;
   type: TripleType.NAMED_NODE;
 };
-export type SimpleTriple = SimpleLiteralTriple | SimpleNamedNodeTriple;
+export type SimpleBlankNodeTriple = BaseSimpleTriple & {
+  object: BlankNodeObject;
+  type: TripleType.BLANK_NODE;
+};
+export type SimpleTriple = SimpleLiteralTriple | SimpleNamedNodeTriple | SimpleBlankNodeTriple;
 
 export type RecursivePartial<T> = {
   [P in keyof T]?: T[P] extends (infer U)[]

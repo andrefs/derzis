@@ -10,7 +10,7 @@ import {
   type NamedNodeTripleDocument,
   type LiteralTripleDocument
 } from '@derzis/models';
-import type { LiteralObject } from '@derzis/common';
+import type { LiteralObject, BlankNodeObject } from '@derzis/common';
 const { DERZIS_WRK_DB_NAME, MONGO_HOST, MONGO_PORT } = process.env;
 
 import Axios from './axios';
@@ -58,6 +58,15 @@ export interface Availability {
 }
 interface JobsTimedOut {
   [domain: string]: boolean;
+}
+
+/**
+ * Generates a globally unique blank node ID by namespacing with the source URL.
+ * This prevents collisions when the same local blank node ID appears in different RDF documents.
+ */
+export function makeBlankNodeId(sourceUrl: string, localId: string): string {
+  const clean = localId.startsWith('_:') ? localId.slice(2) : localId;
+  return `_:${sourceUrl}:${clean}`;
 }
 
 export class Worker extends EventEmitter {
@@ -594,7 +603,9 @@ export class Worker extends EventEmitter {
             t.predicate?.termType === 'NamedNode' &&
             t.object !== undefined &&
             t.object.termType !== undefined &&
-            (t.object.termType === 'NamedNode' || t.object.termType === 'Literal')
+            (t.object.termType === 'NamedNode' ||
+              t.object.termType === 'Literal' ||
+              (t.object.termType === 'BlankNode' && config.allowBlankNodes))
         )
         .flatMap((t) => {
           if (t.object.termType === 'NamedNode') {
@@ -617,6 +628,15 @@ export class Worker extends EventEmitter {
               type: TripleType.LITERAL
             };
             return st;
+          } else if (t.object.termType === 'BlankNode' && config.allowBlankNodes) {
+            const blankId = makeBlankNodeId(url, t.object.value);
+            const st: SimpleTriple = {
+              subject: t.subject.value,
+              predicate: t.predicate.value,
+              object: { id: blankId },
+              type: TripleType.BLANK_NODE
+            };
+            return st;
           } else {
             // This case should not happen due to the filter,
             // but we need to satisfy TypeScript
@@ -627,6 +647,10 @@ export class Worker extends EventEmitter {
         .filter((t): t is SimpleTriple => {
           if (t.type === TripleType.NAMED_NODE) {
             return t.object !== '';
+          }
+          if (t.type === TripleType.BLANK_NODE) {
+            const bnObj = t.object as BlankNodeObject;
+            return bnObj.id !== '';
           }
           const litObj = t.object as LiteralObject;
           return litObj.value !== '';

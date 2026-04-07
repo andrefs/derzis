@@ -7,8 +7,8 @@ import {
   PathClass,
   HEAD_TYPE,
   UrlHead,
-  TraversalPathDocument,
-  EndpointPathDocument
+  type TraversalPathDocument,
+  type EndpointPathDocument
 } from '../Path';
 import { createLogger } from '@derzis/common/server';
 const log = createLogger('Process');

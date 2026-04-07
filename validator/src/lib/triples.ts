@@ -45,11 +45,14 @@ export function triplesToTurtle(prefixes: Prefixes, triples: SimpleTriple[]): st
   );
   const lines = triples
     .map((triple) => {
-      if (typeof triple.object === 'string') {
+      if (triple.type === TripleType.NAMED_NODE) {
         return `${triple.subject} ${triple.predicate} ${triple.object} .`;
-      } else {
+      } else if (triple.type === TripleType.LITERAL) {
         return `${triple.subject} ${triple.predicate} ${literalToString(triple.object)} .`;
+      } else if (triple.type === TripleType.BLANK_NODE) {
+        return `${triple.subject} ${triple.predicate} <${triple.object.id}> .`;
       }
+      return null;
     })
     .filter(Boolean);
   return [...prefixLines, '', ...lines].join('\n');
