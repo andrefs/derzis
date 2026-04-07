@@ -8,6 +8,7 @@ import {
   NamedNodeTripleClass,
   LiteralTripleClass,
   TraversalPath,
+  EndpointPath,
   type ProcessDocument,
   type PredicateLimitationType,
   buildStepPathQuery
@@ -165,6 +166,23 @@ export async function info(pid: string): Promise<any> {
     ? (lastResource!.updatedAt.getTime() - _p.createdAt!.getTime()) / 1000
     : null;
   const timeRunning = last ? (last - _p.createdAt!.getTime()) / 1000 : null;
+
+  // Build current step query if available and count paths
+  let currentStepQuery: any;
+  let currentStepQueryPathCount: number | undefined;
+
+  if (_p.currentStep) {
+    const pathType = _p.curPathType ?? PathType.ENDPOINT;
+    currentStepQuery = buildStepPathQuery(_p, pathType);
+    if (pathType === PathType.TRAVERSAL) {
+      currentStepQueryPathCount = await TraversalPath.countDocuments(currentStepQuery);
+    } else {
+      currentStepQueryPathCount = await EndpointPath.countDocuments(currentStepQuery);
+    }
+  } else {
+    currentStepQuery = undefined;
+  }
+
   const processInfo = {
     ..._p,
     createdAt: _p.createdAt?.toISOString(),
@@ -177,9 +195,8 @@ export async function info(pid: string): Promise<any> {
         ?.replace(/(?<=.).*?(?=.@)/, (x: string) => '*'.repeat(x.length))
         ?.replace(/^..(?=@)/, '**')
     },
-    currentStepQuery: _p.currentStep
-      ? buildStepPathQuery(_p, _p.curPathType ?? PathType.ENDPOINT)
-      : undefined
+    currentStepQuery,
+    currentStepQueryPathCount
   };
 
   return processInfo;

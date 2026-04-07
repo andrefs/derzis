@@ -383,21 +383,42 @@ export async function getPathsForRobotsChecking(
   lastSeenShortestPathLength: number | null = null,
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
+  const maxPathLength = process.currentStep.maxPathLength;
+  const maxPathProps = process.currentStep.maxPathProps;
+
+  log.debug(
+    `getPathsForRobotsChecking for process ${process.pid}: ` +
+      JSON.stringify({ maxPathLength, maxPathProps, pathType, limit }, null, 2)
+  );
+
   // Only include paths from domains that are 'unvisited' (eligible for robots checking)
   // Note: No need to exclude 'locked' domains via $nin - domains with status 'unvisited'
   // are already disjoint from 'checking', 'labelFetching', 'crawling'
   const unvisitedDomains = await Domain.find({ status: 'unvisited' }).select('origin').lean();
   const eligibleOrigins = unvisitedDomains.map((d) => d.origin);
+
+  log.debug(
+    `getPathsForRobotsChecking: Unvisited domains found: ${unvisitedDomains.length}. ` +
+      `Origins: ${unvisitedDomains.map((d) => d.origin).join(', ') || 'none'}`
+  );
+
   if (!eligibleOrigins.length) {
+    log.debug(
+      'getPathsForRobotsChecking: No eligible origins (no unvisited domains). Returning empty.'
+    );
     return [];
   }
 
   // Filter out blacklisted domains
-  const originFilter =
+  const originFilter: string[] | { $in: string[] } =
     domainBlacklist.length > 0
       ? eligibleOrigins.filter((o) => !domainBlacklist.includes(o))
-      : eligibleOrigins;
-  if (!originFilter.length) {
+      : { $in: eligibleOrigins };
+  const originFilterArray = Array.isArray(originFilter) ? originFilter : originFilter.$in;
+  if (!originFilterArray.length) {
+    log.debug(
+      'getPathsForRobotsChecking: All origins blacklisted or no eligible origins. Returning empty.'
+    );
     return [];
   }
 
@@ -406,7 +427,7 @@ export async function getPathsForRobotsChecking(
     'head.domain.isUnvisited': true,
     'head.status': 'unvisited',
     'head.type': HEAD_TYPE.URL,
-    'head.domain.origin': { $in: originFilter },
+    'head.domain.origin': Array.isArray(originFilter) ? { $in: originFilter } : originFilter,
     status: 'active'
   };
   const select = 'head.domain head.type createdAt _id nodes.count shortestPathLength';
@@ -451,25 +472,37 @@ export async function getPathsForRobotsChecking(
   }
 
   if (pathType === PathType.TRAVERSAL) {
-    const paths = await TraversalPath.find({
+    const query = {
       ...baseQuery,
       ...cursorCondition,
       'nodes.count': { $lt: process.currentStep.maxPathLength },
       'predicates.count': { $lte: process.currentStep.maxPathProps }
-    })
+    };
+
+    log.debug(`getPathsForRobotsChecking: Traversal query: ${JSON.stringify(query, null, 2)}`);
+
+    const paths = await TraversalPath.find(query)
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
+
+    log.debug(`getPathsForRobotsChecking: Found ${paths.length} paths for robots checking.`);
     return paths;
   } else {
-    const paths = await EndpointPath.find({
+    const query = {
       ...baseQuery,
       ...cursorCondition,
       shortestPathLength: { $lt: process.currentStep.maxPathLength }
-    })
+    };
+
+    log.debug(`getPathsForRobotsChecking: Endpoint query: ${JSON.stringify(query, null, 2)}`);
+
+    const paths = await EndpointPath.find(query)
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
+
+    log.debug(`getPathsForRobotsChecking: Found ${paths.length} paths for robots checking.`);
     return paths;
   }
 }
@@ -534,11 +567,43 @@ export async function getPathsForDomainCrawl(
   lastSeenShortestPathLength: number | null = null,
   limit = 20
 ): Promise<(TraversalPathDocument | EndpointPathDocument)[]> {
+  const maxPathLength = process.currentStep.maxPathLength;
+  const maxPathProps = process.currentStep.maxPathProps;
+
+  log.debug(
+    `getPathsForDomainCrawl for process ${process.pid}: ` +
+      JSON.stringify({ maxPathLength, maxPathProps, pathType, limit }, null, 2)
+  );
+
   // Only include paths from domains that are 'ready' (eligible for crawling)
-  const readyDomains = await Domain.find({ status: 'ready' }).select('origin').lean();
+  const readyDomains = await Domain.find({ status: 'ready' })
+    .select('origin crawl.nextAllowed')
+    .lean();
   const eligibleOrigins = readyDomains.map((d) => d.origin);
+
+  log.debug(
+    `getPathsForDomainCrawl: Ready domains found: ${readyDomains.length}. ` +
+      `Details: ${readyDomains
+        .map((d) => `${d.origin} (nextAllowed: ${d.crawl?.nextAllowed?.toISOString() ?? 'N/A'})`)
+        .join(', ')}`
+  );
+
   if (!eligibleOrigins.length) {
+    log.debug('getPathsForDomainCrawl: No eligible origins (no ready domains). Returning empty.');
     return [];
+  }
+
+  // Check for rate-limited domains
+  const now = new Date();
+  const rateLimitedDomains = readyDomains.filter(
+    (d) => d.crawl?.nextAllowed && d.crawl.nextAllowed > now
+  );
+  if (rateLimitedDomains.length > 0) {
+    log.debug(
+      `getPathsForDomainCrawl: Rate-limited domains (excluded from locking but included in query): ${rateLimitedDomains
+        .map((d) => `${d.origin} (nextAllowed: ${d.crawl?.nextAllowed?.toISOString()})`)
+        .join(', ')}`
+    );
   }
 
   // Build origin filter: $in eligible origins, optionally excluding user-provided blacklist
@@ -605,20 +670,30 @@ export async function getPathsForDomainCrawl(
       cursorCondition
     );
 
+    log.debug(`getPathsForDomainCrawl: Traversal query: ${JSON.stringify(mergedQuery, null, 2)}`);
+
     const paths = await TraversalPath.find(mergedQuery)
       .sort({ 'nodes.count': 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
+
+    log.debug(`getPathsForDomainCrawl: Found ${paths.length} paths for domain crawling.`);
     return paths;
   } else {
-    const paths = await EndpointPath.find({
+    const query = {
       ...baseQuery,
       shortestPathLength: { $lt: process.currentStep.maxPathLength },
       ...cursorCondition
-    })
+    };
+
+    log.debug(`getPathsForDomainCrawl: Endpoint query: ${JSON.stringify(query, null, 2)}`);
+
+    const paths = await EndpointPath.find(query)
       .sort({ shortestPathLength: 1, createdAt: 1, _id: 1 })
       .limit(limit)
       .select(select);
+
+    log.debug(`getPathsForDomainCrawl: Found ${paths.length} paths for domain crawling.`);
     return paths;
   }
 }
@@ -649,31 +724,63 @@ export function buildStepPathQuery(
 export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promise<boolean> {
   // Get domains currently checking robots.txt
   const domains = await Domain.find({ status: 'checking' }).select('origin').lean();
-  if (domains.length === 0) return false;
+
+  log.debug(
+    `hasPathsDomainRobotsChecking for process ${process.pid}: ` +
+      `domains with status 'checking': ${domains.length}, origins: ${domains.map((d) => d.origin).join(', ') || 'none'}`
+  );
+
+  if (domains.length === 0) {
+    log.debug('hasPathsDomainRobotsChecking: No domains in checking status. Returning false.');
+    return false;
+  }
 
   // Count how many active paths have head domains that are currently being checked for robots.txt
   // Using base Path model (all paths for this process are of the same type configured in process)
-  const pathsCount = await Path.countDocuments({
+  const query = {
     processId: process.pid,
     status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.domain.origin': { $in: domains.map((d) => d.origin) }
-  });
-  return !!pathsCount;
+  };
+
+  log.debug(`hasPathsDomainRobotsChecking: Query: ${JSON.stringify(query, null, 2)}`);
+
+  const pathsCount = await Path.countDocuments(query);
+  const result = !!pathsCount;
+
+  log.debug(`hasPathsDomainRobotsChecking: Found ${pathsCount} paths. Returning ${result}.`);
+  return result;
 }
 
 export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<boolean> {
   // Check if any active path's head domain is currently in 'crawling' status.
   const domains = await Domain.find({ status: 'crawling' }).select('origin').lean();
-  if (domains.length === 0) return false;
 
-  const pathsCount = await Path.countDocuments({
+  log.debug(
+    `hasPathsHeadBeingCrawled for process ${process.pid}: ` +
+      `domains with status 'crawling': ${domains.length}, origins: ${domains.map((d) => d.origin).join(', ') || 'none'}`
+  );
+
+  if (domains.length === 0) {
+    log.debug('hasPathsHeadBeingCrawled: No domains in crawling status. Returning false.');
+    return false;
+  }
+
+  const query = {
     processId: process.pid,
     status: 'active',
     'head.type': HEAD_TYPE.URL,
     'head.domain.origin': { $in: domains.map((d) => d.origin) }
-  });
-  return !!pathsCount;
+  };
+
+  log.debug(`hasPathsHeadBeingCrawled: Query: ${JSON.stringify(query, null, 2)}`);
+
+  const pathsCount = await Path.countDocuments(query);
+  const result = !!pathsCount;
+
+  log.debug(`hasPathsHeadBeingCrawled: Found ${pathsCount} paths. Returning ${result}.`);
+  return result;
 }
 
 /**

@@ -3,7 +3,7 @@
   import { Col, Row, Table, Badge, Alert } from '@sveltestrap/sveltestrap';
   import { Icon } from 'svelte-icons-pack';
   import { BsPencilSquare } from 'svelte-icons-pack/bs';
-  import { BiDownload, BiNetworkChart } from 'svelte-icons-pack/bi';
+  import { BiDownload, BiNetworkChart, BiCopy } from 'svelte-icons-pack/bi';
   import { HiSolidMagnifyingGlass } from 'svelte-icons-pack/hi';
   import { onMount, onDestroy } from 'svelte';
 
@@ -85,6 +85,8 @@
   let sendStepFinishedError: string | null = null;
   let sendStepFinishedSuccess = false;
 
+  let copied = false;
+
   async function sendStepFinishedNotification(pid: string) {
     sendingStepFinished = true;
     sendStepFinishedError = null;
@@ -145,9 +147,31 @@
           {#if data.proc.currentStepQuery}
             <tr>
               <th scope="row">Current path query</th>
-              <td>
+              <td style="position: relative;">
+                <button
+                  class="btn btn-sm {copied
+                    ? 'btn-success'
+                    : 'btn-outline-secondary'} position-absolute top-0 end-0"
+                  style="position: absolute; top: 0.25rem; right: 0.25rem;"
+                  on:click={() => {
+                    navigator.clipboard.writeText(
+                      JSON.stringify(data.proc.currentStepQuery, null, 2)
+                    );
+                    copied = true;
+                    setTimeout(() => (copied = false), 2000);
+                  }}
+                  title={copied ? 'Copied!' : 'Copy query'}
+                >
+                  <Icon src={BiCopy} size="1rem" />
+                </button>
                 <pre>{JSON.stringify(data.proc.currentStepQuery, null, 2)}</pre>
               </td>
+            </tr>
+          {/if}
+          {#if data.proc.currentStepQueryPathCount !== undefined}
+            <tr>
+              <th scope="row">Matching paths</th>
+              <td>{data.proc.currentStepQueryPathCount}</td>
             </tr>
           {/if}
           <tr>

@@ -41,7 +41,7 @@ import config from '@derzis/config';
 const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
 
 export const countNonBlankNodes = (elems: string[]): number =>
-  elems.filter(n => !isBlankNodeId(n)).length;
+  elems.filter((n) => !isBlankNodeId(n)).length;
 
 export type TraversalPathSkeleton = Pick<
   TraversalPathClass,
@@ -298,7 +298,9 @@ export class TraversalPathClass extends PathClass {
         .filter((t) => this.isExtensionValid(t) && this.isExtensionAllowed(t, process.currentStep));
 
       // Use shared iterator for cursor handling and error logging
-      for await (const { blankTriple: t, outgoing, blankNodeId } of iterateBlankNodeOutgoings(blankNodeTriples)) {
+      for await (const { blankTriple: t, outgoing, blankNodeId } of iterateBlankNodeOutgoings(
+        blankNodeTriples
+      )) {
         // Only consider NamedNode outgoing for URL heads
         if (!isNamedNode(outgoing)) continue;
 
@@ -420,20 +422,20 @@ export class TraversalPathClass extends PathClass {
       return true;
     }
 
-     // Must be a named node triple
-     if (isNamedNode(t)) {
-       if (t.subject === t.object) {
-         return false;
-       }
-       if (t.predicate === urlHead.url) {
-         return false;
-       }
-       const newHeadUrl: string = t.subject === urlHead.url ? t.object : t.subject;
-       if (this.nodes.elems.includes(newHeadUrl)) {
-         return false;
-       }
-       return true;
-     }
+    // Must be a named node triple
+    if (isNamedNode(t)) {
+      if (t.subject === t.object) {
+        return false;
+      }
+      if (t.predicate === urlHead.url) {
+        return false;
+      }
+      const newHeadUrl: string = t.subject === urlHead.url ? t.object : t.subject;
+      if (this.nodes.elems.includes(newHeadUrl)) {
+        return false;
+      }
+      return true;
+    }
 
     return false;
   }

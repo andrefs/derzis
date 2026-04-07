@@ -146,11 +146,11 @@ export class StepClass {
             limPredicates: this.predLimit.limPredicates
           }
         : undefined,
-      predLimitations: this.predLimitations?.map(pl => ({
+      predLimitations: this.predLimitations?.map((pl) => ({
         predicate: pl.predicate,
         lims: pl.lims
       })),
-      predsBranchFactor: this.predsBranchFactor?.map(pbf => ({
+      predsBranchFactor: this.predsBranchFactor?.map((pbf) => ({
         url: pbf.url,
         branchFactor: pbf.branchFactor
           ? { subj: pbf.branchFactor.subj, obj: pbf.branchFactor.obj }

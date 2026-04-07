@@ -10,7 +10,13 @@ describe('Triple.upsertMany', () => {
   });
 
   it('filters out blank node triples when allowBlankNodes is false', async () => {
-    const namedSpy = vi.spyOn(NamedNodeTriple, 'bulkWrite').mockResolvedValue({ insertedCount: 1, matchedCount: 0, modifiedCount: 0, upsertedCount: 1, deletedCount: 0 } as any);
+    const namedSpy = vi.spyOn(NamedNodeTriple, 'bulkWrite').mockResolvedValue({
+      insertedCount: 1,
+      matchedCount: 0,
+      modifiedCount: 0,
+      upsertedCount: 1,
+      deletedCount: 0
+    } as any);
     const literalSpy = vi.spyOn(LiteralTriple, 'bulkWrite').mockResolvedValue({} as any);
     const blankSpy = vi.spyOn(BlankNodeTriple, 'bulkWrite').mockResolvedValue({} as any);
 

@@ -275,7 +275,9 @@ export class EndpointPathClass extends PathClass {
       const followDirection = process.currentStep.followDirection;
       const predsBF = process.curPredsBranchFactor();
 
-      for await (const { blankTriple: t, outgoing, blankNodeId } of iterateBlankNodeOutgoings(blankNodeTriples)) {
+      for await (const { blankTriple: t, outgoing, blankNodeId } of iterateBlankNodeOutgoings(
+        blankNodeTriples
+      )) {
         // Check validity of outgoing triple
         if (!this.isExtensionValid(outgoing, urlHead)) continue;
 

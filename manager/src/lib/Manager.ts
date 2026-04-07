@@ -515,12 +515,14 @@ export default class Manager {
 
     log.debug(`Getting ${workerAvail.domainCrawl.capacity} domainCrawl jobs for ${workerId}`);
     const getRunningDomains = () => this.jobs.getRunningDomains();
+    const beingSaved = this.jobs.beingSaved;
     let gotRes = false;
     for await (const crawl of Domain.domainsToCrawl2(
       workerId,
       workerAvail.domainCrawl.capacity,
       workerAvail.domainCrawl.resourcesPerDomain,
-      getRunningDomains
+      getRunningDomains,
+      beingSaved
     )) {
       log.silly('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX assigning domainCrawl', {
         workerId,
