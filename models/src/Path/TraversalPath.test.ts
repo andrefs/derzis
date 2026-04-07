@@ -1164,12 +1164,12 @@ describe('TraversalPathClass blank node extension', () => {
         directionOk: () => true
       } as any;
 
-       const mockCursor = {
-         [Symbol.asyncIterator]: async function* () {
-           yield outgoingTriple;
-         }
-       };
-       vi.spyOn(Triple as any, 'find').mockReturnValue({ cursor: () => mockCursor });
+      const mockCursor = {
+        [Symbol.asyncIterator]: async function* () {
+          yield outgoingTriple;
+        }
+      };
+      vi.spyOn(Triple as any, 'find').mockReturnValue({ cursor: () => mockCursor });
 
       const process: any = {
         currentStep: {
@@ -1189,8 +1189,14 @@ describe('TraversalPathClass blank node extension', () => {
       expect(ep.nodes.elems).toContain('_:b1');
       expect(ep.nodes.elems).toContain('http://newhead.example.com');
       // procTriples should include both triples with correct types
-      expect(result.procTriples).toContainEqual({ id: 'blankTripleId', type: TripleType.BLANK_NODE });
-      expect(result.procTriples).toContainEqual({ id: 'outgoingTripleId', type: TripleType.NAMED_NODE });
+      expect(result.procTriples).toContainEqual({
+        id: 'blankTripleId',
+        type: TripleType.BLANK_NODE
+      });
+      expect(result.procTriples).toContainEqual({
+        id: 'outgoingTripleId',
+        type: TripleType.NAMED_NODE
+      });
     } finally {
       config.allowBlankNodes = originalAllowBlankNodes;
     }

@@ -376,17 +376,17 @@ describe('Resource.addFromTriples', () => {
     ]);
   });
 
-   it('should not add any resources from blank node triples', async () => {
-     const triples: SimpleTriple[] = [
-       {
-         subject: '_:b3',
-         predicate: 'http://example.com/pred',
-         object: { id: '_:b4' } as any,
-         type: TripleType.BLANK_NODE
-       }
-     ];
-     const addManySpy = vi.spyOn(Resource, 'addMany').mockResolvedValue([] as any);
-     await Resource.addFromTriples(triples as any);
-     expect(addManySpy).toHaveBeenCalledWith([]);
-   });
+  it('should not add any resources from blank node triples', async () => {
+    const triples: SimpleTriple[] = [
+      {
+        subject: '_:b3',
+        predicate: 'http://example.com/pred',
+        object: { id: '_:b4' } as any,
+        type: TripleType.BLANK_NODE
+      }
+    ];
+    const addManySpy = vi.spyOn(Resource, 'addMany').mockResolvedValue([] as any);
+    await Resource.addFromTriples(triples as any);
+    expect(addManySpy).toHaveBeenCalledWith([]);
+  });
 });
