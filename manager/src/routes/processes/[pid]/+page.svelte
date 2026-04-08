@@ -121,10 +121,15 @@
 </header>
 
 {#if isRunning && progress}
-  <Alert color="info" class="mb-4">
-    <strong>Step {progress.step}:</strong>
-    {progress.paths.done} paths done | {progress.paths.remaining} remaining |
-    {progress.rate.toFixed(1)} resources/min
+  <Alert color="info" class="mb-4 d-flex align-items-center">
+    <div class="spinner-border spinner-border-sm me-2" role="status">
+      <span class="visually-hidden">Updating...</span>
+    </div>
+    <div>
+      <strong>Step {progress.step}:</strong>
+      {progress.paths.done} paths done | {progress.paths.remaining} remaining |
+      {progress.rate.toFixed(1)} resources/min
+    </div>
   </Alert>
 {:else if isRunning && error}
   <Alert color="warning" class="mb-4">{error}</Alert>

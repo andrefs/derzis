@@ -2,7 +2,8 @@ import { ProcessClass } from './Process';
 import { BranchFactorClass } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
-import { TraversalPath, EndpointPath } from '../Path';
+import { ProcessDoneResource } from '../ProcessDoneResource';
+import { TraversalPath, EndpointPath, HEAD_TYPE } from '../Path';
 import {
   LiteralTriple,
   LiteralTripleClass,
@@ -18,6 +19,7 @@ import { PathType, type SimpleTriple, TripleType } from '@derzis/common';
 import { ResourceLabel } from '../ResourceLabel';
 import { createLogger } from '@derzis/common/server';
 import { Types } from 'mongoose';
+import { buildStepPathQuery } from './process-paths';
 
 const log = createLogger('process-data');
 
@@ -556,37 +558,41 @@ export interface PathProgress {
 
 export async function getPathProgress(process: ProcessClass): Promise<PathProgress> {
   const pathType = process.curPathType;
-  const seeds = process.currentStep.seeds;
 
-  const baseQuery = {
-    'seed.url': { $in: seeds }
-  };
-
-  const pipeline = [{ $match: baseQuery }, { $group: { _id: '$head.status', count: { $sum: 1 } } }];
-
-  const PathModel = pathType === PathType.TRAVERSAL ? TraversalPath : EndpointPath;
-  const aggregateResult = PathModel.aggregate<{ _id: string | null; count: number }>(pipeline);
-
-  const counts: Record<string, number> = {};
-  for await (const r of aggregateResult) {
-    if (r._id) {
-      counts[r._id] = r.count;
-    }
+  // Count unvisited paths matching the current step constraints (same as "Matching paths")
+  let remainingUnvisited: number;
+  if (pathType === PathType.TRAVERSAL) {
+    const stepQuery = buildStepPathQuery(process, pathType);
+    remainingUnvisited = await TraversalPath.countDocuments(stepQuery as any);
+  } else {
+    const stepQuery = buildStepPathQuery(process, pathType);
+    remainingUnvisited = await EndpointPath.countDocuments(stepQuery as any);
   }
 
-  const done = counts['done'] || 0;
-  const crawling = counts['crawling'] || 0;
-  const checking = counts['checking'] || 0;
-  const unvisited = counts['unvisited'] || 0;
+  // Count done paths (all done paths for this process)
+  const doneQuery = {
+    processId: process.pid,
+    status: 'active',
+    'head.type': HEAD_TYPE.URL,
+    'head.domain.isUnvisited': false,
+    'head.status': 'done'
+  };
+
+  let done: number;
+  if (pathType === PathType.TRAVERSAL) {
+    done = await TraversalPath.countDocuments(doneQuery as any);
+  } else {
+    done = await EndpointPath.countDocuments(doneQuery as any);
+  }
 
   return {
     done,
     remaining: {
-      unvisited,
-      crawling,
-      checking
+      unvisited: remainingUnvisited,
+      crawling: 0,
+      checking: 0
     },
-    total: done + crawling + checking + unvisited
+    total: done + remainingUnvisited
   };
 }
 
@@ -596,10 +602,9 @@ export async function getCrawlRate(
 ): Promise<number> {
   const cutoffTime = new Date(Date.now() - windowMinutes * 60 * 1000);
 
-  const count = await Resource.countDocuments({
+  const count = await ProcessDoneResource.countDocuments({
     processId: process.pid,
-    status: 'done',
-    updatedAt: { $gte: cutoffTime }
+    createdAt: { $gte: cutoffTime }
   });
 
   return count / windowMinutes;

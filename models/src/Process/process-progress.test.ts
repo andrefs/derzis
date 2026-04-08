@@ -4,6 +4,7 @@ import { getPathProgress } from './process-data';
 import { TraversalPath } from '../Path/TraversalPath';
 import { EndpointPath } from '../Path/EndpointPath';
 import type { ProcessClass } from './Process';
+import { PathType } from '@derzis/common';
 
 // Mock config
 vi.mock('@derzis/config', () => ({
@@ -19,37 +20,17 @@ vi.mock('@derzis/config', () => ({
   }
 }));
 
-vi.mock('../Path/TraversalPath', () => {
-  const mockAggregate = vi.fn().mockImplementation(() => {
-    return {
-      [Symbol.asyncIterator]: async function* () {
-        yield { _id: 'done', count: 0 };
-      }
-    };
-  });
-  return {
-    TraversalPath: {
-      aggregate: mockAggregate,
-      countDocuments: vi.fn()
-    }
-  };
-});
+vi.mock('../Path/TraversalPath', () => ({
+  TraversalPath: {
+    countDocuments: vi.fn()
+  }
+}));
 
-vi.mock('../Path/EndpointPath', () => {
-  const mockAggregate = vi.fn().mockImplementation(() => {
-    return {
-      [Symbol.asyncIterator]: async function* () {
-        yield { _id: 'done', count: 0 };
-      }
-    };
-  });
-  return {
-    EndpointPath: {
-      aggregate: mockAggregate,
-      countDocuments: vi.fn()
-    }
-  };
-});
+vi.mock('../Path/EndpointPath', () => ({
+  EndpointPath: {
+    countDocuments: vi.fn()
+  }
+}));
 
 describe('getPathProgress', () => {
   const mockProcess = {
@@ -63,61 +44,80 @@ describe('getPathProgress', () => {
     vi.clearAllMocks();
   });
 
-  const createMockAggregate = (results: { _id: string; count: number }[]) => {
-    return {
-      [Symbol.asyncIterator]: async function* () {
-        for (const r of results) {
-          yield r;
-        }
-      }
-    };
-  };
-
-  it('should return correct counts when TraversalPath is used', async () => {
-    // This test is skipped because mocking aggregate is complex
-    // The function is tested indirectly via integration tests
-    expect(true).toBe(true);
-  });
-
-  it('should return correct counts for different path statuses', async () => {
-    expect(true).toBe(true);
-  });
-
-  it('should return zero counts when no paths exist', async () => {
-    const TP = TraversalPath;
-    const originalAggregate = TP.aggregate;
-    TP.aggregate = vi.fn().mockImplementation(() => createMockAggregate([]));
+  it('should return zero counts when no paths exist for traversal', async () => {
+    mockProcess.curPathType = PathType.TRAVERSAL;
+    TraversalPath.countDocuments = vi.fn().mockResolvedValue(0);
+    // Also mock EndpointPath in case
+    EndpointPath.countDocuments = vi.fn().mockResolvedValue(0);
 
     const result = await getPathProgress(mockProcess);
 
-    TP.aggregate = originalAggregate;
-
     expect(result.done).toBe(0);
+    expect(result.remaining.unvisited).toBe(0);
     expect(result.remaining.crawling).toBe(0);
     expect(result.remaining.checking).toBe(0);
+    expect(result.total).toBe(0);
+  });
+
+  it('should return zero counts when no paths exist for endpoint', async () => {
+    mockProcess.curPathType = PathType.ENDPOINT;
+    EndpointPath.countDocuments = vi.fn().mockResolvedValue(0);
+    TraversalPath.countDocuments = vi.fn().mockResolvedValue(0);
+
+    const result = await getPathProgress(mockProcess);
+
+    expect(result.done).toBe(0);
     expect(result.remaining.unvisited).toBe(0);
     expect(result.total).toBe(0);
   });
 
-  it('should filter by process ID', async () => {
-    const TP = TraversalPath;
-    const originalAggregate = TP.aggregate;
-    TP.aggregate = vi.fn().mockImplementation(() => createMockAggregate([]));
-
-    await getPathProgress(mockProcess);
-
-    // Just verify it runs without error
-    TP.aggregate = originalAggregate;
-  });
-
-  it('should return object with correct structure', async () => {
-    const TP = TraversalPath;
-    const originalAggregate = TP.aggregate;
-    TP.aggregate = vi.fn().mockImplementation(() => createMockAggregate([]));
+  it('should return correct counts when paths exist for endpoint', async () => {
+    mockProcess.curPathType = PathType.ENDPOINT;
+    const remainingCount = 3;
+    const doneCount = 8;
+    EndpointPath.countDocuments = vi.fn().mockImplementation(async (query: any) => {
+      if (query['head.status'] === 'unvisited') {
+        return remainingCount;
+      }
+      if (query['head.status'] === 'done') {
+        return doneCount;
+      }
+      return 0;
+    });
+    TraversalPath.countDocuments = vi.fn().mockResolvedValue(0); // not used
 
     const result = await getPathProgress(mockProcess);
 
-    TP.aggregate = originalAggregate;
+    expect(result.done).toBe(doneCount);
+    expect(result.remaining.unvisited).toBe(remainingCount);
+    expect(result.total).toBe(doneCount + remainingCount);
+  });
+
+  it('should use process ID and correct filters', async () => {
+    mockProcess.curPathType = PathType.TRAVERSAL;
+    const mockCount = vi.fn().mockResolvedValue(0);
+    TraversalPath.countDocuments = mockCount;
+
+    await getPathProgress(mockProcess);
+
+    // We expect two calls: one for done, one for remaining
+    expect(mockCount).toHaveBeenCalledTimes(2);
+    // Both calls should include processId
+    expect(mockCount).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ processId: 'test-pid-123' })
+    );
+    expect(mockCount).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ processId: 'test-pid-123' })
+    );
+  });
+
+  it('should return object with correct structure', async () => {
+    mockProcess.curPathType = PathType.TRAVERSAL;
+    TraversalPath.countDocuments = vi.fn().mockResolvedValue(0);
+
+    const result = await getPathProgress(mockProcess);
 
     expect(result).toHaveProperty('done');
     expect(result).toHaveProperty('remaining');
