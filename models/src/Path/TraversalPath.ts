@@ -359,6 +359,9 @@ export class TraversalPathClass extends PathClass {
       .filter((t): t is LiteralTripleDocument => isLiteral(t))
       .filter((t) => this.isExtensionValid(t));
 
+    const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+    const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
+
     for (const t of literalTriples) {
       log.silly('Extending path with LiteralTriple', t);
       const prop = t.predicate;
@@ -380,6 +383,11 @@ export class TraversalPathClass extends PathClass {
         ep.predicates.elems = Array.from(new Set([...this.predicates.elems, prop]));
         log.silly('New path with literal head', ep);
         extendedPaths[prop][literalKey] = ep;
+
+        // Only add rdfs:label and rdfs:comment to procTriples
+        if (prop === RDFS_LABEL || prop === RDFS_COMMENT) {
+          procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+        }
       }
     }
 
