@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { Process } from '@derzis/models';
-import { getPathProgress, getCrawlRate } from '@derzis/models';
+import { getPathProgress, getCrawlRate, getDistinctPathHeadsRemaining } from '@derzis/models';
 import type { RequestEvent } from './$types';
 
 const PROGRESS_INTERVAL_MS = 10000;
@@ -32,6 +32,7 @@ export async function GET({ params }: RequestEvent) {
 
           const pathProgress = await getPathProgress(process);
           const crawlRate = await getCrawlRate(process, 5);
+          const distinctHeads = await getDistinctPathHeadsRemaining(process);
 
           const event = {
             type: 'PROGRESS',
@@ -41,7 +42,8 @@ export async function GET({ params }: RequestEvent) {
               remaining:
                 pathProgress.remaining.unvisited +
                 pathProgress.remaining.crawling +
-                pathProgress.remaining.checking
+                pathProgress.remaining.checking,
+              distinctHeads
             },
             rate: crawlRate
           };

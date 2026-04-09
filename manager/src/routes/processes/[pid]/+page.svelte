@@ -7,8 +7,11 @@
   import { HiSolidMagnifyingGlass } from 'svelte-icons-pack/hi';
   import { onMount, onDestroy } from 'svelte';
 
-  let progress: { step: number; paths: { done: number; remaining: number }; rate: number } | null =
-    null;
+  let progress: {
+    step: number;
+    paths: { done: number; remaining: number; distinctHeads: number };
+    rate: number;
+  } | null = null;
   let error: string | null = null;
   let eventSource: EventSource | null = null;
 
@@ -128,6 +131,7 @@
     <div>
       <strong>Step {progress.step}:</strong>
       {progress.paths.done} paths done | {progress.paths.remaining} remaining |
+      {progress.paths.distinctHeads} distinct path heads remaining |
       {progress.rate.toFixed(1)} resources/min
     </div>
   </Alert>
