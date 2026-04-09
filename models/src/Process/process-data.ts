@@ -40,8 +40,16 @@ export async function getLabelDataForProcess(pid: string) {
     return [];
   }
 
+  return getLabelDataForUrls(labels.map((l) => l.url));
+}
+
+export async function getLabelDataForUrls(urls: string[]) {
+  if (!urls.length) {
+    return [];
+  }
+
   const triples: LiteralTripleDocument[] = await LiteralTriple.find({
-    subject: { $in: labels.map((l) => l.url) },
+    subject: { $in: urls },
     predicate: {
       $in: [RDFS_LABEL, RDFS_COMMENT]
     }
@@ -56,7 +64,7 @@ export async function getLabelDataForProcess(pid: string) {
   }
 
   const res: { url: string; triples: LiteralTripleDocument[] }[] = [];
-  for (const url of labels.map((l) => l.url)) {
+  for (const url of urls) {
     if (triplesBySubj[url]) {
       res.push({
         url,
@@ -608,4 +616,15 @@ export async function getCrawlRate(
   });
 
   return count / windowMinutes;
+}
+
+export async function getDistinctPathHeadsRemaining(process: ProcessClass): Promise<number> {
+  const pathType = process.curPathType;
+  const stepQuery = buildStepPathQuery(process, pathType);
+
+  if (pathType === PathType.TRAVERSAL) {
+    return await TraversalPath.distinct('head.url', stepQuery as any).then((arr) => arr.length);
+  } else {
+    return await EndpointPath.distinct('head.url', stepQuery as any).then((arr) => arr.length);
+  }
 }

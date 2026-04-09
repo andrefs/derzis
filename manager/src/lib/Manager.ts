@@ -16,7 +16,10 @@ import {
   type LiteralTripleDocument,
   HEAD_TYPE
 } from '@derzis/models';
-import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
+import {
+  notifyLabelsFetched,
+  notifySingleLabelFetched
+} from '@derzis/models/Process/process-notifications';
 import {
   type JobResult,
   type RobotsCheckResult,
@@ -304,17 +307,9 @@ export default class Manager {
       return;
     }
 
-    // Check if all cardea labels with extend=false are done for this process
+    // Immediately notify Cardea for each label that is done (for cardea+extend=false)
     if (rl.source === 'cardea' && rl.extend === false) {
-      const remaining = await ResourceLabel.countDocuments({
-        pid: rl.pid,
-        status: 'new',
-        source: 'cardea',
-        extend: false
-      });
-      if (remaining === 0) {
-        await notifyLabelsFetched(rl.pid);
-      }
+      await notifySingleLabelFetched(rl.url, triples, rl.pid);
     }
   }
 

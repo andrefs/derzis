@@ -3,8 +3,9 @@ import { createLogger } from '@derzis/common/server';
 import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
 import { type LiteralTripleDocument } from '../Triple';
-import { getLabelDataForProcess } from './process-data';
+import { getLabelDataForProcess, getLabelDataForUrls } from './process-data';
 import { type ProcessMetrics } from './process-metrics';
+import type { SimpleTriple } from '@derzis/common';
 const log = createLogger('ProcessNotifications');
 
 export async function notifyLabelsFetched(pid: string) {
@@ -33,6 +34,39 @@ export async function notifyLabelsFetched(pid: string) {
   const notif: ProcessNotification = { ok: true, data };
 
   log.info(`Sending labels to Cardea for process ${pid}`, process.notification.webhook ?? '');
+
+  if (process.notification.webhook) {
+    await notifyWebhook(process.notification.webhook, notif);
+  }
+}
+
+export async function notifySingleLabelFetched(url: string, triples: SimpleTriple[], pid: string) {
+  if (!triples.length) {
+    log.debug(`No triples for label ${url}, skipping notification`);
+    return;
+  }
+
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.error(`Process ${pid} not found when sending single label to Cardea`);
+    return;
+  }
+
+  const labelData = [{ url, triples }];
+
+  const data: LabelFetchedNotification = {
+    pid,
+    messageType: 'OK_LABEL_FETCHED',
+    message: `Process ${pid} has fetched label for ${url} (${triples.length} triples).`,
+    details: { labels: labelData }
+  };
+
+  const notif: ProcessNotification = { ok: true, data };
+
+  log.info(
+    `Sending single label to Cardea for process ${pid}: ${url}`,
+    process.notification.webhook ?? ''
+  );
 
   if (process.notification.webhook) {
     await notifyWebhook(process.notification.webhook, notif);
@@ -255,6 +289,16 @@ export type LabelsFetchedNotification = BaseProcNotification & {
   messageType: 'OK_LABELS_FETCHED';
 };
 
+export type LabelFetchedNotification = BaseProcNotification & {
+  details: {
+    labels: Array<{
+      url: string;
+      triples: SimpleTriple[];
+    }>;
+  };
+  messageType: 'OK_LABEL_FETCHED';
+};
+
 export type MetricsCalculatedNotification = BaseProcNotification & {
   details: {
     stepIndex: number;
@@ -271,5 +315,6 @@ type ProcessNotification = {
     | ProcStartNotification
     | ProcCreatedNotification
     | LabelsFetchedNotification
+    | LabelFetchedNotification
     | MetricsCalculatedNotification;
 };
