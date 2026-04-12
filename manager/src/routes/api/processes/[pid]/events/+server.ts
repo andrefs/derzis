@@ -30,13 +30,20 @@ export async function GET({ params }: RequestEvent) {
             return;
           }
 
-          const pathProgress = await getPathProgress(process);
-          const crawlRate = await getCrawlRate(process, 5);
-          const distinctHeads = await getDistinctPathHeadsRemaining(process);
+          const latestProcess = await Process.findOne({ pid: params.pid });
+          if (!latestProcess) {
+            isActive = false;
+            clearInterval(intervalId);
+            return;
+          }
+
+          const pathProgress = await getPathProgress(latestProcess);
+          const crawlRate = await getCrawlRate(latestProcess, 5);
+          const distinctHeads = await getDistinctPathHeadsRemaining(latestProcess);
 
           const event = {
             type: 'PROGRESS',
-            step: process.steps.length,
+            step: latestProcess.steps.length,
             paths: {
               done: pathProgress.done,
               remaining:
