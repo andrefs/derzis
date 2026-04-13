@@ -9,7 +9,7 @@
 
   let progress: {
     step: number;
-    paths: { done: number; remaining: number; distinctHeads: number };
+    paths: { remaining: number; distinctHeads: number };
     rate: number;
   } | null = null;
   let error: string | null = null;
@@ -130,7 +130,7 @@
     </div>
     <div>
       <strong>Step {progress.step}:</strong>
-      {progress.paths.done} paths done | {progress.paths.remaining} remaining |
+      {progress.paths.remaining} paths remaning |
       {progress.paths.distinctHeads} distinct path heads remaining |
       {progress.rate.toFixed(1)} resources/min
     </div>

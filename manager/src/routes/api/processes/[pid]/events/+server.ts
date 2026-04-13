@@ -45,7 +45,6 @@ export async function GET({ params }: RequestEvent) {
             type: 'PROGRESS',
             step: latestProcess.steps.length,
             paths: {
-              done: pathProgress.done,
               remaining:
                 pathProgress.remaining.unvisited +
                 pathProgress.remaining.crawling +

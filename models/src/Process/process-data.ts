@@ -555,13 +555,11 @@ export function curPredsBranchFactor(
 }
 
 export interface PathProgress {
-  done: number;
   remaining: {
     unvisited: number;
     crawling: number;
     checking: number;
   };
-  total: number;
 }
 
 export async function getPathProgress(process: ProcessClass): Promise<PathProgress> {
@@ -577,30 +575,12 @@ export async function getPathProgress(process: ProcessClass): Promise<PathProgre
     remainingUnvisited = await EndpointPath.countDocuments(stepQuery as any);
   }
 
-  // Count done paths (all done paths for this process)
-  const doneQuery = {
-    processId: process.pid,
-    status: 'active',
-    'head.type': HEAD_TYPE.URL,
-    'head.domain.isUnvisited': false,
-    'head.status': 'done'
-  };
-
-  let done: number;
-  if (pathType === PathType.TRAVERSAL) {
-    done = await TraversalPath.countDocuments(doneQuery as any);
-  } else {
-    done = await EndpointPath.countDocuments(doneQuery as any);
-  }
-
   return {
-    done,
     remaining: {
       unvisited: remainingUnvisited,
       crawling: 0,
       checking: 0
-    },
-    total: done + remainingUnvisited
+    }
   };
 }
 

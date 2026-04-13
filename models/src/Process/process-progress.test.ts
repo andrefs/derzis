@@ -52,11 +52,9 @@ describe('getPathProgress', () => {
 
     const result = await getPathProgress(mockProcess);
 
-    expect(result.done).toBe(0);
     expect(result.remaining.unvisited).toBe(0);
     expect(result.remaining.crawling).toBe(0);
     expect(result.remaining.checking).toBe(0);
-    expect(result.total).toBe(0);
   });
 
   it('should return zero counts when no paths exist for endpoint', async () => {
@@ -66,21 +64,15 @@ describe('getPathProgress', () => {
 
     const result = await getPathProgress(mockProcess);
 
-    expect(result.done).toBe(0);
     expect(result.remaining.unvisited).toBe(0);
-    expect(result.total).toBe(0);
   });
 
   it('should return correct counts when paths exist for endpoint', async () => {
     mockProcess.curPathType = PathType.ENDPOINT;
     const remainingCount = 3;
-    const doneCount = 8;
     EndpointPath.countDocuments = vi.fn().mockImplementation(async (query: any) => {
       if (query['head.status'] === 'unvisited') {
         return remainingCount;
-      }
-      if (query['head.status'] === 'done') {
-        return doneCount;
       }
       return 0;
     });
@@ -88,9 +80,7 @@ describe('getPathProgress', () => {
 
     const result = await getPathProgress(mockProcess);
 
-    expect(result.done).toBe(doneCount);
     expect(result.remaining.unvisited).toBe(remainingCount);
-    expect(result.total).toBe(doneCount + remainingCount);
   });
 
   it('should use process ID and correct filters', async () => {
@@ -100,15 +90,9 @@ describe('getPathProgress', () => {
 
     await getPathProgress(mockProcess);
 
-    // We expect two calls: one for done, one for remaining
-    expect(mockCount).toHaveBeenCalledTimes(2);
-    // Both calls should include processId
+    expect(mockCount).toHaveBeenCalledTimes(1);
     expect(mockCount).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ processId: 'test-pid-123' })
-    );
-    expect(mockCount).toHaveBeenNthCalledWith(
-      2,
       expect.objectContaining({ processId: 'test-pid-123' })
     );
   });
@@ -119,9 +103,7 @@ describe('getPathProgress', () => {
 
     const result = await getPathProgress(mockProcess);
 
-    expect(result).toHaveProperty('done');
     expect(result).toHaveProperty('remaining');
-    expect(result).toHaveProperty('total');
     expect(result.remaining).toHaveProperty('unvisited');
     expect(result.remaining).toHaveProperty('crawling');
     expect(result.remaining).toHaveProperty('checking');
