@@ -1,5 +1,5 @@
 import { ResourceLabel } from '@derzis/models';
-import { getLabelDataForProcess } from '@derzis/models/Process/process-data';
+import { getLabelDataForProcess, getLabelDataForUrls } from '@derzis/models/Process/process-data';
 import { error, json } from '@sveltejs/kit';
 import type { RequestEvent } from './$types';
 
@@ -68,14 +68,16 @@ export async function POST({ params, request }: RequestEvent) {
   const { resources, source, extend } = body.data;
 
   if (!Array.isArray(resources) || resources.length === 0) {
-    return json({ ok: true, created: 0 });
+    return json({ ok: true, created: 0, labels: [] });
   }
 
   try {
     const resData = resources.map((url) => ({ pid, url, source, extend }));
     await ResourceLabel.upsertMany(resData);
 
-    return json({ ok: true, created: resData.length });
+    const existingDoneLabels = await getLabelDataForUrls(resources);
+
+    return json({ ok: true, created: resData.length, labels: existingDoneLabels });
   } catch (e) {
     return json({ ok: false, err: String(e) }, { status: 500 });
   }

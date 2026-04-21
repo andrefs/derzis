@@ -16,7 +16,10 @@ import {
   type LiteralTripleDocument,
   HEAD_TYPE
 } from '@derzis/models';
-import { notifyLabelsFetched } from '@derzis/models/Process/process-notifications';
+import {
+  notifyLabelsFetched,
+  notifySingleLabelFetched
+} from '@derzis/models/Process/process-notifications';
 import {
   type JobResult,
   type RobotsCheckResult,
@@ -304,17 +307,9 @@ export default class Manager {
       return;
     }
 
-    // Check if all cardea labels with extend=false are done for this process
+    // Immediately notify Cardea for each label that is done (for cardea+extend=false)
     if (rl.source === 'cardea' && rl.extend === false) {
-      const remaining = await ResourceLabel.countDocuments({
-        pid: rl.pid,
-        status: 'new',
-        source: 'cardea',
-        extend: false
-      });
-      if (remaining === 0) {
-        await notifyLabelsFetched(rl.pid);
-      }
+      await notifySingleLabelFetched(rl.url, triples, rl.pid);
     }
   }
 
@@ -362,36 +357,48 @@ export default class Manager {
       return;
     }
 
-    // Filter triples: keep all NamedNode triples,
-    // and only keep literal triples with whitelisted predicates
-    const nnTriples = triples.filter((t) => typeof t.object === 'string');
+    // Separate triples: label/comment literals (for path extension preference) and all others
     const labelTriples = this.getLabelTriples(triples);
+    // All other triples: named nodes and non-label/comment literals (e.g., gloss)
+    const otherTriples = triples.filter(
+      (t) =>
+        !(
+          t.type === TripleType.LITERAL &&
+          (t.predicate === 'http://www.w3.org/2000/01/rdf-schema#label' ||
+            t.predicate === 'http://www.w3.org/2000/01/rdf-schema#comment')
+        )
+    );
 
     const source = (await Resource.findOne({
       url: sourceUrl
     })) as ResourceClass;
 
-    // add new resources
-    await Resource.addFromTriples([...nnTriples, ...labelTriples]);
+    // add new resources from all triples
+    await Resource.addFromTriples([...otherTriples, ...labelTriples]);
 
-    // Store all triples using unified upsertMany
-    log.info('Calling Triple.upsertMany with', nnTriples.length, 'triples');
-    const nnTripleResult = await Triple.upsertMany(source.url, nnTriples);
-    log.info('Triple.upsertMany result:', nnTripleResult);
+    // Store all triples: other triples (named nodes + non-label literals) and label triples separately
+    if (otherTriples.length > 0) {
+      log.info('Calling Triple.upsertMany with', otherTriples.length, 'other triples');
+      await Triple.upsertMany(source.url, otherTriples);
+    }
 
-    log.info('Calling Triple.upsertMany with', labelTriples.length, 'label triples');
-    const labelTripleResult = await Triple.upsertMany(source.url, labelTriples);
-    log.info('Triple.upsertMany result for label triples:', labelTripleResult);
+    if (labelTriples.length > 0) {
+      log.info('Calling Triple.upsertMany with', labelTriples.length, 'label triples');
+      await Triple.upsertMany(source.url, labelTriples);
+    }
 
     if (extendLabelsOnly) {
       log.info('Skipping extendPaths for headUrl:', source.url, 'because dontExtend flag is set');
-      const upsertedIds = labelTripleResult
-        .map((r) => Object.values(r.upsertedIds || {}))
-        .flat()
-        .filter((id): id is Types.ObjectId => id != null);
-      const labelTripleDocs = upsertedIds.length
-        ? ((await Triple.find({ _id: { $in: upsertedIds } })) as TripleDocument[])
-        : [];
+      // For label-only extension, fetch the label triples we just stored
+      const labelTripleDocs = await Triple.find({
+        subject: sourceUrl,
+        predicate: {
+          $in: [
+            'http://www.w3.org/2000/01/rdf-schema#label',
+            'http://www.w3.org/2000/01/rdf-schema#comment'
+          ]
+        }
+      });
       await extendPaths({ triples: labelTripleDocs });
       return;
     }
@@ -403,27 +410,41 @@ export default class Manager {
   }
 
   /**
-   * Returns literal triples with rdfs:label or rdfs:comment predicates that have language 'en'.
+   * Returns literal triples with rdfs:label or rdfs:comment predicates.
+   * For each subject: if any triples have language === 'en', only those are returned.
+   * Otherwise, only triples with no language tag are returned.
    * Returns them as SimpleTriple format for compatibility with the result type.
    */
   getLabelTriples(triples: SimpleTriple[]): SimpleLiteralTriple[] {
     const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
     const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
 
-    return triples
-      .filter((t): t is SimpleLiteralTriple => {
-        if (t.predicate !== RDFS_LABEL && t.predicate !== RDFS_COMMENT) return false;
-        const lit = t as SimpleLiteralTriple;
-        return lit.object.language === 'en';
-      })
-      .map(
-        (t): SimpleLiteralTriple => ({
-          subject: t.subject,
-          predicate: t.predicate,
-          type: TripleType.LITERAL,
-          object: t.object
-        })
-      );
+    // First, filter to only label/comment triples and group by subject
+    const bySubject = new Map<string, SimpleLiteralTriple[]>();
+
+    for (const t of triples) {
+      if (t.predicate !== RDFS_LABEL && t.predicate !== RDFS_COMMENT) continue;
+      const lit = t as SimpleLiteralTriple;
+      if (!bySubject.has(lit.subject)) {
+        bySubject.set(lit.subject, []);
+      }
+      bySubject.get(lit.subject)!.push(lit);
+    }
+
+    // For each subject, prefer English-labeled triples; fall back to tag-less only
+    const result: SimpleLiteralTriple[] = [];
+    for (const [, subjectTriples] of bySubject.entries()) {
+      const enTriples = subjectTriples.filter((t) => t.object.language === 'en');
+      if (enTriples.length > 0) {
+        result.push(...enTriples);
+      } else {
+        // No English triples; keep only those with no language tag (language == null)
+        const tagLess = subjectTriples.filter((t) => t.object.language == null);
+        result.push(...tagLess);
+      }
+    }
+
+    return result;
   }
 
   /**

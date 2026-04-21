@@ -441,6 +441,9 @@ function collectLiteralCandidates(
 ): Candidate[] {
   const candidates: Candidate[] = [];
 
+  const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+  const RDFS_COMMENT = 'http://www.w3.org/2000/01/rdf-schema#comment';
+
   const literalTriples = triples
     .filter((t): t is LiteralTripleDocument => isLiteral(t))
     .filter((t) => this.isExtensionValid(t, urlHead));
@@ -453,7 +456,10 @@ function collectLiteralCandidates(
     });
 
     if (processedLiterals.has(literalKey)) {
-      procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+      // Only add rdfs:label and rdfs:comment to procTriples
+      if (t.predicate === RDFS_LABEL || t.predicate === RDFS_COMMENT) {
+        procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+      }
       continue;
     }
     processedLiterals.add(literalKey);
@@ -472,7 +478,10 @@ function collectLiteralCandidates(
     };
 
     candidates.push({ literalHead, distance, seedPaths });
-    procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+    // Only add rdfs:label and rdfs:comment to procTriples
+    if (t.predicate === RDFS_LABEL || t.predicate === RDFS_COMMENT) {
+      procTriples.push({ id: t._id.toString(), type: TripleType.LITERAL });
+    }
   }
 
   return candidates;
