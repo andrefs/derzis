@@ -1,6 +1,7 @@
 import { Triple } from '../Triple';
 import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common';
+import type { PipelineStage } from 'mongoose';
 const log = createLogger('models:process-metrics');
 
 export interface SeedPredicateMetrics {
@@ -133,7 +134,7 @@ export async function getPredicateCounts(
   pid: string,
   predicates?: string[]
 ): Promise<{ [predicate: string]: number }> {
-  const matchStage: Record<string, unknown>[] = [{ processId: pid }];
+  const matchStage: PipelineStage[] = [{ $match: { processId: pid } }];
   if (predicates && predicates.length > 0) {
     matchStage.push({
       $lookup: {

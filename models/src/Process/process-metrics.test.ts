@@ -38,17 +38,17 @@ describe('process-metrics', () => {
 
       const result = await getPredicateCounts('test-pid');
 
-      expect(result).toHaveLength(2);
-      expect(result[0]._id).toBe('http://example.org/predicate1');
-      expect(result[0].count).toBe(100);
+      expect(Object.keys(result)).toHaveLength(2);
+      expect(result['http://example.org/predicate1']).toBe(100);
+      expect(result['http://example.org/predicate2']).toBe(50);
     });
 
-    it('should return empty array when no triples', async () => {
+    it('should return empty object when no triples', async () => {
       vi.mocked(ProcessTriple.aggregate).mockResolvedValue([]);
 
       const result = await getPredicateCounts('test-pid');
 
-      expect(result).toHaveLength(0);
+      expect(Object.keys(result)).toHaveLength(0);
     });
   });
 
