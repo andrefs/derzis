@@ -67,6 +67,12 @@ export async function calcProcMetrics(
   return { predicates, globalMetrics };
 }
 
+/**
+ * Get counts of triples for each predicate in the process using server-side aggregation
+ * @param pid Process ID
+ * @returns Array of objects with predicate URL and count of triples
+ * Example result: [{ _id: 'http://example.com/predicate1', count: 10 }, { _id: 'http://example.com/predicate2', count: 5 }]
+ */
 export async function getPredicateCounts(pid: string) {
   const result = await ProcessTriple.aggregate<{ _id: string; count: number }>([
     { $match: { processId: pid } },
@@ -99,19 +105,26 @@ export async function getSeedCoverage(
     `getSeedCoverage: pid=${pid}, predicate=${predicate}, field=${field}, seeds=${JSON.stringify(seeds)}`
   );
 
-  const result = await ProcessTriple.aggregate<{ coverage: number }>([
-    { $match: { processId: pid } },
+  const fieldFilter = field === 'subject' ? 'subject' : 'object';
+
+  const result = await Triple.aggregate<{ coverage: number }>([
     {
-      $lookup: {
-        from: 'triples',
-        localField: 'triple',
-        foreignField: '_id',
-        as: 'tripleData'
+      $match: {
+        predicate,
+        [fieldFilter]: { $in: seeds },
+        type: 'namedNode'
       }
     },
-    { $unwind: '$tripleData' },
-    { $match: { 'tripleData.predicate': predicate, [`tripleData.${field}`]: { $in: seeds } } },
-    { $group: { _id: `$tripleData.${field}` } },
+    {
+      $lookup: {
+        from: 'processTriples',
+        localField: '_id',
+        foreignField: 'triple',
+        as: 'ptData'
+      }
+    },
+    { $match: { 'ptData.processId': pid } },
+    { $group: { _id: `$${fieldFilter}` } },
     { $count: 'coverage' }
   ]);
 

@@ -74,7 +74,7 @@ describe('process-metrics', () => {
     });
 
     it('should return coverage count matching seeds', async () => {
-      vi.mocked(ProcessTriple.aggregate).mockResolvedValue([{ coverage: 3 }]);
+      vi.mocked(Triple.aggregate).mockResolvedValue([{ coverage: 3 }]);
 
       const result = await getSeedCoverage('test-pid', 'http://example.org/predicate', 'subject', [
         'http://example.org/seed1',
@@ -85,7 +85,7 @@ describe('process-metrics', () => {
     });
 
     it('should return 0 when no matches', async () => {
-      vi.mocked(ProcessTriple.aggregate).mockResolvedValue([]);
+      vi.mocked(Triple.aggregate).mockResolvedValue([]);
 
       const result = await getSeedCoverage('test-pid', 'http://example.org/predicate', 'subject', [
         'http://example.org/seed1'
@@ -154,12 +154,12 @@ describe('process-metrics', () => {
       vi.mocked(ProcessTriple.countDocuments).mockResolvedValue(100);
       vi.mocked(ProcessTriple.aggregate)
         .mockResolvedValueOnce([{ _id: 'http://example.org/predicate1', count: 100 }]) // getPredicateCounts
-        .mockResolvedValueOnce([{ coverage: 3 }]) // getSeedCoverage 1
-        .mockResolvedValueOnce([]) // getSeedCoverage 2
         .mockResolvedValueOnce([{ totalSubjects: 50 }]) // getGlobalMetrics totalSubjects
         .mockResolvedValueOnce([{ totalObjects: 40 }]) // getGlobalMetrics totalObjects
         .mockResolvedValueOnce([{ totalResources: 80 }]); // getGlobalMetrics totalResources
       vi.mocked(Triple.aggregate)
+        .mockResolvedValueOnce([{ coverage: 3 }]) // getSeedCoverage: subject
+        .mockResolvedValueOnce([]) // getSeedCoverage: object
         .mockResolvedValueOnce([{ count: 10 }]) // getBranchingFactor subjects
         .mockResolvedValueOnce([{ count: 5 }]); // getBranchingFactor objects
 
