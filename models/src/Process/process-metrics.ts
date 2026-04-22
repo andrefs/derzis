@@ -3,16 +3,19 @@ import { ProcessTriple } from '../ProcessTriple';
 import { createLogger } from '@derzis/common';
 const log = createLogger('models:process-metrics');
 
-export interface PredicateMetrics {
+export interface SeedPredicateMetrics {
   url: string;
   count: number;
   subjCov: number | null;
   objCov: number | null;
+}
+
+export type PredicateMetrics = SeedPredicateMetrics & {
   branchFactor: {
     subj: number;
     obj: number;
   };
-}
+};
 
 export interface GlobalMetrics {
   totalSubjects: number;
@@ -26,6 +29,29 @@ export interface ProcessMetrics {
   globalMetrics: GlobalMetrics;
 }
 
+export async function calcProcSeedMetrics(
+  pid: string,
+  seeds: string[]
+): Promise<SeedPredicateMetrics[]> {
+  const sps = await getSeedPredicates(pid, seeds);
+  const seedPredCounts = await getPredicateCounts(pid, sps);
+  const seedPredMetrics: SeedPredicateMetrics[] = [];
+  for (const url of sps) {
+    const count = seedPredCounts[url] || 0;
+    const subjCov = await getSeedCoverage(pid, url, 'subject', seeds);
+    const objCov = await getSeedCoverage(pid, url, 'object', seeds);
+
+    seedPredMetrics.push({
+      url,
+      count,
+      subjCov,
+      objCov
+    });
+  }
+
+  return seedPredMetrics;
+}
+
 export async function calcProcMetrics(
   pid: string,
   seeds: string[],
@@ -35,10 +61,7 @@ export async function calcProcMetrics(
 
   const predicates: PredicateMetrics[] = [];
 
-  for (const pred of predicateCounts) {
-    const url = pred._id;
-    const count = pred.count;
-
+  for (const [url, count] of Object.entries(predicateCounts)) {
     let subjCov: number | null = null;
     let objCov: number | null = null;
 
@@ -68,27 +91,82 @@ export async function calcProcMetrics(
 }
 
 /**
+ * Get unique predicates associated with the given seeds in the process using server-side aggregation
+ * @param pid Process ID
+ * @param seeds Array of seed URIs
+ * @returns Array of unique predicate URLs that are connected to the seeds in the process
+ * This function performs a MongoDB aggregation to find triples where the subject or object matches any of the seeds,
+ * then looks up the associated process triples to filter by process ID, and finally groups by predicate to get unique values.
+ */
+export async function getSeedPredicates(pid: string, seeds: string[]) {
+  const result = await Triple.aggregate<{ predicate: string }>([
+    {
+      $match: {
+        $or: [
+          { subject: { $in: seeds }, type: 'namedNode' },
+          { object: { $in: seeds }, type: 'namedNode' }
+        ]
+      }
+    },
+    {
+      $lookup: {
+        from: 'processTriples',
+        localField: '_id',
+        foreignField: 'triple',
+        as: 'ptData'
+      }
+    },
+    { $match: { 'ptData.processId': pid } },
+    { $group: { _id: '$predicate' } }
+  ]);
+
+  return result.map((r) => r.predicate);
+}
+
+/**
  * Get counts of triples for each predicate in the process using server-side aggregation
  * @param pid Process ID
  * @returns Array of objects with predicate URL and count of triples
  * Example result: [{ _id: 'http://example.com/predicate1', count: 10 }, { _id: 'http://example.com/predicate2', count: 5 }]
  */
-export async function getPredicateCounts(pid: string) {
-  const result = await ProcessTriple.aggregate<{ _id: string; count: number }>([
-    { $match: { processId: pid } },
-    {
+export async function getPredicateCounts(
+  pid: string,
+  predicates?: string[]
+): Promise<{ [predicate: string]: number }> {
+  const matchStage: Record<string, unknown>[] = [{ processId: pid }];
+  if (predicates && predicates.length > 0) {
+    matchStage.push({
       $lookup: {
         from: 'triples',
         localField: 'triple',
         foreignField: '_id',
         as: 'tripleData'
       }
-    },
-    { $unwind: '$tripleData' },
-    { $group: { _id: '$tripleData.predicate', count: { $sum: 1 } } }
-  ]);
+    });
+    matchStage.push({ $unwind: '$tripleData' });
+    matchStage.push({ $match: { 'tripleData.predicate': { $in: predicates } } });
+  } else {
+    matchStage.push({
+      $lookup: {
+        from: 'triples',
+        localField: 'triple',
+        foreignField: '_id',
+        as: 'tripleData'
+      }
+    });
+    matchStage.push({ $unwind: '$tripleData' });
+  }
+  matchStage.push({ $group: { _id: '$tripleData.predicate', count: { $sum: 1 } } });
+  const result = await ProcessTriple.aggregate<{ _id: string; count: number }>(matchStage);
 
-  return result;
+  return result.reduce(
+    (acc, curr) => {
+      acc[curr._id] = curr.count;
+      return acc;
+      // eslint-disable-next-line no-restricted-syntax
+    },
+    {} as { [predicate: string]: number }
+  );
 }
 
 export async function getSeedCoverage(

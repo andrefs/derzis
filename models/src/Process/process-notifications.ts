@@ -4,7 +4,7 @@ import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
 import { type LiteralTripleDocument } from '../Triple';
 import { getLabelDataForProcess, getLabelDataForUrls } from './process-data';
-import { type ProcessMetrics } from './process-metrics';
+import { SeedPredicateMetrics, type ProcessMetrics } from './process-metrics';
 import type { SimpleTriple } from '@derzis/common';
 const log = createLogger('ProcessNotifications');
 
@@ -73,6 +73,32 @@ export async function notifySingleLabelFetched(url: string, triples: SimpleTripl
   }
 }
 
+export async function notifySeedMetricsCalculated(
+  pid: string,
+  metrics: SeedPredicateMetrics[],
+  stepIndex: number
+) {
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.error(`Process ${pid} not found when sending seed metrics to Cardea`);
+    return;
+  }
+
+  const data: SeedMetricsCalculatedNotification = {
+    pid,
+    messageType: 'OK_SEED_METRICS_CALCULATED',
+    message: `Process ${pid} has calculated metrics for step ${stepIndex}.`,
+    details: { stepIndex, metrics }
+  };
+
+  const notif: ProcessNotification = { ok: true, data };
+
+  log.info(`Sending metrics to Cardea for process ${pid}`, process.notification.webhook ?? '');
+
+  if (process.notification.webhook) {
+    await notifyWebhook(process.notification.webhook, notif);
+  }
+}
 export async function notifyMetricsCalculated(
   pid: string,
   metrics: ProcessMetrics,
@@ -299,6 +325,14 @@ export type LabelFetchedNotification = BaseProcNotification & {
   messageType: 'OK_LABEL_FETCHED';
 };
 
+export type SeedMetricsCalculatedNotification = BaseProcNotification & {
+  details: {
+    stepIndex: number;
+    metrics: SeedPredicateMetrics[];
+  };
+  messageType: 'OK_SEED_METRICS_CALCULATED';
+};
+
 export type MetricsCalculatedNotification = BaseProcNotification & {
   details: {
     stepIndex: number;
@@ -316,5 +350,6 @@ type ProcessNotification = {
     | ProcCreatedNotification
     | LabelsFetchedNotification
     | LabelFetchedNotification
-    | MetricsCalculatedNotification;
+    | MetricsCalculatedNotification
+    | SeedMetricsCalculatedNotification;
 };
