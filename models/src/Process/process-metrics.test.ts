@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  calcProcMetrics,
+  calcPredMetrics,
   getSeedPredicates,
   getPredicateCounts,
   getSeedCoverage,
@@ -190,7 +190,7 @@ describe('process-metrics', () => {
         .mockResolvedValueOnce([{ count: 10 }]) // getBranchingFactor subjects
         .mockResolvedValueOnce([{ count: 5 }]); // getBranchingFactor objects
 
-      const result = await calcProcMetrics('test-pid', [
+      const result = await calcPredMetrics('test-pid', [
         'http://example.org/seed1',
         'http://example.org/seed2',
         'http://example.org/seed3'

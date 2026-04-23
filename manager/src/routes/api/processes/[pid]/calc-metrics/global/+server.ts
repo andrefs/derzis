@@ -1,11 +1,9 @@
 import { error, json } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
-import { Process } from '@derzis/models';
-import { calcProcMetrics } from '@derzis/models';
-import { notifyMetricsCalculated } from '@derzis/models';
+import { calcProcGlobalMetrics, notifyGlobalMetricsCalculated, Process } from '@derzis/models';
 import type { RequestEvent } from './$types';
 
-const log = createLogger('api:processes:[pid]:calculate-metrics');
+const log = createLogger('api:processes:[pid]:calc-metrics:global');
 
 export const POST = async ({ params, request }: RequestEvent) => {
   const pid = params.pid;
@@ -21,10 +19,9 @@ export const POST = async ({ params, request }: RequestEvent) => {
     throw error(400, { message: 'Invalid JSON body' });
   }
 
-  const bodyAny = body as Record<string, unknown>;
-  const seeds: string[] = (bodyAny.seeds as string[] | undefined) ?? [];
-  const noSeedCovCalc: boolean = bodyAny.noSeedCovCalc === true;
-
+  log.info(
+    `Received request to calculate global metrics for process ${pid} with body: ${JSON.stringify(body)}`
+  );
   const process = await Process.findOne({ pid });
 
   if (!process) {
@@ -35,18 +32,16 @@ export const POST = async ({ params, request }: RequestEvent) => {
   // Since steps array includes all steps including current, the index is steps.length - 1
   const stepIndex = process.steps.length - 1;
 
-  log.info(
-    `Calculating metrics for process ${pid}, step ${stepIndex}, seeds: ${JSON.stringify(seeds)}, noSeedCovCalc: ${noSeedCovCalc}`
-  );
+  log.info(`Calculating global metrics for process ${pid}, step ${stepIndex}`);
 
   // Fire-and-forget: calculate metrics in background and notify when done
   setImmediate(async () => {
     try {
-      const metrics = await calcProcMetrics(pid, seeds, noSeedCovCalc);
-      await notifyMetricsCalculated(pid, metrics, stepIndex);
-      log.info(`Metrics calculation completed for process ${pid}, step ${stepIndex}`);
+      const metrics = await calcProcGlobalMetrics(pid);
+      await notifyGlobalMetricsCalculated(pid, metrics, stepIndex);
+      log.info(`Global metrics calculation completed for process ${pid}, step ${stepIndex}`);
     } catch (err) {
-      log.error(`Error calculating metrics for process ${pid}: ${(err as Error).message}`);
+      log.error(`Error calculating global metrics for process ${pid}: ${(err as Error).message}`);
     }
   });
 

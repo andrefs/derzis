@@ -3,8 +3,8 @@ import { createLogger } from '@derzis/common/server';
 import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
 import { type LiteralTripleDocument } from '../Triple';
-import { getLabelDataForProcess, getLabelDataForUrls } from './process-data';
-import { SeedPredicateMetrics, type ProcessMetrics } from './process-metrics';
+import { getLabelDataForProcess } from './process-data';
+import { GlobalMetrics, PredicateMetrics, SeedPredicateMetrics } from './process-metrics';
 import type { SimpleTriple } from '@derzis/common';
 const log = createLogger('ProcessNotifications');
 
@@ -73,35 +73,69 @@ export async function notifySingleLabelFetched(url: string, triples: SimpleTripl
   }
 }
 
-export async function notifySeedMetricsCalculated(
+export async function notifyGlobalMetricsCalculated(
+  pid: string,
+  metrics: GlobalMetrics,
+  stepIndex: number
+) {
+  const process = await Process.findOne({ pid });
+  if (!process) {
+    log.error(`Process ${pid} not found when sending global metrics to Cardea`);
+    return;
+  }
+
+  const data: GlobalMetricsCalculatedNotification = {
+    pid,
+    messageType: 'OK_GLOBAL_METRICS_CALCULATED',
+    message: `Process ${pid} has calculated global metrics for step ${stepIndex}.`,
+    details: { stepIndex, globalMetrics: metrics }
+  };
+
+  const notif: ProcessNotification = { ok: true, data };
+
+  log.info(
+    `Sending seed predicate metrics to Cardea for process ${pid}`,
+    process.notification.webhook ?? ''
+  );
+
+  if (process.notification.webhook) {
+    await notifyWebhook(process.notification.webhook, notif);
+  }
+}
+
+export async function notifySeedPredMetricsCalculated(
   pid: string,
   metrics: SeedPredicateMetrics[],
   stepIndex: number
 ) {
   const process = await Process.findOne({ pid });
   if (!process) {
-    log.error(`Process ${pid} not found when sending seed metrics to Cardea`);
+    log.error(`Process ${pid} not found when sending seed predicate metrics to Cardea`);
     return;
   }
 
-  const data: SeedMetricsCalculatedNotification = {
+  const data: SeedPredMetricsCalculatedNotification = {
     pid,
-    messageType: 'OK_SEED_METRICS_CALCULATED',
-    message: `Process ${pid} has calculated metrics for step ${stepIndex}.`,
+    messageType: 'OK_SEED_PRED_METRICS_CALCULATED',
+    message: `Process ${pid} has calculated seed predicate metrics for step ${stepIndex}.`,
     details: { stepIndex, seedPredMetrics: metrics }
   };
 
   const notif: ProcessNotification = { ok: true, data };
 
-  log.info(`Sending metrics to Cardea for process ${pid}`, process.notification.webhook ?? '');
+  log.info(
+    `Sending seed predicate metrics to Cardea for process ${pid}`,
+    process.notification.webhook ?? ''
+  );
 
   if (process.notification.webhook) {
     await notifyWebhook(process.notification.webhook, notif);
   }
 }
-export async function notifyMetricsCalculated(
+
+export async function notifyPredMetricsCalculated(
   pid: string,
-  metrics: ProcessMetrics,
+  metrics: PredicateMetrics[],
   stepIndex: number
 ) {
   const process = await Process.findOne({ pid });
@@ -110,10 +144,10 @@ export async function notifyMetricsCalculated(
     return;
   }
 
-  const data: MetricsCalculatedNotification = {
+  const data: PredMetricsCalculatedNotification = {
     pid,
-    messageType: 'OK_METRICS_CALCULATED',
-    message: `Process ${pid} has calculated metrics for step ${stepIndex}.`,
+    messageType: 'OK_PRED_METRICS_CALCULATED',
+    message: `Process ${pid} has calculated predicate metrics for step ${stepIndex}.`,
     details: { stepIndex, metrics }
   };
 
@@ -191,6 +225,7 @@ export async function notifyStepFinished(process: ProcessClass) {
     ? process.currentStep.toObject()
     : process.currentStep;
   const details = {
+    // eslint-disable-next-line no-restricted-syntax
     ...(stepData as object),
     stepIndex
   };
@@ -325,20 +360,28 @@ export type LabelFetchedNotification = BaseProcNotification & {
   messageType: 'OK_LABEL_FETCHED';
 };
 
-export type SeedMetricsCalculatedNotification = BaseProcNotification & {
+export type GlobalMetricsCalculatedNotification = BaseProcNotification & {
+  details: {
+    stepIndex: number;
+    globalMetrics: GlobalMetrics[];
+  };
+  messageType: 'OK_GLOBAL_METRICS_CALCULATED';
+};
+
+export type SeedPredMetricsCalculatedNotification = BaseProcNotification & {
   details: {
     stepIndex: number;
     seedPredMetrics: SeedPredicateMetrics[];
   };
-  messageType: 'OK_SEED_METRICS_CALCULATED';
+  messageType: 'OK_SEED_PRED_METRICS_CALCULATED';
 };
 
-export type MetricsCalculatedNotification = BaseProcNotification & {
+export type PredMetricsCalculatedNotification = BaseProcNotification & {
   details: {
     stepIndex: number;
-    metrics: ProcessMetrics;
+    metrics: PredicateMetrics[];
   };
-  messageType: 'OK_METRICS_CALCULATED';
+  messageType: 'OK_PRED_METRICS_CALCULATED';
 };
 
 type ProcessNotification = {
@@ -350,6 +393,7 @@ type ProcessNotification = {
     | ProcCreatedNotification
     | LabelsFetchedNotification
     | LabelFetchedNotification
-    | MetricsCalculatedNotification
-    | SeedMetricsCalculatedNotification;
+    | GlobalMetricsCalculatedNotification
+    | PredMetricsCalculatedNotification
+    | SeedPredMetricsCalculatedNotification;
 };

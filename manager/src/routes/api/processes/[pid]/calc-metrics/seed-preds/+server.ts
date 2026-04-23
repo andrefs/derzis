@@ -1,9 +1,9 @@
 import { error, json } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
-import { calcProcSeedMetrics, notifySeedMetricsCalculated, Process } from '@derzis/models';
+import { calcProcSeedPredMetrics, notifySeedPredMetricsCalculated, Process } from '@derzis/models';
 import type { RequestEvent } from './$types';
 
-const log = createLogger('api:processes:[pid]:calculate-seed-metrics');
+const log = createLogger('api:processes:[pid]:calc-metrics:seed-preds');
 
 export const POST = async ({ params, request }: RequestEvent) => {
   const pid = params.pid;
@@ -20,12 +20,12 @@ export const POST = async ({ params, request }: RequestEvent) => {
   }
 
   log.info(
-    `Received request to calculate seed metrics for process ${pid} with body: ${JSON.stringify(body)}`
+    `Received request to calculate seed predicate metrics for process ${pid} with body: ${JSON.stringify(body)}`
   );
   const seeds: string[] = body.data.seeds || [];
 
   if (!seeds.length) {
-    log.warn(`No seeds provided for process ${pid} when calculating seed metrics`);
+    log.warn(`No seeds provided for process ${pid} when calculating seed predicate metrics`);
     throw error(400, { message: 'Seeds array is required and cannot be empty' });
   }
 
@@ -40,17 +40,21 @@ export const POST = async ({ params, request }: RequestEvent) => {
   const stepIndex = process.steps.length - 1;
 
   log.info(
-    `Calculating seed metrics for process ${pid}, step ${stepIndex}, seeds: ${JSON.stringify(seeds)}`
+    `Calculating seed predicate metrics for process ${pid}, step ${stepIndex}, seeds: ${JSON.stringify(seeds)}`
   );
 
   // Fire-and-forget: calculate metrics in background and notify when done
   setImmediate(async () => {
     try {
-      const metrics = await calcProcSeedMetrics(pid, seeds);
-      await notifySeedMetricsCalculated(pid, metrics, stepIndex);
-      log.info(`Seed metrics calculation completed for process ${pid}, step ${stepIndex}`);
+      const metrics = await calcProcSeedPredMetrics(pid, seeds);
+      await notifySeedPredMetricsCalculated(pid, metrics, stepIndex);
+      log.info(
+        `Seed predicate metrics calculation completed for process ${pid}, step ${stepIndex}`
+      );
     } catch (err) {
-      log.error(`Error calculating seed metrics for process ${pid}: ${(err as Error).message}`);
+      log.error(
+        `Error calculating seed predicate metrics for process ${pid}: ${(err as Error).message}`
+      );
     }
   });
 

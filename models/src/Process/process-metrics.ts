@@ -4,14 +4,17 @@ import { createLogger } from '@derzis/common';
 import type { PipelineStage } from 'mongoose';
 const log = createLogger('models:process-metrics');
 
-export interface SeedPredicateMetrics {
+export interface PredicateMetrics {
   url: string;
   count: number;
+}
+
+export interface SeedPredicateMetrics extends PredicateMetrics {
   subjCov: number | null;
   objCov: number | null;
 }
 
-export type PredicateMetrics = SeedPredicateMetrics & {
+export type OtherPredicateMetrics = PredicateMetrics & {
   branchFactor: {
     subj: number;
     obj: number;
@@ -30,7 +33,7 @@ export interface ProcessMetrics {
   globalMetrics: GlobalMetrics;
 }
 
-export async function calcProcSeedMetrics(
+export async function calcProcSeedPredMetrics(
   pid: string,
   seeds: string[]
 ): Promise<SeedPredicateMetrics[]> {
@@ -57,42 +60,32 @@ export async function calcProcSeedMetrics(
   return seedPredMetrics;
 }
 
-export async function calcProcMetrics(
+export async function calcPredMetrics(
   pid: string,
-  seeds: string[],
-  noSeedCovCalc: boolean = false
-): Promise<ProcessMetrics> {
-  const predicateCounts = await getPredicateCounts(pid);
-
-  const predicates: PredicateMetrics[] = [];
+  predicates: string[]
+): Promise<OtherPredicateMetrics[]> {
+  const predicateCounts = await getPredicateCounts(pid, predicates);
+  const res = [];
 
   for (const [url, count] of Object.entries(predicateCounts)) {
-    let subjCov: number | null = null;
-    let objCov: number | null = null;
-
-    if (!noSeedCovCalc) {
-      subjCov = await getSeedCoverage(pid, url, 'subject', seeds);
-      objCov = await getSeedCoverage(pid, url, 'object', seeds);
-    }
-
     const bf = await getBranchingFactor(pid, url);
 
-    log.info(
-      `Metrics for predicate ${url}: count=${count}, subjCov=${subjCov}, objCov=${objCov}, subj=${bf.subj}, obj=${bf.obj}`
-    );
+    log.info(`Metrics for predicate ${url}: count=${count},  subj=${bf.subj}, obj=${bf.obj}`);
 
-    predicates.push({
+    res.push({
       url,
       count,
-      subjCov,
-      objCov,
       branchFactor: bf
     });
   }
 
-  const globalMetrics = await getGlobalMetrics(pid);
+  return res;
+}
 
-  return { predicates, globalMetrics };
+export async function calcProcGlobalMetrics(pid: string): Promise<GlobalMetrics> {
+  const globalMetrics = await getGlobalMetrics(pid);
+  log.info(`Global metrics for process ${pid}: ${JSON.stringify(globalMetrics)}`);
+  return globalMetrics;
 }
 
 /**
