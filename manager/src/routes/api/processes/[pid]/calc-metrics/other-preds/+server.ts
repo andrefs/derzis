@@ -8,6 +8,7 @@ import type { RequestEvent } from './$types';
 const log = createLogger('api:processes:[pid]:calc-metrics:other-preds');
 
 export const POST = async ({ params, request }: RequestEvent) => {
+  console.log('XXXXXXXXXXx 2.1', params);
   const pid = params.pid;
 
   if (!pid) {
@@ -20,6 +21,7 @@ export const POST = async ({ params, request }: RequestEvent) => {
   } catch (err) {
     throw error(400, { message: 'Invalid JSON body' });
   }
+  console.log('XXXXXXXXXXx 2.2', body);
 
   const predicates: string[] = body.data.predicates || [];
 

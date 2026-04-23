@@ -363,7 +363,7 @@ export type LabelFetchedNotification = BaseProcNotification & {
 export type GlobalMetricsCalculatedNotification = BaseProcNotification & {
   details: {
     stepIndex: number;
-    globalMetrics: GlobalMetrics[];
+    globalMetrics: GlobalMetrics;
   };
   messageType: 'OK_GLOBAL_METRICS_CALCULATED';
 };

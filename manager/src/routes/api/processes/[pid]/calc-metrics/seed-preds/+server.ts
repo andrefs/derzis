@@ -6,6 +6,7 @@ import type { RequestEvent } from './$types';
 const log = createLogger('api:processes:[pid]:calc-metrics:seed-preds');
 
 export const POST = async ({ params, request }: RequestEvent) => {
+  console.log('XXXXXXXXXXx 1.1', params);
   const pid = params.pid;
 
   if (!pid) {
@@ -18,6 +19,7 @@ export const POST = async ({ params, request }: RequestEvent) => {
   } catch (err) {
     throw error(400, { message: 'Invalid JSON body' });
   }
+  console.log('XXXXXXXXXXx 1.2', body);
 
   log.info(
     `Received request to calculate seed predicate metrics for process ${pid} with body: ${JSON.stringify(body)}`
