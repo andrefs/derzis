@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   calcProcMetrics,
+  getSeedPredicates,
   getPredicateCounts,
   getSeedCoverage,
   getBranchingFactor,
@@ -27,6 +28,32 @@ import { Triple } from '../Triple';
 describe('process-metrics', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe('getSeedPredicates', () => {
+    it('should return unique predicate _ids from aggregation', async () => {
+      vi.mocked(Triple.aggregate).mockResolvedValue([
+        { _id: 'http://example.org/predicate1' },
+        { _id: 'http://example.org/predicate2' }
+      ]);
+
+      const result = await getSeedPredicates('test-pid', [
+        'http://example.org/seed1',
+        'http://example.org/seed2'
+      ]);
+
+      expect(result).toHaveLength(2);
+      expect(result).toContain('http://example.org/predicate1');
+      expect(result).toContain('http://example.org/predicate2');
+    });
+
+    it('should return empty array when no matching triples', async () => {
+      vi.mocked(Triple.aggregate).mockResolvedValue([]);
+
+      const result = await getSeedPredicates('test-pid', ['http://example.org/seed1']);
+
+      expect(result).toHaveLength(0);
+    });
   });
 
   describe('getPredicateCounts', () => {

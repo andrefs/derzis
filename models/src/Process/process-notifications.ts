@@ -88,7 +88,7 @@ export async function notifySeedMetricsCalculated(
     pid,
     messageType: 'OK_SEED_METRICS_CALCULATED',
     message: `Process ${pid} has calculated metrics for step ${stepIndex}.`,
-    details: { stepIndex, metrics }
+    details: { stepIndex, seedPredMetrics: metrics }
   };
 
   const notif: ProcessNotification = { ok: true, data };
@@ -328,7 +328,7 @@ export type LabelFetchedNotification = BaseProcNotification & {
 export type SeedMetricsCalculatedNotification = BaseProcNotification & {
   details: {
     stepIndex: number;
-    metrics: SeedPredicateMetrics[];
+    seedPredMetrics: SeedPredicateMetrics[];
   };
   messageType: 'OK_SEED_METRICS_CALCULATED';
 };

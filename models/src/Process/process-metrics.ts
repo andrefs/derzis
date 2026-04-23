@@ -35,7 +35,11 @@ export async function calcProcSeedMetrics(
   seeds: string[]
 ): Promise<SeedPredicateMetrics[]> {
   const sps = await getSeedPredicates(pid, seeds);
+  console.log(`Unique predicates connected to seeds in process ${pid}: ${JSON.stringify(sps)}`);
   const seedPredCounts = await getPredicateCounts(pid, sps);
+  console.log(
+    `Predicate counts for process ${pid} and predicates ${JSON.stringify(sps)}: ${JSON.stringify(seedPredCounts)}`
+  );
   const seedPredMetrics: SeedPredicateMetrics[] = [];
   for (const url of sps) {
     const count = seedPredCounts[url] || 0;
@@ -100,7 +104,7 @@ export async function calcProcMetrics(
  * then looks up the associated process triples to filter by process ID, and finally groups by predicate to get unique values.
  */
 export async function getSeedPredicates(pid: string, seeds: string[]) {
-  const result = await Triple.aggregate<{ predicate: string }>([
+  const result = await Triple.aggregate<{ _id: string }>([
     {
       $match: {
         $or: [
@@ -121,7 +125,7 @@ export async function getSeedPredicates(pid: string, seeds: string[]) {
     { $group: { _id: '$predicate' } }
   ]);
 
-  return result.map((r) => r.predicate);
+  return result.map((r) => r._id);
 }
 
 /**
@@ -164,8 +168,8 @@ export async function getPredicateCounts(
     (acc, curr) => {
       acc[curr._id] = curr.count;
       return acc;
-      // eslint-disable-next-line no-restricted-syntax
     },
+    // eslint-disable-next-line no-restricted-syntax
     {} as { [predicate: string]: number }
   );
 }

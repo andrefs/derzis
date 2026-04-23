@@ -3,7 +3,7 @@ import { createLogger } from '@derzis/common/server';
 import { calcProcSeedMetrics, notifySeedMetricsCalculated, Process } from '@derzis/models';
 import type { RequestEvent } from './$types';
 
-const log = createLogger('api:processes:[pid]:calculate-metrics');
+const log = createLogger('api:processes:[pid]:calculate-seed-metrics');
 
 export const POST = async ({ params, request }: RequestEvent) => {
   const pid = params.pid;
@@ -14,14 +14,20 @@ export const POST = async ({ params, request }: RequestEvent) => {
 
   let body;
   try {
-    body = await request.json();
+    body = (await request.json()) as { ok: boolean; data: { seeds?: string[] } };
   } catch (err) {
     throw error(400, { message: 'Invalid JSON body' });
   }
 
-  const bodyAny = body as Record<string, unknown>;
-  const seeds: string[] = (bodyAny.seeds as string[] | undefined) ?? [];
-  const noSeedCovCalc: boolean = bodyAny.noSeedCovCalc === true;
+  log.info(
+    `Received request to calculate seed metrics for process ${pid} with body: ${JSON.stringify(body)}`
+  );
+  const seeds: string[] = body.data.seeds || [];
+
+  if (!seeds.length) {
+    log.warn(`No seeds provided for process ${pid} when calculating seed metrics`);
+    throw error(400, { message: 'Seeds array is required and cannot be empty' });
+  }
 
   const process = await Process.findOne({ pid });
 
@@ -34,7 +40,7 @@ export const POST = async ({ params, request }: RequestEvent) => {
   const stepIndex = process.steps.length - 1;
 
   log.info(
-    `Calculating seed metrics for process ${pid}, step ${stepIndex}, seeds: ${JSON.stringify(seeds)}, noSeedCovCalc: ${noSeedCovCalc}`
+    `Calculating seed metrics for process ${pid}, step ${stepIndex}, seeds: ${JSON.stringify(seeds)}`
   );
 
   // Fire-and-forget: calculate metrics in background and notify when done
