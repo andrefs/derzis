@@ -188,15 +188,24 @@
                       >Resource Timeout: {domain.warnings.E_RESOURCE_TIMEOUT}</Badge
                     >
                   {/if}
+                  {#if domain.warnings.E_CONNECTION_TIMEOUT > 0}
+                    <Badge color="danger"
+                      >Connection Timeout: {domain.warnings.E_CONNECTION_TIMEOUT}</Badge
+                    >
+                  {/if}
                   {#if domain.warnings.E_DOMAIN_NOT_FOUND > 0}
                     <Badge color="dark"
                       >Domain Not Found: {domain.warnings.E_DOMAIN_NOT_FOUND}</Badge
                     >
                   {/if}
+                  {#if domain.warnings.E_RESOURCE_ISSUE > 0}
+                    <Badge color="warning">Resource Issue: {domain.warnings.E_RESOURCE_ISSUE}</Badge
+                    >
+                  {/if}
                   {#if domain.warnings.E_UNKNOWN > 0}
                     <Badge color="info">Unknown: {domain.warnings.E_UNKNOWN}</Badge>
                   {/if}
-                  {#if domain.warnings.E_ROBOTS_TIMEOUT === 0 && domain.warnings.E_RESOURCE_TIMEOUT === 0 && domain.warnings.E_DOMAIN_NOT_FOUND === 0 && domain.warnings.E_UNKNOWN === 0}
+                  {#if domain.warnings.E_ROBOTS_TIMEOUT === 0 && domain.warnings.E_RESOURCE_TIMEOUT === 0 && domain.warnings.E_CONNECTION_TIMEOUT === 0 && domain.warnings.E_DOMAIN_NOT_FOUND === 0 && domain.warnings.E_RESOURCE_ISSUE === 0 && domain.warnings.E_UNKNOWN === 0}
                     <small class="text-muted">No warnings</small>
                   {/if}
                 </div>

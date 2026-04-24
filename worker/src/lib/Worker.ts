@@ -687,7 +687,8 @@ export class Worker extends EventEmitter {
       return resp;
     }
     const res = await this.handleHttpResponse(resp!.res, redirect, url);
-    return res?.status === 'ok' ? res : handleHttpError(url, res.err);
+    const timeout = config.http.domainCrawl.timeouts || 10 * 1000;
+    return res?.status === 'ok' ? res : handleHttpError(url, res.err, timeout);
   };
 
   /**
@@ -722,7 +723,7 @@ export class Worker extends EventEmitter {
           log.debug(`Retry ${attempt + 1}/${maxRetries} for ${url}: ${err.message}`);
           continue;
         }
-        return handleHttpError(url, err);
+        return handleHttpError(url, err, timeout);
       }
     }
   };

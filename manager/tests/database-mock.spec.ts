@@ -42,7 +42,9 @@ test.describe('Database-Dependent Pages with Mock Data', () => {
       warnings: {
         E_ROBOTS_TIMEOUT: 1,
         E_RESOURCE_TIMEOUT: 0,
+        E_CONNECTION_TIMEOUT: 0,
         E_DOMAIN_NOT_FOUND: 0,
+        E_RESOURCE_ISSUE: 0,
         E_UNKNOWN: 2
       },
       robots: {
@@ -66,7 +68,9 @@ test.describe('Database-Dependent Pages with Mock Data', () => {
       warnings: {
         E_ROBOTS_TIMEOUT: 0,
         E_RESOURCE_TIMEOUT: 2,
+        E_CONNECTION_TIMEOUT: 0,
         E_DOMAIN_NOT_FOUND: 0,
+        E_RESOURCE_ISSUE: 0,
         E_UNKNOWN: 0
       },
       robots: {

@@ -9,9 +9,6 @@ type MonkeyPatchedAxiosRequestConfig = InternalAxiosRequestConfig & {
 
 export default function (logger: MonkeyPatchedLogger) {
   const instance = axios.create({
-    // 10 sec timeout
-    timeout: 10 * 1000,
-
     // keepAlive pools and reuses TCP connections, so it's faster
     httpAgent: new http.Agent({ keepAlive: true }),
     httpsAgent: new https.Agent({ keepAlive: true }),

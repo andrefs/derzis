@@ -31,6 +31,7 @@ const log = createLogger('Domain');
 type DomainErrorType =
   | 'E_ROBOTS_TIMEOUT'
   | 'E_RESOURCE_TIMEOUT'
+  | 'E_CONNECTION_TIMEOUT'
   | 'E_DOMAIN_NOT_FOUND'
   | 'E_RESOURCE_ISSUE'
   | 'E_UNKNOWN';
@@ -39,7 +40,14 @@ class LastWarningClass {
   @prop({
     type: String,
     required: true,
-    enum: ['E_ROBOTS_TIMEOUT', 'E_RESOURCE_TIMEOUT', 'E_DOMAIN_NOT_FOUND', 'E_UNKNOWN']
+    enum: [
+      'E_ROBOTS_TIMEOUT',
+      'E_RESOURCE_TIMEOUT',
+      'E_CONNECTION_TIMEOUT',
+      'E_DOMAIN_NOT_FOUND',
+      'E_RESOURCE_ISSUE',
+      'E_UNKNOWN'
+    ]
   })
   public errType!: DomainErrorType;
 }
@@ -51,7 +59,13 @@ class WarningsClass {
   public E_RESOURCE_TIMEOUT!: number;
 
   @prop({ default: 0, type: Number })
+  public E_CONNECTION_TIMEOUT!: number;
+
+  @prop({ default: 0, type: Number })
   public E_DOMAIN_NOT_FOUND!: number;
+
+  @prop({ default: 0, type: Number })
+  public E_RESOURCE_ISSUE!: number;
 
   @prop({ default: 0, type: Number })
   public E_UNKNOWN!: number;
