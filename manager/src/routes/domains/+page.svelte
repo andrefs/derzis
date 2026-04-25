@@ -1,5 +1,6 @@
 <script lang="ts">
   export let data;
+  import { enhance } from '$app/forms';
   import {
     Row,
     Col,
@@ -12,7 +13,8 @@
     Label,
     Input,
     Button,
-    ButtonGroup
+    ButtonGroup,
+    Tooltip
   } from '@sveltestrap/sveltestrap';
 
   type SortField =
@@ -259,6 +261,24 @@
                   </div>
                 </div>
               {/if}
+
+              <div class="mt-3">
+                <form method="POST" action="?/resetErrors" use:enhance>
+                  <input type="hidden" name="origin" value={domain.origin} />
+                  <Button
+                    type="submit"
+                    id="reset-btn-{domain.origin}"
+                    size="sm"
+                    color="secondary"
+                    outline
+                  >
+                    Reset errors
+                  </Button>
+                  <Tooltip target="reset-btn-{domain.origin}" placement="top">
+                    Reset error status in resources and paths for {domain.origin} domain.
+                  </Tooltip>
+                </form>
+              </div>
             </CardBody>
           </Card>
         </Col>
