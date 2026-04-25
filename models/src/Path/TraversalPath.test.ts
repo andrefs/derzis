@@ -1203,6 +1203,54 @@ describe('TraversalPathClass blank node extension', () => {
   });
 });
 
+describe('TraversalPathClass.genExtendedPaths ObjectId filter', () => {
+  it('excludes triples already in path even when ObjectId instances differ', async () => {
+    const path = new TraversalPathClass();
+    path.processId = 'test-pid';
+    path.seed = { url: 'http://seed.example.com' };
+    path.head = {
+      type: 'url',
+      url: 'http://head.example.com',
+      status: 'unvisited',
+      domain: { origin: 'http://head.example.com', isUnvisited: true }
+    } as Head;
+    path.nodes = { count: 1, elems: ['http://head.example.com'] };
+    path.predicates = { count: 0, elems: [] };
+
+    // Use a real ObjectId in path.triples
+    const existingId = new Types.ObjectId('507f1f77bcf86cd799439011');
+    path.triples = [existingId];
+
+    // Create a mock triple with a *different* ObjectId instance having the same string value
+    const sameValueId = new Types.ObjectId('507f1f77bcf86cd799439011');
+    const mockTriple = {
+      _id: sameValueId,
+      subject: 'http://head.example.com',
+      predicate: 'http://example.com/p1',
+      object: 'http://newhead.example.com',
+      type: TripleType.NAMED_NODE,
+      directionOk: () => true
+    } as any;
+
+    const process: any = {
+      currentStep: {
+        followDirection: false,
+        predLimitations: [],
+        maxPathLength: 10,
+        maxPathProps: 5
+      },
+      curPredsBranchFactor: () => new Map()
+    };
+
+    // Pass the triple directly (as happens in post-crawl processing)
+    const result = await path.genExtendedPaths(process, [mockTriple]);
+
+    // Should return empty because the triple is already in path.triples
+    expect(result.extendedPaths).toHaveLength(0);
+    expect(result.procTriples).toHaveLength(0);
+  });
+});
+
 describe('countNonBlankNodes', () => {
   it('counts non-blank node IDs', () => {
     const elems = ['http://a.com', '_:b1', 'http://c.com', '_:b2'];

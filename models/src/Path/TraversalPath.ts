@@ -239,7 +239,8 @@ export class TraversalPathClass extends PathClass {
     }
 
     // Exclude triples already used in this path
-    triplesToExtend = triplesToExtend.filter((t) => !this.triples.includes(t._id));
+    const existingTripleIds = new Set(this.triples.map((tid) => tid.toString()));
+    triplesToExtend = triplesToExtend.filter((t) => !existingTripleIds.has(t._id.toString()));
 
     if (!triplesToExtend.length) {
       return { extendedPaths: [], procTriples: [] };

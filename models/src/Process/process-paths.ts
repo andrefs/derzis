@@ -1653,13 +1653,20 @@ async function extendPathsBatch(
   const pathType = convertToEndpoint ? PathType.ENDPOINT : getPathType(process);
   const skipGenExpPaths = convertToEndpoint && headStatus === 'unvisited';
 
+  let batchProcessed = 0;
+  let batchExtended = 0;
+  let batchCreated = 0;
+  let batchDeleted = 0;
+
   for (const path of pathsBatch) {
+    batchProcessed++;
     const result = skipGenExpPaths
       ? { extendedPaths: [], procTriples: [] }
       : await path.genExtendedPaths(process, triples);
 
     log.info(`Path ${path._id} generated ${result.extendedPaths.length} extended paths.`);
     if (result.extendedPaths.length > 0) {
+      batchExtended++;
       let pathsToCreate = result.extendedPaths;
       if (convertToEndpoint) {
         pathsToCreate = convertToEndpointSkeletons(pathsToCreate);
@@ -1667,11 +1674,13 @@ async function extendPathsBatch(
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
       await insertProcDoneRes(process.pid, result.procTriples);
       await createNewPaths(pathsToCreate, pathType);
+      batchCreated += pathsToCreate.length;
       await deleteOldPaths(
         new Set([path._id]),
         convertToEndpoint ? PathType.TRAVERSAL : pathType,
         headStatus
       );
+      batchDeleted++;
       continue;
     }
     // convert paths even if they were not extended (only for done heads, or for unvisited if extension is allowed)
@@ -1683,10 +1692,16 @@ async function extendPathsBatch(
       if (headStatus === 'done' || tp.isExtensionAllowedByPath(currentStep, limsByType)) {
         let pathsToCreate = convertToEndpointSkeletons([path]);
         await createNewPaths(pathsToCreate, PathType.ENDPOINT);
+        batchCreated += pathsToCreate.length;
         await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL, headStatus);
+        batchDeleted++;
       }
     }
   }
+
+  log.info(
+    `extendPathsBatch summary for process ${process.pid}: processed ${batchProcessed} paths, extended ${batchExtended}, created ${batchCreated} new paths, deleted ${batchDeleted} old paths (net change: +${batchCreated - batchDeleted})`
+  );
 }
 
 /**
@@ -1757,8 +1772,16 @@ export async function extendPaths({
 
   const batchSize = 100;
   let totalProcessed = 0;
+  let totalCreated = 0;
+  let totalDeleted = 0;
   let iteration = 0;
   let needsMoreWork = true;
+
+  if (isFullExtend) {
+    log.info(
+      `Full extend for process ${pid}: headStatus=${headStatus}, maxPathLength=${process.currentStep.maxPathLength}, maxPathProps=${process.currentStep.maxPathProps}, pathExtensionCounter=${process.pathExtensionCounter}`
+    );
+  }
 
   // Create generator outside loop to preserve pagination cursor across iterations
   const pathGen = triples
@@ -1809,6 +1832,8 @@ export async function extendPaths({
       break;
     }
 
+    // We cannot easily track per-batch created/deleted counts without modifying extendPathsBatch signature.
+    // For now we rely on the per-batch log from extendPathsBatch and the overall summary here.
     await extendPathsBatch(process, pathsToProcess, triples, convertToEndpoint, headStatus);
     totalProcessed += pathsToProcess.length;
 
@@ -1822,7 +1847,7 @@ export async function extendPaths({
   }
 
   log.info(
-    `extendPaths complete for process ${pid}: processed ${totalProcessed} paths in ${iteration} iterations`
+    `extendPaths complete for process ${pid}: processed ${totalProcessed} paths in ${iteration} iterations. Per-batch details logged above.`
   );
 }
 
