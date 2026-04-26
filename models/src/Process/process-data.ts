@@ -608,3 +608,46 @@ export async function getDistinctPathHeadsRemaining(process: ProcessClass): Prom
     return await EndpointPath.distinct('head.url', stepQuery as any).then((arr) => arr.length);
   }
 }
+
+export interface ExtendingProgress {
+  total: number;
+  remaining: number;
+  extended: number;
+  percentage: number;
+}
+
+export async function getExtendingProgress(process: ProcessClass): Promise<ExtendingProgress> {
+  const pathType = process.curPathType ?? PathType.TRAVERSAL;
+  const pathExtCounter = process.pathExtensionCounter ?? 1;
+
+  const baseQuery = {
+    processId: process.pid,
+    status: 'active',
+    type: pathType,
+    'head.status': 'done'
+  };
+
+  if (pathType === PathType.TRAVERSAL) {
+    const total = await TraversalPath.countDocuments(baseQuery as any);
+    const remaining = await TraversalPath.countDocuments({
+      ...baseQuery,
+      extensionCounter: { $lt: pathExtCounter }
+    } as any);
+
+    const extended = total - remaining;
+    const percentage = total > 0 ? (extended / total) * 100 : 0;
+
+    return { total, remaining, extended, percentage };
+  } else {
+    const total = await EndpointPath.countDocuments(baseQuery as any);
+    const remaining = await EndpointPath.countDocuments({
+      ...baseQuery,
+      extensionCounter: { $lt: pathExtCounter }
+    } as any);
+
+    const extended = total - remaining;
+    const percentage = total > 0 ? (extended / total) * 100 : 0;
+
+    return { total, remaining, extended, percentage };
+  }
+}
