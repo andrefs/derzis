@@ -487,7 +487,37 @@ class ProcessClass extends Document {
     );
     log.info(`Queued process ${pid} for next step`);
     log.info(`Process ${process.pid} is starting with seeds:`, process.currentStep.seeds);
-    await Resource.insertSeeds(process.currentStep.seeds, process.pid);
+
+    let seedsToInsert = process.currentStep.seeds;
+    if (process.curPathType === PathType.TRAVERSAL) {
+      // For TraversalPath, check for actual seed paths (where seed.url == head.url)
+      // Extended paths may have the same head.url but a different seed
+      const existingPaths = await TraversalPath.find({
+        processId: pid,
+        'head.type': HEAD_TYPE.URL,
+        'head.url': { $in: process.currentStep.seeds },
+        $expr: { $eq: ['$head.url', '$seed.url'] }
+      })
+        .select('head.url')
+        .lean();
+      const existingSeedUrls = new Set(existingPaths.map((p) => (p.head as UrlHead).url));
+      seedsToInsert = process.currentStep.seeds.filter((s) => !existingSeedUrls.has(s));
+    } else {
+      const existingPaths = await EndpointPath.find({
+        processId: pid,
+        'head.type': HEAD_TYPE.URL,
+        'head.url': { $in: process.currentStep.seeds }
+      })
+        .select('head.url')
+        .lean();
+      const existingSeedUrls = new Set(existingPaths.map((p) => (p.head as UrlHead).url));
+      seedsToInsert = process.currentStep.seeds.filter((s) => !existingSeedUrls.has(s));
+    }
+
+    if (seedsToInsert.length) {
+      await Resource.insertSeeds(seedsToInsert, process.pid);
+    }
+
     await process.notifyStart();
     return true;
   }

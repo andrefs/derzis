@@ -28,16 +28,10 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
   const uniqueSeedsSet = new Set(seedsInput);
   const uniqueSeeds = [...uniqueSeedsSet];
 
-  const existingResources = await Resource.find({ url: { $in: uniqueSeeds } })
-    .select('url')
-    .lean();
-  const existingUrls = new Set(existingResources.map((r) => r.url));
-
-  const newSeeds = uniqueSeeds.filter((s) => !existingUrls.has(s));
-  p.currentStep!.seeds = newSeeds;
+  p.currentStep!.seeds = uniqueSeeds;
 
   const pathHeads: Map<string, number> = new Map();
-  for (const s of newSeeds) {
+  for (const s of uniqueSeeds) {
     const domain = new URL(s).origin;
     if (!pathHeads.get(domain)) {
       pathHeads.set(domain, 0);
@@ -88,12 +82,7 @@ export async function addStep(
   const uniqueInputSeedsSet = new Set(inputSeeds);
   const uniqueInputSeeds = [...uniqueInputSeedsSet];
 
-  const existingResources = await Resource.find({ url: { $in: uniqueInputSeeds } })
-    .select('url')
-    .lean();
-  const existingUrls = new Set(existingResources.map((r) => r.url));
-
-  const newSeeds = uniqueInputSeeds.filter((s) => !allPreviousSeeds.has(s) && !existingUrls.has(s));
+  const newSeeds = uniqueInputSeeds.filter((s) => !allPreviousSeeds.has(s));
   const newMPL = Math.max(p.currentStep.maxPathLength, params.maxPathLength);
   const newMPP = Math.max(p.currentStep.maxPathProps, params.maxPathProps);
 
@@ -109,12 +98,6 @@ export async function addStep(
   };
 
   try {
-    // Insert new seeds
-    if (newSeeds.length) {
-      await Resource.insertSeeds(newSeeds, pid);
-      log.info(`Inserted seeds for process ${pid}`);
-    }
-
     // Add the new step
     await Process.updateOne(
       { pid, status: 'done' },
