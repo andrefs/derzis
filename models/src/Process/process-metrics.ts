@@ -109,12 +109,20 @@ export async function getSeedPredicates(pid: string, seeds: string[]) {
     {
       $lookup: {
         from: 'processTriples',
-        localField: '_id',
-        foreignField: 'triple',
+        let: { tripleId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [{ $eq: ['$triple', '$$tripleId'] }, { $eq: ['$processId', pid] }]
+              }
+            }
+          }
+        ],
         as: 'ptData'
       }
     },
-    { $match: { 'ptData.processId': pid } },
+    { $match: { 'ptData.0': { $exists: true } } },
     { $group: { _id: '$predicate' } }
   ]);
 
@@ -194,12 +202,20 @@ export async function getSeedCoverage(
     {
       $lookup: {
         from: 'processTriples',
-        localField: '_id',
-        foreignField: 'triple',
+        let: { tripleId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [{ $eq: ['$triple', '$$tripleId'] }, { $eq: ['$processId', pid] }]
+              }
+            }
+          }
+        ],
         as: 'ptData'
       }
     },
-    { $match: { 'ptData.processId': pid } },
+    { $match: { 'ptData.0': { $exists: true } } },
     { $group: { _id: `$${fieldFilter}` } },
     { $count: 'coverage' }
   ]);
