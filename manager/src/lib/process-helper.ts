@@ -83,8 +83,8 @@ export async function addStep(
   const uniqueInputSeeds = [...uniqueInputSeedsSet];
 
   const newSeeds = uniqueInputSeeds.filter((s) => !allPreviousSeeds.has(s));
-  const newMPL = Math.max(p.currentStep.maxPathLength, params.maxPathLength);
-  const newMPP = Math.max(p.currentStep.maxPathProps, params.maxPathProps);
+  const newMPL = params.maxPathLength;
+  const newMPP = params.maxPathProps;
 
   const newStep = {
     seeds: [...allPreviousSeeds, ...newSeeds],
