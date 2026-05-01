@@ -1,5 +1,6 @@
 import { Triple } from '../Triple';
 import { ProcessTriple } from '../ProcessTriple';
+import { TraversalPath, EndpointPath } from '../Path';
 import { createLogger } from '@derzis/common';
 import type { PipelineStage } from 'mongoose';
 const log = createLogger('models:process-metrics');
@@ -26,6 +27,7 @@ export interface GlobalMetrics {
   totalObjects: number;
   totalTriples: number;
   totalResources: number;
+  totalPaths: number;
 }
 
 export interface ProcessMetrics {
@@ -250,58 +252,62 @@ export async function getBranchingFactor(
 }
 
 export async function getGlobalMetrics(pid: string): Promise<GlobalMetrics> {
-  const [triplesResult, subjectsResult, objectsResult, resourcesResult] = await Promise.all([
-    ProcessTriple.countDocuments({ processId: pid }),
-    ProcessTriple.aggregate<{ totalSubjects: number }>([
-      { $match: { processId: pid } },
-      {
-        $lookup: {
-          from: 'triples',
-          localField: 'triple',
-          foreignField: '_id',
-          as: 'tripleData'
-        }
-      },
-      { $unwind: '$tripleData' },
-      { $group: { _id: '$tripleData.subject' } },
-      { $count: 'totalSubjects' }
-    ]),
-    ProcessTriple.aggregate<{ totalObjects: number }>([
-      { $match: { processId: pid } },
-      {
-        $lookup: {
-          from: 'triples',
-          localField: 'triple',
-          foreignField: '_id',
-          as: 'tripleData'
-        }
-      },
-      { $unwind: '$tripleData' },
-      { $group: { _id: '$tripleData.object' } },
-      { $count: 'totalObjects' }
-    ]),
-    ProcessTriple.aggregate<{ totalResources: number }>([
-      { $match: { processId: pid } },
-      {
-        $lookup: {
-          from: 'triples',
-          localField: 'triple',
-          foreignField: '_id',
-          as: 'tripleData'
-        }
-      },
-      { $unwind: '$tripleData' },
-      { $project: { node: ['$tripleData.subject', '$tripleData.object'] } },
-      { $unwind: '$node' },
-      { $group: { _id: '$node' } },
-      { $count: 'totalResources' }
-    ])
-  ]);
+  const [triplesResult, subjectsResult, objectsResult, resourcesResult, totalPaths, endpointPaths] =
+    await Promise.all([
+      ProcessTriple.countDocuments({ processId: pid }),
+      ProcessTriple.aggregate<{ totalSubjects: number }>([
+        { $match: { processId: pid } },
+        {
+          $lookup: {
+            from: 'triples',
+            localField: 'triple',
+            foreignField: '_id',
+            as: 'tripleData'
+          }
+        },
+        { $unwind: '$tripleData' },
+        { $group: { _id: '$tripleData.subject' } },
+        { $count: 'totalSubjects' }
+      ]),
+      ProcessTriple.aggregate<{ totalObjects: number }>([
+        { $match: { processId: pid } },
+        {
+          $lookup: {
+            from: 'triples',
+            localField: 'triple',
+            foreignField: '_id',
+            as: 'tripleData'
+          }
+        },
+        { $unwind: '$tripleData' },
+        { $group: { _id: '$tripleData.object' } },
+        { $count: 'totalObjects' }
+      ]),
+      ProcessTriple.aggregate<{ totalResources: number }>([
+        { $match: { processId: pid } },
+        {
+          $lookup: {
+            from: 'triples',
+            localField: 'triple',
+            foreignField: '_id',
+            as: 'tripleData'
+          }
+        },
+        { $unwind: '$tripleData' },
+        { $project: { node: ['$tripleData.subject', '$tripleData.object'] } },
+        { $unwind: '$node' },
+        { $group: { _id: '$node' } },
+        { $count: 'totalResources' }
+      ]),
+      TraversalPath.countDocuments({ processId: pid }),
+      EndpointPath.countDocuments({ processId: pid })
+    ]);
 
   return {
     totalTriples: triplesResult,
     totalSubjects: subjectsResult[0]?.totalSubjects || 0,
     totalObjects: objectsResult[0]?.totalObjects || 0,
-    totalResources: resourcesResult[0]?.totalResources || 0
+    totalResources: resourcesResult[0]?.totalResources || 0,
+    totalPaths: totalPaths + endpointPaths
   };
 }
