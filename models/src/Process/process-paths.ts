@@ -801,24 +801,45 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   };
 
   // Extract constraints by type
-  const requirePast: string[] = [];
+  const requireAllPast: string[] = [];
+  const requireOnePast: string[] = [];
   const disallowPast: string[] = [];
   const requireFuture: string[] = [];
   const disallowFuture: string[] = [];
 
   for (const pl of predLimitations) {
-    if (pl.lims.includes('require-past')) requirePast.push(pl.predicate);
+    if (pl.lims.includes('require-all-past')) requireAllPast.push(pl.predicate);
+    if (pl.lims.includes('require-one-past')) requireOnePast.push(pl.predicate);
     if (pl.lims.includes('disallow-past')) disallowPast.push(pl.predicate);
     if (pl.lims.includes('require-future')) requireFuture.push(pl.predicate);
     if (pl.lims.includes('disallow-future')) disallowFuture.push(pl.predicate);
+  }
+
+  // Build past constraint filters
+  const pastFilters: object[] = [];
+
+  if (requireAllPast.length === 1) {
+    pastFilters.push({ 'predicates.elems': requireAllPast[0] });
+  } else if (requireAllPast.length > 1) {
+    pastFilters.push({ 'predicates.elems': { $all: requireAllPast } });
+  }
+
+  if (requireOnePast.length === 1) {
+    pastFilters.push({ 'predicates.elems': requireOnePast[0] });
+  } else if (requireOnePast.length > 1) {
+    pastFilters.push({ 'predicates.elems': { $in: requireOnePast } });
+  }
+
+  if (disallowPast.length === 1) {
+    pastFilters.push({ 'predicates.elems': { $ne: disallowPast[0] } });
+  } else if (disallowPast.length > 1) {
+    pastFilters.push({ 'predicates.elems': { $nin: disallowPast } });
   }
 
   // For full paths, apply require-future and disallow-future constraints
   const hasFutureConstraints = requireFuture.length > 0 || disallowFuture.length > 0;
 
   if (hasFutureConstraints) {
-    // If require-future exists, it takes precedence (already restricts to those predicates)
-    // Otherwise use disallow-future if it exists
     let fullPathFilter: object;
     if (requireFuture.length > 0) {
       fullPathFilter = {
@@ -830,36 +851,27 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
       };
     }
 
-    query.$or = [
-      { 'predicates.count': { $lt: maxPathProps } },
-      {
-        'predicates.count': maxPathProps,
-        ...fullPathFilter
-      }
-    ];
-  }
+    const futureConstraint = {
+      $or: [
+        { 'predicates.count': { $lt: maxPathProps } },
+        {
+          'predicates.count': maxPathProps,
+          ...fullPathFilter
+        }
+      ]
+    };
 
-  // Past constraints apply regardless of fullness
-  if (requirePast.length > 0 && disallowPast.length > 0) {
-    // Both require-past and disallow-past: need $and to combine
-    // require-past: every path predicate must be in requirePast (setIsSubset: path ⊆ requirePast)
-    const disallowFilter =
-      disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
-
-    query.$and = [
-      { $expr: { $setIsSubset: ['$predicates.elems', requirePast] } },
-      { 'predicates.elems': disallowFilter }
-    ];
-  } else if (requirePast.length > 0) {
-    // require-past: every path predicate must be in requirePast (setIsSubset: path ⊆ requirePast)
-    if (requirePast.length === 1) {
-      query['predicates.elems'] = requirePast[0];
+    if (pastFilters.length > 0) {
+      query.$and = [futureConstraint, ...pastFilters];
     } else {
-      query.$expr = { $setIsSubset: ['$predicates.elems', requirePast] };
+      query.$or = futureConstraint.$or;
     }
-  } else if (disallowPast.length > 0) {
-    query['predicates.elems'] =
-      disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
+  } else if (pastFilters.length > 0) {
+    if (pastFilters.length === 1) {
+      Object.assign(query, pastFilters[0]);
+    } else {
+      query.$and = pastFilters;
+    }
   }
 
   return query;

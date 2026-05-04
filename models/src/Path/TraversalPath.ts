@@ -490,12 +490,18 @@ export class TraversalPathClass extends PathClass {
       return false;
     }
 
-    if (limsByType['require-past']) {
-      for (const p of this.predicates.elems) {
-        if (!matchesOne(p, limsByType['require-past'])) {
+    if (limsByType['require-all-past']) {
+      for (const pattern of limsByType['require-all-past']) {
+        if (!matchesAny(this.predicates.elems, [pattern])) {
           return false;
         }
       }
+    }
+    if (
+      limsByType['require-one-past'] &&
+      !matchesAny(this.predicates.elems, limsByType['require-one-past'])
+    ) {
+      return false;
     }
     if (
       limsByType['disallow-past'] &&

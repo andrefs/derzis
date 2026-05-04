@@ -47,7 +47,8 @@ export class PredicateLimitationClass {
 
 export type PredicateLimitationType =
   | 'disallow-past'
-  | 'require-past'
+  | 'require-all-past'
+  | 'require-one-past'
   | 'disallow-future'
   | 'require-future';
 
@@ -59,7 +60,13 @@ export class PredLimitation {
     {
       required: true,
       type: String,
-      enum: ['disallow-past', 'require-past', 'disallow-future', 'require-future'],
+      enum: [
+        'disallow-past',
+        'require-all-past',
+        'require-one-past',
+        'disallow-future',
+        'require-future'
+      ],
       default: []
     },
     PropType.ARRAY

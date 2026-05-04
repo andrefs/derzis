@@ -451,27 +451,27 @@ describe('genTraversalPathQuery', () => {
     });
   });
 
-  describe('require-past semantics', () => {
-    it('require-past with multiple predicates uses $expr setIsSubset', () => {
+  describe('require-all-past semantics', () => {
+    it('require-all-past with multiple predicates uses $all', () => {
       const process = createMockProcess({
         maxPathProps: 3,
         predLimitations: [
-          { predicate: 'http://p1.org', lims: ['require-past'] as const },
-          { predicate: 'http://p2.org', lims: ['require-past'] as const }
+          { predicate: 'http://p1.org', lims: ['require-all-past'] as const },
+          { predicate: 'http://p2.org', lims: ['require-all-past'] as const }
         ]
       });
 
       const query = genTraversalPathQuery(process);
 
-      expect(query.$expr).toEqual({
-        $setIsSubset: ['$predicates.elems', ['http://p1.org', 'http://p2.org']]
+      expect(query['predicates.elems']).toEqual({
+        $all: ['http://p1.org', 'http://p2.org']
       });
     });
 
-    it('require-past with single predicate uses direct value', () => {
+    it('require-all-past with single predicate uses direct value', () => {
       const process = createMockProcess({
         maxPathProps: 2,
-        predLimitations: [{ predicate: 'http://only.org', lims: ['require-past'] as const }]
+        predLimitations: [{ predicate: 'http://only.org', lims: ['require-all-past'] as const }]
       });
 
       const query = genTraversalPathQuery(process);
@@ -479,12 +479,12 @@ describe('genTraversalPathQuery', () => {
       expect(query['predicates.elems']).toEqual('http://only.org');
     });
 
-    it('require-past and disallow-past with multiple require-past uses $expr setIsSubset in $and', () => {
+    it('require-all-past and disallow-past uses $and to combine', () => {
       const process = createMockProcess({
         maxPathProps: 2,
         predLimitations: [
-          { predicate: 'http://p1.org', lims: ['require-past'] as const },
-          { predicate: 'http://p2.org', lims: ['require-past'] as const },
+          { predicate: 'http://p1.org', lims: ['require-all-past'] as const },
+          { predicate: 'http://p2.org', lims: ['require-all-past'] as const },
           { predicate: 'http://blocked.org', lims: ['disallow-past'] as const },
           { predicate: 'http://blocked2.org', lims: ['disallow-past'] as const }
         ]
@@ -495,11 +495,40 @@ describe('genTraversalPathQuery', () => {
       expect(query.$and).toBeDefined();
       expect(query.$and).toHaveLength(2);
       expect(query.$and[0]).toEqual({
-        $expr: { $setIsSubset: ['$predicates.elems', ['http://p1.org', 'http://p2.org']] }
+        'predicates.elems': { $all: ['http://p1.org', 'http://p2.org'] }
       });
       expect(query.$and[1]).toEqual({
         'predicates.elems': { $nin: ['http://blocked.org', 'http://blocked2.org'] }
       });
+    });
+  });
+
+  describe('require-one-past semantics', () => {
+    it('require-one-past with multiple predicates uses $in', () => {
+      const process = createMockProcess({
+        maxPathProps: 3,
+        predLimitations: [
+          { predicate: 'http://p1.org', lims: ['require-one-past'] as const },
+          { predicate: 'http://p2.org', lims: ['require-one-past'] as const }
+        ]
+      });
+
+      const query = genTraversalPathQuery(process);
+
+      expect(query['predicates.elems']).toEqual({
+        $in: ['http://p1.org', 'http://p2.org']
+      });
+    });
+
+    it('require-one-past with single predicate uses direct value', () => {
+      const process = createMockProcess({
+        maxPathProps: 2,
+        predLimitations: [{ predicate: 'http://only.org', lims: ['require-one-past'] as const }]
+      });
+
+      const query = genTraversalPathQuery(process);
+
+      expect(query['predicates.elems']).toEqual('http://only.org');
     });
   });
 });
@@ -512,7 +541,7 @@ describe('buildStepPathQuery', () => {
         maxPathLength: 6,
         maxPathProps: 2,
         predLimitations: [
-          { predicate: 'http://purl.org/dc/terms/subject', lims: ['require-past'] },
+          { predicate: 'http://purl.org/dc/terms/subject', lims: ['require-all-past'] },
           { predicate: 'http://dbpedia.org/ontology/wikiPageWikiLink', lims: ['disallow-past'] }
         ]
       },
@@ -531,12 +560,12 @@ describe('buildStepPathQuery', () => {
     expect(query['head.status']).toBe('unvisited');
     expect(query['nodes.count']).toEqual({ $lt: 6 });
     expect(query['predicates.count']).toEqual({ $lte: 2 });
-    // With both require-past and disallow-past, we use $and to combine the filters
+    // With both require-all-past and disallow-past, we use $and to combine the filters
     expect(query.$and).toBeDefined();
     expect(query.$and).toHaveLength(2);
-    // First condition: require-past uses $expr setIsSubset (path ⊆ requirePast)
+    // First condition: require-all-past (single element, so direct value)
     expect(query.$and[0]).toEqual({
-      $expr: { $setIsSubset: ['$predicates.elems', ['http://purl.org/dc/terms/subject']] }
+      'predicates.elems': 'http://purl.org/dc/terms/subject'
     });
     // Second condition: disallow-past (single element, so $ne)
     expect(query.$and[1]).toEqual({

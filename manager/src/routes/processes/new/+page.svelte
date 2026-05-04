@@ -215,7 +215,8 @@
                       <Col sm={3}>
                         <Input type="select" bind:value={pl.past}>
                           <option value="">Past: (none)</option>
-                          <option value="require">Past: Require</option>
+                          <option value="require-all">Past: Require all</option>
+                          <option value="require-one">Past: Require one</option>
                           <option value="disallow">Past: Disallow</option>
                         </Input>
                       </Col>
