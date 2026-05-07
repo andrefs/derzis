@@ -5,7 +5,7 @@ import { calcPredMetrics } from '@derzis/models';
 import { notifyPredMetricsCalculated } from '@derzis/models';
 import type { RequestEvent } from './$types';
 
-const log = createLogger('api:processes:[pid]:calc-metrics:other-preds');
+const log = createLogger('api:processes:[pid]:calc-metrics:seedhop-preds');
 
 export const POST = async ({ params, request }: RequestEvent) => {
   console.log('XXXXXXXXXXx 2.1', params);
