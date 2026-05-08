@@ -136,7 +136,8 @@ export async function notifySeedPredMetricsCalculated(
 export async function notifyPredMetricsCalculated(
   pid: string,
   metrics: PredicateMetrics[],
-  stepIndex: number
+  stepIndex: number,
+  messageType: 'OK_ADJ_PRED_METRICS_CALCULATED' | 'OK_OTHER_PRED_METRICS_CALCULATED'
 ) {
   const process = await Process.findOne({ pid });
   if (!process) {
@@ -146,7 +147,7 @@ export async function notifyPredMetricsCalculated(
 
   const data: PredMetricsCalculatedNotification = {
     pid,
-    messageType: 'OK_PRED_METRICS_CALCULATED',
+    messageType,
     message: `Process ${pid} has calculated predicate metrics for step ${stepIndex}.`,
     details: { stepIndex, metrics }
   };
@@ -381,7 +382,7 @@ export type PredMetricsCalculatedNotification = BaseProcNotification & {
     stepIndex: number;
     metrics: PredicateMetrics[];
   };
-  messageType: 'OK_PRED_METRICS_CALCULATED';
+  messageType: 'OK_ADJ_PRED_METRICS_CALCULATED' | 'OK_OTHER_PRED_METRICS_CALCULATED';
 };
 
 type ProcessNotification = {
