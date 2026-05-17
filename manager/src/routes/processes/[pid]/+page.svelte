@@ -10,7 +10,7 @@
   let progress: {
     step: number;
     phase: 'crawling' | 'extending';
-    paths?: { remaining: number; distinctHeads: number };
+    paths?: { remaining: number; distinctHeads: number; eta?: number };
     rate?: number;
     extending?: { total: number; remaining: number; extended: number; percentage: number };
   } | null = null;
@@ -18,6 +18,16 @@
   let eventSource: EventSource | null = null;
 
   $: isRunning = data.proc.status === 'running' || data.proc.status === 'extending';
+
+  function formatEta(minutes: number | undefined): string {
+    if (minutes == null || minutes === 0) return '...';
+    const totalSeconds = Math.round(minutes * 60);
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    if (h === 0) return `${m} min`;
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  }
 
   onMount(() => {
     if (!isRunning) return;
@@ -138,9 +148,9 @@
         {progress.extending.remaining.toLocaleString()} remaining
       {:else}
         <strong>Step {progress.step}:</strong>
-        {progress.paths?.remaining.toLocaleString()} paths remaining |
-        {progress.paths?.distinctHeads.toLocaleString()} distinct path heads remaining |
-        {progress.rate?.toFixed(1)} resources/min
+        {progress.paths?.remaining.toLocaleString()} paths |
+        {progress.paths?.distinctHeads.toLocaleString()} distinct heads |
+        {progress.rate?.toFixed(1)} res/min | ~{formatEta(progress.paths?.eta)} left
       {/if}
     </div>
   </Alert>

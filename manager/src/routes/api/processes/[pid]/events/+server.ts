@@ -65,7 +65,8 @@ export async function GET({ params }: RequestEvent) {
                   pathProgress.remaining.unvisited +
                   pathProgress.remaining.crawling +
                   pathProgress.remaining.checking,
-                distinctHeads
+                distinctHeads,
+                eta: crawlRate > 0 ? distinctHeads / crawlRate : 0
               },
               rate: crawlRate
             };
