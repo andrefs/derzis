@@ -36,7 +36,8 @@ export const matchesAny = (str: string[], patterns: string[]) => {
 import { PredLimitation } from './aux-classes';
 
 export interface LimsByType {
-  'require-past'?: string[];
+  'require-all-past'?: string[];
+  'require-one-past'?: string[];
   'disallow-past'?: string[];
   'require-future'?: string[];
   'disallow-future'?: string[];

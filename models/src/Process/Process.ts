@@ -441,29 +441,29 @@ class ProcessClass extends Document {
 
     // Before queuing, extend existing paths according to new step limits
     const convertToEndpoint = process.currentStep.convertToEndpointPaths;
-    log.debug(
-      `XXXXX Before extendPaths(done): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+    log.info(
+      `Before extendPaths(done): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })} (old paths will be deleted when extended)`
     );
     await extendPaths({ pid: process.pid, convertToEndpoint, headStatus: 'done' });
-    log.debug(
-      `XXXXX After extendPaths(done): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+    log.info(
+      `After extendPaths(done): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
     );
 
     // Convert remaining traversal paths with unvisited heads if flag is set
     if (convertToEndpoint) {
-      log.debug(
-        `XXXXX Before extendPaths(unvisited): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      log.info(
+        `Before extendPaths(unvisited): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
       );
       await extendPaths({ pid: process.pid, convertToEndpoint, headStatus: 'unvisited' });
-      log.debug(
-        `XXXXX After extendPaths(unvisited): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      log.info(
+        `After extendPaths(unvisited): active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
       );
-      log.debug(
-        `XXXXX Before deleteRemainingTraversalPaths: active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      log.info(
+        `Before deleteRemainingTraversalPaths: active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
       );
       const remainingDeleted = await deleteRemainingTraversalPaths(pid);
-      log.debug(
-        `XXXXX After deleteRemainingTraversalPaths: active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
+      log.info(
+        `After deleteRemainingTraversalPaths: active traversal=${await TraversalPath.countDocuments({ processId: pid, status: 'active' })}, endpoint=${await EndpointPath.countDocuments({ processId: pid, status: 'active' })}`
       );
       if (remainingDeleted > 0) {
         log.info(
@@ -487,7 +487,37 @@ class ProcessClass extends Document {
     );
     log.info(`Queued process ${pid} for next step`);
     log.info(`Process ${process.pid} is starting with seeds:`, process.currentStep.seeds);
-    await Resource.insertSeeds(process.currentStep.seeds, process.pid);
+
+    let seedsToInsert = process.currentStep.seeds;
+    if (process.curPathType === PathType.TRAVERSAL) {
+      // For TraversalPath, check for actual seed paths (where seed.url == head.url)
+      // Extended paths may have the same head.url but a different seed
+      const existingPaths = await TraversalPath.find({
+        processId: pid,
+        'head.type': HEAD_TYPE.URL,
+        'head.url': { $in: process.currentStep.seeds },
+        $expr: { $eq: ['$head.url', '$seed.url'] }
+      })
+        .select('head.url')
+        .lean();
+      const existingSeedUrls = new Set(existingPaths.map((p) => (p.head as UrlHead).url));
+      seedsToInsert = process.currentStep.seeds.filter((s) => !existingSeedUrls.has(s));
+    } else {
+      const existingPaths = await EndpointPath.find({
+        processId: pid,
+        'head.type': HEAD_TYPE.URL,
+        'head.url': { $in: process.currentStep.seeds }
+      })
+        .select('head.url')
+        .lean();
+      const existingSeedUrls = new Set(existingPaths.map((p) => (p.head as UrlHead).url));
+      seedsToInsert = process.currentStep.seeds.filter((s) => !existingSeedUrls.has(s));
+    }
+
+    if (seedsToInsert.length) {
+      await Resource.insertSeeds(seedsToInsert, process.pid);
+    }
+
     await process.notifyStart();
     return true;
   }

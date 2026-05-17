@@ -34,9 +34,10 @@ function validatePredLimitations(
   }
 
   for (const [predicate, lims] of predMap) {
-    if (lims.includes('require-past') && lims.includes('disallow-past')) {
+    const pastLims = lims.filter((l) => l.endsWith('-past'));
+    if (pastLims.length > 1) {
       errors.push(
-        `Contradiction for predicate '${predicate}': cannot have both require-past and disallow-past`
+        `Contradiction for predicate '${predicate}': cannot have multiple past limitations (${pastLims.join(', ')})`
       );
     }
     if (lims.includes('require-future') && lims.includes('disallow-future')) {

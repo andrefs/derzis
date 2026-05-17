@@ -1,6 +1,11 @@
 import { error } from '@sveltejs/kit';
 import { Process } from '@derzis/models';
-import { getPathProgress, getCrawlRate, getDistinctPathHeadsRemaining } from '@derzis/models';
+import {
+  getPathProgress,
+  getCrawlRate,
+  getDistinctPathHeadsRemaining,
+  getExtendingProgress
+} from '@derzis/models';
 import type { RequestEvent } from './$types';
 
 const PROGRESS_INTERVAL_MS = 10000;
@@ -37,22 +42,34 @@ export async function GET({ params }: RequestEvent) {
             return;
           }
 
-          const pathProgress = await getPathProgress(latestProcess);
-          const crawlRate = await getCrawlRate(latestProcess, 5);
-          const distinctHeads = await getDistinctPathHeadsRemaining(latestProcess);
+          let event;
+          if (latestProcess.status === 'extending') {
+            const extendingProgress = await getExtendingProgress(latestProcess);
+            event = {
+              type: 'PROGRESS',
+              phase: 'extending',
+              step: latestProcess.steps.length,
+              extending: extendingProgress
+            };
+          } else {
+            const pathProgress = await getPathProgress(latestProcess);
+            const crawlRate = await getCrawlRate(latestProcess, 5);
+            const distinctHeads = await getDistinctPathHeadsRemaining(latestProcess);
 
-          const event = {
-            type: 'PROGRESS',
-            step: latestProcess.steps.length,
-            paths: {
-              remaining:
-                pathProgress.remaining.unvisited +
-                pathProgress.remaining.crawling +
-                pathProgress.remaining.checking,
-              distinctHeads
-            },
-            rate: crawlRate
-          };
+            event = {
+              type: 'PROGRESS',
+              phase: 'crawling',
+              step: latestProcess.steps.length,
+              paths: {
+                remaining:
+                  pathProgress.remaining.unvisited +
+                  pathProgress.remaining.crawling +
+                  pathProgress.remaining.checking,
+                distinctHeads
+              },
+              rate: crawlRate
+            };
+          }
 
           const data = `data: ${JSON.stringify(event)}\n\n`;
           try {

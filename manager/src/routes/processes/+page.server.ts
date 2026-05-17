@@ -31,7 +31,8 @@ function parsePredLimitations(
     if (!predicate) break;
 
     const lims: PredicateLimitationType[] = [];
-    if (past === 'require') lims.push('require-past');
+    if (past === 'require-all') lims.push('require-all-past');
+    if (past === 'require-one') lims.push('require-one-past');
     if (past === 'disallow') lims.push('disallow-past');
     if (future === 'require') lims.push('require-future');
     if (future === 'disallow') lims.push('disallow-future');

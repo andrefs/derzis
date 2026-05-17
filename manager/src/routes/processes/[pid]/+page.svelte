@@ -9,8 +9,10 @@
 
   let progress: {
     step: number;
-    paths: { remaining: number; distinctHeads: number };
-    rate: number;
+    phase: 'crawling' | 'extending';
+    paths?: { remaining: number; distinctHeads: number };
+    rate?: number;
+    extending?: { total: number; remaining: number; extended: number; percentage: number };
   } | null = null;
   let error: string | null = null;
   let eventSource: EventSource | null = null;
@@ -129,10 +131,17 @@
       <span class="visually-hidden">Updating...</span>
     </div>
     <div>
-      <strong>Step {progress.step}:</strong>
-      {progress.paths.remaining} paths remaning |
-      {progress.paths.distinctHeads} distinct path heads remaining |
-      {progress.rate.toFixed(1)} resources/min
+      {#if progress.phase === 'extending' && progress.extending}
+        <strong>Step {progress.step} (extending):</strong>
+        {progress.extending.extended.toLocaleString()} of {progress.extending.total.toLocaleString()}
+        done-head paths extended ({progress.extending.percentage.toFixed(1)}%) |
+        {progress.extending.remaining.toLocaleString()} remaining
+      {:else}
+        <strong>Step {progress.step}:</strong>
+        {progress.paths?.remaining.toLocaleString()} paths remaining |
+        {progress.paths?.distinctHeads.toLocaleString()} distinct path heads remaining |
+        {progress.rate?.toFixed(1)} resources/min
+      {/if}
     </div>
   </Alert>
 {:else if isRunning && error}

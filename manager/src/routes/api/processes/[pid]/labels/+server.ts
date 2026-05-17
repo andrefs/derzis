@@ -77,6 +77,16 @@ export async function POST({ params, request }: RequestEvent) {
 
     const existingDoneLabels = await getLabelDataForUrls(resources);
 
+    // Mark resources that already have labels in triples as 'done'
+    // so the GET endpoint returns them immediately (no need to wait for worker)
+    if (existingDoneLabels.length > 0) {
+      const urlsWithLabels = existingDoneLabels.map((l) => l.url);
+      await ResourceLabel.updateMany(
+        { pid, url: { $in: urlsWithLabels }, status: { $ne: 'done' } },
+        { $set: { status: 'done' } }
+      );
+    }
+
     return json({ ok: true, created: resData.length, labels: existingDoneLabels });
   } catch (e) {
     return json({ ok: false, err: String(e) }, { status: 500 });

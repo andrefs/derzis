@@ -40,6 +40,16 @@
 
     const filteredLimitations = predLimitations.filter((pl) => pl.predicate.trim());
 
+    const predLimitationsPayload = filteredLimitations.map((pl) => {
+      const lims: string[] = [];
+      if (pl.past === 'require-all') lims.push('require-all-past');
+      if (pl.past === 'require-one') lims.push('require-one-past');
+      if (pl.past === 'disallow') lims.push('disallow-past');
+      if (pl.future === 'require') lims.push('require-future');
+      if (pl.future === 'disallow') lims.push('disallow-future');
+      return { predicate: pl.predicate, lims };
+    });
+
     try {
       await fetch(`/api/processes/${data.pid}/add-step`, {
         method: 'POST',
@@ -50,7 +60,7 @@
           maxPathLength,
           maxPathProps,
           newSeeds: ns,
-          predLimitations: filteredLimitations
+          predLimitations: predLimitationsPayload
         })
       });
 
@@ -168,7 +178,8 @@
                     <Col sm={3}>
                       <Input type="select" bind:value={pl.past}>
                         <option value="">Past: (none)</option>
-                        <option value="require">Past: Require</option>
+                        <option value="require-all">Past: Require all</option>
+                        <option value="require-one">Past: Require one</option>
                         <option value="disallow">Past: Disallow</option>
                       </Input>
                     </Col>

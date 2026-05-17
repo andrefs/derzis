@@ -1,5 +1,6 @@
 import {
   ConnectionResetError,
+  ConnectionTimeoutError,
   DomainNotFoundError,
   HttpError,
   MimeTypeError,
@@ -36,7 +37,11 @@ export interface HttpRequestResultOk {
 }
 export type HttpRequestResult = HttpRequestResultOk | HttpRequestResultError;
 
-export const handleHttpError = (url: string, err: any): HttpRequestResultError => {
+export const handleHttpError = (
+  url: string,
+  err: any,
+  timeout?: number
+): HttpRequestResultError => {
   const res = { status: 'not_ok' as const, url };
 
   if (axios.isAxiosError(err)) {
@@ -51,7 +56,13 @@ export const handleHttpError = (url: string, err: any): HttpRequestResultError =
     if (err.code && err.code === 'ECONNABORTED') {
       return {
         ...res,
-        err: new RequestTimeoutError(config.http.robotsCheck.timeouts)
+        err: new RequestTimeoutError(timeout || config.http.robotsCheck.timeouts)
+      };
+    }
+    if (err.code && err.code === 'ETIMEDOUT') {
+      return {
+        ...res,
+        err: new ConnectionTimeoutError()
       };
     }
     if (err.code && err.code === 'ENOTFOUND') {
@@ -110,7 +121,7 @@ export const fetchRobots = async (url: string, axios: AxiosGet) => {
     }))
     .catch((err) => {
       log.warn(`Error fetching robots.txt from ${url}: ${err.message}`);
-      return { ...handleHttpError(url, err), status: 'not_ok' as const };
+      return { ...handleHttpError(url, err, timeout), status: 'not_ok' as const };
     });
   return res;
 };

@@ -994,11 +994,11 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       expect(result?.allowed).toContain('http://both.org');
     });
 
-    it('handles require-past constraint', () => {
+    it('handles require-all-past constraint', () => {
       const path = createMockPath(['http://exists.org']);
-      // require-past is handled in query, not here - but predLimitations with only require-past should return empty filter
+      // require-all-past is handled in query, not here - but predLimitations with only require-all-past should return empty filter
       const result = path.genPredicatesFilter(
-        [createPredLimitation('http://exists.org', ['require-past'])],
+        [createPredLimitation('http://exists.org', ['require-all-past'])],
         false
       );
 
@@ -1018,10 +1018,10 @@ describe('TraversalPathClass.genPredicatesFilter', () => {
       expect(result?.predFilter).toEqual({});
     });
 
-    it('handles combination of require-past and require-future on same predicate', () => {
+    it('handles combination of require-all-past and require-future on same predicate', () => {
       const path = createMockPath(['http://both.org']);
       const result = path.genPredicatesFilter(
-        [createPredLimitation('http://both.org', ['require-past', 'require-future'])],
+        [createPredLimitation('http://both.org', ['require-all-past', 'require-future'])],
         false
       );
 
@@ -1077,46 +1077,105 @@ describe('TraversalPathClass.isExtensionAllowedByPath', () => {
     return pl;
   };
 
-  it('returns true when all path predicates match a require-past pattern', () => {
-    const path = createMockPath(['http://p1.org', 'http://p2.org']);
-    const currentStep = createMockProcess(5, 3);
-    currentStep.predLimitations = [
-      createPredLimitation('http://p1.org', ['require-past']),
-      createPredLimitation('http://p2.org', ['require-past'])
-    ];
-    const limsByType = buildLimsByType(currentStep.predLimitations);
+  describe('require-all-past', () => {
+    it('returns true when all required predicates are present', () => {
+      const path = createMockPath(['http://p1.org', 'http://p2.org']);
+      const currentStep = createMockProcess(5, 3);
+      currentStep.predLimitations = [
+        createPredLimitation('http://p1.org', ['require-all-past']),
+        createPredLimitation('http://p2.org', ['require-all-past'])
+      ];
+      const limsByType = buildLimsByType(currentStep.predLimitations);
 
-    const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+      const result = path.isExtensionAllowedByPath(currentStep, limsByType);
 
-    expect(result).toBe(true);
+      expect(result).toBe(true);
+    });
+
+    it('returns true when all required predicates are present with extra predicates', () => {
+      const path = createMockPath(['http://p1.org', 'http://p2.org', 'http://extra.org']);
+      const currentStep = createMockProcess(5, 3);
+      currentStep.predLimitations = [
+        createPredLimitation('http://p1.org', ['require-all-past']),
+        createPredLimitation('http://p2.org', ['require-all-past'])
+      ];
+      const limsByType = buildLimsByType(currentStep.predLimitations);
+
+      const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+
+      expect(result).toBe(true);
+    });
+
+    it('returns false when a required predicate is missing', () => {
+      const path = createMockPath(['http://p1.org']);
+      const currentStep = createMockProcess(5, 2);
+      currentStep.predLimitations = [
+        createPredLimitation('http://p1.org', ['require-all-past']),
+        createPredLimitation('http://p2.org', ['require-all-past'])
+      ];
+      const limsByType = buildLimsByType(currentStep.predLimitations);
+
+      const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+
+      expect(result).toBe(false);
+    });
   });
 
-  it('returns false when a path predicate does not match any require-past pattern', () => {
-    const path = createMockPath(['http://valid.org', 'http://invalid.org']);
-    const currentStep = createMockProcess(5, 3);
-    currentStep.predLimitations = [createPredLimitation('http://valid.org', ['require-past'])];
-    const limsByType = buildLimsByType(currentStep.predLimitations);
+  describe('require-one-past', () => {
+    it('returns true when at least one required predicate is present', () => {
+      const path = createMockPath(['http://p1.org']);
+      const currentStep = createMockProcess(5, 3);
+      currentStep.predLimitations = [
+        createPredLimitation('http://p1.org', ['require-one-past']),
+        createPredLimitation('http://p2.org', ['require-one-past'])
+      ];
+      const limsByType = buildLimsByType(currentStep.predLimitations);
 
-    const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+      const result = path.isExtensionAllowedByPath(currentStep, limsByType);
 
-    expect(result).toBe(false);
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no required predicate is present', () => {
+      const path = createMockPath(['http://other.org']);
+      const currentStep = createMockProcess(5, 3);
+      currentStep.predLimitations = [
+        createPredLimitation('http://p1.org', ['require-one-past']),
+        createPredLimitation('http://p2.org', ['require-one-past'])
+      ];
+      const limsByType = buildLimsByType(currentStep.predLimitations);
+
+      const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+
+      expect(result).toBe(false);
+    });
   });
 
-  it('returns true when require-past patterns are a superset and all path predicates match', () => {
-    const path = createMockPath(['http://p1.org']);
-    const currentStep = createMockProcess(5, 2);
-    currentStep.predLimitations = [
-      createPredLimitation('http://p1.org', ['require-past']),
-      createPredLimitation('http://p2.org', ['require-past'])
-    ];
-    const limsByType = buildLimsByType(currentStep.predLimitations);
+  describe('disallow-past', () => {
+    it('returns false when a disallowed predicate is present', () => {
+      const path = createMockPath(['http://blocked.org']);
+      const currentStep = createMockProcess(5, 3);
+      currentStep.predLimitations = [createPredLimitation('http://blocked.org', ['disallow-past'])];
+      const limsByType = buildLimsByType(currentStep.predLimitations);
 
-    const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+      const result = path.isExtensionAllowedByPath(currentStep, limsByType);
 
-    expect(result).toBe(true);
+      expect(result).toBe(false);
+    });
+
+    it('returns true when no disallowed predicate is present', () => {
+      const path = createMockPath(['http://allowed.org']);
+      const currentStep = createMockProcess(5, 3);
+      currentStep.predLimitations = [createPredLimitation('http://blocked.org', ['disallow-past'])];
+      const limsByType = buildLimsByType(currentStep.predLimitations);
+
+      const result = path.isExtensionAllowedByPath(currentStep, limsByType);
+
+      expect(result).toBe(true);
+    });
   });
 
-  it('returns true when there is no require-past constraint', () => {
+  it('returns true when there are no past constraints', () => {
     const path = createMockPath(['http://anything.org']);
     const currentStep = createMockProcess(5, 2);
     currentStep.predLimitations = [];
@@ -1200,6 +1259,54 @@ describe('TraversalPathClass blank node extension', () => {
     } finally {
       config.allowBlankNodes = originalAllowBlankNodes;
     }
+  });
+});
+
+describe('TraversalPathClass.genExtendedPaths ObjectId filter', () => {
+  it('excludes triples already in path even when ObjectId instances differ', async () => {
+    const path = new TraversalPathClass();
+    path.processId = 'test-pid';
+    path.seed = { url: 'http://seed.example.com' };
+    path.head = {
+      type: 'url',
+      url: 'http://head.example.com',
+      status: 'unvisited',
+      domain: { origin: 'http://head.example.com', isUnvisited: true }
+    } as Head;
+    path.nodes = { count: 1, elems: ['http://head.example.com'] };
+    path.predicates = { count: 0, elems: [] };
+
+    // Use a real ObjectId in path.triples
+    const existingId = new Types.ObjectId('507f1f77bcf86cd799439011');
+    path.triples = [existingId];
+
+    // Create a mock triple with a *different* ObjectId instance having the same string value
+    const sameValueId = new Types.ObjectId('507f1f77bcf86cd799439011');
+    const mockTriple = {
+      _id: sameValueId,
+      subject: 'http://head.example.com',
+      predicate: 'http://example.com/p1',
+      object: 'http://newhead.example.com',
+      type: TripleType.NAMED_NODE,
+      directionOk: () => true
+    } as any;
+
+    const process: any = {
+      currentStep: {
+        followDirection: false,
+        predLimitations: [],
+        maxPathLength: 10,
+        maxPathProps: 5
+      },
+      curPredsBranchFactor: () => new Map()
+    };
+
+    // Pass the triple directly (as happens in post-crawl processing)
+    const result = await path.genExtendedPaths(process, [mockTriple]);
+
+    // Should return empty because the triple is already in path.triples
+    expect(result.extendedPaths).toHaveLength(0);
+    expect(result.procTriples).toHaveLength(0);
   });
 });
 

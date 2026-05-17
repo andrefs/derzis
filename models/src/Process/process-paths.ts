@@ -801,24 +801,45 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
   };
 
   // Extract constraints by type
-  const requirePast: string[] = [];
+  const requireAllPast: string[] = [];
+  const requireOnePast: string[] = [];
   const disallowPast: string[] = [];
   const requireFuture: string[] = [];
   const disallowFuture: string[] = [];
 
   for (const pl of predLimitations) {
-    if (pl.lims.includes('require-past')) requirePast.push(pl.predicate);
+    if (pl.lims.includes('require-all-past')) requireAllPast.push(pl.predicate);
+    if (pl.lims.includes('require-one-past')) requireOnePast.push(pl.predicate);
     if (pl.lims.includes('disallow-past')) disallowPast.push(pl.predicate);
     if (pl.lims.includes('require-future')) requireFuture.push(pl.predicate);
     if (pl.lims.includes('disallow-future')) disallowFuture.push(pl.predicate);
+  }
+
+  // Build past constraint filters
+  const pastFilters: object[] = [];
+
+  if (requireAllPast.length === 1) {
+    pastFilters.push({ 'predicates.elems': requireAllPast[0] });
+  } else if (requireAllPast.length > 1) {
+    pastFilters.push({ 'predicates.elems': { $all: requireAllPast } });
+  }
+
+  if (requireOnePast.length === 1) {
+    pastFilters.push({ 'predicates.elems': requireOnePast[0] });
+  } else if (requireOnePast.length > 1) {
+    pastFilters.push({ 'predicates.elems': { $in: requireOnePast } });
+  }
+
+  if (disallowPast.length === 1) {
+    pastFilters.push({ 'predicates.elems': { $ne: disallowPast[0] } });
+  } else if (disallowPast.length > 1) {
+    pastFilters.push({ 'predicates.elems': { $nin: disallowPast } });
   }
 
   // For full paths, apply require-future and disallow-future constraints
   const hasFutureConstraints = requireFuture.length > 0 || disallowFuture.length > 0;
 
   if (hasFutureConstraints) {
-    // If require-future exists, it takes precedence (already restricts to those predicates)
-    // Otherwise use disallow-future if it exists
     let fullPathFilter: object;
     if (requireFuture.length > 0) {
       fullPathFilter = {
@@ -830,36 +851,27 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
       };
     }
 
-    query.$or = [
-      { 'predicates.count': { $lt: maxPathProps } },
-      {
-        'predicates.count': maxPathProps,
-        ...fullPathFilter
-      }
-    ];
-  }
+    const futureConstraint = {
+      $or: [
+        { 'predicates.count': { $lt: maxPathProps } },
+        {
+          'predicates.count': maxPathProps,
+          ...fullPathFilter
+        }
+      ]
+    };
 
-  // Past constraints apply regardless of fullness
-  if (requirePast.length > 0 && disallowPast.length > 0) {
-    // Both require-past and disallow-past: need $and to combine
-    // require-past: every path predicate must be in requirePast (setIsSubset: path ⊆ requirePast)
-    const disallowFilter =
-      disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
-
-    query.$and = [
-      { $expr: { $setIsSubset: ['$predicates.elems', requirePast] } },
-      { 'predicates.elems': disallowFilter }
-    ];
-  } else if (requirePast.length > 0) {
-    // require-past: every path predicate must be in requirePast (setIsSubset: path ⊆ requirePast)
-    if (requirePast.length === 1) {
-      query['predicates.elems'] = requirePast[0];
+    if (pastFilters.length > 0) {
+      query.$and = [futureConstraint, ...pastFilters];
     } else {
-      query.$expr = { $setIsSubset: ['$predicates.elems', requirePast] };
+      query.$or = futureConstraint.$or;
     }
-  } else if (disallowPast.length > 0) {
-    query['predicates.elems'] =
-      disallowPast.length === 1 ? { $ne: disallowPast[0] } : { $nin: disallowPast };
+  } else if (pastFilters.length > 0) {
+    if (pastFilters.length === 1) {
+      Object.assign(query, pastFilters[0]);
+    } else {
+      query.$and = pastFilters;
+    }
   }
 
   return query;
@@ -1653,13 +1665,20 @@ async function extendPathsBatch(
   const pathType = convertToEndpoint ? PathType.ENDPOINT : getPathType(process);
   const skipGenExpPaths = convertToEndpoint && headStatus === 'unvisited';
 
+  let batchProcessed = 0;
+  let batchExtended = 0;
+  let batchCreated = 0;
+  let batchDeleted = 0;
+
   for (const path of pathsBatch) {
+    batchProcessed++;
     const result = skipGenExpPaths
       ? { extendedPaths: [], procTriples: [] }
       : await path.genExtendedPaths(process, triples);
 
     log.info(`Path ${path._id} generated ${result.extendedPaths.length} extended paths.`);
     if (result.extendedPaths.length > 0) {
+      batchExtended++;
       let pathsToCreate = result.extendedPaths;
       if (convertToEndpoint) {
         pathsToCreate = convertToEndpointSkeletons(pathsToCreate);
@@ -1667,11 +1686,13 @@ async function extendPathsBatch(
       await insertProcTriples(process.pid, result.procTriples, process.steps.length);
       await insertProcDoneRes(process.pid, result.procTriples);
       await createNewPaths(pathsToCreate, pathType);
+      batchCreated += pathsToCreate.length;
       await deleteOldPaths(
         new Set([path._id]),
         convertToEndpoint ? PathType.TRAVERSAL : pathType,
         headStatus
       );
+      batchDeleted++;
       continue;
     }
     // convert paths even if they were not extended (only for done heads, or for unvisited if extension is allowed)
@@ -1683,10 +1704,16 @@ async function extendPathsBatch(
       if (headStatus === 'done' || tp.isExtensionAllowedByPath(currentStep, limsByType)) {
         let pathsToCreate = convertToEndpointSkeletons([path]);
         await createNewPaths(pathsToCreate, PathType.ENDPOINT);
+        batchCreated += pathsToCreate.length;
         await deleteOldPaths(new Set([path._id]), PathType.TRAVERSAL, headStatus);
+        batchDeleted++;
       }
     }
   }
+
+  log.info(
+    `extendPathsBatch summary for process ${process.pid}: processed ${batchProcessed} paths, extended ${batchExtended}, created ${batchCreated} new paths, deleted ${batchDeleted} old paths (net change: +${batchCreated - batchDeleted})`
+  );
 }
 
 /**
@@ -1757,8 +1784,16 @@ export async function extendPaths({
 
   const batchSize = 100;
   let totalProcessed = 0;
+  let totalCreated = 0;
+  let totalDeleted = 0;
   let iteration = 0;
   let needsMoreWork = true;
+
+  if (isFullExtend) {
+    log.info(
+      `Full extend for process ${pid}: headStatus=${headStatus}, maxPathLength=${process.currentStep.maxPathLength}, maxPathProps=${process.currentStep.maxPathProps}, pathExtensionCounter=${process.pathExtensionCounter}`
+    );
+  }
 
   // Create generator outside loop to preserve pagination cursor across iterations
   const pathGen = triples
@@ -1809,6 +1844,8 @@ export async function extendPaths({
       break;
     }
 
+    // We cannot easily track per-batch created/deleted counts without modifying extendPathsBatch signature.
+    // For now we rely on the per-batch log from extendPathsBatch and the overall summary here.
     await extendPathsBatch(process, pathsToProcess, triples, convertToEndpoint, headStatus);
     totalProcessed += pathsToProcess.length;
 
@@ -1822,7 +1859,7 @@ export async function extendPaths({
   }
 
   log.info(
-    `extendPaths complete for process ${pid}: processed ${totalProcessed} paths in ${iteration} iterations`
+    `extendPaths complete for process ${pid}: processed ${totalProcessed} paths in ${iteration} iterations. Per-batch details logged above.`
   );
 }
 

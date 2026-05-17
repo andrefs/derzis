@@ -4,6 +4,7 @@ type ErrorType =
   | 'robots_forbidden'
   | 'request_timeout'
   | 'job_timeout'
+  | 'connection_timeout'
   | 'connection_reset'
   | 'too_many_redirects'
   | 'http'
@@ -57,6 +58,14 @@ export class RequestTimeoutError extends WorkerError {
   constructor(timeout: number) {
     super();
     this.timeout = timeout;
+  }
+}
+
+export class ConnectionTimeoutError extends WorkerError {
+  errorType = 'connection_timeout' as const;
+  name = 'Connection Timeout Error';
+  constructor() {
+    super();
   }
 }
 

@@ -189,7 +189,7 @@ describe('handleHttpError', () => {
 
   it('handles ECONNABORTED', () => {
     const err = { code: 'ECONNABORTED', isAxiosError: true };
-    const res = handleHttpError('fakeurl', err);
+    const res = handleHttpError('fakeurl', err, 35000);
     expect(res).toMatchInlineSnapshot(`
 {
   "err": [Request Timeout Error],
@@ -198,6 +198,20 @@ describe('handleHttpError', () => {
 }
 `);
     expect(res.err).toHaveProperty('errorType', 'request_timeout');
+    expect((res.err as any).timeout).toEqual(35000);
+  });
+
+  it('handles ETIMEDOUT', () => {
+    const err = { code: 'ETIMEDOUT', isAxiosError: true };
+    const res = handleHttpError('fakeurl', err);
+    expect(res).toMatchInlineSnapshot(`
+{
+  "err": [Connection Timeout Error],
+  "status": "not_ok",
+  "url": "fakeurl",
+}
+`);
+    expect(res.err).toHaveProperty('errorType', 'connection_timeout');
   });
 
   it('handles ENOTFOUND', () => {

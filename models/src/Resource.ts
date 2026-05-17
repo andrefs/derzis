@@ -238,6 +238,13 @@ class ResourceClass {
           $each: [{ errType: 'E_RESOURCE_TIMEOUT' }],
           $slice: -10
         };
+      } else if (error.errorType === 'connection_timeout') {
+        update['$inc']['warnings.E_CONNECTION_TIMEOUT'] = 1;
+        update['$push'] = update['$push'] || {};
+        update['$push'].lastWarnings = {
+          $each: [{ errType: 'E_CONNECTION_TIMEOUT' }],
+          $slice: -10
+        };
       } else if (error.errorType === 'host_not_found') {
         update['$inc']['warnings.E_DOMAIN_NOT_FOUND'] = 1;
         update['$push'] = update['$push'] || {};

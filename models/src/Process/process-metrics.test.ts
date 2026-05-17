@@ -1,7 +1,8 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  calcProcMetrics,
+  calcPredMetrics,
+  getSeedPredicates,
   getPredicateCounts,
   getSeedCoverage,
   getBranchingFactor,
@@ -29,6 +30,32 @@ describe('process-metrics', () => {
     vi.clearAllMocks();
   });
 
+  describe('getSeedPredicates', () => {
+    it('should return unique predicate _ids from aggregation', async () => {
+      vi.mocked(Triple.aggregate).mockResolvedValue([
+        { _id: 'http://example.org/predicate1' },
+        { _id: 'http://example.org/predicate2' }
+      ]);
+
+      const result = await getSeedPredicates('test-pid', [
+        'http://example.org/seed1',
+        'http://example.org/seed2'
+      ]);
+
+      expect(result).toHaveLength(2);
+      expect(result).toContain('http://example.org/predicate1');
+      expect(result).toContain('http://example.org/predicate2');
+    });
+
+    it('should return empty array when no matching triples', async () => {
+      vi.mocked(Triple.aggregate).mockResolvedValue([]);
+
+      const result = await getSeedPredicates('test-pid', ['http://example.org/seed1']);
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
   describe('getPredicateCounts', () => {
     it('should return predicate counts from processTriples', async () => {
       vi.mocked(ProcessTriple.aggregate).mockResolvedValue([
@@ -38,17 +65,17 @@ describe('process-metrics', () => {
 
       const result = await getPredicateCounts('test-pid');
 
-      expect(result).toHaveLength(2);
-      expect(result[0]._id).toBe('http://example.org/predicate1');
-      expect(result[0].count).toBe(100);
+      expect(Object.keys(result)).toHaveLength(2);
+      expect(result['http://example.org/predicate1']).toBe(100);
+      expect(result['http://example.org/predicate2']).toBe(50);
     });
 
-    it('should return empty array when no triples', async () => {
+    it('should return empty object when no triples', async () => {
       vi.mocked(ProcessTriple.aggregate).mockResolvedValue([]);
 
       const result = await getPredicateCounts('test-pid');
 
-      expect(result).toHaveLength(0);
+      expect(Object.keys(result)).toHaveLength(0);
     });
   });
 
@@ -74,7 +101,7 @@ describe('process-metrics', () => {
     });
 
     it('should return coverage count matching seeds', async () => {
-      vi.mocked(ProcessTriple.aggregate).mockResolvedValue([{ coverage: 3 }]);
+      vi.mocked(Triple.aggregate).mockResolvedValue([{ coverage: 3 }]);
 
       const result = await getSeedCoverage('test-pid', 'http://example.org/predicate', 'subject', [
         'http://example.org/seed1',
@@ -85,7 +112,7 @@ describe('process-metrics', () => {
     });
 
     it('should return 0 when no matches', async () => {
-      vi.mocked(ProcessTriple.aggregate).mockResolvedValue([]);
+      vi.mocked(Triple.aggregate).mockResolvedValue([]);
 
       const result = await getSeedCoverage('test-pid', 'http://example.org/predicate', 'subject', [
         'http://example.org/seed1'
@@ -154,16 +181,16 @@ describe('process-metrics', () => {
       vi.mocked(ProcessTriple.countDocuments).mockResolvedValue(100);
       vi.mocked(ProcessTriple.aggregate)
         .mockResolvedValueOnce([{ _id: 'http://example.org/predicate1', count: 100 }]) // getPredicateCounts
-        .mockResolvedValueOnce([{ coverage: 3 }]) // getSeedCoverage 1
-        .mockResolvedValueOnce([]) // getSeedCoverage 2
         .mockResolvedValueOnce([{ totalSubjects: 50 }]) // getGlobalMetrics totalSubjects
         .mockResolvedValueOnce([{ totalObjects: 40 }]) // getGlobalMetrics totalObjects
         .mockResolvedValueOnce([{ totalResources: 80 }]); // getGlobalMetrics totalResources
       vi.mocked(Triple.aggregate)
+        .mockResolvedValueOnce([{ coverage: 3 }]) // getSeedCoverage: subject
+        .mockResolvedValueOnce([]) // getSeedCoverage: object
         .mockResolvedValueOnce([{ count: 10 }]) // getBranchingFactor subjects
         .mockResolvedValueOnce([{ count: 5 }]); // getBranchingFactor objects
 
-      const result = await calcProcMetrics('test-pid', [
+      const result = await calcPredMetrics('test-pid', [
         'http://example.org/seed1',
         'http://example.org/seed2',
         'http://example.org/seed3'
