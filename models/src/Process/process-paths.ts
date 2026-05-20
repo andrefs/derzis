@@ -878,6 +878,119 @@ export function genTraversalPathQuery(process: ProcessClass): QueryFilter<Traver
 }
 
 /**
+ * Generate a MongoDB query to estimate how many active paths match hypothetical step parameters.
+ * Parameterized version of genTraversalPathQuery that accepts explicit limits instead of reading
+ * from process.currentStep. Can be used before a step is created to estimate path counts.
+ * @param pid Process ID
+ * @param pathType Type of paths (traversal or endpoint)
+ * @param maxPathLength Maximum path length
+ * @param maxPathProps Maximum number of distinct predicates
+ * @param predLimitations Per-predicate limitations with past/future constraints
+ * @returns MongoDB query object that can be used with countDocuments()
+ */
+export function genEstimatePathQuery(
+  pid: string,
+  pathType: PathType,
+  maxPathLength: number,
+  maxPathProps: number,
+  predLimitations: { predicate: string; lims: string[] }[]
+): QueryFilter<TraversalPathDocument> | QueryFilter<EndpointPathDocument> {
+  const baseQuery: Record<string, unknown> = {
+    processId: pid,
+    status: 'active',
+    'head.type': HEAD_TYPE.URL,
+    'head.domain.isUnvisited': false,
+    'head.status': 'unvisited'
+  };
+
+  if (pathType === PathType.TRAVERSAL) {
+    const query: Record<string, unknown> = {
+      ...baseQuery,
+      'nodes.count': { $lt: maxPathLength },
+      'predicates.count': { $lte: maxPathProps }
+    };
+
+    const requireAllPast: string[] = [];
+    const requireOnePast: string[] = [];
+    const disallowPast: string[] = [];
+    const requireFuture: string[] = [];
+    const disallowFuture: string[] = [];
+
+    for (const pl of predLimitations) {
+      if (pl.lims.includes('require-all-past')) requireAllPast.push(pl.predicate);
+      if (pl.lims.includes('require-one-past')) requireOnePast.push(pl.predicate);
+      if (pl.lims.includes('disallow-past')) disallowPast.push(pl.predicate);
+      if (pl.lims.includes('require-future')) requireFuture.push(pl.predicate);
+      if (pl.lims.includes('disallow-future')) disallowFuture.push(pl.predicate);
+    }
+
+    const pastFilters: object[] = [];
+
+    if (requireAllPast.length === 1) {
+      pastFilters.push({ 'predicates.elems': requireAllPast[0] });
+    } else if (requireAllPast.length > 1) {
+      pastFilters.push({ 'predicates.elems': { $all: requireAllPast } });
+    }
+
+    if (requireOnePast.length === 1) {
+      pastFilters.push({ 'predicates.elems': requireOnePast[0] });
+    } else if (requireOnePast.length > 1) {
+      pastFilters.push({ 'predicates.elems': { $in: requireOnePast } });
+    }
+
+    if (disallowPast.length === 1) {
+      pastFilters.push({ 'predicates.elems': { $ne: disallowPast[0] } });
+    } else if (disallowPast.length > 1) {
+      pastFilters.push({ 'predicates.elems': { $nin: disallowPast } });
+    }
+
+    const hasFutureConstraints = requireFuture.length > 0 || disallowFuture.length > 0;
+
+    if (hasFutureConstraints) {
+      let fullPathFilter: object;
+      if (requireFuture.length > 0) {
+        fullPathFilter = {
+          'predicates.elems': requireFuture.length === 1 ? requireFuture[0] : { $in: requireFuture }
+        };
+      } else {
+        fullPathFilter = {
+          $expr: { $not: { $setIsSubset: ['$predicates.elems', disallowFuture] } }
+        };
+      }
+
+      const futureConstraint = {
+        $or: [
+          { 'predicates.count': { $lt: maxPathProps } },
+          {
+            'predicates.count': maxPathProps,
+            ...fullPathFilter
+          }
+        ]
+      };
+
+      if (pastFilters.length > 0) {
+        query.$and = [futureConstraint, ...pastFilters];
+      } else {
+        query.$or = futureConstraint.$or;
+      }
+    } else if (pastFilters.length > 0) {
+      if (pastFilters.length === 1) {
+        Object.assign(query, pastFilters[0]);
+      } else {
+        query.$and = pastFilters;
+      }
+    }
+
+    return query as QueryFilter<TraversalPathDocument>;
+  } else {
+    return {
+      ...baseQuery,
+      shortestPathLength: { $lt: maxPathLength }
+    } as QueryFilter<EndpointPathDocument>;
+  }
+}
+
+/**
  * Helper function to insert process-triple associations in bulk.
  * @param pid Process ID
  * @param procTriples Set of triple IDs to associate with the process
