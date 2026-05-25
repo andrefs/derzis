@@ -105,10 +105,8 @@ type RecursivePartial<T> = {
 @index({ processId: 1 })
 @index({ status: 1 })
 @index({ 'head.url': 1, status: 1 })
-@index({
-  'head.url': 1,
-  'nodes.count': 1
-})
+@index({ 'head.url': 1, 'nodes.count': 1 })
+@index({ processId: 1, 'seed.url': 1 })
 @index({
   processId: 1,
   status: 1,

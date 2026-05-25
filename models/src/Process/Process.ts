@@ -66,6 +66,7 @@ import { type SimpleTriple, PathType } from '@derzis/common';
 @index({ status: 1 })
 @index({ createdAt: 1 })
 @index({ status: 1, createdAt: -1 })
+@index({ pid: 1 })
 // Before saving a new process, set the pid and notification.ssePath if not already set
 @pre<ProcessClass>('save', async function () {
   const today = new Date(new Date().setUTCHours(0, 0, 0, 0));

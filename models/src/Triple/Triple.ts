@@ -51,7 +51,6 @@ export class BlankNodeObjectClass {
 @index({ nodes: 1, createdAt: 1 })
 @index({ updatedAt: -1 })
 @index({ nodes: 1, predicate: 1 })
-@index({ object: 1, predicate: 1 }) // for object-origin queries
 @index({ predicate: 1 }) // for metrics queries
 @index({ predicate: 1, subject: 1 }) // for metrics queries with subject filter
 export class TripleClass extends TimeStamps {
@@ -238,6 +237,7 @@ async function executeBulkOps(model: BulkWriteModel, ops: unknown): Promise<Bulk
 })
 @index({ subject: 1, predicate: 1, object: 1 }, { unique: true })
 @index({ predicate: 1, object: 1 }) // for metrics queries with object filter
+@index({ updatedAt: -1 })
 export class NamedNodeTripleClass extends TripleClass {
   @prop({ required: true, validate: urlOrBlankNodeValidator, type: String })
   public object!: string;
