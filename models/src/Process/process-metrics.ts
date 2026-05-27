@@ -62,28 +62,6 @@ export async function calcProcSeedPredMetrics(
   return seedPredMetrics;
 }
 
-export async function calcPredMetrics(
-  pid: string,
-  predicates: string[]
-): Promise<OtherPredicateMetrics[]> {
-  const predicateCounts = await getPredicateCounts(pid, predicates);
-  const res = [];
-
-  for (const [url, count] of Object.entries(predicateCounts)) {
-    const bf = await getBranchingFactor(pid, url);
-
-    log.info(`Metrics for predicate ${url}: count=${count},  subj=${bf.subj}, obj=${bf.obj}`);
-
-    res.push({
-      url,
-      count,
-      branchFactor: bf
-    });
-  }
-
-  return res;
-}
-
 export async function calcProcGlobalMetrics(pid: string): Promise<GlobalMetrics> {
   const globalMetrics = await getGlobalMetrics(pid);
   log.info(`Global metrics for process ${pid}: ${JSON.stringify(globalMetrics)}`);
