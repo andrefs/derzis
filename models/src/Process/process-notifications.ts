@@ -4,7 +4,7 @@ import { sendEmail } from '@derzis/common/server';
 import { webhookPost } from '@derzis/common/server';
 import { type LiteralTripleDocument } from '../Triple';
 import { getLabelDataForProcess } from './process-data';
-import { GlobalMetrics, PredicateMetrics, SeedPredicateMetrics } from './process-metrics';
+import { GlobalMetrics, SeedPredicateMetrics } from './process-metrics';
 import type { SimpleTriple } from '@derzis/common';
 const log = createLogger('ProcessNotifications');
 
@@ -127,34 +127,6 @@ export async function notifySeedPredMetricsCalculated(
     `Sending seed predicate metrics to Cardea for process ${pid}`,
     process.notification.webhook ?? ''
   );
-
-  if (process.notification.webhook) {
-    await notifyWebhook(process.notification.webhook, notif);
-  }
-}
-
-export async function notifyPredMetricsCalculated(
-  pid: string,
-  metrics: PredicateMetrics[],
-  stepIndex: number,
-  messageType: 'OK_ADJ_PRED_METRICS_CALCULATED'
-) {
-  const process = await Process.findOne({ pid });
-  if (!process) {
-    log.error(`Process ${pid} not found when sending metrics to Cardea`);
-    return;
-  }
-
-  const data: PredMetricsCalculatedNotification = {
-    pid,
-    messageType,
-    message: `Process ${pid} has calculated predicate metrics for step ${stepIndex}.`,
-    details: { stepIndex, metrics }
-  };
-
-  const notif: ProcessNotification = { ok: true, data };
-
-  log.info(`Sending metrics to Cardea for process ${pid}`, process.notification.webhook ?? '');
 
   if (process.notification.webhook) {
     await notifyWebhook(process.notification.webhook, notif);
@@ -377,14 +349,6 @@ export type SeedPredMetricsCalculatedNotification = BaseProcNotification & {
   messageType: 'OK_SEED_PRED_METRICS_CALCULATED';
 };
 
-export type PredMetricsCalculatedNotification = BaseProcNotification & {
-  details: {
-    stepIndex: number;
-    metrics: PredicateMetrics[];
-  };
-  messageType: 'OK_ADJ_PRED_METRICS_CALCULATED';
-};
-
 type ProcessNotification = {
   ok: boolean;
   data:
@@ -395,6 +359,5 @@ type ProcessNotification = {
     | LabelsFetchedNotification
     | LabelFetchedNotification
     | GlobalMetricsCalculatedNotification
-    | PredMetricsCalculatedNotification
     | SeedPredMetricsCalculatedNotification;
 };
