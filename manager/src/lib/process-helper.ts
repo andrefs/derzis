@@ -68,6 +68,7 @@ export async function addStep(
   pid: string,
   params: MakeOptional<StepClass, 'seeds'> & {
     predLimitations?: { predicate: string; lims: PredicateLimitationType[] }[];
+    predsDirection?: { url: string; direction: 'subject' | 'object' | 'none'; ratio: number }[];
   }
 ) {
   const p = await Process.findOne({ pid, status: 'done' });
@@ -93,7 +94,7 @@ export async function addStep(
     predLimit: params.predLimit,
     predLimitations: params.predLimitations,
     followDirection: params.followDirection as boolean,
-    predsBranchFactor: params.predsBranchFactor,
+    predsDirection: params.predsDirection,
     convertToEndpointPaths: params.convertToEndpointPaths ?? false
   };
 

@@ -17,6 +17,17 @@ export class PredBranchFactor {
   public branchFactor?: BranchFactorClass;
 }
 
+export class PredDirection {
+  @prop({ type: String })
+  public url!: string;
+
+  @prop({ enum: ['subject', 'object', 'none'], required: true, type: String })
+  public direction!: 'subject' | 'object' | 'none';
+
+  @prop({ type: Number })
+  public ratio!: number;
+}
+
 export class NotificationClass {
   _id?: Types.ObjectId | string;
 
@@ -117,6 +128,12 @@ export class StepClass {
   public predsBranchFactor?: PredBranchFactor[];
 
   /**
+   * Directionality of predicates for this step
+   */
+  @prop({ type: [PredDirection] }, PropType.ARRAY)
+  public predsDirection?: PredDirection[];
+
+  /**
    * Whether to crawl taking into account predicates branch factor
    */
   @prop({ type: Boolean, default: false, required: true })
@@ -162,6 +179,11 @@ export class StepClass {
         branchFactor: pbf.branchFactor
           ? { subj: pbf.branchFactor.subj, obj: pbf.branchFactor.obj }
           : undefined
+      })),
+      predsDirection: this.predsDirection?.map((pd) => ({
+        url: pd.url,
+        direction: pd.direction,
+        ratio: pd.ratio
       })),
       followDirection: this.followDirection,
       resetErrors: this.resetErrors,

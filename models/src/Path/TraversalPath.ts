@@ -21,7 +21,6 @@ import {
 } from '../Triple';
 import { iterateBlankNodeOutgoings } from './blank-node-utils';
 import {
-  BranchFactorClass,
   buildLimsByType,
   type LimsByType,
   matchesAny,
@@ -36,9 +35,8 @@ import { PathClass, Path, ResourceCount, HEAD_TYPE, UrlHead, type Head, SeedClas
 import { PathType, TripleType, type TypedTripleId, isBlankNodeId } from '@derzis/common';
 import { createLogger } from '@derzis/common/server';
 import type { ExtendedPathsResult } from '../types';
-const log = createLogger('TraversalPath');
 import config from '@derzis/config';
-const bfNeutralZone = config.manager.predicates.branchingFactor.neutralZone;
+const log = createLogger('TraversalPath');
 
 export const countNonBlankNodes = (elems: string[]): number =>
   elems.filter((n) => !isBlankNodeId(n)).length;
@@ -247,7 +245,7 @@ export class TraversalPathClass extends PathClass {
     const urlHead = this.head;
     let extendedPaths: { [prop: string]: { [newHead: string]: TraversalPathSkeleton } } = {};
     let procTriples: TypedTripleId[] = [];
-    const predsBF = process.curPredsBranchFactor();
+    const predsDirection = process.curPredsDirection();
     const followDirection = process.currentStep.followDirection;
 
     // Named node triples
@@ -257,7 +255,7 @@ export class TraversalPathClass extends PathClass {
         (t) =>
           this.isExtensionValid(t) &&
           this.isExtensionAllowed(t, process.currentStep) &&
-          t.directionOk(urlHead.url, followDirection, predsBF)
+          t.directionOk(urlHead.url, followDirection, predsDirection)
       );
 
     for (const t of namedNodeTriples) {
@@ -305,7 +303,7 @@ export class TraversalPathClass extends PathClass {
 
         if (!this.isExtensionValid(outgoing)) continue;
         if (!this.isExtensionAllowed(outgoing, process.currentStep)) continue;
-        if (!outgoing.directionOk(urlHead.url, followDirection, predsBF)) continue;
+        if (!outgoing.directionOk(urlHead.url, followDirection, predsDirection)) continue;
 
         const newHeadUrl: string =
           outgoing.subject === blankNodeId ? outgoing.object : outgoing.subject;
@@ -671,7 +669,7 @@ export class TraversalPathClass extends PathClass {
     notAllowed: Set<string>,
     limType: string,
     followDirection: boolean,
-    predsBF: Map<string, BranchFactorClass> | undefined
+    predsDirection: Map<string, { direction: 'subject' | 'object' | 'none' }> | undefined
   ): QueryFilter<NamedNodeTripleDocument> {
     if (!isUrlHead(this.head)) {
       return {};
@@ -679,7 +677,7 @@ export class TraversalPathClass extends PathClass {
 
     const urlHead = this.head;
 
-    if (!followDirection || !predsBF || predsBF.size === 0) {
+    if (!followDirection || !predsDirection || predsDirection.size === 0) {
       return {};
     }
 
@@ -687,7 +685,7 @@ export class TraversalPathClass extends PathClass {
     const objPreds = new Set<string>();
     const noDirPreds = new Set<string>();
 
-    for (const [pred, bf] of predsBF) {
+    for (const [pred, dir] of predsDirection) {
       if (allowed.size && !allowed.has(pred)) {
         continue;
       }
@@ -695,10 +693,9 @@ export class TraversalPathClass extends PathClass {
         continue;
       }
 
-      const bfRatio = bf.subj / bf.obj;
-      if (bfRatio >= bfNeutralZone.max) {
+      if (dir.direction === 'subject') {
         subjPreds.add(pred);
-      } else if (bfRatio <= bfNeutralZone.min) {
+      } else if (dir.direction === 'object') {
         objPreds.add(pred);
       } else {
         noDirPreds.add(pred);
@@ -706,7 +703,7 @@ export class TraversalPathClass extends PathClass {
     }
 
     for (const p of allowed) {
-      if (!predsBF.has(p)) {
+      if (!predsDirection.has(p)) {
         noDirPreds.add(p);
       }
     }
@@ -789,7 +786,7 @@ export class TraversalPathClass extends PathClass {
     const limType = hasRequireFuture ? 'whitelist' : 'blacklist';
 
     const followDirection = process.currentStep.followDirection;
-    const predsBF = process.curPredsBranchFactor();
+    const predsDirection = process.curPredsDirection();
 
     // filter based on directionality metrics
     const directionFilter = this.genDirectionFilter(
@@ -797,7 +794,7 @@ export class TraversalPathClass extends PathClass {
       notAllowed,
       limType,
       followDirection,
-      predsBF
+      predsDirection
     );
 
     const baseFilter: QueryFilter<NamedNodeTripleDocument> = {

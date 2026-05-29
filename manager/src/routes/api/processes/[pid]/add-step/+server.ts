@@ -1,5 +1,5 @@
 import { addStep } from '$lib/process-helper';
-import { PredBranchFactor, Process, StepClass, type PredicateLimitationType } from '@derzis/models';
+import { Process, StepClass, type PredicateLimitationType, PredDirection } from '@derzis/models';
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { createLogger } from '@derzis/common/server';
 import type { MakeOptional } from '$lib/utils';
@@ -16,7 +16,7 @@ interface NewStepReqBody {
       lims: PredicateLimitationType[];
     }[];
     followDirection: boolean;
-    predsBranchFactor?: PredBranchFactor[];
+    predsDirection?: PredDirection[];
     resetErrors: boolean;
     convertToEndpointPaths: boolean;
   };
@@ -57,7 +57,17 @@ export const POST: RequestHandler = async ({ request, params }) => {
     return json({ ok: false, err: { message: 'No process ID provided' } }, { status: 400 });
   }
 
-  console.log('XXXXXXXXXXXXXXX add-step server 3', JSON.stringify(resp.data, null, 2));
+  if ('predsBranchFactor' in resp.data) {
+    return json(
+      {
+        ok: false,
+        err: {
+          message: 'predsBranchFactor is no longer supported; send predsDirection instead'
+        }
+      },
+      { status: 400 }
+    );
+  }
 
   const predLimitations = resp.data.predLimitations || [];
 
@@ -75,7 +85,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
     maxPathProps: resp.data.maxPathProps,
     predLimitations: predLimitations,
     followDirection: resp.data.followDirection,
-    predsBranchFactor: resp.data.predsBranchFactor,
+    predsDirection: resp.data.predsDirection,
     resetErrors: resp.data.resetErrors,
     convertToEndpointPaths: resp.data.convertToEndpointPaths
   };

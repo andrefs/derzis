@@ -1,11 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { TraversalPathClass } from './TraversalPath';
-import {
-  StepClass,
-  PredicateLimitationClass,
-  BranchFactorClass,
-  PredLimitation
-} from '../Process/aux-classes';
+import { StepClass, PredicateLimitationClass, PredLimitation } from '../Process/aux-classes';
 import { buildLimsByType } from '../Process';
 import { Head } from './Path';
 import { Triple } from '../Triple/Triple';
@@ -18,6 +13,11 @@ const LITERAL_PREDS = [
   'http://www.w3.org/2000/01/rdf-schema#label',
   'http://www.w3.org/2000/01/rdf-schema#comment'
 ];
+
+const makeDir = (direction: 'subject' | 'object' | 'none') => ({
+  direction,
+  ratio: 1
+});
 
 describe('TraversalPathClass.genExistingTriplesFilter', () => {
   const createMockPath = (overrides: {
@@ -73,7 +73,7 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       });
     });
 
-    describe('when predsDirMetrics is empty', () => {
+    describe('when predsDirection is empty', () => {
       it('returns empty filter', () => {
         const path = createMockPath();
         const result = path.genDirectionFilter(
@@ -102,19 +102,15 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     });
 
     describe('when predicates have directionality', () => {
-      it('adds predicates to subjPreds when bfRatio >= 1.2', () => {
+      it('adds predicates to subjPreds when direction is subject', () => {
         const path = createMockPath('http://head.org');
-
-        const bf = new BranchFactorClass();
-        bf.subj = 3;
-        bf.obj = 2;
 
         const result = path.genDirectionFilter(
           new Set(),
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', bf]])
+          new Map([['p1', makeDir('subject')]])
         );
 
         expect(result).toHaveProperty('$or');
@@ -123,19 +119,15 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         expect(result.$or).toContainEqual({ predicate: { $nin: LITERAL_PREDS } });
       });
 
-      it('adds predicates to objPreds when bfRatio <= 0.83', () => {
+      it('adds predicates to objPreds when direction is object', () => {
         const path = createMockPath('http://head.org');
-
-        const bf = new BranchFactorClass();
-        bf.subj = 1;
-        bf.obj = 2;
 
         const result = path.genDirectionFilter(
           new Set(),
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', bf]])
+          new Map([['p1', makeDir('object')]])
         );
 
         expect(result).toHaveProperty('$or');
@@ -144,19 +136,15 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
         expect(result.$or).toContainEqual({ predicate: { $nin: LITERAL_PREDS } });
       });
 
-      it('adds predicates to noDirPreds when bfRatio is between 0.83 and 1.2 (uses $ne for blacklist)', () => {
+      it('adds predicates to noDirPreds when direction is none (uses $ne for blacklist)', () => {
         const path = createMockPath();
-
-        const bf = new BranchFactorClass();
-        bf.subj = 1;
-        bf.obj = 1;
 
         const result = path.genDirectionFilter(
           new Set(),
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', bf]])
+          new Map([['p1', makeDir('none')]])
         );
 
         expect(result).toEqual({ predicate: { $nin: ['p1', ...LITERAL_PREDS] } });
@@ -167,18 +155,14 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       it('skips predicates not in allowed set', () => {
         const path = createMockPath();
 
-        const bf = new BranchFactorClass();
-        bf.subj = 3;
-        bf.obj = 1;
-
         const result = path.genDirectionFilter(
           new Set(['allowed-p1']),
           new Set(),
           'blacklist',
           true,
           new Map([
-            ['allowed-p1', bf],
-            ['not-allowed-p2', bf]
+            ['allowed-p1', makeDir('subject')],
+            ['not-allowed-p2', makeDir('subject')]
           ])
         );
 
@@ -194,18 +178,14 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       it('skips predicates in notAllowed set', () => {
         const path = createMockPath();
 
-        const bf = new BranchFactorClass();
-        bf.subj = 3;
-        bf.obj = 1;
-
         const result = path.genDirectionFilter(
           new Set(),
           new Set(['blocked-p1']),
           'blacklist',
           true,
           new Map([
-            ['blocked-p1', bf],
-            ['allowed-p2', bf]
+            ['blocked-p1', makeDir('subject')],
+            ['allowed-p2', makeDir('subject')]
           ])
         );
 
@@ -221,16 +201,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       it('adds allowed predicates without metrics to noDirPreds', () => {
         const path = createMockPath();
 
-        const bf = new BranchFactorClass();
-        bf.subj = 3;
-        bf.obj = 1;
-
         const result = path.genDirectionFilter(
           new Set(['p1', 'p2']),
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', bf]])
+          new Map([['p1', makeDir('subject')]])
         );
 
         expect(result).toHaveProperty('$or');
@@ -241,16 +217,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       it('uses direct equality for noDirPreds when limType is whitelist', () => {
         const path = createMockPath();
 
-        const bf = new BranchFactorClass();
-        bf.subj = 1;
-        bf.obj = 1;
-
         const result = path.genDirectionFilter(
           new Set(),
           new Set(),
           'whitelist',
           true,
-          new Map([['p1', bf]])
+          new Map([['p1', makeDir('none')]])
         );
 
         expect(result).toHaveProperty('predicate');
@@ -260,16 +232,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       it('uses $ne for noDirPreds when limType is blacklist', () => {
         const path = createMockPath();
 
-        const bf = new BranchFactorClass();
-        bf.subj = 1;
-        bf.obj = 1;
-
         const result = path.genDirectionFilter(
           new Set(),
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', bf]])
+          new Map([['p1', makeDir('none')]])
         );
 
         expect(result).toHaveProperty('predicate', { $nin: ['p1', ...LITERAL_PREDS] });
@@ -280,16 +248,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       it('uses direct equality for single predicate in subjPreds', () => {
         const path = createMockPath('http://head.org');
 
-        const bf = new BranchFactorClass();
-        bf.subj = 3;
-        bf.obj = 1;
-
         const result = path.genDirectionFilter(
           new Set(),
           new Set(),
           'blacklist',
           true,
-          new Map([['p1', bf]])
+          new Map([['p1', makeDir('subject')]])
         );
 
         expect(result).toHaveProperty('$or');
@@ -301,18 +265,14 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       it('uses $in for multiple predicates in subjPreds', () => {
         const path = createMockPath('http://head.org');
 
-        const bf = new BranchFactorClass();
-        bf.subj = 3;
-        bf.obj = 1;
-
         const result = path.genDirectionFilter(
           new Set(),
           new Set(),
           'blacklist',
           true,
           new Map([
-            ['p1', bf],
-            ['p2', bf]
+            ['p1', makeDir('subject')],
+            ['p2', makeDir('subject')]
           ])
         );
 
@@ -330,16 +290,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
       it('returns filter with notAllowed predicate when no predicates pass filters', () => {
         const path = createMockPath();
 
-        const bf = new BranchFactorClass();
-        bf.subj = 3;
-        bf.obj = 1;
-
         const result = path.genDirectionFilter(
           new Set(['allowed-p1']),
           new Set(),
           'blacklist',
           true,
-          new Map([['other-p2', bf]])
+          new Map([['other-p2', makeDir('subject')]])
         );
 
         expect(result).toEqual({ predicate: { $nin: ['allowed-p1', ...LITERAL_PREDS] } });
@@ -349,16 +305,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     it('returns single clause without $or when only one predicate set has items', () => {
       const path = createMockPath('http://head.org');
 
-      const bf = new BranchFactorClass();
-      bf.subj = 3;
-      bf.obj = 1;
-
       const result = path.genDirectionFilter(
         new Set(),
         new Set(),
         'blacklist',
         true,
-        new Map([['p1', bf]])
+        new Map([['p1', makeDir('subject')]])
       );
 
       expect(result).toHaveProperty('$or');
@@ -378,16 +330,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     it('returns single clause without $or when only subjPreds has items', () => {
       const path = createMockPath({ headUrl: 'http://head.org' });
 
-      const bf = new BranchFactorClass();
-      bf.subj = 3;
-      bf.obj = 1;
-
       const result = path.genDirectionFilter(
         new Set(),
         new Set(),
         'blacklist',
         true,
-        new Map([['p1', bf]])
+        new Map([['p1', makeDir('subject')]])
       );
 
       expect(result).toHaveProperty('$or');
@@ -397,22 +345,14 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     it('returns $or when both subjPreds and objPreds have items', () => {
       const path = createMockPath({ headUrl: 'http://head.org' });
 
-      const bfSubj = new BranchFactorClass();
-      bfSubj.subj = 3;
-      bfSubj.obj = 1;
-
-      const bfObj = new BranchFactorClass();
-      bfObj.subj = 1;
-      bfObj.obj = 3;
-
       const result = path.genDirectionFilter(
         new Set(),
         new Set(),
         'blacklist',
         true,
         new Map([
-          ['subj-pred', bfSubj],
-          ['obj-pred', bfObj]
+          ['subj-pred', makeDir('subject')],
+          ['obj-pred', makeDir('object')]
         ])
       );
 
@@ -423,22 +363,14 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     it('returns $or when subjPreds and noDirPreds have items', () => {
       const path = createMockPath({ headUrl: 'http://head.org' });
 
-      const bfSubj = new BranchFactorClass();
-      bfSubj.subj = 3;
-      bfSubj.obj = 1;
-
-      const bfNoDir = new BranchFactorClass();
-      bfNoDir.subj = 1;
-      bfNoDir.obj = 1;
-
       const result = path.genDirectionFilter(
         new Set(),
         new Set(),
         'blacklist',
         true,
         new Map([
-          ['subj-pred', bfSubj],
-          ['nodir-pred', bfNoDir]
+          ['subj-pred', makeDir('subject')],
+          ['nodir-pred', makeDir('none')]
         ])
       );
 
@@ -449,22 +381,14 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     it('returns $or when objPreds and noDirPreds have items', () => {
       const path = createMockPath({ headUrl: 'http://head.org' });
 
-      const bfObj = new BranchFactorClass();
-      bfObj.subj = 1;
-      bfObj.obj = 3;
-
-      const bfNoDir = new BranchFactorClass();
-      bfNoDir.subj = 1;
-      bfNoDir.obj = 1;
-
       const result = path.genDirectionFilter(
         new Set(),
         new Set(),
         'blacklist',
         true,
         new Map([
-          ['obj-pred', bfObj],
-          ['nodir-pred', bfNoDir]
+          ['obj-pred', makeDir('object')],
+          ['nodir-pred', makeDir('none')]
         ])
       );
 
@@ -475,27 +399,15 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     it('returns $or when all three predicate sets have items', () => {
       const path = createMockPath({ headUrl: 'http://head.org' });
 
-      const bfSubj = new BranchFactorClass();
-      bfSubj.subj = 3;
-      bfSubj.obj = 1;
-
-      const bfObj = new BranchFactorClass();
-      bfObj.subj = 1;
-      bfObj.obj = 3;
-
-      const bfNoDir = new BranchFactorClass();
-      bfNoDir.subj = 1;
-      bfNoDir.obj = 1;
-
       const result = path.genDirectionFilter(
         new Set(),
         new Set(),
         'blacklist',
         true,
         new Map([
-          ['subj-pred', bfSubj],
-          ['obj-pred', bfObj],
-          ['nodir-pred', bfNoDir]
+          ['subj-pred', makeDir('subject')],
+          ['obj-pred', makeDir('object')],
+          ['nodir-pred', makeDir('none')]
         ])
       );
 
@@ -506,16 +418,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     it('returns filter with $ne when allowed predicate not in predsDirMetrics (added to noDirPreds)', () => {
       const path = createMockPath({ headUrl: 'http://example.com/head' });
 
-      const bf = new BranchFactorClass();
-      bf.subj = 3;
-      bf.obj = 1;
-
       const result = path.genDirectionFilter(
         new Set(['only-allowed']),
         new Set(),
         'blacklist',
         true,
-        new Map([['other-pred', bf]])
+        new Map([['other-pred', makeDir('subject')]])
       );
 
       expect(result).toEqual({ predicate: { $nin: ['only-allowed', ...LITERAL_PREDS] } });
@@ -524,16 +432,12 @@ describe('TraversalPathClass.genExistingTriplesFilter', () => {
     it('returns empty object when all preds filtered out by notAllowed', () => {
       const path = createMockPath({ headUrl: 'http://example.com/head' });
 
-      const bf = new BranchFactorClass();
-      bf.subj = 3;
-      bf.obj = 1;
-
       const result = path.genDirectionFilter(
         new Set(),
         new Set(['blocked-pred']),
         'blacklist',
         true,
-        new Map([['blocked-pred', bf]])
+        new Map([['blocked-pred', makeDir('subject')]])
       );
 
       expect(result).toEqual({ predicate: { $nin: LITERAL_PREDS } });
@@ -1237,7 +1141,7 @@ describe('TraversalPathClass blank node extension', () => {
           maxPathLength: 10,
           maxPathProps: 5
         },
-        curPredsBranchFactor: () => new Map()
+        curPredsDirection: () => new Map()
       };
 
       const result = await path.genExtendedPaths(process, [blankNodeTriple]);
@@ -1298,7 +1202,7 @@ describe('TraversalPathClass.genExtendedPaths ObjectId filter', () => {
         maxPathLength: 10,
         maxPathProps: 5
       },
-      curPredsBranchFactor: () => new Map()
+      curPredsDirection: () => new Map()
     };
 
     // Pass the triple directly (as happens in post-crawl processing)
