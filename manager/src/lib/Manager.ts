@@ -23,6 +23,7 @@ import {
 import {
   type JobResult,
   type RobotsCheckResult,
+  type RobotsCheckResultError,
   type CrawlResourceResult,
   TripleType,
   type SimpleLiteralTriple
@@ -80,9 +81,19 @@ export default class Manager {
       try {
         await this.saveRobots(jobResult);
       } catch (e) {
-        // TODO handle errors
-        log.error(`Error saving robots (job #${jobResult.jobId}) for ${jobResult.origin}`);
+        log.error(`Error saving robots (job #${jobResult.jobId}) for ${jobResult.origin}`, e);
         log.info(JSON.stringify(jobResult, null, 2));
+        await Domain.updateOne(
+          { origin: jobResult.origin },
+          {
+            $unset: { workerId: '', jobId: '' },
+            $set: {
+              status: 'unvisited',
+              'robots.status': 'error',
+              'crawl.delay': config.http.crawlDelay || 1
+            }
+          }
+        );
       } finally {
         this.jobs.removeFromBeingSaved(jobResult.origin, jobResult.jobType);
         this.jobs.deregisterJob(jobResult.origin, jobResult.jobId);
@@ -455,9 +466,21 @@ export default class Manager {
     let crawlDelay = config.http.crawlDelay || 1;
 
     if (jobResult.status === 'ok') {
-      const robots = robotsParser(jobResult.origin + '/robots.txt', jobResult.details.robotsText);
-      crawlDelay = robots.getCrawlDelay(config.http.userAgent) || crawlDelay;
-      await Domain.saveRobotsOk(jobResult, crawlDelay);
+      try {
+        const robots = robotsParser(jobResult.origin + '/robots.txt', jobResult.details.robotsText);
+        crawlDelay = robots.getCrawlDelay(config.http.userAgent) || crawlDelay;
+        await Domain.saveRobotsOk(jobResult, crawlDelay);
+      } catch (e) {
+        log.error(`Error parsing robots.txt for ${jobResult.origin}`, e);
+        await Domain.saveRobotsError(
+          {
+            ...jobResult,
+            status: 'not_ok',
+            err: { errorType: 'parsing', message: (e as Error).message, name: 'Parsing Error' }
+          } as RobotsCheckResultError,
+          config.http.crawlDelay || 1
+        );
+      }
     } else {
       await Domain.saveRobotsError(jobResult, crawlDelay);
     }
