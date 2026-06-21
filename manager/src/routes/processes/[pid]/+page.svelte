@@ -15,6 +15,12 @@
     extending?: { total: number; remaining: number; extended: number; percentage: number };
   } | null = null;
   let error: string | null = null;
+  let doneSummary: {
+    type: 'PROCESS_DONE' | 'PROCESS_ERROR';
+    status: string;
+    step: number;
+    totalPaths: number;
+  } | null = null;
   let eventSource: EventSource | null = null;
 
   $: isRunning = data.proc.status === 'running' || data.proc.status === 'extending';
@@ -37,7 +43,13 @@
 
     eventSource.onmessage = (event) => {
       try {
-        progress = JSON.parse(event.data);
+        const parsed = JSON.parse(event.data);
+        if (parsed.type === 'PROCESS_DONE' || parsed.type === 'PROCESS_ERROR') {
+          doneSummary = parsed;
+          eventSource?.close();
+        } else {
+          progress = parsed;
+        }
       } catch (e) {
         console.error('Failed to parse SSE event:', e);
       }
@@ -135,7 +147,22 @@
   {/if}
 </header>
 
-{#if isRunning && progress}
+{#if doneSummary}
+  <Alert
+    color={doneSummary.status === 'done' ? 'success' : 'danger'}
+    class="mb-4 d-flex align-items-center"
+  >
+    <div>
+      {#if doneSummary.status === 'done'}
+        <strong>Step {doneSummary.step} completed.</strong>
+        Paths processed: {doneSummary.totalPaths.toLocaleString()}
+      {:else}
+        <strong>Step {doneSummary.step} finished with errors.</strong>
+        Paths processed: {doneSummary.totalPaths.toLocaleString()}
+      {/if}
+    </div>
+  </Alert>
+{:else if isRunning && progress}
   <Alert color="info" class="mb-4 d-flex align-items-center">
     <div class="spinner-border spinner-border-sm me-2" role="status">
       <span class="visually-hidden">Updating...</span>
