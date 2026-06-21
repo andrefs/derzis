@@ -90,6 +90,8 @@ type RecursivePartial<T> = {
 @index({ createdAt: 1, _id: 1 })
 // Base indexes
 @index({ type: 1 }, { name: 'idx_traversal_type' })
+// For finding the most recently updated traversal path
+@index({ type: 1, updatedAt: -1 })
 // For the predicates count/elems filtering
 @index({ 'predicates.count': 1, processId: 1, status: 1 })
 @index({ 'nodes.count': 1, processId: 1, status: 1 })

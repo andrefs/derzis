@@ -12,6 +12,7 @@ import {
   Severity,
   modelOptions,
   getModelForClass,
+  index,
   type DocumentType
 } from '@typegoose/typegoose';
 import { TraversalPathClass, type TraversalPathSkeleton } from './TraversalPath';
@@ -92,6 +93,9 @@ export type PathSkeletonConstructor<T extends PathSkeleton> = Omit<T, '_id'> & {
 
 export { ResourceCount, SeedClass };
 
+// For counting paths by process, status, head type, and domain origin
+// (used by hasPathsDomainRobotsChecking and hasPathsHeadBeingCrawled)
+@index({ processId: 1, status: 1, 'head.type': 1, 'head.domain.origin': 1 })
 @modelOptions({
   schemaOptions: {
     discriminatorKey: 'type',
