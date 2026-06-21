@@ -600,10 +600,20 @@ export async function getCrawlRate(
 ): Promise<number> {
   const cutoffTime = new Date(Date.now() - windowMinutes * 60 * 1000);
 
-  const count = await ProcessDoneResource.countDocuments({
-    processId: process.pid,
-    createdAt: { $gte: cutoffTime }
-  });
+  const procResources = await ProcessDoneResource.find(
+    { processId: process.pid },
+    { resource: 1, _id: 0 }
+  ).lean();
+  const resourceIds = procResources.map((pdr) => pdr.resource);
+
+  const count =
+    resourceIds.length > 0
+      ? await Resource.countDocuments({
+          _id: { $in: resourceIds },
+          status: 'done',
+          updatedAt: { $gte: cutoffTime }
+        })
+      : 0;
 
   return count / windowMinutes;
 }
