@@ -1,6 +1,7 @@
 import { ResourceClass } from './Resource';
 import { prop, index, getModelForClass } from '@typegoose/typegoose';
 
+@index({ resource: 1 })
 @index({ processId: 1, resource: 1 }, { unique: true })
 class ProcessDoneResourceClass {
   @prop({ required: true, type: String })
