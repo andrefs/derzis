@@ -6,6 +6,7 @@
   import { BiDownload, BiNetworkChart, BiCopy } from 'svelte-icons-pack/bi';
   import { HiSolidMagnifyingGlass } from 'svelte-icons-pack/hi';
   import { onMount, onDestroy } from 'svelte';
+  import { formatDateLabel } from '$lib/utils';
 
   let progress: {
     step: number;
@@ -297,6 +298,15 @@
         <h4>Current step (#{data.proc.steps.length})</h4>
         <Table>
           <tbody>
+            {#if data.proc.currentStep.createdAt}
+              <tr>
+                <th scope="row">Created</th>
+                <td
+                  >{formatDateLabel(new Date(data.proc.currentStep.createdAt)).date}
+                  {formatDateLabel(new Date(data.proc.currentStep.createdAt)).time}</td
+                >
+              </tr>
+            {/if}
             <tr
               ><th scope="row">Max path length</th><td>{data.proc.currentStep.maxPathLength}</td
               ></tr
@@ -335,6 +345,15 @@
       <Table>
         <tbody>
           {#each data.proc.steps.slice(0, -1) as step, i}
+            {#if step.createdAt}
+              <tr>
+                <th scope="row">Created</th>
+                <td
+                  >{formatDateLabel(new Date(step.createdAt)).date}
+                  {formatDateLabel(new Date(step.createdAt)).time}</td
+                >
+              </tr>
+            {/if}
             <tr><th scope="row">Max path length</th><td>{step.maxPathLength}</td></tr>
             <tr><th scope="row">Max path props</th><td>{step.maxPathProps}</td></tr>
             <tr>

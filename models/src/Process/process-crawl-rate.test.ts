@@ -1,23 +1,10 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getCrawlRate } from './process-data';
-import { ProcessDoneResource } from '../ProcessDoneResource';
 import { Resource } from '../Resource';
 
-vi.mock('../ProcessDoneResource', () => {
-  const mockLean = vi.fn();
-  const mockFind = vi.fn(() => ({ lean: mockLean }));
-  return {
-    ProcessDoneResource: { find: mockFind },
-    __mockFind: mockFind,
-    __mockLean: mockLean
-  };
-});
-
 vi.mock('../Resource', () => ({
-  Resource: {
-    countDocuments: vi.fn()
-  }
+  Resource: { aggregate: vi.fn() }
 }));
 
 describe('getCrawlRate', () => {
@@ -33,12 +20,7 @@ describe('getCrawlRate', () => {
   });
 
   it('should return crawl rate in resources per minute', async () => {
-    (ProcessDoneResource.find as any)().lean.mockResolvedValue([
-      { resource: 'id1' },
-      { resource: 'id2' },
-      { resource: 'id3' }
-    ]);
-    vi.mocked(Resource.countDocuments).mockResolvedValue(60);
+    vi.mocked(Resource.aggregate).mockResolvedValue([{ count: 60 }]);
 
     const result = await getCrawlRate(mockProcess as any, 5);
 
@@ -46,8 +28,7 @@ describe('getCrawlRate', () => {
   });
 
   it('should return 0 when no resources exist', async () => {
-    (ProcessDoneResource.find as any)().lean.mockResolvedValue([{ resource: 'id1' }]);
-    vi.mocked(Resource.countDocuments).mockResolvedValue(0);
+    vi.mocked(Resource.aggregate).mockResolvedValue([]);
 
     const result = await getCrawlRate(mockProcess as any, 5);
 
@@ -55,7 +36,7 @@ describe('getCrawlRate', () => {
   });
 
   it('should return 0 when no process-done resources tracked', async () => {
-    (ProcessDoneResource.find as any)().lean.mockResolvedValue([]);
+    vi.mocked(Resource.aggregate).mockResolvedValue([]);
 
     const result = await getCrawlRate(mockProcess as any, 5);
 
@@ -63,36 +44,26 @@ describe('getCrawlRate', () => {
   });
 
   it('should use default window of 5 minutes', async () => {
-    (ProcessDoneResource.find as any)().lean.mockResolvedValue([{ resource: 'id1' }]);
-    vi.mocked(Resource.countDocuments).mockResolvedValue(30);
+    vi.mocked(Resource.aggregate).mockResolvedValue([{ count: 30 }]);
 
     const result = await getCrawlRate(mockProcess as any);
 
     expect(result).toBe(6);
   });
 
-  it('should calculate rate based on process ID', async () => {
-    (ProcessDoneResource.find as any)().lean.mockResolvedValue([]);
-
-    await getCrawlRate(mockProcess as any, 5);
-
-    expect(ProcessDoneResource.find).toHaveBeenCalledWith(
-      { processId: 'test-pid-123' },
-      { resource: 1, _id: 0 }
-    );
-  });
-
-  it('should filter resources by status done and updatedAt in window', async () => {
-    (ProcessDoneResource.find as any)().lean.mockResolvedValue([{ resource: 'id1' }]);
-    vi.mocked(Resource.countDocuments).mockResolvedValue(10);
+  it('should pass pipeline with processId, status done, and updatedAt filter', async () => {
+    vi.mocked(Resource.aggregate).mockResolvedValue([{ count: 10 }]);
 
     await getCrawlRate(mockProcess as any, 5);
 
     const cutoffTime = new Date(Date.now() - 5 * 60 * 1000);
-    const countCallArgs = vi.mocked(Resource.countDocuments).mock.calls[0]![0] as any;
-    expect(countCallArgs).toMatchObject({
-      status: 'done'
-    });
-    expect(countCallArgs.updatedAt.$gte.getTime()).toBeCloseTo(cutoffTime.getTime(), -2);
+    const pipeline = vi.mocked(Resource.aggregate).mock.calls[0]![0] as any[];
+
+    expect(pipeline[0].$match).toMatchObject({ status: 'done' });
+    expect(pipeline[0].$match.updatedAt.$gte.getTime()).toBeCloseTo(cutoffTime.getTime(), -2);
+
+    const lookupStage = pipeline[1].$lookup;
+    expect(lookupStage.from).toBe('processDoneResources');
+    expect(lookupStage.pipeline[0].$match.processId).toBe('test-pid-123');
   });
 });

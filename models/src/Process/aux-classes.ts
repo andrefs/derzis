@@ -92,6 +92,12 @@ export class StepClass {
   _id?: Types.ObjectId | string;
 
   /**
+   * Date when this step was created
+   */
+  @prop({ type: Date, default: () => new Date() })
+  public createdAt?: Date;
+
+  /**
    * Seed URLs to start crawling from
    */
   @prop({ required: true, type: String }, PropType.ARRAY)
@@ -161,6 +167,7 @@ export class StepClass {
 
   public toObject?(): object {
     return {
+      createdAt: this.createdAt,
       seeds: this.seeds,
       maxPathLength: this.maxPathLength,
       maxPathProps: this.maxPathProps,

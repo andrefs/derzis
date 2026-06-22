@@ -113,15 +113,16 @@ type RecursivePartial<T> = {
   'nodes.count': 1,
   'predicates.count': 1
 })
-// Optimized index for complex path query in getPathsForDomainCrawl
-// Supports filters: processId, status, head.type, head.domain.isUnvisited, head.status, nodes.count
+// Optimized index for complex path query in getPathsForDomainCrawl and genTraversalPathQuery
+// Supports filters: processId, status, head.type, head.domain.isUnvisited, head.status, nodes.count, predicates.count
 @index({
   processId: 1,
   status: 1,
   'head.type': 1,
   'head.domain.isUnvisited': 1,
   'head.status': 1,
-  'nodes.count': 1
+  'nodes.count': 1,
+  'predicates.count': 1
 })
 @index({ 'head.status': 1, status: 1 }, { name: 'idx_traversal_head_status' })
 @index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_traversal_domain_status' })

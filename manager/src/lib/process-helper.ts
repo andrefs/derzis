@@ -29,6 +29,7 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
   const uniqueSeeds = [...uniqueSeedsSet];
 
   p.currentStep!.seeds = uniqueSeeds;
+  p.currentStep!.createdAt = new Date();
 
   const pathHeads: Map<string, number> = new Map();
   for (const s of uniqueSeeds) {
@@ -88,6 +89,7 @@ export async function addStep(
   const newMPP = params.maxPathProps;
 
   const newStep = {
+    createdAt: new Date(),
     seeds: [...allPreviousSeeds, ...newSeeds],
     maxPathLength: newMPL,
     maxPathProps: newMPP,
