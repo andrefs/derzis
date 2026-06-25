@@ -95,7 +95,10 @@ export { ResourceCount, SeedClass };
 
 // For counting paths by process, status, head type, and domain origin
 // (used by hasPathsDomainRobotsChecking and hasPathsHeadBeingCrawled)
-@index({ processId: 1, status: 1, 'head.type': 1, 'head.domain.origin': 1 })
+@index(
+  { processId: 1, status: 1, 'head.type': 1, 'head.domain.origin': 1 },
+  { name: 'idx_path_base_process_status_head_domain' }
+)
 @modelOptions({
   schemaOptions: {
     discriminatorKey: 'type',
