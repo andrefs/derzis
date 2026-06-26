@@ -536,10 +536,16 @@ class ProcessClass extends Document {
    * Mark the process as done and notify
    */
   public async done() {
-    if (this.status === 'done') {
+    // Atomically claim the done transition — only one concurrent caller succeeds
+    const result = await Process.findOneAndUpdate(
+      { pid: this.pid, status: { $ne: 'done' } },
+      { $set: { status: 'done' } }
+    );
+    if (!result) {
       log.warn(`Process ${this.pid} is already marked as done`);
       return;
     }
+
     this.status = 'done';
     // Counter is already tracked incrementally via ProcessDoneResource - no aggregation needed!
     // Just ensure it's initialized if undefined/null
