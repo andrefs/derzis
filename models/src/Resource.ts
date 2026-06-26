@@ -154,12 +154,17 @@ class ResourceClass {
       }
     }
 
-    return await this.addMany(
-      Object.keys(resources).map((u) => ({
-        url: u,
-        domain: new URL(u).origin
-      }))
-    );
+    const validResources: { url: string; domain: string }[] = [];
+    for (const u of Object.keys(resources)) {
+      try {
+        const domain = new URL(u).origin;
+        validResources.push({ url: u, domain });
+      } catch {
+        log.warn(`Skipping invalid URL from triples: ${u}`);
+      }
+    }
+    if (validResources.length === 0) return [];
+    return await this.addMany(validResources);
   }
 
   /**
