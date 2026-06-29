@@ -1061,16 +1061,18 @@ async function insertProcDoneRes(pid: string, procTriples: TypedTripleId[]) {
   }
 
   // Create ProcessDoneResource records (track process-resource relationships)
-  const processDoneResources = resources.map((r) => ({
-    processId: pid,
-    resource: r._id
-  }));
+  const processDoneResources: { processId: string; resource: Types.ObjectId }[] = resources.map(
+    (r) => ({
+      processId: pid,
+      resource: r._id
+    })
+  );
 
   if (processDoneResources.length > 0) {
-    await ProcessDoneResource.bulkWrite(
+    await ProcessDoneResource.collection.bulkWrite(
       processDoneResources.map((p) => ({
         updateOne: {
-          filter: { processId: p.processId, resource: p.resource },
+          filter: p,
           update: { $setOnInsert: p },
           upsert: true
         }
