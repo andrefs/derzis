@@ -124,6 +124,13 @@ type RecursivePartial<T> = {
   'nodes.count': 1,
   'predicates.count': 1
 })
+@index(
+  { processId: 1, status: 1, 'head.type': 1, 'head.domain.origin': 1 },
+  {
+    name: 'idx_traversal_process_status_head_domain',
+    partialFilterExpression: { type: 'traversal' }
+  }
+)
 @index({ 'head.status': 1, status: 1 }, { name: 'idx_traversal_head_status' })
 @index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_traversal_domain_status' })
 @index({ processId: 1, 'head.url': 1 }, { name: 'idx_traversal_process_url' })

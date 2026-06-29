@@ -75,6 +75,10 @@ export function isEndpointPathSkeleton(path: PathSkeleton): path is EndpointPath
   }
 )
 @index({ 'head.url': 1, status: 1 }, { name: 'idx_endpoint_head_url_status' })
+@index(
+  { processId: 1, status: 1, 'head.type': 1, 'head.domain.origin': 1 },
+  { name: 'idx_endpoint_process_status_head_domain', partialFilterExpression: { type: 'endpoint' } }
+)
 @index({ 'head.status': 1, status: 1 }, { name: 'idx_endpoint_head_status' })
 @index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_endpoint_domain_status' })
 // Optimized index for endpoint path queries with shortestPathLength sort
