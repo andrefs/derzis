@@ -57,10 +57,10 @@ import {
   getAllResources,
   getAllDomains,
   getInfo,
-  curPredsBranchFactor,
+  curPredsDirection,
   getDoneResourceCount
 } from './process-data';
-import { BranchFactorClass, NotificationClass, StepClass } from './aux-classes';
+import { PredDirection, NotificationClass, StepClass } from './aux-classes';
 import { type SimpleTriple, PathType } from '@derzis/common';
 
 @index({ status: 1 })
@@ -389,8 +389,8 @@ class ProcessClass extends Document {
    * Get predicates branching factor for the current step as a map
    * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor
    */
-  public curPredsBranchFactor(): Map<string, BranchFactorClass> | undefined {
-    return curPredsBranchFactor(this);
+  public curPredsDirection(): Map<string, PredDirection> | undefined {
+    return curPredsDirection(this);
   }
 
   public async getResourceCount(): Promise<number> {
@@ -536,10 +536,16 @@ class ProcessClass extends Document {
    * Mark the process as done and notify
    */
   public async done() {
-    if (this.status === 'done') {
+    // Atomically claim the done transition — only one concurrent caller succeeds
+    const result = await Process.findOneAndUpdate(
+      { pid: this.pid, status: { $ne: 'done' } },
+      { $set: { status: 'done' } }
+    );
+    if (!result) {
       log.warn(`Process ${this.pid} is already marked as done`);
       return;
     }
+
     this.status = 'done';
     // Counter is already tracked incrementally via ProcessDoneResource - no aggregation needed!
     // Just ensure it's initialized if undefined/null

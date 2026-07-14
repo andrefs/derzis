@@ -11,15 +11,14 @@ import {
   urlValidator,
   urlOrBlankNodeValidator,
   type SimpleTriple,
-  directionOk,
   TripleType,
   type BlankNodeObject
 } from '@derzis/common';
-import config from '@derzis/config';
 import type { BulkWriteResult } from 'mongodb';
 import { createLogger } from '@derzis/common/server';
 import { type DocumentType } from '@typegoose/typegoose/lib/types';
-import { BranchFactorClass } from '../Process';
+import { PredDirection } from '../Process';
+import config from '@derzis/config';
 import { TimeStamps } from '@typegoose/typegoose/lib/defaultClasses';
 
 const log = createLogger('Triple');
@@ -245,35 +244,27 @@ export class NamedNodeTripleClass extends TripleClass {
   public directionOk(
     headUrl: string,
     followDirection: boolean,
-    predsBF?: Map<string, BranchFactorClass>
+    predsDirection?: Map<string, PredDirection>
   ): boolean {
     if (!followDirection) {
       return true;
     }
 
-    if (!predsBF || !predsBF.size) {
-      log.warn('Predicate branching factor not provided, cannot enforce directionality');
+    if (!predsDirection || !predsDirection.size) {
+      log.warn('Predicate direction not provided, cannot enforce directionality');
       return true;
     }
 
-    if (!predsBF.has(this.predicate)) {
+    if (!predsDirection.has(this.predicate)) {
       return true;
     }
 
-    const bf = predsBF.get(this.predicate);
-    if (!bf) return true;
-    const bfRatio = bf.subj / bf.obj;
+    const predDirection = predsDirection.get(this.predicate);
+    if (!predDirection) return true;
+    if (predDirection.direction === 'none') return true;
 
-    const dOk = directionOk(
-      {
-        subject: this.subject,
-        predicate: this.predicate,
-        object: this.object,
-        type: TripleType.NAMED_NODE as const
-      },
-      headUrl,
-      bfRatio
-    );
+    const dOk =
+      predDirection.direction === 'subject' ? headUrl === this.subject : headUrl === this.object;
 
     log.silly(
       `Direction ${dOk ? '' : 'not '}ok for head url ${headUrl} and triple ${this.subject} ${this.predicate} ${this.object}`

@@ -6,6 +6,7 @@
   import { BiDownload, BiNetworkChart, BiCopy } from 'svelte-icons-pack/bi';
   import { HiSolidMagnifyingGlass } from 'svelte-icons-pack/hi';
   import { onMount, onDestroy } from 'svelte';
+  import { formatDateLabel } from '$lib/utils';
 
   let progress: {
     step: number;
@@ -15,6 +16,12 @@
     extending?: { total: number; remaining: number; extended: number; percentage: number };
   } | null = null;
   let error: string | null = null;
+  let doneSummary: {
+    type: 'PROCESS_DONE' | 'PROCESS_ERROR';
+    status: string;
+    step: number;
+    totalPaths: number;
+  } | null = null;
   let eventSource: EventSource | null = null;
 
   $: isRunning = data.proc.status === 'running' || data.proc.status === 'extending';
@@ -37,7 +44,13 @@
 
     eventSource.onmessage = (event) => {
       try {
-        progress = JSON.parse(event.data);
+        const parsed = JSON.parse(event.data);
+        if (parsed.type === 'PROCESS_DONE' || parsed.type === 'PROCESS_ERROR') {
+          doneSummary = parsed;
+          eventSource?.close();
+        } else {
+          progress = parsed;
+        }
       } catch (e) {
         console.error('Failed to parse SSE event:', e);
       }
@@ -135,7 +148,22 @@
   {/if}
 </header>
 
-{#if isRunning && progress}
+{#if doneSummary}
+  <Alert
+    color={doneSummary.status === 'done' ? 'success' : 'danger'}
+    class="mb-4 d-flex align-items-center"
+  >
+    <div>
+      {#if doneSummary.status === 'done'}
+        <strong>Step {doneSummary.step} completed.</strong>
+        Paths processed: {doneSummary.totalPaths.toLocaleString()}
+      {:else}
+        <strong>Step {doneSummary.step} finished with errors.</strong>
+        Paths processed: {doneSummary.totalPaths.toLocaleString()}
+      {/if}
+    </div>
+  </Alert>
+{:else if isRunning && progress}
   <Alert color="info" class="mb-4 d-flex align-items-center">
     <div class="spinner-border spinner-border-sm me-2" role="status">
       <span class="visually-hidden">Updating...</span>
@@ -270,6 +298,15 @@
         <h4>Current step (#{data.proc.steps.length})</h4>
         <Table>
           <tbody>
+            {#if data.proc.currentStep.createdAt}
+              <tr>
+                <th scope="row">Created</th>
+                <td
+                  >{formatDateLabel(new Date(data.proc.currentStep.createdAt)).date}
+                  {formatDateLabel(new Date(data.proc.currentStep.createdAt)).time}</td
+                >
+              </tr>
+            {/if}
             <tr
               ><th scope="row">Max path length</th><td>{data.proc.currentStep.maxPathLength}</td
               ></tr
@@ -308,6 +345,15 @@
       <Table>
         <tbody>
           {#each data.proc.steps.slice(0, -1) as step, i}
+            {#if step.createdAt}
+              <tr>
+                <th scope="row">Created</th>
+                <td
+                  >{formatDateLabel(new Date(step.createdAt)).date}
+                  {formatDateLabel(new Date(step.createdAt)).time}</td
+                >
+              </tr>
+            {/if}
             <tr><th scope="row">Max path length</th><td>{step.maxPathLength}</td></tr>
             <tr><th scope="row">Max path props</th><td>{step.maxPathProps}</td></tr>
             <tr>

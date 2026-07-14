@@ -1,5 +1,5 @@
 import { ProcessClass } from './Process';
-import { BranchFactorClass } from './aux-classes';
+import { PredDirection } from './aux-classes';
 import { ProcessTriple } from '../ProcessTriple';
 import { Resource } from '../Resource';
 import { ProcessDoneResource } from '../ProcessDoneResource';
@@ -538,20 +538,30 @@ export async function getInfo(process: ProcessClass) {
   };
 }
 
+const warnedDirectionSteps = new Set<string>();
+
 /**
- * Get predicates branching factor and seed position ratio for the current step as a map
- * @returns {Map<string, number> | undefined} - map of predicate URL to branching factor and seeds position ratio
+ * Get predicates direction for the current step as a map
+ * @returns {Map<string, PredDirection> | undefined} - map of predicate URL to direction metadata
  */
-export function curPredsBranchFactor(
-  process: ProcessClass
-): Map<string, BranchFactorClass> | undefined {
-  return process.currentStep.predsBranchFactor?.reduce((map, obj) => {
-    if (!obj.branchFactor) {
-      return map;
+export function curPredsDirection(process: ProcessClass): Map<string, PredDirection> | undefined {
+  const predsDirection = process.currentStep?.predsDirection;
+  if (!predsDirection || predsDirection.length === 0) {
+    if (process.currentStep?.followDirection) {
+      const stepId =
+        process.currentStep?._id?.toString() || `${process.pid}:${process.steps.length}`;
+      if (!warnedDirectionSteps.has(stepId)) {
+        warnedDirectionSteps.add(stepId);
+        log.warn(`Step ${stepId} has followDirection=true but no predsDirection; allowing all`);
+      }
     }
-    map.set(obj.url, obj.branchFactor);
+    return undefined;
+  }
+
+  return predsDirection.reduce((map, obj) => {
+    map.set(obj.url, obj);
     return map;
-  }, new Map<string, BranchFactorClass>());
+  }, new Map<string, PredDirection>());
 }
 
 export interface PathProgress {
@@ -590,10 +600,21 @@ export async function getCrawlRate(
 ): Promise<number> {
   const cutoffTime = new Date(Date.now() - windowMinutes * 60 * 1000);
 
-  const count = await ProcessDoneResource.countDocuments({
-    processId: process.pid,
-    createdAt: { $gte: cutoffTime }
-  });
+  const [result] = await Resource.aggregate<{ count: number }>([
+    { $match: { status: 'done', updatedAt: { $gte: cutoffTime } } },
+    {
+      $lookup: {
+        from: 'processDoneResources',
+        localField: '_id',
+        foreignField: 'resource',
+        pipeline: [{ $match: { processId: process.pid } }, { $limit: 1 }],
+        as: 'pdr'
+      }
+    },
+    { $match: { $expr: { $gt: [{ $size: '$pdr' }, 0] } } },
+    { $count: 'count' }
+  ]);
+  const count = result?.count ?? 0;
 
   return count / windowMinutes;
 }

@@ -8,8 +8,8 @@
   "type": "module",
   "scripts": {
     "prepare": "svelte-kit sync",
-    "dev": "NODE_OPTS='--max-old-space-size=55296' vite dev",
-    "serve": "NODE_OPTS='--max-old-space-size=55296' vite dev --host",
+    "dev": "NODE_OPTIONS='--max-old-space-size=55296' vite dev",
+    "serve": "NODE_OPTIONS='--max-old-space-size=55296' vite dev --host",
     "build": "vite build",
     "preview": "vite preview",
     "test": "npm run test:integration && npm run test:unit",

@@ -71,6 +71,7 @@ function hasUrlHead<T extends { head: { type: string } }>(p: T): p is T & { head
 @index({ domain: 1, status: 1 })
 @index({ url: 1 }, { unique: true })
 @index({ status: 1 })
+@index({ status: 1, updatedAt: 1 })
 @index({ domain: 1, status: 1, url: 1 })
 class ResourceClass {
   createdAt!: Date;
@@ -153,12 +154,17 @@ class ResourceClass {
       }
     }
 
-    return await this.addMany(
-      Object.keys(resources).map((u) => ({
-        url: u,
-        domain: new URL(u).origin
-      }))
-    );
+    const validResources: { url: string; domain: string }[] = [];
+    for (const u of Object.keys(resources)) {
+      try {
+        const domain = new URL(u).origin;
+        validResources.push({ url: u, domain });
+      } catch {
+        log.warn(`Skipping invalid URL from triples: ${u}`);
+      }
+    }
+    if (validResources.length === 0) return [];
+    return await this.addMany(validResources);
   }
 
   /**

@@ -321,7 +321,7 @@ describe('genTraversalPathQuery', () => {
       pathType: 'traversal' | 'endpoint' = 'traversal'
     ): ProcessClass => ({
       pid,
-      config: { manager: { pathType } }
+      curPathType: pathType
     });
 
     beforeEach(() => {
@@ -343,6 +343,7 @@ describe('genTraversalPathQuery', () => {
       expect(Path.countDocuments).toHaveBeenCalledWith({
         processId: 'pid-1',
         status: 'active',
+        type: 'endpoint',
         'head.type': 'url',
         'head.domain.origin': { $in: mockDomains.map((d) => d.origin) }
       });
@@ -388,7 +389,7 @@ describe('genTraversalPathQuery', () => {
       pathType: 'traversal' | 'endpoint' = 'traversal'
     ): ProcessClass => ({
       pid,
-      config: { manager: { pathType } }
+      curPathType: pathType
     });
 
     beforeEach(() => {
@@ -410,6 +411,7 @@ describe('genTraversalPathQuery', () => {
       expect(Path.countDocuments).toHaveBeenCalledWith({
         processId: 'pid-1',
         status: 'active',
+        type: 'endpoint',
         'head.type': HEAD_TYPE.URL,
         'head.domain.origin': { $in: mockCrawlingDomains.map((d) => d.origin) }
       });
@@ -424,6 +426,7 @@ describe('genTraversalPathQuery', () => {
       expect(Path.countDocuments).toHaveBeenCalledWith({
         processId: 'pid-2',
         status: 'active',
+        type: 'traversal',
         'head.type': HEAD_TYPE.URL,
         'head.domain.origin': { $in: mockCrawlingDomains.map((d) => d.origin) }
       });

@@ -27,6 +27,7 @@ import {
   RobotsForbiddenError,
   TooManyRedirectsError,
   WorkerError,
+  isValid,
   type JobType,
   type RobotsCheckResult,
   type CrawlResourceResult,
@@ -600,6 +601,7 @@ export class Worker extends EventEmitter {
         .filter(
           (t) =>
             t.subject?.termType === 'NamedNode' &&
+            isValid(t.subject.value) &&
             t.predicate?.termType === 'NamedNode' &&
             t.object !== undefined &&
             t.object.termType !== undefined &&

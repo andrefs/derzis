@@ -75,6 +75,10 @@ export function isEndpointPathSkeleton(path: PathSkeleton): path is EndpointPath
   }
 )
 @index({ 'head.url': 1, status: 1 }, { name: 'idx_endpoint_head_url_status' })
+@index(
+  { processId: 1, status: 1, 'head.type': 1, 'head.domain.origin': 1 },
+  { name: 'idx_endpoint_process_status_head_domain', partialFilterExpression: { type: 'endpoint' } }
+)
 @index({ 'head.status': 1, status: 1 }, { name: 'idx_endpoint_head_status' })
 @index({ type: 1, 'head.domain.origin': 1, status: 1 }, { name: 'idx_endpoint_domain_status' })
 // Optimized index for endpoint path queries with shortestPathLength sort
@@ -273,7 +277,7 @@ export class EndpointPathClass extends PathClass {
         .filter((t) => this.isExtensionValid(t) && this.isExtensionAllowed(t, process.currentStep));
 
       const followDirection = process.currentStep.followDirection;
-      const predsBF = process.curPredsBranchFactor();
+      const predsDirection = process.curPredsDirection();
 
       for await (const { blankTriple: t, outgoing, blankNodeId } of iterateBlankNodeOutgoings(
         blankNodeTriples
@@ -286,7 +290,7 @@ export class EndpointPathClass extends PathClass {
 
         // For NamedNode outgoing, also check direction and handle candidate
         if (isNamedNode(outgoing)) {
-          if (!outgoing.directionOk(urlHead.url, followDirection, predsBF)) continue;
+          if (!outgoing.directionOk(urlHead.url, followDirection, predsDirection)) continue;
 
           const newHeadUrl: string =
             outgoing.subject === blankNodeId ? outgoing.object : outgoing.subject;
@@ -386,7 +390,7 @@ function collectNamedNodeCandidates(
 ): Candidate[] {
   const candidates: Candidate[] = [];
   const followDirection = process.currentStep.followDirection;
-  const predsBF = process.curPredsBranchFactor();
+  const predsDirection = process.curPredsDirection();
 
   const namedNodeTriples = triples
     .filter((t): t is NamedNodeTripleDocument => isNamedNode(t))
@@ -395,7 +399,7 @@ function collectNamedNodeCandidates(
       (t) =>
         this.isExtensionValid(t, urlHead) &&
         this.isExtensionAllowed(t, process.currentStep) &&
-        t.directionOk(urlHead.url, followDirection, predsBF)
+        t.directionOk(urlHead.url, followDirection, predsDirection)
     );
 
   for (const t of namedNodeTriples) {

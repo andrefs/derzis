@@ -735,11 +735,10 @@ export async function hasPathsDomainRobotsChecking(process: ProcessClass): Promi
     return false;
   }
 
-  // Count how many active paths have head domains that are currently being checked for robots.txt
-  // Using base Path model (all paths for this process are of the same type configured in process)
   const query = {
     processId: process.pid,
     status: 'active',
+    type: process.curPathType,
     'head.type': HEAD_TYPE.URL,
     'head.domain.origin': { $in: domains.map((d) => d.origin) }
   };
@@ -770,6 +769,7 @@ export async function hasPathsHeadBeingCrawled(process: ProcessClass): Promise<b
   const query = {
     processId: process.pid,
     status: 'active',
+    type: process.curPathType,
     'head.type': HEAD_TYPE.URL,
     'head.domain.origin': { $in: domains.map((d) => d.origin) }
   };
@@ -1061,30 +1061,27 @@ async function insertProcDoneRes(pid: string, procTriples: TypedTripleId[]) {
   }
 
   // Create ProcessDoneResource records (track process-resource relationships)
-  const processDoneResources = resources.map((r) => ({
-    processId: pid,
-    resource: r._id
-  }));
+  const processDoneResources: { processId: string; resource: Types.ObjectId }[] = resources.map(
+    (r) => ({
+      processId: pid,
+      resource: r._id
+    })
+  );
 
   if (processDoneResources.length > 0) {
-    try {
-      await ProcessDoneResource.insertMany(processDoneResources, {
-        ordered: false // Continue on duplicate key errors
-      });
-      log.debug(
-        `Created ${processDoneResources.length} ProcessDoneResource records for process ${pid}`
-      );
-    } catch (err: any) {
-      if (err.code === 11000) {
-        // Duplicate key errors are expected (resources already tracked)
-        const insertedCount = err.result?.nInserted || 0;
-        log.debug(
-          `Inserted ${insertedCount} new ProcessDoneResource records (${processDoneResources.length - insertedCount} duplicates) for process ${pid}`
-        );
-      } else {
-        throw err;
-      }
-    }
+    await ProcessDoneResource.collection.bulkWrite(
+      processDoneResources.map((p) => ({
+        updateOne: {
+          filter: p,
+          update: { $setOnInsert: p },
+          upsert: true
+        }
+      })),
+      { ordered: false }
+    );
+    log.debug(
+      `Tracked ${processDoneResources.length} ProcessDoneResource records for process ${pid}`
+    );
 
     // Increment counter for resources that are already 'done'
     const doneResourceIds = resources.filter((r) => r.status === 'done').map((r) => r._id);

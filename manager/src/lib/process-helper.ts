@@ -29,6 +29,7 @@ export async function newProcess(p: RecursivePartial<ProcessClass>): Promise<Pro
   const uniqueSeeds = [...uniqueSeedsSet];
 
   p.currentStep!.seeds = uniqueSeeds;
+  p.currentStep!.createdAt = new Date();
 
   const pathHeads: Map<string, number> = new Map();
   for (const s of uniqueSeeds) {
@@ -68,6 +69,7 @@ export async function addStep(
   pid: string,
   params: MakeOptional<StepClass, 'seeds'> & {
     predLimitations?: { predicate: string; lims: PredicateLimitationType[] }[];
+    predsDirection?: { url: string; direction: 'subject' | 'object' | 'none'; ratio: number }[];
   }
 ) {
   const p = await Process.findOne({ pid, status: 'done' });
@@ -87,13 +89,14 @@ export async function addStep(
   const newMPP = params.maxPathProps;
 
   const newStep = {
+    createdAt: new Date(),
     seeds: [...allPreviousSeeds, ...newSeeds],
     maxPathLength: newMPL,
     maxPathProps: newMPP,
     predLimit: params.predLimit,
     predLimitations: params.predLimitations,
     followDirection: params.followDirection as boolean,
-    predsBranchFactor: params.predsBranchFactor,
+    predsDirection: params.predsDirection,
     convertToEndpointPaths: params.convertToEndpointPaths ?? false
   };
 

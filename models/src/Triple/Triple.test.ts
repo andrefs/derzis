@@ -1,39 +1,50 @@
 import { describe, it, expect } from 'vitest';
-import { directionOk, SimpleNamedNodeTriple, TripleType } from '@derzis/common';
+import { NamedNodeTripleClass } from './Triple';
+import type { PredDirection } from '../Process';
 
-describe('directionOk', () => {
-  const triple: SimpleNamedNodeTriple = {
-    subject: 'http://example.com/subject',
-    predicate: 'http://example.com/predicate',
-    object: 'http://example.com/object',
-    type: TripleType.NAMED_NODE
-  };
+describe('NamedNodeTripleClass.directionOk', () => {
+  const triple = new NamedNodeTripleClass();
+  triple.subject = 'http://example.com/subject';
+  triple.predicate = 'http://example.com/predicate';
+  triple.object = 'http://example.com/object';
 
-  it('returns true when branch factor is 1 (no directionality)', () => {
-    expect(directionOk(triple, 'http://example.com/any', 1)).toBe(true);
+  const makeMap = (direction: PredDirection['direction']) =>
+    new Map<string, PredDirection>([
+      [
+        triple.predicate,
+        {
+          url: triple.predicate,
+          direction,
+          ratio: 1
+        }
+      ]
+    ]);
+
+  it('returns true when followDirection is false', () => {
+    expect(triple.directionOk(triple.subject, false, makeMap('subject'))).toBe(true);
   });
 
-  it('returns true when branch factor > 1 and headUrl matches subject', () => {
-    expect(directionOk(triple, triple.subject, 2)).toBe(true);
+  it('returns true when predsDirection is missing', () => {
+    expect(triple.directionOk(triple.subject, true, undefined)).toBe(true);
   });
 
-  it('returns false when branch factor > 1 and headUrl does not match subject', () => {
-    expect(directionOk(triple, 'http://example.com/other', 2)).toBe(false);
+  it('returns true when direction is none', () => {
+    expect(triple.directionOk(triple.subject, true, makeMap('none'))).toBe(true);
   });
 
-  it('returns true when branch factor < 1 and headUrl matches object', () => {
-    expect(directionOk(triple, triple.object, 0.5)).toBe(true);
+  it('returns true when direction is subject and headUrl matches subject', () => {
+    expect(triple.directionOk(triple.subject, true, makeMap('subject'))).toBe(true);
   });
 
-  it('returns false when branch factor < 1 and headUrl does not match object', () => {
-    expect(directionOk(triple, 'http://example.com/other', 0.5)).toBe(false);
+  it('returns false when direction is subject and headUrl matches object', () => {
+    expect(triple.directionOk(triple.object, true, makeMap('subject'))).toBe(false);
   });
 
-  it('returns false when branch factor < 1 and headUrl matches subject instead of object', () => {
-    expect(directionOk(triple, triple.subject, 0.5)).toBe(false);
+  it('returns true when direction is object and headUrl matches object', () => {
+    expect(triple.directionOk(triple.object, true, makeMap('object'))).toBe(true);
   });
 
-  it('returns false when branch factor > 1 and headUrl matches object instead of subject', () => {
-    expect(directionOk(triple, triple.object, 2)).toBe(false);
+  it('returns false when direction is object and headUrl matches subject', () => {
+    expect(triple.directionOk(triple.subject, true, makeMap('object'))).toBe(false);
   });
 });

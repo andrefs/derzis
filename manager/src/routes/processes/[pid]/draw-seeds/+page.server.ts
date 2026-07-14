@@ -10,28 +10,19 @@ export const load: PageServerLoad = async ({ params }) => {
     });
   }
 
-  if (!p.currentStep?.predsBranchFactor) {
+  if (!p.currentStep?.predsDirection) {
     throw error(400, {
-      message: 'No predsBranchFactor found for current step'
+      message: 'No predsDirection found for current step'
     });
   }
-
-  console.log('XXXXXXXXXXXXX', p.currentStep.predsBranchFactor);
 
   return {
     proc: {
       pid: p.pid,
       currentStep: {
         seeds: p.currentStep.seeds,
-        branchFactors: p.currentStep.predsBranchFactor.reduce((acc, metric) => {
-          if (!metric.branchFactor) {
-            return acc;
-          }
-          if (metric.branchFactor.obj === 0) {
-            acc.set(metric.url, Infinity);
-            return acc;
-          }
-          acc.set(metric.url, metric.branchFactor?.subj / metric.branchFactor?.obj);
+        branchFactors: p.currentStep.predsDirection.reduce((acc, metric) => {
+          acc.set(metric.url, metric.ratio);
           return acc;
         }, new Map<string, number>())
       }
